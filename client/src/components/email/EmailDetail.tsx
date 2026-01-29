@@ -15,6 +15,8 @@ import {
   Loader2,
   Paperclip,
 } from 'lucide-react';
+import { SnoozeMenu } from './SnoozeMenu';
+import { ReminderMenu } from './ReminderMenu';
 
 interface EmailDetailProps {
   emailId: string | null;
@@ -79,46 +81,61 @@ export function EmailDetail({
         <button
           onClick={onBack}
           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary lg:hidden"
+          aria-label="Vissza a levelek listájához"
+          title="Vissza"
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-5 w-5" aria-hidden="true" />
         </button>
 
         <div className="flex-1" />
 
-        <button
-          onClick={() =>
-            onReply({
-              to: email.from || '',
-              subject: `Re: ${email.subject || ''}`,
-              threadId: email.threadId || undefined,
-            })
-          }
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-600 dark:text-dark-text-secondary"
-        >
-          <Reply className="h-4 w-4" />
-          Válasz
-        </button>
+        {/* Műveletek - reszponzívan */}
+        <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
+          <button
+            onClick={() =>
+              onReply({
+                to: email.from || '',
+                subject: `Re: ${email.subject || ''}`,
+                threadId: email.threadId || undefined,
+              })
+            }
+            className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-600 dark:text-dark-text-secondary"
+            aria-label="Válasz erre a levélre"
+            title="Válasz"
+          >
+            <Reply className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">Válasz</span>
+          </button>
 
-        <button
-          onClick={() =>
-            onForward?.({
-              subject: `Fwd: ${email.subject || ''}`,
-              body: `\n\n---------- Továbbított üzenet ----------\nKüldő: ${email.fromName || ''} <${email.from}>\nDátum: ${formatFullDate(email.date)}\nTárgy: ${email.subject}\nCímzett: ${email.to}\n\n${email.body || ''}`,
-            })
-          }
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-600 dark:text-dark-text-secondary"
-        >
-          <Forward className="h-4 w-4" />
-          Továbbítás
-        </button>
+          <button
+            onClick={() =>
+              onForward?.({
+                subject: `Fwd: ${email.subject || ''}`,
+                body: `\n\n---------- Továbbított üzenet ----------\nKüldő: ${email.fromName || ''} <${email.from}>\nDátum: ${formatFullDate(email.date)}\nTárgy: ${email.subject}\nCímzett: ${email.to}\n\n${email.body || ''}`,
+              })
+            }
+            className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-600 dark:text-dark-text-secondary"
+            aria-label="Levél továbbítása"
+            title="Továbbítás"
+          >
+            <Forward className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">Továbbítás</span>
+          </button>
 
-        <button
-          onClick={() => setShowDeleteConfirm(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-red-600 dark:text-red-400"
-        >
-          <Trash2 className="h-4 w-4" />
-          Törlés
-        </button>
+          <SnoozeMenu emailId={email.id} />
+
+          <ReminderMenu emailId={email.id} />
+
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-sm rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-red-600 dark:text-red-400"
+            aria-label="Levél törlése"
+            title="Törlés"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">Törlés</span>
+          </button>
+        </div>
       </div>
 
       {/* Törlés megerősítő modal */}

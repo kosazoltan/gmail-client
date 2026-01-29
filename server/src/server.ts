@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import { createSessionMiddleware } from './middleware/session.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { initializeDatabase } from './db/index.js';
@@ -17,6 +18,11 @@ import viewsRoutes from './routes/views.routes.js';
 import attachmentsRoutes from './routes/attachments.routes.js';
 import contactsRoutes from './routes/contacts.routes.js';
 import databaseRoutes from './routes/database.routes.js';
+import savedSearchesRoutes from './routes/saved-searches.routes.js';
+import templatesRoutes from './routes/templates.routes.js';
+import snoozeRoutes, { processExpiredSnoozes } from './routes/snooze.routes.js';
+import remindersRoutes from './routes/reminders.routes.js';
+import newslettersRoutes from './routes/newsletters.routes.js';
 
 const PORT = parseInt(process.env.PORT || '5000');
 
@@ -28,7 +34,26 @@ async function start() {
   const app = express();
   const frontendUrl = process.env.FRONTEND_URL || 'https://mail.mindenes.org';
 
-  // Middleware
+  // Security headers
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:', 'https:'],
+          connectSrc: ["'self'", frontendUrl],
+          fontSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          frameAncestors: ["'none'"],
+        },
+      },
+      crossOriginEmbedderPolicy: false, // Allow loading external images
+    }),
+  );
+
+  // CORS
   app.use(
     cors({
       origin: frontendUrl,
@@ -38,7 +63,7 @@ async function start() {
 
   // Trust proxy (Cloudflare mögött)
   app.set('trust proxy', 1);
-  app.use(express.json());
+  app.use(express.json({ limit: '10mb' })); // Limit request body size
 
   // Session middleware (SQLite store - adatbázis már inicializálva)
   app.use(createSessionMiddleware());
@@ -53,6 +78,11 @@ async function start() {
   app.use('/api/attachments', attachmentsRoutes);
   app.use('/api/contacts', contactsRoutes);
   app.use('/api/database', databaseRoutes);
+  app.use('/api/searches', savedSearchesRoutes);
+  app.use('/api/templates', templatesRoutes);
+  app.use('/api/snooze', snoozeRoutes);
+  app.use('/api/reminders', remindersRoutes);
+  app.use('/api/newsletters', newslettersRoutes);
 
   // Health check
   app.get('/api/health', (_req, res) => {
@@ -68,6 +98,14 @@ async function start() {
     console.log(`Háttér szinkronizálás indítása: ${account.email}`);
     startBackgroundSync(account.id);
   }
+
+  // Lejárt szundik feldolgozása percenként
+  setInterval(() => {
+    processExpiredSnoozes();
+  }, 60000);
+
+  // Első futtatás induláskor
+  processExpiredSnoozes();
 
   app.listen(PORT, () => {
     console.log(`Gmail kliens szerver fut port ${PORT}`);

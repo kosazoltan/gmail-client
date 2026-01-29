@@ -1,0 +1,70 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Dev Server",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/client"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "VITE",
+          "endsPattern": "ready in"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "showReuseMessage": false
+      }
+    },
+    {
+      "label": "Start Backend Server",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/server"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "tsx watch",
+          "endsPattern": "szerver fut"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "showReuseMessage": false
+      }
+    },
+    {
+      "label": "Start Full Dev Environment",
+      "dependsOn": ["Start Backend Server", "Start Dev Server"],
+      "dependsOrder": "parallel",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Open in Simple Browser",
+      "type": "shell",
+      "command": "echo Opening browser...",
+      "dependsOn": "Start Full Dev Environment",
+      "problemMatcher": []
+    }
+  ]
+}

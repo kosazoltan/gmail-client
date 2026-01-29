@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSendEmail, useReplyEmail } from '../../hooks/useEmails';
-import { Send, X, Loader2 } from 'lucide-react';
+import { Send, X, Loader2, Plus } from 'lucide-react';
 import { EmailAutocomplete } from './EmailAutocomplete';
+import { TemplateSelector } from './TemplateSelector';
+import { TemplatesManager } from '../settings/TemplatesManager';
+import type { Template } from '../../types';
 
 export function EmailCompose() {
   const navigate = useNavigate();
@@ -17,8 +20,16 @@ export function EmailCompose() {
   const [subject, setSubject] = useState(searchParams.get('subject') || '');
   const [body, setBody] = useState(searchParams.get('body') || '');
   const [showCc, setShowCc] = useState(false);
+  const [showTemplatesManager, setShowTemplatesManager] = useState(false);
 
   const threadId = searchParams.get('threadId') || undefined;
+
+  const handleTemplateSelect = (template: Template) => {
+    if (template.subject && !subject) {
+      setSubject(template.subject);
+    }
+    setBody((prev) => (prev ? prev + '\n\n' + template.body : template.body));
+  };
 
   const handleSend = async () => {
     if (!to || !body) return;
@@ -107,18 +118,25 @@ export function EmailCompose() {
 
         {/* Küldés gomb */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-dark-border">
-          <button
-            onClick={handleSend}
-            disabled={!to || !body || isPending}
-            className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-            Küldés
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSend}
+              disabled={!to || !body || isPending}
+              className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+              Küldés
+            </button>
+
+            <TemplateSelector
+              onSelect={handleTemplateSelect}
+              onManage={() => setShowTemplatesManager(true)}
+            />
+          </div>
 
           <button
             onClick={() => navigate(-1)}
@@ -128,6 +146,11 @@ export function EmailCompose() {
           </button>
         </div>
       </div>
+
+      {/* Sablonkezelő modal */}
+      {showTemplatesManager && (
+        <TemplatesManager onClose={() => setShowTemplatesManager(false)} />
+      )}
     </div>
   );
 }

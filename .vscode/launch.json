@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "ZMail Dev (Simple Browser)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": null,
+      "preLaunchTask": "Start Full Dev Environment",
+      "serverReadyAction": {
+        "pattern": "Local:\\s+http://localhost:([0-9]+)",
+        "uriFormat": "http://localhost:%s",
+        "action": "openExternally"
+      },
+      "console": "integratedTerminal"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "ZMail Full Stack + Browser",
+      "configurations": [],
+      "preLaunchTask": "Start Full Dev Environment",
+      "stopAll": true
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "simpleBrowser.focusLockIndicator.enabled": false,
+  "livePreview.portNumber": 5173,
+  "livePreview.autoRefreshPreview": "On All Changes In Editor",
+
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
+}

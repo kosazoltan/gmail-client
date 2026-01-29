@@ -129,3 +129,84 @@ export interface Backup {
   size: number;
   createdAt: number;
 }
+
+export interface AttachmentWithEmail {
+  id: string;
+  emailId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  gmailAttachmentId: string;
+  type: string;
+  emailSubject: string | null;
+  emailFrom: string | null;
+  emailDate: number;
+}
+
+export interface AttachmentListResult {
+  attachments: AttachmentWithEmail[];
+  total: number;
+  page: number;
+  totalPages: number;
+  typeStats: Record<string, number>;
+}
+
+export interface SavedSearch {
+  id: string;
+  name: string;
+  query: string;
+  icon: string;
+  color: string;
+  useCount: number;
+  createdAt: number;
+}
+
+export interface Template {
+  id: string;
+  name: string;
+  subject: string | null;
+  body: string;
+  shortcut: string | null;
+  useCount: number;
+  createdAt: number;
+}
+
+export interface SnoozedEmail {
+  id: string;
+  emailId: string;
+  snoozeUntil: number;
+  createdAt: number;
+}
+
+export interface Reminder {
+  id: string;
+  emailId: string;
+  remindAt: number;
+  note: string | null;
+  isCompleted: boolean;
+  createdAt: number;
+  email?: Email;
+}
+
+export interface NewsletterSender {
+  id: string;
+  email: string;
+  name: string | null;
+  isMuted: boolean;
+  emailCount: number;
+  lastEmailAt: number | null;
+}
+
+export interface NewsletterEmailsResult {
+  emails: (Email & { newsletter_name?: string; is_muted?: number })[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+export interface NewsletterStats {
+  totalSenders: number;
+  mutedSenders: number;
+  activeSenders: number;
+  totalEmails: number;
+}

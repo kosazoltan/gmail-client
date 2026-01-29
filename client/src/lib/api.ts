@@ -149,6 +149,23 @@ export const api = {
 
   attachments: {
     downloadUrl: (id: string) => `${BASE_URL}/attachments/${id}/download`,
+    list: (params: {
+      type?: string;
+      search?: string;
+      sort?: 'date' | 'size' | 'name';
+      order?: 'asc' | 'desc';
+      page?: number;
+      limit?: number;
+    } = {}) => {
+      const query = new URLSearchParams();
+      if (params.type) query.set('type', params.type);
+      if (params.search) query.set('search', params.search);
+      if (params.sort) query.set('sort', params.sort);
+      if (params.order) query.set('order', params.order);
+      if (params.page) query.set('page', params.page.toString());
+      if (params.limit) query.set('limit', params.limit.toString());
+      return request<import('../types').AttachmentListResult>(`/attachments?${query}`);
+    },
   },
 
   contacts: {
@@ -159,6 +176,89 @@ export const api = {
     update: (id: string, name: string) =>
       request(`/contacts/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
     extract: () => request<{ extractedCount: number }>('/contacts/extract', { method: 'POST' }),
+  },
+
+  savedSearches: {
+    list: () => request<{ searches: import('../types').SavedSearch[] }>('/searches'),
+    create: (data: { name: string; query: string; icon?: string; color?: string }) =>
+      request<import('../types').SavedSearch>('/searches', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: { name?: string; query?: string; icon?: string; color?: string }) =>
+      request<import('../types').SavedSearch>(`/searches/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) => request<{ success: boolean }>(`/searches/${id}`, { method: 'DELETE' }),
+    use: (id: string) => request<{ success: boolean }>(`/searches/${id}/use`, { method: 'POST' }),
+  },
+
+  templates: {
+    list: () => request<{ templates: import('../types').Template[] }>('/templates'),
+    create: (data: { name: string; body: string; subject?: string; shortcut?: string }) =>
+      request<import('../types').Template>('/templates', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: { name?: string; body?: string; subject?: string; shortcut?: string }) =>
+      request<import('../types').Template>(`/templates/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) => request<{ success: boolean }>(`/templates/${id}`, { method: 'DELETE' }),
+    use: (id: string) => request<{ success: boolean }>(`/templates/${id}/use`, { method: 'POST' }),
+  },
+
+  snooze: {
+    list: () =>
+      request<{
+        snoozed: Array<{
+          id: string;
+          emailId: string;
+          snoozeUntil: number;
+          createdAt: number;
+          emailSubject: string | null;
+          emailFrom: string | null;
+          emailFromName: string | null;
+        }>;
+      }>('/snooze'),
+    create: (emailId: string, snoozeUntil: number) =>
+      request<{ id: string; emailId: string; snoozeUntil: number }>('/snooze', {
+        method: 'POST',
+        body: JSON.stringify({ emailId, snoozeUntil }),
+      }),
+    delete: (emailId: string) =>
+      request<{ success: boolean }>(`/snooze/${emailId}`, { method: 'DELETE' }),
+  },
+
+  reminders: {
+    list: (includeCompleted = false) =>
+      request<{ reminders: import('../types').Reminder[] }>(
+        `/reminders?includeCompleted=${includeCompleted}`,
+      ),
+    due: () =>
+      request<{ reminders: import('../types').Reminder[] }>('/reminders/due'),
+    count: () => request<{ count: number }>('/reminders/count'),
+    create: (data: { emailId: string; remindAt: number; note?: string }) =>
+      request<{ reminder: import('../types').Reminder }>('/reminders', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    update: (
+      id: string,
+      data: { remindAt?: number; note?: string; isCompleted?: boolean },
+    ) =>
+      request<{ reminder: import('../types').Reminder }>(`/reminders/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/reminders/${id}`, { method: 'DELETE' }),
+    complete: (id: string) =>
+      request<{ reminder: import('../types').Reminder }>(`/reminders/${id}/complete`, {
+        method: 'POST',
+      }),
   },
 
   database: {
@@ -214,5 +314,36 @@ export const api = {
       request(`/database/backups/${encodeURIComponent(filename)}`, { method: 'DELETE' }),
     vacuum: () => request('/database/vacuum', { method: 'POST' }),
     cleanup: () => request('/database/cleanup', { method: 'POST' }),
+  },
+
+  newsletters: {
+    getSenders: () =>
+      request<{ senders: import('../types').NewsletterSender[] }>('/newsletters/senders'),
+    sync: () =>
+      request<{ success: boolean; detectedCount: number; message: string }>('/newsletters/sync', {
+        method: 'POST',
+      }),
+    muteSender: (id: string, muted: boolean) =>
+      request<{ success: boolean; muted: boolean }>(`/newsletters/senders/${id}/mute`, {
+        method: 'PATCH',
+        body: JSON.stringify({ muted }),
+      }),
+    removeSender: (id: string) =>
+      request<{ success: boolean }>(`/newsletters/senders/${id}`, { method: 'DELETE' }),
+    getEmails: (params: {
+      page?: number;
+      limit?: number;
+      senderId?: string;
+      includeMuted?: boolean;
+    } = {}) => {
+      const query = new URLSearchParams();
+      if (params.page) query.set('page', params.page.toString());
+      if (params.limit) query.set('limit', params.limit.toString());
+      if (params.senderId) query.set('senderId', params.senderId);
+      if (params.includeMuted) query.set('includeMuted', 'true');
+      return request<import('../types').NewsletterEmailsResult>(`/newsletters/emails?${query}`);
+    },
+    getStats: () =>
+      request<import('../types').NewsletterStats>('/newsletters/stats'),
   },
 };

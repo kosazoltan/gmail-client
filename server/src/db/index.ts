@@ -134,6 +134,60 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
       account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
       UNIQUE(email, account_id)
     );
+
+    CREATE TABLE IF NOT EXISTS saved_searches (
+      id TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      query TEXT NOT NULL,
+      icon TEXT DEFAULT 'search',
+      color TEXT DEFAULT '#6B7280',
+      use_count INTEGER DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      UNIQUE(account_id, name)
+    );
+
+    CREATE TABLE IF NOT EXISTS templates (
+      id TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      subject TEXT,
+      body TEXT NOT NULL,
+      shortcut TEXT,
+      use_count INTEGER DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      UNIQUE(account_id, name)
+    );
+
+    CREATE TABLE IF NOT EXISTS snoozed_emails (
+      id TEXT PRIMARY KEY,
+      email_id TEXT NOT NULL REFERENCES emails(id) ON DELETE CASCADE,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      snooze_until INTEGER NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS reminders (
+      id TEXT PRIMARY KEY,
+      email_id TEXT NOT NULL REFERENCES emails(id) ON DELETE CASCADE,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      remind_at INTEGER NOT NULL,
+      note TEXT,
+      is_completed INTEGER DEFAULT 0,
+      created_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS newsletter_senders (
+      id TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      sender_email TEXT NOT NULL,
+      sender_name TEXT,
+      is_newsletter INTEGER DEFAULT 1,
+      is_muted INTEGER DEFAULT 0,
+      email_count INTEGER DEFAULT 0,
+      last_email_at INTEGER,
+      UNIQUE(account_id, sender_email)
+    );
   `);
 
   // Indexek
@@ -152,6 +206,13 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
     CREATE INDEX IF NOT EXISTS idx_contacts_account ON contacts(account_id);
     CREATE INDEX IF NOT EXISTS idx_contacts_email ON contacts(email);
     CREATE INDEX IF NOT EXISTS idx_contacts_frequency ON contacts(frequency DESC);
+    CREATE INDEX IF NOT EXISTS idx_saved_searches_account ON saved_searches(account_id);
+    CREATE INDEX IF NOT EXISTS idx_templates_account ON templates(account_id);
+    CREATE INDEX IF NOT EXISTS idx_snoozed_account ON snoozed_emails(account_id);
+    CREATE INDEX IF NOT EXISTS idx_snoozed_until ON snoozed_emails(snooze_until);
+    CREATE INDEX IF NOT EXISTS idx_reminders_account ON reminders(account_id);
+    CREATE INDEX IF NOT EXISTS idx_reminders_remind_at ON reminders(remind_at);
+    CREATE INDEX IF NOT EXISTS idx_newsletter_senders_account ON newsletter_senders(account_id);
   `);
 
   console.log('Adatbázis inicializálva.');
