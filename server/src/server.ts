@@ -16,44 +16,47 @@ import searchRoutes from './routes/search.routes.js';
 import viewsRoutes from './routes/views.routes.js';
 import attachmentsRoutes from './routes/attachments.routes.js';
 
-const app = express();
 const PORT = parseInt(process.env.PORT || '5000');
-
-// Middleware
-const frontendUrl = process.env.FRONTEND_URL || 'https://mail.mindenes.org';
-app.use(
-  cors({
-    origin: frontendUrl,
-    credentials: true,
-  }),
-);
-
-// Trust proxy (Cloudflare mögött)
-app.set('trust proxy', 1);
-app.use(express.json());
-app.use(createSessionMiddleware());
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/emails', emailsRoutes);
-app.use('/api/accounts', accountsRoutes);
-app.use('/api/categories', categoriesRoutes);
-app.use('/api/search', searchRoutes);
-app.use('/api/views', viewsRoutes);
-app.use('/api/attachments', attachmentsRoutes);
-
-// Health check
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: Date.now() });
-});
-
-// Error handler
-app.use(errorHandler);
 
 // Szerver indítás
 async function start() {
-  // Adatbázis inicializálás (aszinkron - meg kell várni)
+  // Adatbázis inicializálás ELŐSZÖR (session store-nak szüksége van rá)
   await initializeDatabase();
+
+  const app = express();
+  const frontendUrl = process.env.FRONTEND_URL || 'https://mail.mindenes.org';
+
+  // Middleware
+  app.use(
+    cors({
+      origin: frontendUrl,
+      credentials: true,
+    }),
+  );
+
+  // Trust proxy (Cloudflare mögött)
+  app.set('trust proxy', 1);
+  app.use(express.json());
+
+  // Session middleware (SQLite store - adatbázis már inicializálva)
+  app.use(createSessionMiddleware());
+
+  // Routes
+  app.use('/api/auth', authRoutes);
+  app.use('/api/emails', emailsRoutes);
+  app.use('/api/accounts', accountsRoutes);
+  app.use('/api/categories', categoriesRoutes);
+  app.use('/api/search', searchRoutes);
+  app.use('/api/views', viewsRoutes);
+  app.use('/api/attachments', attachmentsRoutes);
+
+  // Health check
+  app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok', timestamp: Date.now() });
+  });
+
+  // Error handler
+  app.use(errorHandler);
 
   // Háttér szinkronizálás indítása minden meglévő fiókhoz
   const existingAccounts = getAllAccounts();
