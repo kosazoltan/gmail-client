@@ -118,6 +118,12 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
       status TEXT NOT NULL DEFAULT 'running',
       error TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      sid TEXT PRIMARY KEY,
+      sess TEXT NOT NULL,
+      expire INTEGER NOT NULL
+    );
   `);
 
   // Indexek
@@ -132,6 +138,7 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
     CREATE INDEX IF NOT EXISTS idx_sender_groups_email ON sender_groups(email);
     CREATE INDEX IF NOT EXISTS idx_categories_account ON categories(account_id);
     CREATE INDEX IF NOT EXISTS idx_topics_account ON topics(account_id);
+    CREATE INDEX IF NOT EXISTS idx_sessions_expire ON sessions(expire);
   `);
 
   console.log('Adatbázis inicializálva.');
