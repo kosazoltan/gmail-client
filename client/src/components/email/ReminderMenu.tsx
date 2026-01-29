@@ -5,9 +5,11 @@ import { useCreateReminder } from '../../hooks/useReminders';
 interface ReminderMenuProps {
   emailId: string;
   onSuccess?: () => void;
+  onClose?: () => void;
+  variant?: 'button' | 'menu-item';
 }
 
-export function ReminderMenu({ emailId, onSuccess }: ReminderMenuProps) {
+export function ReminderMenu({ emailId, onSuccess, onClose, variant = 'button' }: ReminderMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
   const [customDate, setCustomDate] = useState('');
@@ -43,6 +45,7 @@ export function ReminderMenu({ emailId, onSuccess }: ReminderMenuProps) {
           setShowCustom(false);
           setNote('');
           onSuccess?.();
+          onClose?.();
         },
       },
     );
@@ -104,6 +107,19 @@ export function ReminderMenu({ emailId, onSuccess }: ReminderMenuProps) {
 
   // Minimum dátum az egyéni választáshoz
   const minDate = new Date().toISOString().split('T')[0];
+
+  // Menu item variant - egyszerű gomb a dropdown menüben
+  if (variant === 'menu-item') {
+    return (
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary transition-colors rounded-lg"
+      >
+        <Bell className="h-4 w-4" />
+        <span>Emlékeztető</span>
+      </button>
+    );
+  }
 
   return (
     <div className="relative" ref={menuRef}>

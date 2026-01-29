@@ -7,10 +7,12 @@ import { hu } from 'date-fns/locale';
 interface SnoozeMenuProps {
   emailId: string;
   onSuccess?: () => void;
+  onClose?: () => void;
   className?: string;
+  variant?: 'button' | 'menu-item';
 }
 
-export function SnoozeMenu({ emailId, onSuccess, className = '' }: SnoozeMenuProps) {
+export function SnoozeMenu({ emailId, onSuccess, onClose, className = '', variant = 'button' }: SnoozeMenuProps) {
   const snoozeEmail = useSnoozeEmail();
   const [isOpen, setIsOpen] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
@@ -26,6 +28,7 @@ export function SnoozeMenu({ emailId, onSuccess, className = '' }: SnoozeMenuPro
         onSuccess: () => {
           setIsOpen(false);
           onSuccess?.();
+          onClose?.();
         },
       },
     );
@@ -46,6 +49,19 @@ export function SnoozeMenu({ emailId, onSuccess, className = '' }: SnoozeMenuPro
 
     handleSnooze(snoozeUntil);
   };
+
+  // Menu item variant - egyszerű gomb a dropdown menüben
+  if (variant === 'menu-item') {
+    return (
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary transition-colors rounded-lg"
+      >
+        <Clock className="h-4 w-4" />
+        <span>Szundi</span>
+      </button>
+    );
+  }
 
   return (
     <div className={`relative ${className}`}>
