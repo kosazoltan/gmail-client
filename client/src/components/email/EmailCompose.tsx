@@ -57,11 +57,23 @@ export function EmailCompose() {
 
     const newAttachments: LocalAttachment[] = [];
 
+    // Összes méret ellenőrzése (Gmail ~35MB limit)
+    const MAX_TOTAL_SIZE = 35 * 1024 * 1024;
+    const MAX_FILE_SIZE = 25 * 1024 * 1024;
+
+    let currentTotal = attachments.reduce((sum, a) => sum + a.size, 0);
+
     for (const file of Array.from(files)) {
       // Max 25MB per file (Gmail limit)
-      if (file.size > 25 * 1024 * 1024) {
+      if (file.size > MAX_FILE_SIZE) {
         alert(`A "${file.name}" fájl túl nagy (max 25MB)`);
         continue;
+      }
+
+      // Össz méret ellenőrzése
+      if (currentTotal + file.size > MAX_TOTAL_SIZE) {
+        alert(`A mellékletek össz mérete meghaladja a limitet (max ~35MB). A "${file.name}" nem lett hozzáadva.`);
+        break;
       }
 
       // Base64-be konvertálás
@@ -74,6 +86,8 @@ export function EmailCompose() {
         size: file.size,
         content,
       });
+
+      currentTotal += file.size;
     }
 
     setAttachments((prev) => [...prev, ...newAttachments]);

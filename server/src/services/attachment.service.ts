@@ -59,6 +59,18 @@ export function getEmailAttachments(emailId: string) {
   );
 }
 
+// Melléklet tulajdonosának (account_id) lekérdezése
+export function getAttachmentOwner(attachmentId: string): string | null {
+  const result = queryOne<{ account_id: string }>(
+    `SELECT e.account_id
+     FROM attachments a
+     JOIN emails e ON a.email_id = e.id
+     WHERE a.id = ?`,
+    [attachmentId],
+  );
+  return result?.account_id || null;
+}
+
 // Melléklet típusok meghatározása MIME type alapján
 function getAttachmentType(mimeType: string): string {
   if (mimeType.startsWith('image/')) return 'image';

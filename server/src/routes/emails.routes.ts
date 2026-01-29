@@ -34,15 +34,49 @@ interface EmailRecord {
 
 const router = Router();
 
-router.get('/', (req, res) => {
+const MAX_LIMIT = 100;
+const MAX_BODY_SIZE = 5 * 1024 * 1024; // 5MB email body limit
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Jogosultság ellenőrzés helper
+function validateAccountAccess(req: { query: { accountId?: string }; session: { activeAccountId?: string | null; accountIds?: string[] } }): string | null {
   const accountId = (req.query.accountId as string) || req.session.activeAccountId;
+  if (!accountId) return null;
+
+  const accountIds = req.session.accountIds || [];
+  if (!accountIds.includes(accountId)) return null;
+
+  return accountId;
+}
+
+// Email cím validáció
+function isValidEmail(email: string): boolean {
+  return EMAIL_REGEX.test(email.trim());
+}
+
+// Email címek validálása string-ből (to, cc mezőkhöz)
+function validateEmailAddresses(addressString: string): boolean {
+  if (!addressString) return true; // Üres CC megengedett
+
+  const addresses = addressString.split(',').map(a => a.trim()).filter(a => a);
+  for (const addr of addresses) {
+    // "Name <email>" formátum
+    const match = addr.match(/<([^>]+)>$/);
+    const email = match ? match[1] : addr;
+    if (!isValidEmail(email)) return false;
+  }
+  return true;
+}
+
+router.get('/', (req, res) => {
+  const accountId = validateAccountAccess(req);
   if (!accountId) {
-    res.status(400).json({ error: 'Nincs aktív fiók' });
+    res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
     return;
   }
 
   const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 50;
+  const limit = Math.min(parseInt(req.query.limit as string) || 50, MAX_LIMIT);
   const sort = (req.query.sort as string) || 'date_desc';
   const offset = (page - 1) * limit;
 
@@ -69,7 +103,7 @@ router.get('/', (req, res) => {
 
 router.get('/:id', async (req, res) => {
   const emailId = req.params.id;
-  const accountId = (req.query.accountId as string) || req.session.activeAccountId;
+  const accountId = validateAccountAccess(req);
 
   let email = queryOne<EmailRecord>(
     'SELECT * FROM emails WHERE id = ? AND account_id = ?',
@@ -109,11 +143,27 @@ router.get('/:id', async (req, res) => {
 });
 
 router.post('/send', async (req, res) => {
-  const accountId = req.session.activeAccountId;
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók' }); return; }
+  const accountId = validateAccountAccess(req);
+  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
 
   const { to, subject, body, cc, attachments } = req.body;
   if (!to || !subject || !body) { res.status(400).json({ error: 'Hiányzó mezők: to, subject, body' }); return; }
+
+  // Email cím validáció
+  if (!validateEmailAddresses(to)) {
+    res.status(400).json({ error: 'Érvénytelen címzett email cím' });
+    return;
+  }
+  if (cc && !validateEmailAddresses(cc)) {
+    res.status(400).json({ error: 'Érvénytelen CC email cím' });
+    return;
+  }
+
+  // Body méret ellenőrzés
+  if (body.length > MAX_BODY_SIZE) {
+    res.status(400).json({ error: 'Az email törzse túl nagy (max 5MB)' });
+    return;
+  }
 
   try {
     const { oauth2Client } = getOAuth2ClientForAccount(accountId);
@@ -131,11 +181,27 @@ router.post('/send', async (req, res) => {
 });
 
 router.post('/reply', async (req, res) => {
-  const accountId = req.session.activeAccountId;
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók' }); return; }
+  const accountId = validateAccountAccess(req);
+  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
 
   const { to, subject, body, cc, inReplyTo, threadId, attachments } = req.body;
   if (!to || !body) { res.status(400).json({ error: 'Hiányzó mezők: to, body' }); return; }
+
+  // Email cím validáció
+  if (!validateEmailAddresses(to)) {
+    res.status(400).json({ error: 'Érvénytelen címzett email cím' });
+    return;
+  }
+  if (cc && !validateEmailAddresses(cc)) {
+    res.status(400).json({ error: 'Érvénytelen CC email cím' });
+    return;
+  }
+
+  // Body méret ellenőrzés
+  if (body.length > MAX_BODY_SIZE) {
+    res.status(400).json({ error: 'Az email törzse túl nagy (max 5MB)' });
+    return;
+  }
 
   try {
     const { oauth2Client } = getOAuth2ClientForAccount(accountId);
@@ -154,8 +220,8 @@ router.post('/reply', async (req, res) => {
 
 router.patch('/:id/read', async (req, res) => {
   const emailId = req.params.id;
-  const accountId = req.session.activeAccountId;
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók' }); return; }
+  const accountId = validateAccountAccess(req);
+  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
 
   const { isRead } = req.body;
 
@@ -179,8 +245,8 @@ router.patch('/:id/read', async (req, res) => {
 
 router.patch('/:id/star', async (req, res) => {
   const emailId = req.params.id;
-  const accountId = req.session.activeAccountId;
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók' }); return; }
+  const accountId = validateAccountAccess(req);
+  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
 
   const { isStarred } = req.body;
 
@@ -205,8 +271,8 @@ router.patch('/:id/star', async (req, res) => {
 // Email törlése (kukába helyezés)
 router.delete('/:id', async (req, res) => {
   const emailId = req.params.id;
-  const accountId = req.session.activeAccountId;
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók' }); return; }
+  const accountId = validateAccountAccess(req);
+  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
 
   try {
     const { oauth2Client } = getOAuth2ClientForAccount(accountId);

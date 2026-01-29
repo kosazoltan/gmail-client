@@ -14,7 +14,14 @@ const SCOPES = [
 const ALGORITHM = 'aes-256-gcm';
 
 function getEncryptionKey(): Buffer {
-  const key = process.env.ENCRYPTION_KEY || 'default_key_change_me_in_prod_32!';
+  const isProduction = process.env.NODE_ENV === 'production' ||
+                       process.env.FRONTEND_URL?.startsWith('https://');
+
+  if (isProduction && !process.env.ENCRYPTION_KEY) {
+    throw new Error('ENCRYPTION_KEY környezeti változó kötelező production módban!');
+  }
+
+  const key = process.env.ENCRYPTION_KEY || 'dev-only-encryption-key-32chars!';
   return crypto.scryptSync(key, 'salt', 32);
 }
 

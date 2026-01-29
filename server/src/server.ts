@@ -32,7 +32,11 @@ async function start() {
   await initializeDatabase();
 
   const app = express();
-  const frontendUrl = process.env.FRONTEND_URL || 'https://mail.mindenes.org';
+  const frontendUrl = process.env.FRONTEND_URL;
+
+  if (!frontendUrl) {
+    console.warn('FIGYELMEZTETÉS: FRONTEND_URL nincs beállítva! Használd a .env fájlt.');
+  }
 
   // Security headers - lazább beállítások a mobil böngésző kompatibilitásért
   app.use(
@@ -44,11 +48,12 @@ async function start() {
     }),
   );
 
-  // CORS
+  // CORS - csak a megadott frontend URL-ről engedélyezett
   app.use(
     cors({
-      origin: frontendUrl,
+      origin: frontendUrl || 'http://localhost:5173',
       credentials: true,
+      maxAge: 86400, // Preflight cache: 24 óra
     }),
   );
 
