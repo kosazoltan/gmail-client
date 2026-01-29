@@ -16,6 +16,7 @@ import searchRoutes from './routes/search.routes.js';
 import viewsRoutes from './routes/views.routes.js';
 import attachmentsRoutes from './routes/attachments.routes.js';
 import contactsRoutes from './routes/contacts.routes.js';
+import databaseRoutes from './routes/database.routes.js';
 
 const PORT = parseInt(process.env.PORT || '5000');
 
@@ -51,6 +52,7 @@ async function start() {
   app.use('/api/views', viewsRoutes);
   app.use('/api/attachments', attachmentsRoutes);
   app.use('/api/contacts', contactsRoutes);
+  app.use('/api/database', databaseRoutes);
 
   // Health check
   app.get('/api/health', (_req, res) => {

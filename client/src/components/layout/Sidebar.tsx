@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   Plus,
   Mail,
+  Database,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -25,6 +26,7 @@ const navItems = [
   { path: '/by-topic', icon: MessageSquare, label: 'Téma szerint' },
   { path: '/by-time', icon: Clock, label: 'Időszak szerint' },
   { path: '/by-category', icon: Tags, label: 'Kategóriák' },
+  { path: '/database', icon: Database, label: 'Adatbázis' },
 ];
 
 export function Sidebar({ isOpen, onToggle }: SidebarProps) {

@@ -97,3 +97,35 @@ export interface Contact {
   frequency: number;
   lastUsedAt: number;
 }
+
+export interface DatabaseStats {
+  totalEmails: number;
+  totalContacts: number;
+  totalAttachments: number;
+  totalCategories: number;
+  totalSenderGroups: number;
+  totalTopics: number;
+  databaseSizeBytes: number;
+  oldestEmail: number | null;
+  newestEmail: number | null;
+  emailsByAccount: Array<{ accountId: string; email: string; count: number }>;
+}
+
+export interface DatabaseEmail {
+  id: string;
+  subject: string | null;
+  from_email: string | null;
+  from_name: string | null;
+  to_email: string | null;
+  date: number;
+  is_read: number;
+  has_attachments: number;
+  body_size: number;
+}
+
+export interface Backup {
+  filename: string;
+  path: string;
+  size: number;
+  createdAt: number;
+}

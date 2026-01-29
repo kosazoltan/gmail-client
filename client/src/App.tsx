@@ -8,6 +8,7 @@ import { ByTimeView } from './components/views/ByTimeView';
 import { CategoryView } from './components/views/CategoryView';
 import { SearchResults } from './components/views/SearchResults';
 import { EmailCompose } from './components/email/EmailCompose';
+import { DatabaseManager } from './components/database/DatabaseManager';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,6 +32,7 @@ function App() {
             <Route path="/by-category" element={<CategoryView />} />
             <Route path="/search" element={<SearchResults />} />
             <Route path="/compose" element={<EmailCompose />} />
+            <Route path="/database" element={<DatabaseManager />} />
           </Route>
         </Routes>
       </BrowserRouter>

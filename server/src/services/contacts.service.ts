@@ -149,6 +149,15 @@ export function updateContactName(accountId: string, contactId: string, name: st
   return { ...existing, name };
 }
 
+// Ellenőrzés, hogy van-e már kontakt kinyerve ehhez a fiókhoz
+export function hasExtractedContacts(accountId: string): boolean {
+  const result = queryOne<{ count: number }>(
+    'SELECT COUNT(*) as count FROM contacts WHERE account_id = ?',
+    [accountId]
+  );
+  return (result?.count || 0) > 0;
+}
+
 // Meglévő emailekből kontaktok kinyerése (egyszeri migráció)
 export function extractContactsFromExistingEmails(accountId: string): number {
   interface EmailRow {
@@ -186,4 +195,13 @@ export function extractContactsFromExistingEmails(accountId: string): number {
   }
 
   return count;
+}
+
+// Automatikus kontakt kinyerés (csak ha még nem történt meg)
+export function autoExtractContactsIfNeeded(accountId: string): void {
+  if (!hasExtractedContacts(accountId)) {
+    console.log(`Kontaktok automatikus kinyerése: ${accountId}`);
+    const count = extractContactsFromExistingEmails(accountId);
+    console.log(`${count} email címből kontaktok kinyerve.`);
+  }
 }

@@ -160,4 +160,59 @@ export const api = {
       request(`/contacts/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
     extract: () => request<{ extractedCount: number }>('/contacts/extract', { method: 'POST' }),
   },
+
+  database: {
+    getStats: () => request<import('../types').DatabaseStats>('/database/stats'),
+    listEmails: (params: {
+      page?: number;
+      limit?: number;
+      sortBy?: 'date' | 'from' | 'subject' | 'size';
+      sortOrder?: 'asc' | 'desc';
+      search?: string;
+      dateFrom?: number;
+      dateTo?: number;
+      hasAttachments?: boolean;
+      isRead?: boolean;
+    } = {}) => {
+      const query = new URLSearchParams();
+      if (params.page) query.set('page', params.page.toString());
+      if (params.limit) query.set('limit', params.limit.toString());
+      if (params.sortBy) query.set('sortBy', params.sortBy);
+      if (params.sortOrder) query.set('sortOrder', params.sortOrder);
+      if (params.search) query.set('search', params.search);
+      if (params.dateFrom) query.set('dateFrom', params.dateFrom.toString());
+      if (params.dateTo) query.set('dateTo', params.dateTo.toString());
+      if (params.hasAttachments !== undefined) query.set('hasAttachments', params.hasAttachments.toString());
+      if (params.isRead !== undefined) query.set('isRead', params.isRead.toString());
+      return request<{
+        emails: import('../types').DatabaseEmail[];
+        total: number;
+        page: number;
+        totalPages: number;
+      }>(`/database/emails?${query}`);
+    },
+    deleteEmails: (emailIds: string[]) =>
+      request<{ deletedCount: number }>('/database/emails', {
+        method: 'DELETE',
+        body: JSON.stringify({ emailIds }),
+      }),
+    deleteByDateRange: (dateFrom: number, dateTo: number) =>
+      request<{ deletedCount: number }>('/database/emails/by-date', {
+        method: 'DELETE',
+        body: JSON.stringify({ dateFrom, dateTo }),
+      }),
+    deleteOldEmails: (olderThanDays: number) =>
+      request<{ deletedCount: number }>('/database/emails/old', {
+        method: 'DELETE',
+        body: JSON.stringify({ olderThanDays }),
+      }),
+    createBackup: () =>
+      request<{ filename: string; path: string; size: number }>('/database/backup', { method: 'POST' }),
+    listBackups: () => request<{ backups: import('../types').Backup[] }>('/database/backups'),
+    downloadBackupUrl: (filename: string) => `${BASE_URL}/database/backups/${encodeURIComponent(filename)}`,
+    deleteBackup: (filename: string) =>
+      request(`/database/backups/${encodeURIComponent(filename)}`, { method: 'DELETE' }),
+    vacuum: () => request('/database/vacuum', { method: 'POST' }),
+    cleanup: () => request('/database/cleanup', { method: 'POST' }),
+  },
 };

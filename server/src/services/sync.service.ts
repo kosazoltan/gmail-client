@@ -10,7 +10,7 @@ import {
   getHistory,
 } from './gmail.service.js';
 import { categorizeEmail } from './categorization.service.js';
-import { extractContactsFromEmail } from './contacts.service.js';
+import { extractContactsFromEmail, autoExtractContactsIfNeeded } from './contacts.service.js';
 
 // Email szinkronizálás egy fiókhoz
 export async function syncAccount(accountId: string, fullSync = false) {
@@ -43,6 +43,9 @@ export async function syncAccount(accountId: string, fullSync = false) {
       'UPDATE sync_log SET completed_at = ?, messages_processed = ?, status = ? WHERE id = ?',
       [Date.now(), processedCount, 'completed', logId],
     );
+
+    // Automatikus kontakt kinyerés (csak első alkalommal)
+    autoExtractContactsIfNeeded(accountId);
 
     return { success: true, messagesProcessed: processedCount };
   } catch (error) {
