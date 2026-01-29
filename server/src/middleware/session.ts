@@ -21,15 +21,18 @@ export function createSessionMiddleware(): RequestHandler {
 
   return session({
     store: sessionStore,
+    name: 'zmail.sid', // Egyedi session cookie név
     secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
-    resave: false,
-    saveUninitialized: false,
+    resave: true, // Session mindig mentődik minden kérésnél
+    saveUninitialized: false, // Üres session-öket nem mentjük
+    rolling: true, // Session cookie lejárat megújítása minden kérésnél
     cookie: {
       httpOnly: true,
       sameSite: isProduction ? 'none' : 'lax', // 'none' for cross-site (different subdomains)
       secure: isProduction, // true for HTTPS
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 nap (hosszabb, mert perzisztens)
       domain: isProduction ? '.mindenes.org' : undefined, // Share across subdomains
+      path: '/', // Cookie érvényes minden útvonalra
     },
   });
 }

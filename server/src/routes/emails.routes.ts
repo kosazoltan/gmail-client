@@ -112,13 +112,13 @@ router.post('/send', async (req, res) => {
   const accountId = req.session.activeAccountId;
   if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók' }); return; }
 
-  const { to, subject, body, cc } = req.body;
+  const { to, subject, body, cc, attachments } = req.body;
   if (!to || !subject || !body) { res.status(400).json({ error: 'Hiányzó mezők: to, subject, body' }); return; }
 
   try {
     const { oauth2Client } = getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
-    const result = await sendEmail(gmail, { to, subject, body, cc });
+    const result = await sendEmail(gmail, { to, subject, body, cc, attachments });
 
     // Címzettek mentése a kontaktokba
     saveRecipientsToContacts(accountId, to, cc);
@@ -134,13 +134,13 @@ router.post('/reply', async (req, res) => {
   const accountId = req.session.activeAccountId;
   if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók' }); return; }
 
-  const { to, subject, body, cc, inReplyTo, threadId } = req.body;
+  const { to, subject, body, cc, inReplyTo, threadId, attachments } = req.body;
   if (!to || !body) { res.status(400).json({ error: 'Hiányzó mezők: to, body' }); return; }
 
   try {
     const { oauth2Client } = getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
-    const result = await sendEmail(gmail, { to, subject: subject || '', body, cc, inReplyTo, threadId });
+    const result = await sendEmail(gmail, { to, subject: subject || '', body, cc, inReplyTo, threadId, attachments });
 
     // Címzettek mentése a kontaktokba
     saveRecipientsToContacts(accountId, to, cc);

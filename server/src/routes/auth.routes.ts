@@ -35,11 +35,18 @@ router.get('/callback', async (req, res) => {
     }
     req.session.activeAccountId = accountId;
 
-    // Háttér szinkronizálás indítása
-    startBackgroundSync(accountId);
+    // Session explicit mentése mielőtt redirect
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session mentési hiba:', err);
+      }
 
-    // Redirect a frontendre
-    res.redirect(`${frontendUrl}/?account=${accountId}&newLogin=true`);
+      // Háttér szinkronizálás indítása
+      startBackgroundSync(accountId);
+
+      // Redirect a frontendre
+      res.redirect(`${frontendUrl}/?account=${accountId}&newLogin=true`);
+    });
   } catch (error) {
     console.error('OAuth callback hiba:', error);
     res.redirect(`${frontendUrl}/?error=auth_failed`);
@@ -57,7 +64,14 @@ router.post('/logout', (req, res) => {
       req.session.activeAccountId = req.session.accountIds[0] || null;
     }
   }
-  res.json({ success: true });
+
+  // Session explicit mentése
+  req.session.save((err) => {
+    if (err) {
+      console.error('Session mentési hiba logout után:', err);
+    }
+    res.json({ success: true });
+  });
 });
 
 // Session info
@@ -88,7 +102,14 @@ router.post('/switch-account', (req, res) => {
     req.session.accountIds.includes(accountId)
   ) {
     req.session.activeAccountId = accountId;
-    res.json({ success: true, activeAccountId: accountId });
+
+    // Session explicit mentése
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session mentési hiba switch után:', err);
+      }
+      res.json({ success: true, activeAccountId: accountId });
+    });
   } else {
     res.status(400).json({ error: 'Érvénytelen fiók' });
   }

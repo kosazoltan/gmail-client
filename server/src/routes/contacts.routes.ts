@@ -45,7 +45,8 @@ router.delete('/:id', (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
   }
 
-  const success = deleteContact(accountId, req.params.id);
+  const contactId = req.params.id as string;
+  const success = deleteContact(accountId, contactId);
   if (!success) {
     return res.status(404).json({ error: 'Kontakt nem található' });
   }
@@ -65,7 +66,8 @@ router.patch('/:id', (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Név megadása kötelező' });
   }
 
-  const contact = updateContactName(accountId, req.params.id, name);
+  const contactId = req.params.id as string;
+  const contact = updateContactName(accountId, contactId, name);
   if (!contact) {
     return res.status(404).json({ error: 'Kontakt nem található' });
   }

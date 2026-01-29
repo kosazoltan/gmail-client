@@ -50,7 +50,7 @@ export class SqliteSessionStore extends session.Store {
 
   set(sid: string, session: session.SessionData, callback?: (err?: Error) => void) {
     try {
-      const maxAge = session.cookie?.maxAge || 7 * 24 * 60 * 60 * 1000; // 7 nap default
+      const maxAge = session.cookie?.maxAge || 30 * 24 * 60 * 60 * 1000; // 30 nap default
       const expire = Date.now() + maxAge;
       const sess = JSON.stringify(session);
 
@@ -79,9 +79,11 @@ export class SqliteSessionStore extends session.Store {
 
   touch(sid: string, session: session.SessionData, callback?: (err?: Error) => void) {
     try {
-      const maxAge = session.cookie?.maxAge || 7 * 24 * 60 * 60 * 1000;
+      const maxAge = session.cookie?.maxAge || 30 * 24 * 60 * 60 * 1000; // 30 nap default
       const expire = Date.now() + maxAge;
-      execute('UPDATE sessions SET expire = ? WHERE sid = ?', [expire, sid]);
+      const sess = JSON.stringify(session);
+      // Frissítjük a session tartalmát és a lejárati időt is
+      execute('UPDATE sessions SET sess = ?, expire = ? WHERE sid = ?', [sess, expire, sid]);
       callback?.();
     } catch (err) {
       callback?.(err as Error);

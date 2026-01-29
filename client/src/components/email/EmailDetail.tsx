@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import DOMPurify from 'dompurify';
 import { useEmailDetail, useMarkRead, useDeleteEmail } from '../../hooks/useEmails';
 import { AttachmentView } from './AttachmentView';
 import {
@@ -44,6 +45,18 @@ export function EmailDetail({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showMoreActions, setShowMoreActions] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+
+  // HTML szanitizálás XSS elleni védelem - hook-nak a return előtt kell lennie
+  const sanitizedHtml = useMemo(() => {
+    if (!email?.bodyHtml) return '';
+    return DOMPurify.sanitize(email.bodyHtml, {
+      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'b', 'i', 'u', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'div', 'span', 'hr'],
+      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'style', 'target', 'rel', 'width', 'height'],
+      ALLOW_DATA_ATTR: false,
+      ADD_ATTR: ['target'],
+      FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
+    });
+  }, [email?.bodyHtml]);
 
   // Automatikus olvasottnak jelölés
   useEffect(() => {
@@ -316,7 +329,7 @@ export function EmailDetail({
           {/* Email body kártya */}
           <div className="bg-white dark:bg-dark-bg-secondary rounded-2xl shadow-sm border border-gray-100 dark:border-dark-border overflow-hidden">
             <div className="p-5 sm:p-6">
-              {email.bodyHtml ? (
+              {sanitizedHtml ? (
                 <div
                   className="prose prose-sm sm:prose max-w-none dark:prose-invert
                     prose-headings:text-gray-900 dark:prose-headings:text-dark-text
@@ -324,7 +337,7 @@ export function EmailDetail({
                     prose-a:text-blue-600 dark:prose-a:text-blue-400
                     prose-strong:text-gray-900 dark:prose-strong:text-dark-text
                     prose-img:rounded-lg prose-img:shadow-md"
-                  dangerouslySetInnerHTML={{ __html: email.bodyHtml }}
+                  dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                 />
               ) : email.body ? (
                 <pre className="whitespace-pre-wrap text-sm text-gray-700 dark:text-dark-text-secondary font-sans leading-relaxed">

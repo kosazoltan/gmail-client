@@ -1,17 +1,35 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useSendEmail, useReplyEmail } from '../../hooks/useEmails';
-import { Send, X, Loader2, Plus } from 'lucide-react';
+import { useSendEmail, useReplyEmail, type EmailAttachment } from '../../hooks/useEmails';
+import { Send, X, Loader2, Paperclip, File, Image, FileText, Trash2 } from 'lucide-react';
 import { EmailAutocomplete } from './EmailAutocomplete';
 import { TemplateSelector } from './TemplateSelector';
 import { TemplatesManager } from '../settings/TemplatesManager';
+import { formatFileSize } from '../../lib/utils';
 import type { Template } from '../../types';
+
+// Lokális melléklet típus (még nem küldött)
+interface LocalAttachment {
+  id: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  content: string; // Base64
+}
+
+// Melléklet ikon típus alapján
+function AttachmentIcon({ mimeType, className }: { mimeType: string; className?: string }) {
+  if (mimeType.startsWith('image/')) return <Image className={className} />;
+  if (mimeType.includes('pdf')) return <FileText className={className} />;
+  return <File className={className} />;
+}
 
 export function EmailCompose() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sendEmail = useSendEmail();
   const replyEmail = useReplyEmail();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isReply = searchParams.get('reply') === 'true';
   const isForward = searchParams.has('body') && !isReply;
@@ -21,6 +39,7 @@ export function EmailCompose() {
   const [body, setBody] = useState(searchParams.get('body') || '');
   const [showCc, setShowCc] = useState(false);
   const [showTemplatesManager, setShowTemplatesManager] = useState(false);
+  const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
 
   const threadId = searchParams.get('threadId') || undefined;
 
@@ -31,14 +50,88 @@ export function EmailCompose() {
     setBody((prev) => (prev ? prev + '\n\n' + template.body : template.body));
   };
 
+  // Fájl kiválasztása
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newAttachments: LocalAttachment[] = [];
+
+    for (const file of Array.from(files)) {
+      // Max 25MB per file (Gmail limit)
+      if (file.size > 25 * 1024 * 1024) {
+        alert(`A "${file.name}" fájl túl nagy (max 25MB)`);
+        continue;
+      }
+
+      // Base64-be konvertálás
+      const content = await fileToBase64(file);
+
+      newAttachments.push({
+        id: `${Date.now()}-${Math.random().toString(36).substring(7)}`,
+        filename: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        size: file.size,
+        content,
+      });
+    }
+
+    setAttachments((prev) => [...prev, ...newAttachments]);
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Melléklet eltávolítása
+  const removeAttachment = (id: string) => {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  // Fájl Base64-be konvertálása
+  const fileToBase64 = (file: globalThis.File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Data URL-ből csak a base64 rész kell
+        const base64 = result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleSend = async () => {
     if (!to || !body) return;
 
+    // Mellékletek konvertálása az API formátumba
+    const emailAttachments: EmailAttachment[] = attachments.map((a) => ({
+      filename: a.filename,
+      mimeType: a.mimeType,
+      content: a.content,
+    }));
+
     try {
       if (isReply) {
-        await replyEmail.mutateAsync({ to, subject, body, cc, threadId });
+        await replyEmail.mutateAsync({
+          to,
+          subject,
+          body,
+          cc,
+          threadId,
+          attachments: emailAttachments.length > 0 ? emailAttachments : undefined,
+        });
       } else {
-        await sendEmail.mutateAsync({ to, subject, body, cc });
+        await sendEmail.mutateAsync({
+          to,
+          subject,
+          body,
+          cc,
+          attachments: emailAttachments.length > 0 ? emailAttachments : undefined,
+        });
       }
       navigate(-1);
     } catch (error) {
@@ -47,6 +140,9 @@ export function EmailCompose() {
   };
 
   const isPending = sendEmail.isPending || replyEmail.isPending;
+
+  // Összes melléklet mérete
+  const totalAttachmentSize = attachments.reduce((sum, a) => sum + a.size, 0);
 
   return (
     <div className="max-w-3xl mx-auto p-6">
@@ -59,6 +155,7 @@ export function EmailCompose() {
           <button
             onClick={() => navigate(-1)}
             className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-400 dark:text-dark-text-muted"
+            aria-label="Bezárás"
           >
             <X className="h-5 w-5" />
           </button>
@@ -111,9 +208,42 @@ export function EmailCompose() {
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="Levél szövege..."
-            rows={12}
+            rows={10}
             className="w-full px-3 py-2 text-sm resize-none outline-none bg-transparent dark:text-dark-text"
           />
+
+          {/* Mellékletek */}
+          {attachments.length > 0 && (
+            <div className="border-t border-gray-100 dark:border-dark-border pt-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Paperclip className="h-4 w-4 text-gray-400" />
+                <span className="text-xs text-gray-500 dark:text-dark-text-secondary">
+                  {attachments.length} melléklet ({formatFileSize(totalAttachmentSize)})
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {attachments.map((att) => (
+                  <div
+                    key={att.id}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-dark-bg-tertiary rounded-lg group"
+                  >
+                    <AttachmentIcon mimeType={att.mimeType} className="h-4 w-4 text-gray-500" />
+                    <span className="text-xs text-gray-700 dark:text-dark-text max-w-[150px] truncate">
+                      {att.filename}
+                    </span>
+                    <span className="text-xs text-gray-400">{formatFileSize(att.size)}</span>
+                    <button
+                      onClick={() => removeAttachment(att.id)}
+                      className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-500/20 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                      aria-label="Melléklet eltávolítása"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Küldés gomb */}
@@ -130,6 +260,24 @@ export function EmailCompose() {
                 <Send className="h-4 w-4" />
               )}
               Küldés
+            </button>
+
+            {/* Melléklet csatolás gomb */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+              accept="*/*"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary rounded-lg transition-colors"
+              title="Melléklet csatolása"
+            >
+              <Paperclip className="h-4 w-4" />
+              <span className="hidden sm:inline text-sm">Csatolás</span>
             </button>
 
             <TemplateSelector

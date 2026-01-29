@@ -14,7 +14,7 @@ router.get('/', (req, res) => {
   const includeCompleted = req.query.includeCompleted === 'true';
 
   let query = `
-    SELECT r.*, e.subject, e.from_address as "from", e.from_name as "fromName", e.date
+    SELECT r.*, e.subject, e.from_email as "from", e.from_name as "fromName", e.date
     FROM reminders r
     JOIN emails e ON r.email_id = e.id
     WHERE r.account_id = ?
@@ -180,7 +180,7 @@ router.get('/due', (req, res) => {
 
   const now = Date.now();
   const reminders = queryAll(
-    `SELECT r.*, e.subject, e.from_address as "from", e.from_name as "fromName"
+    `SELECT r.*, e.subject, e.from_email as "from", e.from_name as "fromName"
      FROM reminders r
      JOIN emails e ON r.email_id = e.id
      WHERE r.account_id = ? AND r.is_completed = 0 AND r.remind_at <= ?

@@ -254,10 +254,14 @@ function findOrCreateTopic(
 }
 
 function normalizeSubject(subject: string): string {
-  return subject
-    .replace(/^(Re|Fwd|FW|Válasz|Továbbítás):\s*/gi, '')
-    .replace(/^(Re|Fwd|FW|Válasz|Továbbítás):\s*/gi, '')
-    .trim();
+  // Ismételt alkalmazás a beágyazott prefixek kezelésére (pl. "Re: Fwd: Re: ...")
+  let normalized = subject;
+  let prev = '';
+  while (prev !== normalized) {
+    prev = normalized;
+    normalized = normalized.replace(/^(Re|Fwd|FW|Válasz|Továbbítás):\s*/gi, '');
+  }
+  return normalized.trim();
 }
 
 function updateSenderGroup(

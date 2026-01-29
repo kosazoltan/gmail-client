@@ -4,6 +4,7 @@ import { useSavedSearches, useDeleteSavedSearch, useIncrementSearchUsage } from 
 import { useDueRemindersCount } from '../../hooks/useReminders';
 import { AccountSwitcher } from '../accounts/AccountSwitcher';
 import { ZMailLogo } from '../common/ZMailLogo';
+import { LoginHelp } from '../auth/LoginHelp';
 import {
   Inbox,
   Users,
@@ -12,7 +13,6 @@ import {
   Tags,
   PenSquare,
   ChevronLeft,
-  Plus,
   Database,
   Keyboard,
   Paperclip,
@@ -22,6 +22,7 @@ import {
   Bell,
   Newspaper,
   LogIn,
+  HelpCircle,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useState } from 'react';
@@ -53,6 +54,7 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
   const deleteSavedSearch = useDeleteSavedSearch();
   const incrementUsage = useIncrementSearchUsage();
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [showLoginHelp, setShowLoginHelp] = useState(false);
 
   const savedSearches = savedSearchesData?.searches || [];
   const currentSearchQuery = location.pathname === '/search' ? new URLSearchParams(location.search).get('q') : null;
@@ -257,22 +259,41 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
         {session?.authenticated ? (
           <AccountSwitcher compact={!isOpen} />
         ) : (
-          <button
-            onClick={() => login.mutate()}
-            className={cn(
-              'flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary w-full',
-              isOpen
-                ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 font-medium'
-                : 'text-gray-600 dark:text-dark-text-secondary justify-center px-2',
-            )}
-            aria-label="Bejelentkezés Google fiókkal"
-            title="Bejelentkezés Google fiókkal"
-          >
-            <LogIn className="h-5 w-5" aria-hidden="true" />
-            {isOpen && <span>Bejelentkezés</span>}
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={() => login.mutate()}
+              className={cn(
+                'flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary w-full',
+                isOpen
+                  ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 font-medium'
+                  : 'text-gray-600 dark:text-dark-text-secondary justify-center px-2',
+              )}
+              aria-label="Bejelentkezés Google fiókkal"
+              title="Bejelentkezés Google fiókkal"
+            >
+              <LogIn className="h-5 w-5" aria-hidden="true" />
+              {isOpen && <span>Bejelentkezés</span>}
+            </button>
+
+            {/* Bejelentkezési segítség gomb */}
+            <button
+              onClick={() => setShowLoginHelp(true)}
+              className={cn(
+                'flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary w-full text-gray-500 dark:text-dark-text-muted',
+                !isOpen && 'justify-center px-2',
+              )}
+              aria-label="Bejelentkezési segítség"
+              title="Bejelentkezési segítség"
+            >
+              <HelpCircle className="h-4 w-4" aria-hidden="true" />
+              {isOpen && <span>Bejelentkezési segítség</span>}
+            </button>
+          </div>
         )}
       </div>
+
+      {/* Login Help Modal */}
+      <LoginHelp isOpen={showLoginHelp} onClose={() => setShowLoginHelp(false)} />
     </aside>
   );
 }

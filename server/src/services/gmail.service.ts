@@ -200,7 +200,13 @@ function decodeBase64(data: string): string {
   return Buffer.from(data, 'base64url').toString('utf-8');
 }
 
-// Email küldés
+// Email küldés mellékletekkel
+export interface EmailAttachment {
+  filename: string;
+  mimeType: string;
+  content: string; // Base64 encoded
+}
+
 export async function sendEmail(
   gmail: gmail_v1.Gmail,
   options: {
@@ -210,28 +216,73 @@ export async function sendEmail(
     cc?: string;
     inReplyTo?: string;
     threadId?: string;
+    attachments?: EmailAttachment[];
   },
 ) {
-  const { to, subject, body, cc, inReplyTo, threadId } = options;
+  const { to, subject, body, cc, inReplyTo, threadId, attachments } = options;
 
-  const messageParts = [
-    `To: ${to}`,
-    `Subject: ${subject}`,
-    'Content-Type: text/html; charset=utf-8',
-    'MIME-Version: 1.0',
-  ];
+  let raw: string;
 
-  if (cc) {
-    messageParts.splice(1, 0, `Cc: ${cc}`);
+  if (attachments && attachments.length > 0) {
+    // Multipart email mellékletekkel
+    const boundary = `boundary_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+    const headers = [
+      `To: ${to}`,
+      cc ? `Cc: ${cc}` : '',
+      `Subject: ${subject}`,
+      'MIME-Version: 1.0',
+      `Content-Type: multipart/mixed; boundary="${boundary}"`,
+      inReplyTo ? `In-Reply-To: ${inReplyTo}` : '',
+      inReplyTo ? `References: ${inReplyTo}` : '',
+    ].filter(Boolean);
+
+    const parts: string[] = [];
+
+    // Body rész
+    parts.push(
+      `--${boundary}`,
+      'Content-Type: text/html; charset=utf-8',
+      '',
+      body,
+    );
+
+    // Melléklet részek
+    for (const att of attachments) {
+      parts.push(
+        `--${boundary}`,
+        `Content-Type: ${att.mimeType}; name="${att.filename}"`,
+        'Content-Transfer-Encoding: base64',
+        `Content-Disposition: attachment; filename="${att.filename}"`,
+        '',
+        att.content,
+      );
+    }
+
+    parts.push(`--${boundary}--`);
+
+    raw = Buffer.from([...headers, '', ...parts].join('\r\n')).toString('base64url');
+  } else {
+    // Egyszerű email melléklet nélkül
+    const messageParts = [
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      'Content-Type: text/html; charset=utf-8',
+      'MIME-Version: 1.0',
+    ];
+
+    if (cc) {
+      messageParts.splice(1, 0, `Cc: ${cc}`);
+    }
+    if (inReplyTo) {
+      messageParts.push(`In-Reply-To: ${inReplyTo}`);
+      messageParts.push(`References: ${inReplyTo}`);
+    }
+
+    messageParts.push('', body);
+
+    raw = Buffer.from(messageParts.join('\r\n')).toString('base64url');
   }
-  if (inReplyTo) {
-    messageParts.push(`In-Reply-To: ${inReplyTo}`);
-    messageParts.push(`References: ${inReplyTo}`);
-  }
-
-  messageParts.push('', body);
-
-  const raw = Buffer.from(messageParts.join('\r\n')).toString('base64url');
 
   const response = await gmail.users.messages.send({
     userId: 'me',

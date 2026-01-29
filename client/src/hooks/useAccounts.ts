@@ -5,7 +5,11 @@ export function useSession() {
   return useQuery({
     queryKey: ['session'],
     queryFn: () => api.auth.getSession(),
-    refetchInterval: 30000,
+    refetchInterval: 60000, // 60 másodperc
+    staleTime: 30000, // 30 másodpercig friss marad
+    retry: 2, // 2x próbálkozás hiba esetén
+    refetchOnWindowFocus: true, // Ablak fókuszra frissít
+    refetchOnReconnect: true, // Újracsatlakozáskor frissít
   });
 }
 

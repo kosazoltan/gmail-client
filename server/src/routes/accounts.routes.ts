@@ -23,6 +23,12 @@ router.get('/', (req, res) => {
 router.delete('/:id', (req, res) => {
   const accountId = req.params.id;
 
+  // Ellenőrizzük, hogy a felhasználó jogosult-e törölni ezt a fiókot
+  const accountIds = req.session.accountIds || [];
+  if (!accountIds.includes(accountId)) {
+    return res.status(403).json({ error: 'Nincs jogosultságod ehhez a fiókhoz' });
+  }
+
   stopBackgroundSync(accountId);
   deleteAccount(accountId);
 

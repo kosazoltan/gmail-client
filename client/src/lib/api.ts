@@ -59,7 +59,13 @@ export const api = {
       const query = accountId ? `?accountId=${accountId}` : '';
       return request<import('../types').Email>(`/emails/${id}${query}`);
     },
-    send: (data: { to: string; subject: string; body: string; cc?: string }) =>
+    send: (data: {
+      to: string;
+      subject: string;
+      body: string;
+      cc?: string;
+      attachments?: Array<{ filename: string; mimeType: string; content: string }>;
+    }) =>
       request('/emails/send', { method: 'POST', body: JSON.stringify(data) }),
     reply: (data: {
       to: string;
@@ -68,6 +74,7 @@ export const api = {
       cc?: string;
       inReplyTo?: string;
       threadId?: string;
+      attachments?: Array<{ filename: string; mimeType: string; content: string }>;
     }) => request('/emails/reply', { method: 'POST', body: JSON.stringify(data) }),
     markRead: (id: string, isRead: boolean) =>
       request(`/emails/${id}/read`, {

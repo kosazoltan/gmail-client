@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   useReminders,
   useCompleteReminder,
@@ -28,7 +28,15 @@ export function RemindersView({ onEmailSelect }: RemindersViewProps) {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const reminders = data?.reminders || [];
-  const now = Date.now();
+
+  // Időbélyeg state - effect-ben frissítjük (nem render közben)
+  const [now, setNow] = useState(() => Date.now());
+
+  // Percenként frissítjük az időt
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Szétválogatás: esedékes, jövőbeli, teljesített
   const dueReminders = reminders.filter(

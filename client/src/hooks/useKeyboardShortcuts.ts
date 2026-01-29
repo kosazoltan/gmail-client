@@ -41,7 +41,11 @@ function isInputFocused(target: EventTarget | null): boolean {
 
 export function useKeyboardShortcuts(options: KeyboardShortcutOptions) {
   const optionsRef = useRef(options);
-  optionsRef.current = options;
+
+  // useEffect-ben frissítjük a ref-et, nem render közben
+  useEffect(() => {
+    optionsRef.current = options;
+  });
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     const opts = optionsRef.current;

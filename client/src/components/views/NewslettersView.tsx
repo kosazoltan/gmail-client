@@ -6,7 +6,7 @@ import {
   useMuteNewsletterSender,
   useRemoveNewsletterSender,
 } from '../../hooks/useNewsletters';
-import type { NewsletterSender, Email } from '../../types';
+import type { NewsletterSender } from '../../types';
 import {
   Newspaper,
   RefreshCw,
@@ -18,7 +18,7 @@ import {
   ChevronRight,
   X,
 } from 'lucide-react';
-import { formatEmailDate, formatRelativeTime, displaySender } from '../../lib/utils';
+import { formatEmailDate, displaySender } from '../../lib/utils';
 
 interface NewslettersViewProps {
   onEmailSelect: (emailId: string) => void;

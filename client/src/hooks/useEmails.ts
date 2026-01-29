@@ -22,11 +22,22 @@ export function useEmailDetail(emailId: string | null, accountId?: string) {
   });
 }
 
+export interface EmailAttachment {
+  filename: string;
+  mimeType: string;
+  content: string; // Base64
+}
+
 export function useSendEmail() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { to: string; subject: string; body: string; cc?: string }) =>
-      api.emails.send(data),
+    mutationFn: (data: {
+      to: string;
+      subject: string;
+      body: string;
+      cc?: string;
+      attachments?: EmailAttachment[];
+    }) => api.emails.send(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['emails'] });
     },
@@ -43,6 +54,7 @@ export function useReplyEmail() {
       cc?: string;
       inReplyTo?: string;
       threadId?: string;
+      attachments?: EmailAttachment[];
     }) => api.emails.reply(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['emails'] });
@@ -79,6 +91,9 @@ export function useDeleteEmail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['emails'] });
       queryClient.invalidateQueries({ queryKey: ['email'] });
+      // Kategória és egyéb nézetek frissítése is
+      queryClient.invalidateQueries({ queryKey: ['views'] });
+      queryClient.invalidateQueries({ queryKey: ['search'] });
     },
   });
 }

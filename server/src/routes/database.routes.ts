@@ -113,7 +113,7 @@ router.get('/backups', (_req: Request, res: Response) => {
 
 // Backup letöltése
 router.get('/backups/:filename', (req: Request, res: Response) => {
-  const { filename } = req.params;
+  const filename = req.params.filename as string;
 
   // Biztonsági ellenőrzés
   if (!filename.endsWith('.db') || filename.includes('..')) {
@@ -133,7 +133,7 @@ router.get('/backups/:filename', (req: Request, res: Response) => {
 
 // Backup törlése
 router.delete('/backups/:filename', (req: Request, res: Response) => {
-  const { filename } = req.params;
+  const filename = req.params.filename as string;
 
   const success = deleteBackup(filename);
   if (!success) {
