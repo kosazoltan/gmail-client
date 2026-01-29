@@ -24,21 +24,21 @@ export function DatabaseManager() {
 
   return (
     <div className="max-w-6xl mx-auto p-6">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white dark:bg-dark-bg-secondary rounded-xl shadow-sm border border-gray-200 dark:border-dark-border">
         {/* Fejléc */}
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200 dark:border-dark-border">
           <Database className="h-6 w-6 text-blue-600" />
-          <h1 className="text-xl font-semibold text-gray-800">Adatbázis kezelő</h1>
+          <h1 className="text-xl font-semibold text-gray-800 dark:text-dark-text">Adatbázis kezelő</h1>
         </div>
 
         {/* Tabok */}
-        <div className="flex border-b border-gray-200">
+        <div className="flex border-b border-gray-200 dark:border-dark-border">
           <button
             onClick={() => setActiveTab('stats')}
             className={`px-6 py-3 text-sm font-medium ${
               activeTab === 'stats'
                 ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
+                : 'text-gray-500 dark:text-dark-text-secondary hover:text-gray-700 dark:hover:text-dark-text'
             }`}
           >
             Statisztikák
@@ -48,7 +48,7 @@ export function DatabaseManager() {
             className={`px-6 py-3 text-sm font-medium ${
               activeTab === 'emails'
                 ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
+                : 'text-gray-500 dark:text-dark-text-secondary hover:text-gray-700 dark:hover:text-dark-text'
             }`}
           >
             Emailek kezelése
@@ -58,7 +58,7 @@ export function DatabaseManager() {
             className={`px-6 py-3 text-sm font-medium ${
               activeTab === 'backups'
                 ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
+                : 'text-gray-500 dark:text-dark-text-secondary hover:text-gray-700 dark:hover:text-dark-text'
             }`}
           >
             Biztonsági mentések
@@ -99,11 +99,11 @@ function StatsTab() {
   });
 
   if (isLoading) {
-    return <div className="text-center py-8 text-gray-500">Betöltés...</div>;
+    return <div className="text-center py-8 text-gray-500 dark:text-dark-text-secondary">Betöltés...</div>;
   }
 
   if (!stats) {
-    return <div className="text-center py-8 text-gray-500">Nincs adat</div>;
+    return <div className="text-center py-8 text-gray-500 dark:text-dark-text-secondary">Nincs adat</div>;
   }
 
   const formatBytes = (bytes: number) => {
@@ -128,22 +128,22 @@ function StatsTab() {
       </div>
 
       {/* Időszak */}
-      <div className="bg-gray-50 rounded-lg p-4">
-        <h3 className="text-sm font-medium text-gray-700 mb-2">Email időszak</h3>
-        <p className="text-sm text-gray-600">
+      <div className="bg-gray-50 dark:bg-dark-bg-tertiary rounded-lg p-4">
+        <h3 className="text-sm font-medium text-gray-700 dark:text-dark-text mb-2">Email időszak</h3>
+        <p className="text-sm text-gray-600 dark:text-dark-text-secondary">
           {formatDate(stats.oldestEmail)} - {formatDate(stats.newestEmail)}
         </p>
       </div>
 
       {/* Fiókonkénti statisztika */}
       {stats.emailsByAccount.length > 0 && (
-        <div className="bg-gray-50 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-gray-700 mb-3">Emailek fiókonként</h3>
+        <div className="bg-gray-50 dark:bg-dark-bg-tertiary rounded-lg p-4">
+          <h3 className="text-sm font-medium text-gray-700 dark:text-dark-text mb-3">Emailek fiókonként</h3>
           <div className="space-y-2">
             {stats.emailsByAccount.map((account) => (
               <div key={account.accountId} className="flex justify-between text-sm">
-                <span className="text-gray-600">{account.email}</span>
-                <span className="font-medium">{account.count.toLocaleString()}</span>
+                <span className="text-gray-600 dark:text-dark-text-secondary">{account.email}</span>
+                <span className="font-medium dark:text-dark-text">{account.count.toLocaleString()}</span>
               </div>
             ))}
           </div>
@@ -151,13 +151,13 @@ function StatsTab() {
       )}
 
       {/* Karbantartás */}
-      <div className="bg-gray-50 rounded-lg p-4">
-        <h3 className="text-sm font-medium text-gray-700 mb-3">Karbantartás</h3>
+      <div className="bg-gray-50 dark:bg-dark-bg-tertiary rounded-lg p-4">
+        <h3 className="text-sm font-medium text-gray-700 dark:text-dark-text mb-3">Karbantartás</h3>
         <div className="flex gap-3">
           <button
             onClick={() => vacuumMutation.mutate()}
             disabled={vacuumMutation.isPending}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-dark-bg-secondary border border-gray-300 dark:border-dark-border rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-dark-bg dark:text-dark-text disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${vacuumMutation.isPending ? 'animate-spin' : ''}`} />
             Adatbázis tömörítés
@@ -165,7 +165,7 @@ function StatsTab() {
           <button
             onClick={() => cleanupMutation.mutate()}
             disabled={cleanupMutation.isPending}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-dark-bg-secondary border border-gray-300 dark:border-dark-border rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-dark-bg dark:text-dark-text disabled:opacity-50"
           >
             <Trash2 className="h-4 w-4" />
             Árva rekordok törlése
@@ -178,12 +178,12 @@ function StatsTab() {
 
 function StatCard({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
   return (
-    <div className="bg-gray-50 rounded-lg p-4">
+    <div className="bg-gray-50 dark:bg-dark-bg-tertiary rounded-lg p-4">
       <div className="flex items-center gap-2 mb-1">
-        <Icon className="h-4 w-4 text-gray-400" />
-        <span className="text-xs text-gray-500">{label}</span>
+        <Icon className="h-4 w-4 text-gray-400 dark:text-dark-text-muted" />
+        <span className="text-xs text-gray-500 dark:text-dark-text-secondary">{label}</span>
       </div>
-      <p className="text-xl font-semibold text-gray-800">{value}</p>
+      <p className="text-xl font-semibold text-gray-800 dark:text-dark-text">{value}</p>
     </div>
   );
 }
@@ -271,7 +271,7 @@ function EmailsTab() {
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex-1 min-w-[200px]">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-dark-text-muted" />
             <input
               type="text"
               value={search}
@@ -280,7 +280,7 @@ function EmailsTab() {
                 setPage(1);
               }}
               placeholder="Keresés..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-dark-border rounded-lg text-sm bg-white dark:bg-dark-bg-tertiary dark:text-dark-text"
             />
           </div>
         </div>
@@ -288,7 +288,7 @@ function EmailsTab() {
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as 'date' | 'from' | 'subject' | 'size')}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+          className="px-3 py-2 border border-gray-300 dark:border-dark-border rounded-lg text-sm bg-white dark:bg-dark-bg-tertiary dark:text-dark-text"
         >
           <option value="date">Dátum</option>
           <option value="from">Feladó</option>
@@ -298,7 +298,7 @@ function EmailsTab() {
 
         <button
           onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+          className="px-3 py-2 border border-gray-300 dark:border-dark-border rounded-lg text-sm dark:text-dark-text"
         >
           {sortOrder === 'desc' ? '↓ Csökkenő' : '↑ Növekvő'}
         </button>
@@ -324,14 +324,14 @@ function EmailsTab() {
 
       {/* Táblázat */}
       {isLoading ? (
-        <div className="text-center py-8 text-gray-500">Betöltés...</div>
+        <div className="text-center py-8 text-gray-500 dark:text-dark-text-secondary">Betöltés...</div>
       ) : !data || data.emails.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">Nincs email</div>
+        <div className="text-center py-8 text-gray-500 dark:text-dark-text-secondary">Nincs email</div>
       ) : (
         <>
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <div className="border border-gray-200 dark:border-dark-border rounded-lg overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50 dark:bg-dark-bg-tertiary">
                 <tr>
                   <th className="w-10 px-3 py-2">
                     <input
@@ -341,16 +341,16 @@ function EmailsTab() {
                       className="rounded"
                     />
                   </th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">Feladó</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">Tárgy</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">Dátum</th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-600">Méret</th>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600 dark:text-dark-text-secondary">Feladó</th>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600 dark:text-dark-text-secondary">Tárgy</th>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600 dark:text-dark-text-secondary">Dátum</th>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600 dark:text-dark-text-secondary">Méret</th>
                   <th className="w-16 px-3 py-2"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-200 dark:divide-dark-border">
                 {data.emails.map((email) => (
-                  <tr key={email.id} className={selectedIds.has(email.id) ? 'bg-blue-50' : 'hover:bg-gray-50'}>
+                  <tr key={email.id} className={selectedIds.has(email.id) ? 'bg-blue-50 dark:bg-blue-500/20' : 'hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary'}>
                     <td className="px-3 py-2">
                       <input
                         type="checkbox"
@@ -362,30 +362,30 @@ function EmailsTab() {
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
                         {email.is_read ? (
-                          <MailOpen className="h-4 w-4 text-gray-400" />
+                          <MailOpen className="h-4 w-4 text-gray-400 dark:text-dark-text-muted" />
                         ) : (
                           <Mail className="h-4 w-4 text-blue-500" />
                         )}
-                        <span className="truncate max-w-[200px]">
+                        <span className="truncate max-w-[200px] dark:text-dark-text">
                           {email.from_name || email.from_email || '-'}
                         </span>
                       </div>
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
-                        <span className="truncate max-w-[300px]">{email.subject || '(nincs tárgy)'}</span>
-                        {email.has_attachments === 1 && <Paperclip className="h-4 w-4 text-gray-400" />}
+                        <span className="truncate max-w-[300px] dark:text-dark-text">{email.subject || '(nincs tárgy)'}</span>
+                        {email.has_attachments === 1 && <Paperclip className="h-4 w-4 text-gray-400 dark:text-dark-text-muted" />}
                       </div>
                     </td>
-                    <td className="px-3 py-2 text-gray-600">{formatDate(email.date)}</td>
-                    <td className="px-3 py-2 text-gray-600">{formatSize(email.body_size)}</td>
+                    <td className="px-3 py-2 text-gray-600 dark:text-dark-text-secondary">{formatDate(email.date)}</td>
+                    <td className="px-3 py-2 text-gray-600 dark:text-dark-text-secondary">{formatSize(email.body_size)}</td>
                     <td className="px-3 py-2">
                       <button
                         onClick={() => {
                           setSelectedIds(new Set([email.id]));
                           setShowDeleteConfirm(true);
                         }}
-                        className="p-1 text-gray-400 hover:text-red-500"
+                        className="p-1 text-gray-400 dark:text-dark-text-muted hover:text-red-500"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -398,21 +398,21 @@ function EmailsTab() {
 
           {/* Lapozás */}
           <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-gray-600 dark:text-dark-text-secondary">
               {data.total.toLocaleString()} email, {page}/{data.totalPages} oldal
             </span>
             <div className="flex gap-2">
               <button
                 onClick={() => setPage(Math.max(1, page - 1))}
                 disabled={page === 1}
-                className="p-2 border border-gray-300 rounded-lg disabled:opacity-50"
+                className="p-2 border border-gray-300 dark:border-dark-border rounded-lg disabled:opacity-50 dark:text-dark-text"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <button
                 onClick={() => setPage(Math.min(data.totalPages, page + 1))}
                 disabled={page >= data.totalPages}
-                className="p-2 border border-gray-300 rounded-lg disabled:opacity-50"
+                className="p-2 border border-gray-300 dark:border-dark-border rounded-lg disabled:opacity-50 dark:text-dark-text"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
@@ -436,28 +436,28 @@ function EmailsTab() {
       {/* Régi emailek törlése megerősítés */}
       {showDeleteOldConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+          <div className="bg-white dark:bg-dark-bg-secondary rounded-xl p-6 max-w-md w-full mx-4 dark:border dark:border-dark-border">
             <div className="flex items-center gap-3 mb-4">
               <AlertTriangle className="h-6 w-6 text-orange-500" />
-              <h3 className="text-lg font-semibold">Régi emailek törlése</h3>
+              <h3 className="text-lg font-semibold dark:text-dark-text">Régi emailek törlése</h3>
             </div>
-            <p className="text-gray-600 mb-4">
+            <p className="text-gray-600 dark:text-dark-text-secondary mb-4">
               Add meg, hány napnál régebbi emaileket szeretnél törölni:
             </p>
             <input
               type="number"
               value={deleteOldDays}
               onChange={(e) => setDeleteOldDays(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-dark-border rounded-lg mb-4 bg-white dark:bg-dark-bg-tertiary dark:text-dark-text"
               min="30"
             />
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-gray-500 dark:text-dark-text-muted mb-4">
               Ez törli az összes {deleteOldDays} napnál régebbi emailt. A művelet nem vonható vissza!
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowDeleteOldConfirm(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                className="px-4 py-2 text-gray-600 dark:text-dark-text-secondary hover:text-gray-800 dark:hover:text-dark-text"
               >
                 Mégse
               </button>
@@ -513,7 +513,7 @@ function BackupsTab() {
     <div className="space-y-4">
       {/* Új backup létrehozása */}
       <div className="flex justify-between items-center">
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-gray-600 dark:text-dark-text-secondary">
           Készíts biztonsági mentést az adatbázisról. A mentések letölthetők és törölhetők.
         </p>
         <button
@@ -528,32 +528,32 @@ function BackupsTab() {
 
       {/* Backup lista */}
       {isLoading ? (
-        <div className="text-center py-8 text-gray-500">Betöltés...</div>
+        <div className="text-center py-8 text-gray-500 dark:text-dark-text-secondary">Betöltés...</div>
       ) : !data || data.backups.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">Nincs biztonsági mentés</div>
+        <div className="text-center py-8 text-gray-500 dark:text-dark-text-secondary">Nincs biztonsági mentés</div>
       ) : (
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="border border-gray-200 dark:border-dark-border rounded-lg overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 dark:bg-dark-bg-tertiary">
               <tr>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">Fájlnév</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">Létrehozva</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-600">Méret</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-600 dark:text-dark-text-secondary">Fájlnév</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-600 dark:text-dark-text-secondary">Létrehozva</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-600 dark:text-dark-text-secondary">Méret</th>
                 <th className="w-24 px-4 py-2"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-dark-border">
               {data.backups.map((backup) => (
-                <tr key={backup.filename} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-mono text-xs">{backup.filename}</td>
-                  <td className="px-4 py-3 text-gray-600">{formatDate(backup.createdAt)}</td>
-                  <td className="px-4 py-3 text-gray-600">{formatBytes(backup.size)}</td>
+                <tr key={backup.filename} className="hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary">
+                  <td className="px-4 py-3 font-mono text-xs dark:text-dark-text">{backup.filename}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-dark-text-secondary">{formatDate(backup.createdAt)}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-dark-text-secondary">{formatBytes(backup.size)}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       <a
                         href={api.database.downloadBackupUrl(backup.filename)}
                         download
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/20 rounded"
                         title="Letöltés"
                       >
                         <Download className="h-4 w-4" />
@@ -564,7 +564,7 @@ function BackupsTab() {
                             deleteBackupMutation.mutate(backup.filename);
                           }
                         }}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                        className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/20 rounded"
                         title="Törlés"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -599,14 +599,14 @@ function ConfirmDialog({
 }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+      <div className="bg-white dark:bg-dark-bg-secondary rounded-xl p-6 max-w-md w-full mx-4 dark:border dark:border-dark-border">
         <div className="flex items-center gap-3 mb-4">
           <AlertTriangle className="h-6 w-6 text-red-500" />
-          <h3 className="text-lg font-semibold">{title}</h3>
+          <h3 className="text-lg font-semibold dark:text-dark-text">{title}</h3>
         </div>
-        <p className="text-gray-600 mb-6">{message}</p>
+        <p className="text-gray-600 dark:text-dark-text-secondary mb-6">{message}</p>
         <div className="flex justify-end gap-3">
-          <button onClick={onCancel} className="px-4 py-2 text-gray-600 hover:text-gray-800">
+          <button onClick={onCancel} className="px-4 py-2 text-gray-600 dark:text-dark-text-secondary hover:text-gray-800 dark:hover:text-dark-text">
             Mégse
           </button>
           <button

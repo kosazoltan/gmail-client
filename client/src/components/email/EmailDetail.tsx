@@ -46,7 +46,7 @@ export function EmailDetail({
 
   if (!emailId) {
     return (
-      <div className="flex items-center justify-center h-full text-gray-400">
+      <div className="flex items-center justify-center h-full text-gray-400 dark:text-dark-text-muted">
         <p>Válassz ki egy levelet a megtekintéshez</p>
       </div>
     );
@@ -62,7 +62,7 @@ export function EmailDetail({
 
   if (!email) {
     return (
-      <div className="flex items-center justify-center h-full text-gray-400">
+      <div className="flex items-center justify-center h-full text-gray-400 dark:text-dark-text-muted">
         <p>Email nem található</p>
       </div>
     );
@@ -73,12 +73,12 @@ export function EmailDetail({
   const avatarColor = emailToColor(email.from || '');
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-white dark:bg-dark-bg-secondary">
       {/* Fejléc */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200 dark:border-dark-border">
         <button
           onClick={onBack}
-          className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 lg:hidden"
+          className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary lg:hidden"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
@@ -93,7 +93,7 @@ export function EmailDetail({
               threadId: email.threadId || undefined,
             })
           }
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-600 dark:text-dark-text-secondary"
         >
           <Reply className="h-4 w-4" />
           Válasz
@@ -106,7 +106,7 @@ export function EmailDetail({
               body: `\n\n---------- Továbbított üzenet ----------\nKüldő: ${email.fromName || ''} <${email.from}>\nDátum: ${formatFullDate(email.date)}\nTárgy: ${email.subject}\nCímzett: ${email.to}\n\n${email.body || ''}`,
             })
           }
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-600"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-600 dark:text-dark-text-secondary"
         >
           <Forward className="h-4 w-4" />
           Továbbítás
@@ -114,7 +114,7 @@ export function EmailDetail({
 
         <button
           onClick={() => setShowDeleteConfirm(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg hover:bg-red-50 text-red-600"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-red-600 dark:text-red-400"
         >
           <Trash2 className="h-4 w-4" />
           Törlés
@@ -124,17 +124,17 @@ export function EmailDetail({
       {/* Törlés megerősítő modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-sm mx-4 shadow-xl">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <div className="bg-white dark:bg-dark-bg-secondary rounded-lg p-6 max-w-sm mx-4 shadow-xl dark:border dark:border-dark-border">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-dark-text mb-2">
               Email törlése
             </h3>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-gray-500 dark:text-dark-text-secondary mb-4">
               Biztosan törölni szeretnéd ezt az emailt? Az email a kukába kerül.
             </p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
+                className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary dark:text-dark-text"
               >
                 Mégse
               </button>
@@ -160,7 +160,7 @@ export function EmailDetail({
       {/* Levél tartalom */}
       <div className="flex-1 overflow-auto p-6">
         {/* Tárgy */}
-        <h1 className="text-xl font-semibold text-gray-900 mb-4">
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-dark-text mb-4">
           {email.subject || '(Nincs tárgy)'}
         </h1>
 
@@ -175,43 +175,43 @@ export function EmailDetail({
 
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-900">{sender}</span>
-              <span className="text-sm text-gray-400">
+              <span className="font-medium text-gray-900 dark:text-dark-text">{sender}</span>
+              <span className="text-sm text-gray-400 dark:text-dark-text-muted">
                 &lt;{email.from}&gt;
               </span>
             </div>
-            <div className="text-sm text-gray-500 mt-0.5">
+            <div className="text-sm text-gray-500 dark:text-dark-text-secondary mt-0.5">
               Címzett: {email.to}
               {email.cc && <span className="ml-2">Másolat: {email.cc}</span>}
             </div>
-            <div className="text-xs text-gray-400 mt-1">
+            <div className="text-xs text-gray-400 dark:text-dark-text-muted mt-1">
               {formatFullDate(email.date)}
             </div>
           </div>
         </div>
 
         {/* Body */}
-        <div className="border-t border-gray-100 pt-4">
+        <div className="border-t border-gray-100 dark:border-dark-border pt-4">
           {email.bodyHtml ? (
             <div
-              className="prose prose-sm max-w-none"
+              className="prose prose-sm max-w-none dark:prose-invert"
               dangerouslySetInnerHTML={{ __html: email.bodyHtml }}
             />
           ) : email.body ? (
-            <pre className="whitespace-pre-wrap text-sm text-gray-700 font-sans">
+            <pre className="whitespace-pre-wrap text-sm text-gray-700 dark:text-dark-text font-sans">
               {email.body}
             </pre>
           ) : (
-            <p className="text-gray-400 italic">Nincs megjeleníthető tartalom</p>
+            <p className="text-gray-400 dark:text-dark-text-muted italic">Nincs megjeleníthető tartalom</p>
           )}
         </div>
 
         {/* Mellékletek */}
         {email.attachments && email.attachments.length > 0 && (
-          <div className="mt-6 border-t border-gray-100 pt-4">
+          <div className="mt-6 border-t border-gray-100 dark:border-dark-border pt-4">
             <div className="flex items-center gap-2 mb-3">
-              <Paperclip className="h-4 w-4 text-gray-400" />
-              <span className="text-sm font-medium text-gray-600">
+              <Paperclip className="h-4 w-4 text-gray-400 dark:text-dark-text-muted" />
+              <span className="text-sm font-medium text-gray-600 dark:text-dark-text-secondary">
                 {email.attachments.length} melléklet
               </span>
             </div>

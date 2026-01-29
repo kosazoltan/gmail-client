@@ -29,19 +29,19 @@ export function ByTimeView() {
   });
 
   const periodColors: Record<string, string> = {
-    today: 'bg-green-50 text-green-600',
-    yesterday: 'bg-blue-50 text-blue-600',
-    this_week: 'bg-indigo-50 text-indigo-600',
-    this_month: 'bg-purple-50 text-purple-600',
-    older: 'bg-gray-100 text-gray-600',
+    today: 'bg-green-50 dark:bg-green-500/20 text-green-600',
+    yesterday: 'bg-blue-50 dark:bg-blue-500/20 text-blue-600',
+    this_week: 'bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600',
+    this_month: 'bg-purple-50 dark:bg-purple-500/20 text-purple-600',
+    older: 'bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400',
   };
 
   if (!selectedPeriod) {
     return (
       <div className="overflow-auto h-full">
-        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
-          <Clock className="h-5 w-5 text-gray-500" />
-          <h2 className="text-sm font-medium text-gray-600">Időszak szerint</h2>
+        <div className="px-4 py-3 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border flex items-center gap-2">
+          <Clock className="h-5 w-5 text-gray-500 dark:text-dark-text-secondary" />
+          <h2 className="text-sm font-medium text-gray-600 dark:text-dark-text">Időszak szerint</h2>
         </div>
 
         {loadingTime ? (
@@ -54,19 +54,19 @@ export function ByTimeView() {
               <div
                 key={period.id}
                 onClick={() => setSelectedPeriod(period)}
-                className="flex items-center gap-4 p-4 rounded-xl border border-gray-200 cursor-pointer hover:border-blue-300 hover:shadow-sm transition-all"
+                className="flex items-center gap-4 p-4 rounded-xl border border-gray-200 dark:border-dark-border cursor-pointer hover:border-blue-300 dark:hover:border-blue-500 hover:shadow-sm transition-all"
               >
                 <div
-                  className={`p-3 rounded-lg ${periodColors[period.id] || 'bg-gray-50 text-gray-600'}`}
+                  className={`p-3 rounded-lg ${periodColors[period.id] || 'bg-gray-50 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400'}`}
                 >
                   <Calendar className="h-6 w-6" />
                 </div>
                 <div className="flex-1">
-                  <div className="font-medium text-gray-900">{period.name}</div>
+                  <div className="font-medium text-gray-900 dark:text-dark-text">{period.name}</div>
                 </div>
-                <div className="text-lg font-semibold text-gray-800">
+                <div className="text-lg font-semibold text-gray-800 dark:text-dark-text">
                   {period.count}
-                  <span className="text-sm font-normal text-gray-400 ml-1">levél</span>
+                  <span className="text-sm font-normal text-gray-400 dark:text-dark-text-muted ml-1">levél</span>
                 </div>
               </div>
             ))}
@@ -78,18 +78,18 @@ export function ByTimeView() {
 
   return (
     <div className="flex h-full">
-      <div className="w-full lg:w-2/5 xl:w-1/3 border-r border-gray-200 overflow-auto">
-        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
+      <div className="w-full lg:w-2/5 xl:w-1/3 border-r border-gray-200 dark:border-dark-border overflow-auto">
+        <div className="px-4 py-3 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border flex items-center gap-2">
           <button
             onClick={() => {
               setSelectedPeriod(null);
               setSelectedEmail(null);
             }}
-            className="p-1 rounded hover:bg-gray-200"
+            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-dark-bg"
           >
-            <ArrowLeft className="h-4 w-4 text-gray-500" />
+            <ArrowLeft className="h-4 w-4 text-gray-500 dark:text-dark-text-secondary" />
           </button>
-          <span className="text-sm font-medium text-gray-600">{selectedPeriod.name}</span>
+          <span className="text-sm font-medium text-gray-600 dark:text-dark-text">{selectedPeriod.name}</span>
         </div>
 
         <EmailList

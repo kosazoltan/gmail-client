@@ -31,9 +31,9 @@ export function ByTopicView() {
   if (!selectedTopic) {
     return (
       <div className="overflow-auto h-full">
-        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
-          <MessageSquare className="h-5 w-5 text-gray-500" />
-          <h2 className="text-sm font-medium text-gray-600">Téma szerint</h2>
+        <div className="px-4 py-3 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border flex items-center gap-2">
+          <MessageSquare className="h-5 w-5 text-gray-500 dark:text-dark-text-secondary" />
+          <h2 className="text-sm font-medium text-gray-600 dark:text-dark-text">Téma szerint</h2>
         </div>
 
         {loadingTopics ? (
@@ -41,18 +41,18 @@ export function ByTopicView() {
             <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-gray-100 dark:divide-dark-border">
             {(topicsData?.topics || []).map((topic) => (
               <div
                 key={topic.id}
                 onClick={() => setSelectedTopic(topic)}
-                className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary transition-colors"
               >
-                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
+                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-purple-50 dark:bg-purple-500/20 flex items-center justify-center">
                   <MessageSquare className="h-5 w-5 text-purple-500" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900 text-sm truncate">
+                  <div className="font-medium text-gray-900 dark:text-dark-text text-sm truncate">
                     {topic.name}
                   </div>
                 </div>
@@ -69,18 +69,18 @@ export function ByTopicView() {
 
   return (
     <div className="flex h-full">
-      <div className="w-full lg:w-2/5 xl:w-1/3 border-r border-gray-200 overflow-auto">
-        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
+      <div className="w-full lg:w-2/5 xl:w-1/3 border-r border-gray-200 dark:border-dark-border overflow-auto">
+        <div className="px-4 py-3 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border flex items-center gap-2">
           <button
             onClick={() => {
               setSelectedTopic(null);
               setSelectedEmail(null);
             }}
-            className="p-1 rounded hover:bg-gray-200"
+            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-dark-bg"
           >
-            <ArrowLeft className="h-4 w-4 text-gray-500" />
+            <ArrowLeft className="h-4 w-4 text-gray-500 dark:text-dark-text-secondary" />
           </button>
-          <span className="text-sm font-medium text-gray-600">{selectedTopic.name}</span>
+          <span className="text-sm font-medium text-gray-600 dark:text-dark-text">{selectedTopic.name}</span>
         </div>
 
         <EmailList

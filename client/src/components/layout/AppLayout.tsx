@@ -8,7 +8,7 @@ export function AppLayout() {
   const [searchQuery, setSearchQuery] = useState('');
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 dark:bg-dark-bg">
       {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
 

@@ -17,7 +17,7 @@ export function InboxView() {
 
   if (!session?.authenticated) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-gray-500">
+      <div className="flex flex-col items-center justify-center h-full text-gray-500 dark:text-dark-text-secondary">
         <p className="text-lg mb-2">Üdvözlünk a Gmail Kliensben!</p>
         <p className="text-sm">Jelentkezz be egy Google fiókkal a bal oldali menüben.</p>
       </div>
@@ -27,7 +27,7 @@ export function InboxView() {
   return (
     <div className="flex h-full">
       {/* Email lista */}
-      <div className="w-full lg:w-2/5 xl:w-1/3 border-r border-gray-200 overflow-auto">
+      <div className="w-full lg:w-2/5 xl:w-1/3 border-r border-gray-200 dark:border-dark-border overflow-auto">
         <EmailList
           emails={data?.emails || []}
           isLoading={isLoading}
@@ -39,21 +39,21 @@ export function InboxView() {
 
         {/* Lapozás */}
         {data && data.totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 p-3 border-t border-gray-200">
+          <div className="flex items-center justify-center gap-2 p-3 border-t border-gray-200 dark:border-dark-border">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+              className="px-3 py-1 text-sm rounded border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary disabled:opacity-50 dark:text-dark-text"
             >
               Előző
             </button>
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-gray-500 dark:text-dark-text-secondary">
               {page} / {data.totalPages}
             </span>
             <button
               onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
               disabled={page === data.totalPages}
-              className="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+              className="px-3 py-1 text-sm rounded border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary disabled:opacity-50 dark:text-dark-text"
             >
               Következő
             </button>

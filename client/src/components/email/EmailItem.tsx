@@ -18,10 +18,10 @@ export function EmailItem({ email, isSelected, onClick, onToggleStar }: EmailIte
     <div
       onClick={onClick}
       className={cn(
-        'flex items-start gap-3 px-4 py-3 cursor-pointer border-b border-gray-100 transition-colors',
-        isSelected ? 'bg-blue-50 border-l-2 border-l-blue-500' : 'hover:bg-gray-50',
-        !email.isRead && 'bg-white',
-        email.isRead && !isSelected && 'bg-gray-50/50',
+        'flex items-start gap-3 px-4 py-3 cursor-pointer border-b border-gray-100 dark:border-dark-border transition-colors',
+        isSelected ? 'bg-blue-50 dark:bg-blue-500/10 border-l-2 border-l-blue-500' : 'hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary',
+        !email.isRead && 'bg-white dark:bg-dark-bg-secondary',
+        email.isRead && !isSelected && 'bg-gray-50/50 dark:bg-dark-bg/50',
       )}
     >
       {/* Avatar */}
@@ -38,12 +38,12 @@ export function EmailItem({ email, isSelected, onClick, onToggleStar }: EmailIte
           <span
             className={cn(
               'text-sm truncate',
-              !email.isRead ? 'font-semibold text-gray-900' : 'text-gray-700',
+              !email.isRead ? 'font-semibold text-gray-900 dark:text-dark-text' : 'text-gray-700 dark:text-dark-text-secondary',
             )}
           >
             {sender}
           </span>
-          <span className="text-xs text-gray-400 flex-shrink-0">
+          <span className="text-xs text-gray-400 dark:text-dark-text-muted flex-shrink-0">
             {formatEmailDate(email.date)}
           </span>
         </div>
@@ -51,13 +51,13 @@ export function EmailItem({ email, isSelected, onClick, onToggleStar }: EmailIte
         <div
           className={cn(
             'text-sm truncate mt-0.5',
-            !email.isRead ? 'font-medium text-gray-800' : 'text-gray-600',
+            !email.isRead ? 'font-medium text-gray-800 dark:text-dark-text' : 'text-gray-600 dark:text-dark-text-secondary',
           )}
         >
           {email.subject || '(Nincs tárgy)'}
         </div>
 
-        <div className="text-xs text-gray-400 truncate mt-0.5">
+        <div className="text-xs text-gray-400 dark:text-dark-text-muted truncate mt-0.5">
           {email.snippet || ''}
         </div>
       </div>
@@ -66,19 +66,19 @@ export function EmailItem({ email, isSelected, onClick, onToggleStar }: EmailIte
       <div className="flex flex-col items-center gap-1 flex-shrink-0">
         <button
           onClick={onToggleStar}
-          className="p-1 rounded hover:bg-gray-200 transition-colors"
+          className="p-1 rounded hover:bg-gray-200 dark:hover:bg-dark-bg-tertiary transition-colors"
         >
           <Star
             className={cn(
               'h-4 w-4',
               email.isStarred
                 ? 'fill-yellow-400 text-yellow-400'
-                : 'text-gray-300 hover:text-gray-400',
+                : 'text-gray-300 dark:text-dark-text-muted hover:text-gray-400 dark:hover:text-dark-text-secondary',
             )}
           />
         </button>
         {email.hasAttachments && (
-          <Paperclip className="h-3.5 w-3.5 text-gray-400" />
+          <Paperclip className="h-3.5 w-3.5 text-gray-400 dark:text-dark-text-muted" />
         )}
       </div>
     </div>

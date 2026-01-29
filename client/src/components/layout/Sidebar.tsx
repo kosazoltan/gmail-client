@@ -37,21 +37,21 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'flex flex-col bg-white border-r border-gray-200 transition-all duration-200',
+        'flex flex-col bg-white dark:bg-dark-bg-secondary border-r border-gray-200 dark:border-dark-border transition-all duration-200',
         isOpen ? 'w-64' : 'w-16',
       )}
     >
       {/* Logo / Collapse */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-100">
+      <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-dark-border">
         {isOpen && (
           <div className="flex items-center gap-2">
-            <Mail className="h-6 w-6 text-blue-600" />
-            <span className="font-semibold text-gray-800">Gmail Kliens</span>
+            <Mail className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+            <span className="font-semibold text-gray-800 dark:text-dark-text">Gmail Kliens</span>
           </div>
         )}
         <button
           onClick={onToggle}
-          className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"
+          className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary"
         >
           <ChevronLeft
             className={cn('h-4 w-4 transition-transform', !isOpen && 'rotate-180')}
@@ -64,7 +64,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
         <button
           onClick={() => navigate('/compose')}
           className={cn(
-            'flex items-center gap-2 rounded-2xl bg-blue-600 text-white shadow-md hover:bg-blue-700 hover:shadow-lg transition-all',
+            'flex items-center gap-2 rounded-2xl bg-blue-600 dark:bg-blue-500 text-white shadow-md hover:bg-blue-700 dark:hover:bg-blue-600 hover:shadow-lg transition-all',
             isOpen ? 'px-6 py-3 w-full justify-center' : 'p-3 mx-auto',
           )}
         >
@@ -83,8 +83,8 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
               cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
                 isActive
-                  ? 'bg-blue-50 text-blue-700 font-medium'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+                  ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 font-medium'
+                  : 'text-gray-600 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary hover:text-gray-900 dark:hover:text-dark-text',
                 !isOpen && 'justify-center px-2',
               )
             }
@@ -96,14 +96,14 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
       </nav>
 
       {/* Fiókkezelés */}
-      <div className="border-t border-gray-200 p-3">
+      <div className="border-t border-gray-200 dark:border-dark-border p-3">
         {session?.authenticated ? (
           <AccountSwitcher compact={!isOpen} />
         ) : (
           <button
             onClick={() => login.mutate()}
             className={cn(
-              'flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 w-full',
+              'flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary w-full',
               !isOpen && 'justify-center px-2',
             )}
           >

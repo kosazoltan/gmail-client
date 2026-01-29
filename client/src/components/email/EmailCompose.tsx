@@ -39,15 +39,15 @@ export function EmailCompose() {
 
   return (
     <div className="max-w-3xl mx-auto p-6">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white dark:bg-dark-bg-secondary rounded-xl shadow-sm border border-gray-200 dark:border-dark-border">
         {/* Fejléc */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-          <h2 className="font-medium text-gray-800">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-dark-border">
+          <h2 className="font-medium text-gray-800 dark:text-dark-text">
             {isReply ? 'Válasz' : isForward ? 'Továbbítás' : 'Új levél'}
           </h2>
           <button
             onClick={() => navigate(-1)}
-            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"
+            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-400 dark:text-dark-text-muted"
           >
             <X className="h-5 w-5" />
           </button>
@@ -56,12 +56,12 @@ export function EmailCompose() {
         {/* Űrlap */}
         <div className="p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-500 w-16">Címzett:</label>
+            <label className="text-sm text-gray-500 dark:text-dark-text-secondary w-16">Címzett:</label>
             <EmailAutocomplete
               value={to}
               onChange={setTo}
               placeholder="pelda@gmail.com"
-              className="flex-1 px-3 py-1.5 text-sm border-b border-gray-200 focus:border-blue-400 outline-none"
+              className="flex-1 px-3 py-1.5 text-sm border-b border-gray-200 dark:border-dark-border focus:border-blue-400 outline-none bg-transparent dark:text-dark-text"
             />
             {!showCc && (
               <button
@@ -75,24 +75,24 @@ export function EmailCompose() {
 
           {showCc && (
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-500 w-16">Másolat:</label>
+              <label className="text-sm text-gray-500 dark:text-dark-text-secondary w-16">Másolat:</label>
               <EmailAutocomplete
                 value={cc}
                 onChange={setCc}
                 placeholder="masik@gmail.com"
-                className="flex-1 px-3 py-1.5 text-sm border-b border-gray-200 focus:border-blue-400 outline-none"
+                className="flex-1 px-3 py-1.5 text-sm border-b border-gray-200 dark:border-dark-border focus:border-blue-400 outline-none bg-transparent dark:text-dark-text"
               />
             </div>
           )}
 
           <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-500 w-16">Tárgy:</label>
+            <label className="text-sm text-gray-500 dark:text-dark-text-secondary w-16">Tárgy:</label>
             <input
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Levél tárgya"
-              className="flex-1 px-3 py-1.5 text-sm border-b border-gray-200 focus:border-blue-400 outline-none"
+              className="flex-1 px-3 py-1.5 text-sm border-b border-gray-200 dark:border-dark-border focus:border-blue-400 outline-none bg-transparent dark:text-dark-text"
             />
           </div>
 
@@ -101,12 +101,12 @@ export function EmailCompose() {
             onChange={(e) => setBody(e.target.value)}
             placeholder="Levél szövege..."
             rows={12}
-            className="w-full px-3 py-2 text-sm resize-none outline-none"
+            className="w-full px-3 py-2 text-sm resize-none outline-none bg-transparent dark:text-dark-text"
           />
         </div>
 
         {/* Küldés gomb */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
+        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-dark-border">
           <button
             onClick={handleSend}
             disabled={!to || !body || isPending}
@@ -122,7 +122,7 @@ export function EmailCompose() {
 
           <button
             onClick={() => navigate(-1)}
-            className="text-sm text-gray-500 hover:text-gray-700"
+            className="text-sm text-gray-500 dark:text-dark-text-secondary hover:text-gray-700 dark:hover:text-dark-text"
           >
             Elvetés
           </button>

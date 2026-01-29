@@ -123,25 +123,25 @@ export function EmailAutocomplete({
       />
 
       {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-auto">
+        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-dark-bg-secondary border border-gray-200 dark:border-dark-border rounded-lg shadow-lg max-h-64 overflow-auto">
           {suggestions.map((contact, index) => (
             <button
               key={contact.id}
               type="button"
               onClick={() => selectSuggestion(contact)}
-              className={`w-full px-3 py-2 text-left hover:bg-gray-50 flex flex-col ${
-                index === selectedIndex ? 'bg-blue-50' : ''
+              className={`w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary flex flex-col ${
+                index === selectedIndex ? 'bg-blue-50 dark:bg-blue-500/20' : ''
               }`}
             >
               {contact.name ? (
                 <>
-                  <span className="text-sm font-medium text-gray-900">
+                  <span className="text-sm font-medium text-gray-900 dark:text-dark-text">
                     {contact.name}
                   </span>
-                  <span className="text-xs text-gray-500">{contact.email}</span>
+                  <span className="text-xs text-gray-500 dark:text-dark-text-muted">{contact.email}</span>
                 </>
               ) : (
-                <span className="text-sm text-gray-900">{contact.email}</span>
+                <span className="text-sm text-gray-900 dark:text-dark-text">{contact.email}</span>
               )}
             </button>
           ))}

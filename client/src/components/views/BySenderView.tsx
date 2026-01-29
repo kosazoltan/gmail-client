@@ -39,9 +39,9 @@ export function BySenderView() {
     return (
       <div className="flex h-full">
         <div className="w-full overflow-auto">
-          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
-            <Users className="h-5 w-5 text-gray-500" />
-            <h2 className="text-sm font-medium text-gray-600">Küldő szerint</h2>
+          <div className="px-4 py-3 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border flex items-center gap-2">
+            <Users className="h-5 w-5 text-gray-500 dark:text-dark-text-secondary" />
+            <h2 className="text-sm font-medium text-gray-600 dark:text-dark-text">Küldő szerint</h2>
           </div>
 
           {loadingSenders ? (
@@ -49,7 +49,7 @@ export function BySenderView() {
               <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
             </div>
           ) : (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-gray-100 dark:divide-dark-border">
               {(sendersData?.senders || []).map((sender) => {
                 const name = displaySender(sender.name, sender.email);
                 const initials = getInitials(name);
@@ -59,7 +59,7 @@ export function BySenderView() {
                   <div
                     key={sender.id}
                     onClick={() => setSelectedSender(sender)}
-                    className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                    className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary transition-colors"
                   >
                     <div
                       className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium"
@@ -68,15 +68,15 @@ export function BySenderView() {
                       {initials}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-gray-900 text-sm">{name}</div>
-                      <div className="text-xs text-gray-400">{sender.email}</div>
+                      <div className="font-medium text-gray-900 dark:text-dark-text text-sm">{name}</div>
+                      <div className="text-xs text-gray-400 dark:text-dark-text-muted">{sender.email}</div>
                     </div>
                     <div className="text-right flex-shrink-0">
                       <div className="text-sm font-medium text-blue-600">
                         {sender.messageCount} levél
                       </div>
                       {sender.lastMessageAt && (
-                        <div className="text-xs text-gray-400">
+                        <div className="text-xs text-gray-400 dark:text-dark-text-muted">
                           {formatRelativeTime(sender.lastMessageAt)}
                         </div>
                       )}
@@ -94,18 +94,18 @@ export function BySenderView() {
   // Küldő leveleinek nézete
   return (
     <div className="flex h-full">
-      <div className="w-full lg:w-2/5 xl:w-1/3 border-r border-gray-200 overflow-auto">
-        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
+      <div className="w-full lg:w-2/5 xl:w-1/3 border-r border-gray-200 dark:border-dark-border overflow-auto">
+        <div className="px-4 py-3 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border flex items-center gap-2">
           <button
             onClick={() => {
               setSelectedSender(null);
               setSelectedEmail(null);
             }}
-            className="p-1 rounded hover:bg-gray-200"
+            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-dark-bg"
           >
-            <ArrowLeft className="h-4 w-4 text-gray-500" />
+            <ArrowLeft className="h-4 w-4 text-gray-500 dark:text-dark-text-secondary" />
           </button>
-          <span className="text-sm font-medium text-gray-600">
+          <span className="text-sm font-medium text-gray-600 dark:text-dark-text">
             {displaySender(selectedSender.name, selectedSender.email)}
           </span>
         </div>

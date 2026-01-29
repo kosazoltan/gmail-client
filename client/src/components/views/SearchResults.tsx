@@ -19,12 +19,12 @@ export function SearchResults() {
 
   return (
     <div className="flex h-full">
-      <div className="w-full lg:w-2/5 xl:w-1/3 border-r border-gray-200 overflow-auto">
-        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
-          <Search className="h-5 w-5 text-gray-500" />
-          <h2 className="text-sm font-medium text-gray-600">
+      <div className="w-full lg:w-2/5 xl:w-1/3 border-r border-gray-200 dark:border-dark-border overflow-auto">
+        <div className="px-4 py-3 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border flex items-center gap-2">
+          <Search className="h-5 w-5 text-gray-500 dark:text-dark-text-secondary" />
+          <h2 className="text-sm font-medium text-gray-600 dark:text-dark-text">
             Keresés: "{query}"
-            {data && <span className="text-gray-400 ml-1">({data.total} találat)</span>}
+            {data && <span className="text-gray-400 dark:text-dark-text-muted ml-1">({data.total} találat)</span>}
           </h2>
         </div>
 
