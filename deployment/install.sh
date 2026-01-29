@@ -82,7 +82,7 @@ PORT=5000
 SESSION_SECRET=change-this-to-random-secret
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
-GOOGLE_REDIRECT_URI=https://mail.mindenes.org/api/auth/google/callback
+GOOGLE_REDIRECT_URI=https://mail.mindenes.org/api/auth/callback
 FRONTEND_URL=https://mail.mindenes.org
 NODE_ENV=production
 ENVFILE

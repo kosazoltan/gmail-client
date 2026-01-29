@@ -20,7 +20,7 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '5000');
 
 // Middleware
-const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+const frontendUrl = process.env.FRONTEND_URL || 'https://mail.mindenes.org';
 app.use(
   cors({
     origin: frontendUrl,
@@ -63,7 +63,7 @@ async function start() {
   }
 
   app.listen(PORT, () => {
-    console.log(`Gmail kliens szerver fut: http://localhost:${PORT}`);
+    console.log(`Gmail kliens szerver fut port ${PORT}`);
     console.log(`${existingAccounts.length} fiók betöltve.`);
   });
 }

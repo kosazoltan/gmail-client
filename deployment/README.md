@@ -26,7 +26,7 @@ Ez a dokumentáció leírja, hogyan telepítheted a Gmail Client alkalmazást VP
 3. Engedélyezd a Gmail API-t
 4. OAuth 2.0 beállítások:
    - **Authorized JavaScript origins**: `https://mail.mindenes.org`
-   - **Authorized redirect URIs**: `https://mail.mindenes.org/api/auth/google/callback`
+   - **Authorized redirect URIs**: `https://mail.mindenes.org/api/auth/callback`
 
 ## Telepítési módok
 
@@ -90,7 +90,7 @@ PORT=5000
 SESSION_SECRET=your-random-secret-here
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret
-GOOGLE_REDIRECT_URI=https://mail.mindenes.org/api/auth/google/callback
+GOOGLE_REDIRECT_URI=https://mail.mindenes.org/api/auth/callback
 FRONTEND_URL=https://mail.mindenes.org
 NODE_ENV=production
 ```

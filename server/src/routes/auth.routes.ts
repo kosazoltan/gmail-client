@@ -7,7 +7,7 @@ import {
 import { startBackgroundSync } from '../services/sync.service.js';
 
 const router = Router();
-const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+const frontendUrl = process.env.FRONTEND_URL || 'https://mail.mindenes.org';
 
 // OAuth2 login redirect URL generálás
 router.get('/login', (_req, res) => {
