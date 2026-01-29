@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSendEmail, useReplyEmail } from '../../hooks/useEmails';
 import { Send, X, Loader2 } from 'lucide-react';
+import { EmailAutocomplete } from './EmailAutocomplete';
 
 export function EmailCompose() {
   const navigate = useNavigate();
@@ -56,10 +57,9 @@ export function EmailCompose() {
         <div className="p-4 space-y-3">
           <div className="flex items-center gap-2">
             <label className="text-sm text-gray-500 w-16">Címzett:</label>
-            <input
-              type="email"
+            <EmailAutocomplete
               value={to}
-              onChange={(e) => setTo(e.target.value)}
+              onChange={setTo}
               placeholder="pelda@gmail.com"
               className="flex-1 px-3 py-1.5 text-sm border-b border-gray-200 focus:border-blue-400 outline-none"
             />
@@ -76,10 +76,9 @@ export function EmailCompose() {
           {showCc && (
             <div className="flex items-center gap-2">
               <label className="text-sm text-gray-500 w-16">Másolat:</label>
-              <input
-                type="email"
+              <EmailAutocomplete
                 value={cc}
-                onChange={(e) => setCc(e.target.value)}
+                onChange={setCc}
                 placeholder="masik@gmail.com"
                 className="flex-1 px-3 py-1.5 text-sm border-b border-gray-200 focus:border-blue-400 outline-none"
               />

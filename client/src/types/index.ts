@@ -89,3 +89,11 @@ export interface PaginatedEmails {
   page: number;
   totalPages: number;
 }
+
+export interface Contact {
+  id: string;
+  email: string;
+  name: string | null;
+  frequency: number;
+  lastUsedAt: number;
+}

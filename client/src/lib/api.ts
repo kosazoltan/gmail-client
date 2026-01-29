@@ -150,4 +150,14 @@ export const api = {
   attachments: {
     downloadUrl: (id: string) => `${BASE_URL}/attachments/${id}/download`,
   },
+
+  contacts: {
+    search: (query: string, limit = 10) =>
+      request<import('../types').Contact[]>(`/contacts/search?q=${encodeURIComponent(query)}&limit=${limit}`),
+    list: () => request<import('../types').Contact[]>('/contacts'),
+    delete: (id: string) => request(`/contacts/${id}`, { method: 'DELETE' }),
+    update: (id: string, name: string) =>
+      request(`/contacts/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
+    extract: () => request<{ extractedCount: number }>('/contacts/extract', { method: 'POST' }),
+  },
 };

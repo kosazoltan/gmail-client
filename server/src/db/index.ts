@@ -124,6 +124,16 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
       sess TEXT NOT NULL,
       expire INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS contacts (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      name TEXT,
+      frequency INTEGER NOT NULL DEFAULT 1,
+      last_used_at INTEGER NOT NULL,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      UNIQUE(email, account_id)
+    );
   `);
 
   // Indexek
@@ -139,6 +149,9 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
     CREATE INDEX IF NOT EXISTS idx_categories_account ON categories(account_id);
     CREATE INDEX IF NOT EXISTS idx_topics_account ON topics(account_id);
     CREATE INDEX IF NOT EXISTS idx_sessions_expire ON sessions(expire);
+    CREATE INDEX IF NOT EXISTS idx_contacts_account ON contacts(account_id);
+    CREATE INDEX IF NOT EXISTS idx_contacts_email ON contacts(email);
+    CREATE INDEX IF NOT EXISTS idx_contacts_frequency ON contacts(frequency DESC);
   `);
 
   console.log('Adatbázis inicializálva.');

@@ -10,6 +10,7 @@ import {
   getHistory,
 } from './gmail.service.js';
 import { categorizeEmail } from './categorization.service.js';
+import { extractContactsFromEmail } from './contacts.service.js';
 
 // Email szinkronizálás egy fiókhoz
 export async function syncAccount(accountId: string, fullSync = false) {
@@ -189,6 +190,9 @@ function saveEmail(accountId: string, msg: any) {
   }
 
   updateSenderGroup(accountId, msg.from, msg.fromName, msg.date);
+
+  // Kontaktok kinyerése
+  extractContactsFromEmail(accountId, msg.from, msg.fromName, msg.to, msg.cc);
 }
 
 function findOrCreateTopic(
