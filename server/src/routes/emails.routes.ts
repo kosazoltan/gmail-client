@@ -11,6 +11,27 @@ import {
 import { getEmailAttachments } from '../services/attachment.service.js';
 import { upsertContact } from '../services/contacts.service.js';
 
+// Adatbázis rekord interfész
+interface EmailRecord {
+  id: string;
+  thread_id: string | null;
+  subject: string | null;
+  from_email: string | null;
+  from_name: string | null;
+  to_email: string | null;
+  cc_email: string | null;
+  snippet: string | null;
+  body: string | null;
+  body_html: string | null;
+  date: number;
+  is_read: number;
+  is_starred: number;
+  labels: string | null;
+  has_attachments: number;
+  category_id: string | null;
+  topic_id: string | null;
+}
+
 const router = Router();
 
 router.get('/', (req, res) => {
@@ -27,7 +48,7 @@ router.get('/', (req, res) => {
 
   const orderBy = sort === 'date_asc' ? 'date ASC' : 'date DESC';
 
-  const results = queryAll(
+  const results = queryAll<EmailRecord>(
     'SELECT * FROM emails WHERE account_id = ? ORDER BY ' + orderBy + ' LIMIT ? OFFSET ?',
     [accountId, limit, offset],
   );
@@ -50,7 +71,7 @@ router.get('/:id', async (req, res) => {
   const emailId = req.params.id;
   const accountId = (req.query.accountId as string) || req.session.activeAccountId;
 
-  let email = queryOne<any>(
+  let email = queryOne<EmailRecord>(
     'SELECT * FROM emails WHERE id = ? AND account_id = ?',
     [emailId, accountId],
   );
@@ -201,7 +222,7 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-function formatEmail(email: any) {
+function formatEmail(email: EmailRecord) {
   return {
     id: email.id,
     threadId: email.thread_id,

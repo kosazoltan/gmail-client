@@ -1,16 +1,40 @@
-import { queryOne, queryAll, execute } from '../db/index.js';
+import { queryOne, execute } from '../db/index.js';
 import { v4 as uuidv4 } from 'uuid';
 import { getOAuth2ClientForAccount } from './auth.service.js';
 import {
   getGmailClient,
   listMessages,
   getMessage,
-  getMessageMetadata,
   getProfile,
   getHistory,
 } from './gmail.service.js';
 import { categorizeEmail } from './categorization.service.js';
 import { extractContactsFromEmail, autoExtractContactsIfNeeded } from './contacts.service.js';
+
+// Gmail üzenet interfész (getMessage visszatérési típusa)
+interface GmailMessage {
+  id: string;
+  threadId?: string | null;
+  subject: string;
+  from: string;
+  fromName: string;
+  to: string;
+  cc: string;
+  snippet?: string | null;
+  body: string;
+  bodyHtml: string;
+  date: number;
+  isRead: boolean;
+  isStarred: boolean;
+  labels: string[];
+  hasAttachments: boolean;
+  attachments: Array<{
+    filename: string;
+    mimeType: string;
+    size: number;
+    attachmentId: string;
+  }>;
+}
 
 // Email szinkronizálás egy fiókhoz
 export async function syncAccount(accountId: string, fullSync = false) {
@@ -164,7 +188,7 @@ async function incrementalSync(
   return processedCount;
 }
 
-function saveEmail(accountId: string, msg: any) {
+function saveEmail(accountId: string, msg: GmailMessage) {
   const categoryId = categorizeEmail(accountId, {
     from: msg.from,
     subject: msg.subject || '',

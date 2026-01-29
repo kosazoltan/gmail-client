@@ -1,6 +1,34 @@
 import { Router } from 'express';
 import { queryOne, queryAll } from '../db/index.js';
 
+// Adatbázis rekord interfészek
+interface EmailRecord {
+  id: string;
+  thread_id: string | null;
+  subject: string | null;
+  from_email: string | null;
+  from_name: string | null;
+  to_email: string | null;
+  cc_email: string | null;
+  snippet: string | null;
+  date: number;
+  is_read: number;
+  is_starred: number;
+  labels: string | null;
+  has_attachments: number;
+  category_id: string | null;
+  topic_id: string | null;
+}
+
+interface CategoryRecord {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+  is_system: number;
+  account_id: string;
+}
+
 const router = Router();
 
 router.get('/by-sender', (req, res) => {
@@ -24,7 +52,7 @@ router.get('/by-sender/:email', (req, res) => {
   const limit = parseInt(req.query.limit as string) || 50;
   const offset = (page - 1) * limit;
 
-  const results = queryAll('SELECT * FROM emails WHERE account_id = ? AND from_email = ? ORDER BY date DESC LIMIT ? OFFSET ?', [accountId, senderEmail, limit, offset]);
+  const results = queryAll<EmailRecord>('SELECT * FROM emails WHERE account_id = ? AND from_email = ? ORDER BY date DESC LIMIT ? OFFSET ?', [accountId, senderEmail, limit, offset]);
   res.json({ emails: results.map(formatEmail), senderEmail });
 });
 
@@ -45,7 +73,7 @@ router.get('/by-topic/:id', (req, res) => {
   if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók' }); return; }
 
   const topicId = req.params.id;
-  const results = queryAll('SELECT * FROM emails WHERE account_id = ? AND topic_id = ? ORDER BY date DESC', [accountId, topicId]);
+  const results = queryAll<EmailRecord>('SELECT * FROM emails WHERE account_id = ? AND topic_id = ? ORDER BY date DESC', [accountId, topicId]);
   const topic = queryOne('SELECT * FROM topics WHERE id = ?', [topicId]);
   res.json({ emails: results.map(formatEmail), topic });
 });
@@ -103,7 +131,7 @@ router.get('/by-time/:periodId', (req, res) => {
     case 'older': from = 0; to = monthStart; break;
   }
 
-  const results = queryAll('SELECT * FROM emails WHERE account_id = ? AND date >= ? AND date < ? ORDER BY date DESC LIMIT ? OFFSET ?', [accountId, from, to, limit, offset]);
+  const results = queryAll<EmailRecord>('SELECT * FROM emails WHERE account_id = ? AND date >= ? AND date < ? ORDER BY date DESC LIMIT ? OFFSET ?', [accountId, from, to, limit, offset]);
   res.json({ emails: results.map(formatEmail), periodId });
 });
 
@@ -111,9 +139,9 @@ router.get('/by-category', (req, res) => {
   const accountId = (req.query.accountId as string) || req.session.activeAccountId;
   if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók' }); return; }
 
-  const cats = queryAll('SELECT * FROM categories WHERE account_id = ?', [accountId]);
+  const cats = queryAll<CategoryRecord>('SELECT * FROM categories WHERE account_id = ?', [accountId]);
 
-  const categoriesWithCount = (cats as any[]).map((cat) => {
+  const categoriesWithCount = cats.map((cat) => {
     const countResult = queryOne<{ count: number }>('SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND category_id = ?', [accountId, cat.id]);
     return { ...cat, emailCount: countResult?.count || 0 };
   });
@@ -130,12 +158,12 @@ router.get('/by-category/:id', (req, res) => {
   const limit = parseInt(req.query.limit as string) || 50;
   const offset = (page - 1) * limit;
 
-  const results = queryAll('SELECT * FROM emails WHERE account_id = ? AND category_id = ? ORDER BY date DESC LIMIT ? OFFSET ?', [accountId, categoryId, limit, offset]);
+  const results = queryAll<EmailRecord>('SELECT * FROM emails WHERE account_id = ? AND category_id = ? ORDER BY date DESC LIMIT ? OFFSET ?', [accountId, categoryId, limit, offset]);
   const cat = queryOne('SELECT * FROM categories WHERE id = ?', [categoryId]);
   res.json({ emails: results.map(formatEmail), category: cat });
 });
 
-function formatEmail(email: any) {
+function formatEmail(email: EmailRecord) {
   return {
     id: email.id,
     threadId: email.thread_id,

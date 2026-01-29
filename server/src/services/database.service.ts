@@ -76,7 +76,7 @@ export function getDatabaseStats(accountId?: string): DatabaseStats {
   );
 
   // Emailek fiókonként
-  const emailsByAccount = queryAll<{ account_id: string; email: string; count: number }>(
+  const emailsByAccountRaw = queryAll<{ account_id: string; email: string; count: number }>(
     `SELECT e.account_id, a.email, COUNT(*) as count
      FROM emails e
      JOIN accounts a ON e.account_id = a.id
@@ -104,7 +104,11 @@ export function getDatabaseStats(accountId?: string): DatabaseStats {
     databaseSizeBytes,
     oldestEmail: oldestEmail?.date || null,
     newestEmail: newestEmail?.date || null,
-    emailsByAccount,
+    emailsByAccount: emailsByAccountRaw.map(row => ({
+      accountId: row.account_id,
+      email: row.email,
+      count: row.count,
+    })),
   };
 }
 

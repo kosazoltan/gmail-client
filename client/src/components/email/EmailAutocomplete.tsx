@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { api } from '../../lib/api';
 import type { Contact } from '../../types';
 
@@ -22,18 +22,15 @@ export function EmailAutocomplete({
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Az utolsó beírt cím kinyerése (vesszővel elválasztott lista esetén)
-  const getCurrentInput = () => {
+  const currentInput = useMemo(() => {
     const parts = value.split(',');
     return parts[parts.length - 1].trim();
-  };
+  }, [value]);
 
   // Keresés kontaktok között
   useEffect(() => {
-    const currentInput = getCurrentInput();
-
     if (currentInput.length < 1) {
-      setSuggestions([]);
-      setShowSuggestions(false);
+      // Cleanup timer callback-ben történik, nem szinkron setState
       return;
     }
 
@@ -49,8 +46,13 @@ export function EmailAutocomplete({
       }
     }, 150);
 
-    return () => clearTimeout(timer);
-  }, [value]);
+    return () => {
+      clearTimeout(timer);
+      // Cleanup-kor állítjuk vissza
+      setSuggestions([]);
+      setShowSuggestions(false);
+    };
+  }, [currentInput]);
 
   // Kívülre kattintás kezelése
   useEffect(() => {

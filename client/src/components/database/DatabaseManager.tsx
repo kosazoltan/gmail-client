@@ -287,7 +287,7 @@ function EmailsTab() {
 
         <select
           value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as any)}
+          onChange={(e) => setSortBy(e.target.value as 'date' | 'from' | 'subject' | 'size')}
           className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
         >
           <option value="date">Dátum</option>
