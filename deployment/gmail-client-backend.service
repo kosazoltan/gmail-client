@@ -1,0 +1,23 @@
+[Unit]
+Description=Gmail Client Backend Service
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/gmail-client/server
+EnvironmentFile=/var/www/gmail-client/server/.env
+ExecStart=/usr/bin/node dist/server.js
+ExecStop=/bin/kill -15 $MAINPID
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gmail-client-backend
+
+[Install]
+WantedBy=multi-user.target

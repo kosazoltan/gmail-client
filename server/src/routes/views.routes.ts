@@ -1,0 +1,158 @@
+import { Router } from 'express';
+import { queryOne, queryAll } from '../db/index.js';
+
+const router = Router();
+
+router.get('/by-sender', (req, res) => {
+  const accountId = (req.query.accountId as string) || req.session.activeAccountId;
+  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók' }); return; }
+
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 30;
+  const offset = (page - 1) * limit;
+
+  const senders = queryAll('SELECT * FROM sender_groups WHERE account_id = ? ORDER BY message_count DESC LIMIT ? OFFSET ?', [accountId, limit, offset]);
+  res.json({ senders });
+});
+
+router.get('/by-sender/:email', (req, res) => {
+  const accountId = (req.query.accountId as string) || req.session.activeAccountId;
+  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók' }); return; }
+
+  const senderEmail = decodeURIComponent(req.params.email);
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 50;
+  const offset = (page - 1) * limit;
+
+  const results = queryAll('SELECT * FROM emails WHERE account_id = ? AND from_email = ? ORDER BY date DESC LIMIT ? OFFSET ?', [accountId, senderEmail, limit, offset]);
+  res.json({ emails: results.map(formatEmail), senderEmail });
+});
+
+router.get('/by-topic', (req, res) => {
+  const accountId = (req.query.accountId as string) || req.session.activeAccountId;
+  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók' }); return; }
+
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 30;
+  const offset = (page - 1) * limit;
+
+  const topicList = queryAll('SELECT * FROM topics WHERE account_id = ? ORDER BY message_count DESC LIMIT ? OFFSET ?', [accountId, limit, offset]);
+  res.json({ topics: topicList });
+});
+
+router.get('/by-topic/:id', (req, res) => {
+  const accountId = (req.query.accountId as string) || req.session.activeAccountId;
+  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók' }); return; }
+
+  const topicId = req.params.id;
+  const results = queryAll('SELECT * FROM emails WHERE account_id = ? AND topic_id = ? ORDER BY date DESC', [accountId, topicId]);
+  const topic = queryOne('SELECT * FROM topics WHERE id = ?', [topicId]);
+  res.json({ emails: results.map(formatEmail), topic });
+});
+
+router.get('/by-time', (req, res) => {
+  const accountId = (req.query.accountId as string) || req.session.activeAccountId;
+  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók' }); return; }
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const yesterdayStart = todayStart - 24 * 60 * 60 * 1000;
+  const weekStart = todayStart - 7 * 24 * 60 * 60 * 1000;
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+  const countByPeriod = (from: number, to: number) => {
+    const r = queryOne<{ count: number }>('SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND date >= ? AND date < ?', [accountId, from, to]);
+    return r?.count || 0;
+  };
+
+  const olderCount = queryOne<{ count: number }>('SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND date < ?', [accountId, monthStart])?.count || 0;
+
+  const timePeriods = [
+    { id: 'today', name: 'Ma', from: todayStart, to: Date.now(), count: countByPeriod(todayStart, Date.now()) },
+    { id: 'yesterday', name: 'Tegnap', from: yesterdayStart, to: todayStart, count: countByPeriod(yesterdayStart, todayStart) },
+    { id: 'this_week', name: 'Ezen a héten', from: weekStart, to: yesterdayStart, count: countByPeriod(weekStart, yesterdayStart) },
+    { id: 'this_month', name: 'Ebben a hónapban', from: monthStart, to: weekStart, count: countByPeriod(monthStart, weekStart) },
+    { id: 'older', name: 'Régebbi', from: 0, to: monthStart, count: olderCount },
+  ];
+  res.json({ periods: timePeriods });
+});
+
+router.get('/by-time/:periodId', (req, res) => {
+  const accountId = (req.query.accountId as string) || req.session.activeAccountId;
+  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók' }); return; }
+
+  const periodId = req.params.periodId;
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 50;
+  const offset = (page - 1) * limit;
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const yesterdayStart = todayStart - 24 * 60 * 60 * 1000;
+  const weekStart = todayStart - 7 * 24 * 60 * 60 * 1000;
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+  let from = 0;
+  let to = Date.now();
+
+  switch (periodId) {
+    case 'today': from = todayStart; to = Date.now(); break;
+    case 'yesterday': from = yesterdayStart; to = todayStart; break;
+    case 'this_week': from = weekStart; to = yesterdayStart; break;
+    case 'this_month': from = monthStart; to = weekStart; break;
+    case 'older': from = 0; to = monthStart; break;
+  }
+
+  const results = queryAll('SELECT * FROM emails WHERE account_id = ? AND date >= ? AND date < ? ORDER BY date DESC LIMIT ? OFFSET ?', [accountId, from, to, limit, offset]);
+  res.json({ emails: results.map(formatEmail), periodId });
+});
+
+router.get('/by-category', (req, res) => {
+  const accountId = (req.query.accountId as string) || req.session.activeAccountId;
+  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók' }); return; }
+
+  const cats = queryAll('SELECT * FROM categories WHERE account_id = ?', [accountId]);
+
+  const categoriesWithCount = (cats as any[]).map((cat) => {
+    const countResult = queryOne<{ count: number }>('SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND category_id = ?', [accountId, cat.id]);
+    return { ...cat, emailCount: countResult?.count || 0 };
+  });
+
+  res.json({ categories: categoriesWithCount });
+});
+
+router.get('/by-category/:id', (req, res) => {
+  const accountId = (req.query.accountId as string) || req.session.activeAccountId;
+  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók' }); return; }
+
+  const categoryId = req.params.id;
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 50;
+  const offset = (page - 1) * limit;
+
+  const results = queryAll('SELECT * FROM emails WHERE account_id = ? AND category_id = ? ORDER BY date DESC LIMIT ? OFFSET ?', [accountId, categoryId, limit, offset]);
+  const cat = queryOne('SELECT * FROM categories WHERE id = ?', [categoryId]);
+  res.json({ emails: results.map(formatEmail), category: cat });
+});
+
+function formatEmail(email: any) {
+  return {
+    id: email.id,
+    threadId: email.thread_id,
+    subject: email.subject,
+    from: email.from_email,
+    fromName: email.from_name,
+    to: email.to_email,
+    cc: email.cc_email,
+    snippet: email.snippet,
+    date: email.date,
+    isRead: email.is_read,
+    isStarred: email.is_starred,
+    labels: email.labels ? JSON.parse(email.labels) : [],
+    hasAttachments: email.has_attachments,
+    categoryId: email.category_id,
+    topicId: email.topic_id,
+  };
+}
+
+export default router;
