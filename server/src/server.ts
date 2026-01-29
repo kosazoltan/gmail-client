@@ -34,22 +34,13 @@ async function start() {
   const app = express();
   const frontendUrl = process.env.FRONTEND_URL || 'https://mail.mindenes.org';
 
-  // Security headers
+  // Security headers - lazább beállítások a mobil böngésző kompatibilitásért
   app.use(
     helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          scriptSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          imgSrc: ["'self'", 'data:', 'https:'],
-          connectSrc: ["'self'", frontendUrl],
-          fontSrc: ["'self'"],
-          objectSrc: ["'none'"],
-          frameAncestors: ["'none'"],
-        },
-      },
-      crossOriginEmbedderPolicy: false, // Allow loading external images
+      contentSecurityPolicy: false, // A Vite build már kezeli a CSP-t
+      crossOriginEmbedderPolicy: false,
+      crossOriginOpenerPolicy: false, // Mobil böngészők kompatibilitás
+      crossOriginResourcePolicy: false,
     }),
   );
 
