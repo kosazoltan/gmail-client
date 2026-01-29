@@ -150,8 +150,9 @@ async function incrementalSync(
         console.error(`Hiba inkrementális szinkronizálásnál (${msgId}):`, err);
       }
     }
-  } catch (err: any) {
-    if (err?.code === 404) {
+  } catch (err) {
+    const error = err as { code?: number };
+    if (error?.code === 404) {
       console.log('HistoryId érvénytelen, teljes szinkronizálás...');
       const daysBack = parseInt(process.env.SYNC_DAYS_BACK || '30');
       processedCount = await fullSyncMessages(gmail, accountId, daysBack);

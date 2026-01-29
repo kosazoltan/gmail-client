@@ -9,7 +9,7 @@ import {
   trashMessage,
 } from '../services/gmail.service.js';
 import { getEmailAttachments } from '../services/attachment.service.js';
-import { AppError } from '../middleware/error-handler.js';
+import { upsertContact } from '../services/contacts.service.js';
 
 const router = Router();
 
@@ -98,6 +98,10 @@ router.post('/send', async (req, res) => {
     const { oauth2Client } = getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
     const result = await sendEmail(gmail, { to, subject, body, cc });
+
+    // Címzettek mentése a kontaktokba
+    saveRecipientsToContacts(accountId, to, cc);
+
     res.json({ success: true, messageId: result.id });
   } catch (error) {
     console.error('Email küldés hiba:', error);
@@ -116,6 +120,10 @@ router.post('/reply', async (req, res) => {
     const { oauth2Client } = getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
     const result = await sendEmail(gmail, { to, subject: subject || '', body, cc, inReplyTo, threadId });
+
+    // Címzettek mentése a kontaktokba
+    saveRecipientsToContacts(accountId, to, cc);
+
     res.json({ success: true, messageId: result.id });
   } catch (error) {
     console.error('Válasz küldés hiba:', error);
@@ -211,6 +219,52 @@ function formatEmail(email: any) {
     categoryId: email.category_id,
     topicId: email.topic_id,
   };
+}
+
+// Címzettek mentése a kontaktokba küldéskor/válaszkor
+function saveRecipientsToContacts(accountId: string, to: string, cc?: string) {
+  // To címek feldolgozása
+  if (to) {
+    const toAddresses = parseEmailAddresses(to);
+    for (const addr of toAddresses) {
+      upsertContact(accountId, addr.email, addr.name);
+    }
+  }
+
+  // CC címek feldolgozása
+  if (cc) {
+    const ccAddresses = parseEmailAddresses(cc);
+    for (const addr of ccAddresses) {
+      upsertContact(accountId, addr.email, addr.name);
+    }
+  }
+}
+
+// Email cím lista feldolgozása
+function parseEmailAddresses(addressString: string): Array<{ email: string; name: string | null }> {
+  const results: Array<{ email: string; name: string | null }> = [];
+  const parts = addressString.split(',');
+
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+
+    // "Name <email>" formátum
+    const match = trimmed.match(/^(.+?)\s*<([^>]+)>$/);
+    if (match) {
+      results.push({
+        name: match[1].trim().replace(/^["']|["']$/g, ''),
+        email: match[2].trim()
+      });
+    } else if (trimmed.includes('@')) {
+      results.push({
+        name: null,
+        email: trimmed
+      });
+    }
+  }
+
+  return results;
 }
 
 export default router;

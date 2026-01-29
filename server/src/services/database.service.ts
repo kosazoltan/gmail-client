@@ -350,12 +350,12 @@ export function deleteOldEmails(accountId: string, olderThanDays: number): numbe
 // Árva rekordok törlése (kontaktok, témák, stb. amikhez nincs email)
 export function cleanupOrphanedRecords(): { topics: number; senderGroups: number } {
   // Üres témák törlése
-  const topicResult = execute(
+  execute(
     `DELETE FROM topics WHERE id NOT IN (SELECT DISTINCT topic_id FROM emails WHERE topic_id IS NOT NULL)`
   );
 
   // Üres küldő csoportok törlése
-  const senderResult = execute(
+  execute(
     `DELETE FROM sender_groups WHERE email NOT IN (SELECT DISTINCT from_email FROM emails WHERE from_email IS NOT NULL)`
   );
 

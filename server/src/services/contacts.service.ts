@@ -197,11 +197,20 @@ export function extractContactsFromExistingEmails(accountId: string): number {
   return count;
 }
 
-// Automatikus kontakt kinyerés (csak ha még nem történt meg)
+// Utolsó kontakt kinyerés idejének tárolása (memóriában)
+const lastExtractionTime = new Map<string, number>();
+
+// Automatikus kontakt kinyerés (naponta egyszer vagy ha még nem történt meg)
 export function autoExtractContactsIfNeeded(accountId: string): void {
-  if (!hasExtractedContacts(accountId)) {
+  const now = Date.now();
+  const lastExtraction = lastExtractionTime.get(accountId);
+  const oneDayMs = 24 * 60 * 60 * 1000;
+
+  // Ha még soha nem volt kinyerés VAGY több mint 1 napja volt
+  if (!hasExtractedContacts(accountId) || !lastExtraction || (now - lastExtraction) > oneDayMs) {
     console.log(`Kontaktok automatikus kinyerése: ${accountId}`);
     const count = extractContactsFromExistingEmails(accountId);
     console.log(`${count} email címből kontaktok kinyerve.`);
+    lastExtractionTime.set(accountId, now);
   }
 }

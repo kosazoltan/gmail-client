@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
-import type { DatabaseStats, DatabaseEmail, Backup } from '../../types';
+import type { LucideIcon } from 'lucide-react';
 import {
   Database,
   HardDrive,
@@ -11,8 +11,6 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  Check,
-  X,
   Calendar,
   Paperclip,
   Mail,
@@ -22,7 +20,6 @@ import {
 } from 'lucide-react';
 
 export function DatabaseManager() {
-  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'stats' | 'emails' | 'backups'>('stats');
 
   return (
@@ -179,7 +176,7 @@ function StatsTab() {
   );
 }
 
-function StatCard({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
+function StatCard({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
   return (
     <div className="bg-gray-50 rounded-lg p-4">
       <div className="flex items-center gap-2 mb-1">
