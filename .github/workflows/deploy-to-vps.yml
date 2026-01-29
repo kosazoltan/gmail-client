@@ -82,9 +82,9 @@ jobs:
             git reset --hard origin/main || git reset --hard origin/master
           fi
 
-          echo "Installing backend dependencies..."
+          echo "Installing backend dependencies (including dev for build)..."
           cd server
-          npm ci --production
+          npm ci
 
           echo "Backend deployment completed!"
         EOF
