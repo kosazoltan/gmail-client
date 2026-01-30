@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
@@ -71,6 +71,10 @@ export function ByTopicView() {
 
   const emails = topicEmails?.emails || [];
 
+  // Ref a friss emails lista eléréséhez (stale closure fix)
+  const emailsRef = useRef(emails);
+  useEffect(() => { emailsRef.current = emails; }, [emails]);
+
   return (
     <div className="flex h-full relative">
       {/* Email lista - rejtett ha van kiválasztott email kis képernyőn */}
@@ -98,15 +102,19 @@ export function ByTopicView() {
           selectedEmailId={selectedEmail?.id || null}
           onSelectEmail={setSelectedEmail}
           onDeleteEmail={(emailId) => {
-            const emailIndex = emails.findIndex(e => e.id === emailId);
+            // Használjuk a ref-et a friss emails lista eléréséhez (stale closure fix)
+            const currentEmails = emailsRef.current;
+            const emailIndex = currentEmails.findIndex(e => e.id === emailId);
             deleteEmail.mutate(emailId, {
               onSuccess: () => {
                 if (selectedEmail?.id === emailId) {
-                  if (emails.length > 1) {
-                    if (emailIndex < emails.length - 1) {
-                      setSelectedEmail(emails[emailIndex + 1]);
+                  if (currentEmails.length > 1 && emailIndex !== -1) {
+                    if (emailIndex < currentEmails.length - 1) {
+                      setSelectedEmail(currentEmails[emailIndex + 1]);
+                    } else if (emailIndex > 0) {
+                      setSelectedEmail(currentEmails[emailIndex - 1]);
                     } else {
-                      setSelectedEmail(emails[emailIndex - 1]);
+                      setSelectedEmail(null);
                     }
                   } else {
                     setSelectedEmail(null);

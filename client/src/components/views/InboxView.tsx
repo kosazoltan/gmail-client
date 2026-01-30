@@ -175,15 +175,19 @@ export function InboxView() {
             onSelectEmail={setSelectedEmail}
             onDeleteEmail={(emailId) => {
               // Ha a kiválasztott emailt töröljük, válasszuk ki a következőt
-              const emailIndex = emails.findIndex(e => e.id === emailId);
+              // Használjuk a ref-et a friss emails lista eléréséhez (stale closure fix)
+              const currentEmails = emailsRef.current;
+              const emailIndex = currentEmails.findIndex(e => e.id === emailId);
               deleteEmail.mutate(emailId, {
                 onSuccess: () => {
                   if (selectedEmail?.id === emailId) {
-                    if (emails.length > 1) {
-                      if (emailIndex < emails.length - 1) {
-                        setSelectedEmail(emails[emailIndex + 1]);
+                    if (currentEmails.length > 1 && emailIndex !== -1) {
+                      if (emailIndex < currentEmails.length - 1) {
+                        setSelectedEmail(currentEmails[emailIndex + 1]);
+                      } else if (emailIndex > 0) {
+                        setSelectedEmail(currentEmails[emailIndex - 1]);
                       } else {
-                        setSelectedEmail(emails[emailIndex - 1]);
+                        setSelectedEmail(null);
                       }
                     } else {
                       setSelectedEmail(null);
