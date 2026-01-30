@@ -80,7 +80,12 @@ export function recategorizeAllEmails(accountId: string) {
 
   let updated = 0;
   for (const email of allEmails) {
-    const labels = email.labels ? JSON.parse(email.labels) : [];
+    let labels: string[] = [];
+    try {
+      labels = email.labels ? JSON.parse(email.labels) : [];
+    } catch {
+      // Ha a JSON parse hibás, üres tömb
+    }
     const categoryId = categorizeEmail(accountId, {
       from: email.from_email || '',
       subject: email.subject || '',

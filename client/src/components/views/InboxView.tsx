@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
 import { useEmails, useToggleStar, useMarkRead, useDeleteEmail } from '../../hooks/useEmails';
@@ -99,18 +99,30 @@ export function InboxView() {
     setShowDeleteConfirm(true);
   }, [selectedEmail]);
 
-  // Törlés megerősítése után
+  // Törlés megerősítése után - ref-eket használunk a friss értékekhez
+  const emailsRef = useRef(emails);
+  emailsRef.current = emails;
+
   const confirmDelete = useCallback(() => {
     if (!selectedEmail) return;
-    const currentIndex = selectedIndex;
-    deleteEmail.mutate(selectedEmail.id, {
+    const emailIdToDelete = selectedEmail.id;
+
+    deleteEmail.mutate(emailIdToDelete, {
       onSuccess: () => {
-        // Válasszuk ki a következő emailt
-        if (emails.length > 1) {
-          if (currentIndex < emails.length - 1) {
-            setSelectedEmail(emails[currentIndex + 1]);
+        // Friss emails lista használata ref-ből
+        const currentEmails = emailsRef.current;
+        const deletedIndex = currentEmails.findIndex(e => e.id === emailIdToDelete);
+
+        // Válasszuk ki a következő emailt a friss listából
+        // Megjegyzés: a mutáció invalidálja a queryt, így hamarosan új lista jön
+        // De addig is próbáljuk a következő emailt kiválasztani
+        if (currentEmails.length > 1 && deletedIndex !== -1) {
+          if (deletedIndex < currentEmails.length - 1) {
+            setSelectedEmail(currentEmails[deletedIndex + 1]);
+          } else if (deletedIndex > 0) {
+            setSelectedEmail(currentEmails[deletedIndex - 1]);
           } else {
-            setSelectedEmail(emails[currentIndex - 1]);
+            setSelectedEmail(null);
           }
         } else {
           setSelectedEmail(null);
@@ -118,7 +130,7 @@ export function InboxView() {
         setShowDeleteConfirm(false);
       },
     });
-  }, [selectedEmail, selectedIndex, emails, deleteEmail]);
+  }, [selectedEmail, deleteEmail]);
 
   // Billentyűparancsok
   useKeyboardShortcuts({

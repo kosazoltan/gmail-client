@@ -64,6 +64,12 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'Az email ID és a szundi idő megadása kötelező' });
     }
 
+    // Validáljuk a snoozeUntil timestamp-et
+    const snoozeTimestamp = parseInt(snoozeUntil);
+    if (isNaN(snoozeTimestamp) || snoozeTimestamp <= Date.now()) {
+      return res.status(400).json({ error: 'Érvénytelen szundi időpont - jövőbeli időpontot adj meg' });
+    }
+
     // Ellenőrizzük, hogy létezik-e az email
     const email = queryOne<{ id: string }>(
       'SELECT id FROM emails WHERE id = ? AND account_id = ?',
@@ -84,13 +90,13 @@ router.post('/', (req, res) => {
       // Frissítsük a meglévő szundit
       execute(
         'UPDATE snoozed_emails SET snooze_until = ? WHERE id = ?',
-        [snoozeUntil, existing.id],
+        [snoozeTimestamp, existing.id],
       );
 
       res.json({
         id: existing.id,
         emailId,
-        snoozeUntil,
+        snoozeUntil: snoozeTimestamp,
         updated: true,
       });
     } else {
@@ -101,13 +107,13 @@ router.post('/', (req, res) => {
       execute(
         `INSERT INTO snoozed_emails (id, email_id, account_id, snooze_until, created_at)
          VALUES (?, ?, ?, ?, ?)`,
-        [id, emailId, accountId, snoozeUntil, now],
+        [id, emailId, accountId, snoozeTimestamp, now],
       );
 
       res.json({
         id,
         emailId,
-        snoozeUntil,
+        snoozeUntil: snoozeTimestamp,
         createdAt: now,
       });
     }

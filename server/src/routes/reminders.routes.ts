@@ -44,6 +44,12 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: 'emailId és remindAt kötelező' });
   }
 
+  // Validáljuk a remindAt timestamp-et
+  const remindTimestamp = parseInt(remindAt);
+  if (isNaN(remindTimestamp) || remindTimestamp <= Date.now()) {
+    return res.status(400).json({ error: 'Érvénytelen emlékeztető időpont - jövőbeli időpontot adj meg' });
+  }
+
   // Ellenőrizzük, hogy az email létezik és ehhez a fiókhoz tartozik
   const email = queryOne(
     'SELECT id FROM emails WHERE id = ? AND account_id = ?',
@@ -70,7 +76,7 @@ router.post('/', (req, res) => {
   execute(
     `INSERT INTO reminders (id, email_id, account_id, remind_at, note, is_completed, created_at)
      VALUES (?, ?, ?, ?, ?, 0, ?)`,
-    [id, emailId, accountId, remindAt, note || null, now],
+    [id, emailId, accountId, remindTimestamp, note || null, now],
   );
 
   const reminder = queryOne('SELECT * FROM reminders WHERE id = ?', [id]);

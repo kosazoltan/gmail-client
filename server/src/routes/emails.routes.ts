@@ -102,44 +102,54 @@ router.get('/', (req, res) => {
 });
 
 router.get('/:id', async (req, res) => {
-  const emailId = req.params.id;
-  const accountId = validateAccountAccess(req);
+  try {
+    const emailId = req.params.id;
+    const accountId = validateAccountAccess(req);
 
-  let email = queryOne<EmailRecord>(
-    'SELECT * FROM emails WHERE id = ? AND account_id = ?',
-    [emailId, accountId],
-  );
-
-  if (email && !email.body && !email.body_html) {
-    try {
-      const { oauth2Client } = getOAuth2ClientForAccount(accountId!);
-      const gmail = getGmailClient(oauth2Client);
-      const fullMsg = await getMessage(gmail, emailId);
-
-      execute(
-        'UPDATE emails SET body = ?, body_html = ? WHERE id = ?',
-        [fullMsg.body, fullMsg.bodyHtml, emailId],
-      );
-
-      email = { ...email, body: fullMsg.body, body_html: fullMsg.bodyHtml };
-    } catch (err) {
-      console.error('Email body letöltés hiba:', err);
+    if (!accountId) {
+      res.status(403).json({ error: 'Nincs jogosultság' });
+      return;
     }
+
+    let email = queryOne<EmailRecord>(
+      'SELECT * FROM emails WHERE id = ? AND account_id = ?',
+      [emailId, accountId],
+    );
+
+    if (email && !email.body && !email.body_html) {
+      try {
+        const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+        const gmail = getGmailClient(oauth2Client);
+        const fullMsg = await getMessage(gmail, emailId);
+
+        execute(
+          'UPDATE emails SET body = ?, body_html = ? WHERE id = ?',
+          [fullMsg.body, fullMsg.bodyHtml, emailId],
+        );
+
+        email = { ...email, body: fullMsg.body, body_html: fullMsg.bodyHtml };
+      } catch (err) {
+        console.error('Email body letöltés hiba:', err);
+      }
+    }
+
+    if (!email) {
+      res.status(404).json({ error: 'Email nem található' });
+      return;
+    }
+
+    const emailAttachments = getEmailAttachments(emailId);
+
+    res.json({
+      ...formatEmail(email),
+      body: email.body,
+      bodyHtml: email.body_html,
+      attachments: emailAttachments,
+    });
+  } catch (err) {
+    console.error('Email lekérés hiba:', err);
+    res.status(500).json({ error: 'Szerver hiba az email lekérésekor' });
   }
-
-  if (!email) {
-    res.status(404).json({ error: 'Email nem található' });
-    return;
-  }
-
-  const emailAttachments = getEmailAttachments(emailId);
-
-  res.json({
-    ...formatEmail(email),
-    body: email.body,
-    bodyHtml: email.body_html,
-    attachments: emailAttachments,
-  });
 });
 
 router.post('/send', async (req, res) => {
@@ -301,7 +311,13 @@ function formatEmail(email: EmailRecord) {
     date: email.date,
     isRead: email.is_read,
     isStarred: email.is_starred,
-    labels: email.labels ? JSON.parse(email.labels) : [],
+    labels: (() => {
+      try {
+        return email.labels ? JSON.parse(email.labels) : [];
+      } catch {
+        return [];
+      }
+    })(),
     hasAttachments: email.has_attachments,
     categoryId: email.category_id,
     topicId: email.topic_id,

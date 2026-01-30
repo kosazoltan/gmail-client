@@ -39,6 +39,8 @@ router.get('/callback', async (req, res) => {
     req.session.save((err) => {
       if (err) {
         console.error('Session mentési hiba:', err);
+        res.redirect(`${frontendUrl}/?error=session_failed`);
+        return;
       }
 
       // Háttér szinkronizálás indítása

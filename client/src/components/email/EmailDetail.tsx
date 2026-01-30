@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import DOMPurify from 'dompurify';
 import { useEmailDetail, useMarkRead, useDeleteEmail } from '../../hooks/useEmails';
 import { AttachmentView } from './AttachmentView';
@@ -58,12 +58,14 @@ export function EmailDetail({
     });
   }, [email?.bodyHtml]);
 
-  // Automatikus olvasottnak jelölés
+  // Automatikus olvasottnak jelölés - ref-fel elkerüljük a felesleges újrafutást
+  const markReadRef = useRef(markRead);
+  markReadRef.current = markRead;
+
   useEffect(() => {
     if (email && !email.isRead) {
-      markRead.mutate({ emailId: email.id, isRead: true });
+      markReadRef.current.mutate({ emailId: email.id, isRead: true });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email?.id, email?.isRead]);
 
   if (!emailId) {

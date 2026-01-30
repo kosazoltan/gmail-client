@@ -236,6 +236,22 @@ export function saveDatabase() {
 // Automatikus mentés - 30 másodpercenként
 let saveInterval: NodeJS.Timeout | null = null;
 
+// Debounced save - megakadályozza a túl gyakori fájlba írást
+let pendingSave: NodeJS.Timeout | null = null;
+const DEBOUNCE_DELAY_MS = 1000; // 1 másodperc várakozás az utolsó írás után
+
+function debouncedSave() {
+  // Töröljük a korábbi pending save-et
+  if (pendingSave) {
+    clearTimeout(pendingSave);
+  }
+  // Beállítunk egy újat
+  pendingSave = setTimeout(() => {
+    saveDatabase();
+    pendingSave = null;
+  }, DEBOUNCE_DELAY_MS);
+}
+
 export function startAutoSave() {
   if (saveInterval) return;
   saveInterval = setInterval(() => {
@@ -247,6 +263,11 @@ export function stopAutoSave() {
   if (saveInterval) {
     clearInterval(saveInterval);
     saveInterval = null;
+  }
+  // Pending save törlése és azonnali mentés
+  if (pendingSave) {
+    clearTimeout(pendingSave);
+    pendingSave = null;
   }
   saveDatabase(); // Utolsó mentés
 }
@@ -282,5 +303,5 @@ export function queryAll<T = Record<string, unknown>>(sql: string, params: unkno
 export function execute(sql: string, params: unknown[] = []) {
   const db = getDb();
   db.run(sql, params);
-  saveDatabase();
+  debouncedSave(); // Debounced mentés a race condition elkerüléséhez
 }

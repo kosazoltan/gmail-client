@@ -198,7 +198,13 @@ function formatEmail(email: EmailRecord) {
     date: email.date,
     isRead: email.is_read,
     isStarred: email.is_starred,
-    labels: email.labels ? JSON.parse(email.labels) : [],
+    labels: (() => {
+      try {
+        return email.labels ? JSON.parse(email.labels) : [];
+      } catch {
+        return [];
+      }
+    })(),
     hasAttachments: email.has_attachments,
     categoryId: email.category_id,
     topicId: email.topic_id,
