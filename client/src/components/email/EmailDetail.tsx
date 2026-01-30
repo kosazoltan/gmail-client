@@ -269,9 +269,20 @@ export function EmailDetail({
                         {sender}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-dark-text-muted flex-shrink-0">
-                      <Clock className="h-3.5 w-3.5" />
-                      <span>{formatTime(email.date)}</span>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-dark-text-muted">
+                        <Clock className="h-3.5 w-3.5" />
+                        <span>{formatTime(email.date)}</span>
+                      </div>
+                      {/* Törlés gomb a küldő kártyában */}
+                      <button
+                        onClick={() => setShowDeleteConfirm(true)}
+                        className="p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-400 dark:text-dark-text-muted hover:text-red-600 dark:hover:text-red-400 transition-colors touch-manipulation"
+                        aria-label="Törlés"
+                        title="Törlés"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
 
