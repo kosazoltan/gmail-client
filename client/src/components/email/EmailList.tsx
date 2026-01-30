@@ -8,6 +8,7 @@ interface EmailListProps {
   isLoading?: boolean;
   selectedEmailId: string | null;
   onSelectEmail: (email: Email) => void;
+  onDeleteEmail?: (emailId: string) => void;
   title?: string;
   emptyMessage?: string;
 }
@@ -17,6 +18,7 @@ export function EmailList({
   isLoading,
   selectedEmailId,
   onSelectEmail,
+  onDeleteEmail,
   title,
   emptyMessage = 'Nincsenek levelek',
 }: EmailListProps) {
@@ -60,6 +62,7 @@ export function EmailList({
               isStarred: !email.isStarred,
             });
           }}
+          onDelete={onDeleteEmail}
         />
       ))}
     </div>

@@ -150,14 +150,36 @@ export function InboxView() {
 
   return (
     <>
-      <div className="flex h-full">
-        {/* Email lista */}
-        <div className="w-full lg:w-2/5 xl:w-1/3 border-r border-gray-200 dark:border-dark-border overflow-auto">
+      <div className="flex h-full relative">
+        {/* Email lista - rejtett ha van kiválasztott email kis képernyőn */}
+        <div className={`
+          w-full lg:w-2/5 xl:w-1/3 border-r border-gray-200 dark:border-dark-border overflow-auto
+          ${selectedEmail ? 'hidden lg:block' : 'block'}
+        `}>
           <EmailList
             emails={emails}
             isLoading={isLoading}
             selectedEmailId={selectedEmail?.id || null}
             onSelectEmail={setSelectedEmail}
+            onDeleteEmail={(emailId) => {
+              // Ha a kiválasztott emailt töröljük, válasszuk ki a következőt
+              const emailIndex = emails.findIndex(e => e.id === emailId);
+              deleteEmail.mutate(emailId, {
+                onSuccess: () => {
+                  if (selectedEmail?.id === emailId) {
+                    if (emails.length > 1) {
+                      if (emailIndex < emails.length - 1) {
+                        setSelectedEmail(emails[emailIndex + 1]);
+                      } else {
+                        setSelectedEmail(emails[emailIndex - 1]);
+                      }
+                    } else {
+                      setSelectedEmail(null);
+                    }
+                  }
+                }
+              });
+            }}
             title={`Beérkezett levelek${data?.total ? ` (${data.total})` : ''}`}
             emptyMessage="Nincs beérkezett levél. Szinkronizálj a frissítéshez!"
           />
@@ -168,7 +190,7 @@ export function InboxView() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-3 py-1 text-sm rounded border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary disabled:opacity-50 dark:text-dark-text"
+                className="px-4 py-3 text-sm rounded-lg border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary disabled:opacity-50 dark:text-dark-text touch-manipulation"
               >
                 Előző
               </button>
@@ -178,7 +200,7 @@ export function InboxView() {
               <button
                 onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
                 disabled={page === data.totalPages}
-                className="px-3 py-1 text-sm rounded border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary disabled:opacity-50 dark:text-dark-text"
+                className="px-4 py-3 text-sm rounded-lg border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary disabled:opacity-50 dark:text-dark-text touch-manipulation"
               >
                 Következő
               </button>
@@ -186,8 +208,11 @@ export function InboxView() {
           )}
         </div>
 
-        {/* Email részletek */}
-        <div className="hidden lg:block flex-1">
+        {/* Email részletek - full screen kis képernyőn, jobb oldal nagy képernyőn */}
+        <div className={`
+          flex-1
+          ${selectedEmail ? 'block absolute inset-0 lg:relative lg:inset-auto bg-white dark:bg-dark-bg z-10' : 'hidden lg:block'}
+        `}>
           <EmailDetail
             emailId={selectedEmail?.id || null}
             accountId={accountId}

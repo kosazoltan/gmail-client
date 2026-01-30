@@ -91,14 +91,14 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
         <button
           onClick={onToggle}
           className={cn(
-            'p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary',
+            'p-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary touch-manipulation',
             !isOpen && 'hidden lg:block',
           )}
           aria-label={isOpen ? 'Oldalsáv összecsukása' : 'Oldalsáv kinyitása'}
           title={isOpen ? 'Oldalsáv összecsukása' : 'Oldalsáv kinyitása'}
         >
           <ChevronLeft
-            className={cn('h-4 w-4 transition-transform', !isOpen && 'rotate-180')}
+            className={cn('h-5 w-5 transition-transform', !isOpen && 'rotate-180')}
           />
         </button>
       </div>
@@ -131,7 +131,7 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
               title={item.label}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
+                  'flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors touch-manipulation min-h-[44px]',
                   isActive
                     ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 font-medium'
                     : 'text-gray-600 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary hover:text-gray-900 dark:hover:text-dark-text',
@@ -177,7 +177,7 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
                   <button
                     onClick={() => handleSavedSearchClick(search.id, search.query)}
                     className={cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors w-full text-left',
+                      'flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors w-full text-left touch-manipulation min-h-[44px]',
                       isActive
                         ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 font-medium'
                         : 'text-gray-600 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary hover:text-gray-900 dark:hover:text-dark-text',
@@ -186,7 +186,7 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
                     title={isOpen ? search.query : `${search.name}: ${search.query}`}
                     aria-label={`Mentett keresés: ${search.name}`}
                   >
-                    <Search className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                    <Search className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
                     {isOpen && <span className="truncate">{search.name}</span>}
                   </button>
 
@@ -197,11 +197,11 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
                         e.stopPropagation();
                         setDeleteConfirmId(search.id);
                       }}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-opacity"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-opacity touch-manipulation"
                       title="Mentett keresés törlése"
                       aria-label={`${search.name} mentett keresés törlése`}
                     >
-                      <X className="h-3 w-3" aria-hidden="true" />
+                      <X className="h-4 w-4" aria-hidden="true" />
                     </button>
                   )}
 
@@ -242,13 +242,13 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
           <button
             onClick={onShowShortcuts}
             className={cn(
-              'flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-500 dark:text-dark-text-muted hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary w-full',
+              'flex items-center gap-2 rounded-lg px-3 py-3 text-sm text-gray-500 dark:text-dark-text-muted hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary w-full touch-manipulation min-h-[44px]',
               !isOpen && 'justify-center px-2',
             )}
             title="Billentyűparancsok (?)"
             aria-label="Billentyűparancsok megjelenítése"
           >
-            <Keyboard className="h-4 w-4" aria-hidden="true" />
+            <Keyboard className="h-5 w-5" aria-hidden="true" />
             {isOpen && <span>Billentyűparancsok</span>}
           </button>
         </div>
@@ -263,7 +263,7 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
             <button
               onClick={() => login.mutate()}
               className={cn(
-                'flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary w-full',
+                'flex items-center gap-2 rounded-lg px-3 py-3 text-sm hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary w-full touch-manipulation min-h-[44px]',
                 isOpen
                   ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 font-medium'
                   : 'text-gray-600 dark:text-dark-text-secondary justify-center px-2',
@@ -279,13 +279,13 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
             <button
               onClick={() => setShowLoginHelp(true)}
               className={cn(
-                'flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary w-full text-gray-500 dark:text-dark-text-muted',
+                'flex items-center gap-2 rounded-lg px-3 py-3 text-sm hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary w-full text-gray-500 dark:text-dark-text-muted touch-manipulation min-h-[44px]',
                 !isOpen && 'justify-center px-2',
               )}
               aria-label="Bejelentkezési segítség"
               title="Bejelentkezési segítség"
             >
-              <HelpCircle className="h-4 w-4" aria-hidden="true" />
+              <HelpCircle className="h-5 w-5" aria-hidden="true" />
               {isOpen && <span>Bejelentkezési segítség</span>}
             </button>
           </div>

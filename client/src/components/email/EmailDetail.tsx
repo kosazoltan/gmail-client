@@ -140,7 +140,7 @@ export function EmailDetail({
                 threadId: email.threadId || undefined,
               })
             }
-            className="p-2 rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            className="p-2.5 rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-colors touch-manipulation"
             aria-label="Válasz"
             title="Válasz"
           >
@@ -154,18 +154,28 @@ export function EmailDetail({
                 body: `\n\n---------- Továbbított üzenet ----------\nKüldő: ${email.fromName || ''} <${email.from}>\nDátum: ${formatFullDate(email.date)}\nTárgy: ${email.subject}\nCímzett: ${email.to}\n\n${email.body || ''}`,
               })
             }
-            className="p-2 rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            className="p-2.5 rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-colors touch-manipulation"
             aria-label="Továbbítás"
             title="Továbbítás"
           >
             <Forward className="h-5 w-5" />
           </button>
 
+          {/* Közvetlen törlés gomb */}
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="p-2.5 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-red-600 dark:hover:text-red-400 transition-colors touch-manipulation"
+            aria-label="Törlés"
+            title="Törlés"
+          >
+            <Trash2 className="h-5 w-5" />
+          </button>
+
           {/* További műveletek dropdown */}
           <div className="relative">
             <button
               onClick={() => setShowMoreActions(!showMoreActions)}
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary transition-colors"
+              className="p-2.5 rounded-full hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary transition-colors touch-manipulation"
               aria-label="További műveletek"
             >
               <MoreHorizontal className="h-5 w-5" />
@@ -184,17 +194,6 @@ export function EmailDetail({
                   <div className="px-1">
                     <ReminderMenu emailId={email.id} variant="menu-item" onClose={() => setShowMoreActions(false)} />
                   </div>
-                  <div className="border-t border-gray-100 dark:border-dark-border my-1" />
-                  <button
-                    onClick={() => {
-                      setShowMoreActions(false);
-                      setShowDeleteConfirm(true);
-                    }}
-                    className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    <span>Törlés</span>
-                  </button>
                 </div>
               </>
             )}

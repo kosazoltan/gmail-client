@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
+import { useDeleteEmail } from '../../hooks/useEmails';
 import { api } from '../../lib/api';
 import { EmailList } from '../email/EmailList';
 import { EmailDetail } from '../email/EmailDetail';
@@ -13,6 +14,7 @@ export function ByTimeView() {
   const { data: session } = useSession();
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod | null>(null);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
+  const deleteEmail = useDeleteEmail();
 
   const accountId = session?.activeAccountId || undefined;
 
@@ -76,32 +78,61 @@ export function ByTimeView() {
     );
   }
 
+  const emails = periodEmails?.emails || [];
+
   return (
-    <div className="flex h-full">
-      <div className="w-full lg:w-2/5 xl:w-1/3 border-r border-gray-200 dark:border-dark-border overflow-auto">
+    <div className="flex h-full relative">
+      {/* Email lista - rejtett ha van kiválasztott email kis képernyőn */}
+      <div className={`
+        w-full lg:w-2/5 xl:w-1/3 border-r border-gray-200 dark:border-dark-border overflow-auto
+        ${selectedEmail ? 'hidden lg:block' : 'block'}
+      `}>
         <div className="px-4 py-3 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border flex items-center gap-2">
           <button
             onClick={() => {
               setSelectedPeriod(null);
               setSelectedEmail(null);
             }}
-            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-dark-bg"
+            className="p-2.5 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-bg touch-manipulation"
+            aria-label="Vissza"
           >
-            <ArrowLeft className="h-4 w-4 text-gray-500 dark:text-dark-text-secondary" />
+            <ArrowLeft className="h-5 w-5 text-gray-500 dark:text-dark-text-secondary" />
           </button>
           <span className="text-sm font-medium text-gray-600 dark:text-dark-text">{selectedPeriod.name}</span>
         </div>
 
         <EmailList
-          emails={periodEmails?.emails || []}
+          emails={emails}
           isLoading={loadingEmails}
           selectedEmailId={selectedEmail?.id || null}
           onSelectEmail={setSelectedEmail}
+          onDeleteEmail={(emailId) => {
+            const emailIndex = emails.findIndex(e => e.id === emailId);
+            deleteEmail.mutate(emailId, {
+              onSuccess: () => {
+                if (selectedEmail?.id === emailId) {
+                  if (emails.length > 1) {
+                    if (emailIndex < emails.length - 1) {
+                      setSelectedEmail(emails[emailIndex + 1]);
+                    } else {
+                      setSelectedEmail(emails[emailIndex - 1]);
+                    }
+                  } else {
+                    setSelectedEmail(null);
+                  }
+                }
+              }
+            });
+          }}
           emptyMessage="Nincsenek levelek ebben az időszakban"
         />
       </div>
 
-      <div className="hidden lg:block flex-1">
+      {/* Email részletek - full screen kis képernyőn, jobb oldal nagy képernyőn */}
+      <div className={`
+        flex-1
+        ${selectedEmail ? 'block absolute inset-0 lg:relative lg:inset-auto bg-white dark:bg-dark-bg z-10' : 'hidden lg:block'}
+      `}>
         <EmailDetail
           emailId={selectedEmail?.id || null}
           accountId={accountId}
