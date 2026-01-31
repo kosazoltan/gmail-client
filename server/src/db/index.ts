@@ -213,6 +213,13 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
     CREATE INDEX IF NOT EXISTS idx_reminders_account ON reminders(account_id);
     CREATE INDEX IF NOT EXISTS idx_reminders_remind_at ON reminders(remind_at);
     CREATE INDEX IF NOT EXISTS idx_newsletter_senders_account ON newsletter_senders(account_id);
+
+    -- Extra indexek a teljesítmény javításához
+    CREATE INDEX IF NOT EXISTS idx_emails_account_date ON emails(account_id, date DESC);
+    CREATE INDEX IF NOT EXISTS idx_emails_is_read ON emails(is_read);
+    CREATE INDEX IF NOT EXISTS idx_emails_subject ON emails(subject);
+    CREATE INDEX IF NOT EXISTS idx_emails_starred ON emails(is_starred);
+    CREATE INDEX IF NOT EXISTS idx_attachments_email ON attachments(email_id);
   `);
 
   console.log('Adatbázis inicializálva.');
