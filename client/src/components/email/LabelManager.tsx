@@ -112,7 +112,7 @@ export function LabelManager({ emailId, currentLabels, onClose }: LabelManagerPr
           <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
         </div>
       ) : (
-        <div className="max-h-96 overflow-y-auto">
+        <div className="max-h-[60vh] overflow-y-auto">
           {/* Rendszer címkék */}
           {systemLabels.length > 0 && (
             <div className="p-2 border-b border-gray-100 dark:border-dark-border">
