@@ -200,6 +200,17 @@ function decodeBase64(data: string): string {
   return Buffer.from(data, 'base64url').toString('utf-8');
 }
 
+// RFC 2047 MIME encoded-word kódolás ékezetes karakterekhez a fejlécekben
+function encodeRFC2047(text: string): string {
+  // Ha csak ASCII karakterek vannak, nem kell kódolni
+  if (/^[\x00-\x7F]*$/.test(text)) {
+    return text;
+  }
+  // UTF-8 base64 kódolás: =?UTF-8?B?base64?=
+  const encoded = Buffer.from(text, 'utf-8').toString('base64');
+  return `=?UTF-8?B?${encoded}?=`;
+}
+
 // Email küldés mellékletekkel
 export interface EmailAttachment {
   filename: string;
@@ -230,7 +241,7 @@ export async function sendEmail(
     const headers = [
       `To: ${to}`,
       cc ? `Cc: ${cc}` : '',
-      `Subject: ${subject}`,
+      `Subject: ${encodeRFC2047(subject)}`,
       'MIME-Version: 1.0',
       `Content-Type: multipart/mixed; boundary="${boundary}"`,
       inReplyTo ? `In-Reply-To: ${inReplyTo}` : '',
@@ -266,7 +277,7 @@ export async function sendEmail(
     // Egyszerű email melléklet nélkül
     const messageParts = [
       `To: ${to}`,
-      `Subject: ${subject}`,
+      `Subject: ${encodeRFC2047(subject)}`,
       'Content-Type: text/html; charset=utf-8',
       'MIME-Version: 1.0',
     ];
