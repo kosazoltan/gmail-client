@@ -11,6 +11,7 @@ import {
 import {
   ArrowLeft,
   Reply,
+  ReplyAll,
   Forward,
   Trash2,
   Loader2,
@@ -30,7 +31,7 @@ interface EmailDetailProps {
   emailId: string | null;
   accountId?: string;
   onBack: () => void;
-  onReply: (email: { to: string; subject: string; threadId?: string }) => void;
+  onReply: (email: { to: string; subject: string; threadId?: string; cc?: string }) => void;
   onForward?: (email: { subject: string; body: string }) => void;
 }
 
@@ -609,6 +610,76 @@ export function EmailDetail({
             </div>
           </div>
 
+          {/* Műveleti gombok - Válasz, Válasz mindenkinek, Továbbítás */}
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <button
+              onClick={() =>
+                onReply({
+                  to: email.from || '',
+                  subject: `Re: ${email.subject || ''}`,
+                  threadId: email.threadId || undefined,
+                })
+              }
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-blue-500/25 hover:shadow-lg transition-all active:scale-[0.98]"
+            >
+              <Reply className="h-4 w-4" />
+              <span>Válasz</span>
+            </button>
+            {/* Válasz mindenkinek - csak ha van CC vagy több címzett */}
+            {(email.cc || (email.to && email.to.includes(','))) && (
+              <button
+                onClick={() =>
+                  onReply({
+                    to: email.from || '',
+                    subject: `Re: ${email.subject || ''}`,
+                    threadId: email.threadId || undefined,
+                    cc: [email.to, email.cc].filter(Boolean).join(', '),
+                  })
+                }
+                className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-dark-bg-tertiary hover:bg-gray-50 dark:hover:bg-dark-bg text-gray-700 dark:text-dark-text border border-gray-200 dark:border-dark-border rounded-xl text-sm font-medium shadow-sm hover:shadow transition-all active:scale-[0.98]"
+              >
+                <ReplyAll className="h-4 w-4" />
+                <span>Válasz mindenkinek</span>
+              </button>
+            )}
+            <button
+              onClick={() =>
+                onForward?.({
+                  subject: `Fwd: ${email.subject || ''}`,
+                  body: `\n\n---------- Továbbított üzenet ----------\nKüldő: ${email.fromName || ''} <${email.from}>\nDátum: ${formatFullDate(email.date)}\nTárgy: ${email.subject}\nCímzett: ${email.to}\n\n${email.body || ''}`,
+                })
+              }
+              className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-dark-bg-tertiary hover:bg-gray-50 dark:hover:bg-dark-bg text-gray-700 dark:text-dark-text border border-gray-200 dark:border-dark-border rounded-xl text-sm font-medium shadow-sm hover:shadow transition-all active:scale-[0.98]"
+            >
+              <Forward className="h-4 w-4" />
+              <span>Továbbítás</span>
+            </button>
+          </div>
+
+          {/* Mellékletek - AZ ÜZENET FÖLÖTT */}
+          {email.attachments && email.attachments.length > 0 && (
+            <div className="bg-white dark:bg-dark-bg-secondary rounded-2xl shadow-md shadow-gray-200/50 dark:shadow-black/20 border border-gray-100/80 dark:border-dark-border/50 p-4 mb-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-md shadow-blue-500/25">
+                  <Paperclip className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <span className="text-sm font-semibold text-gray-800 dark:text-dark-text">
+                    {email.attachments.length} melléklet
+                  </span>
+                  <p className="text-xs text-gray-500 dark:text-dark-text-muted">
+                    Kattints a letöltéshez
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {email.attachments.map((att) => (
+                  <AttachmentView key={att.id} attachment={att} />
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Email body kártya */}
           <div className="bg-white dark:bg-dark-bg-secondary rounded-3xl shadow-lg shadow-gray-200/50 dark:shadow-black/20 border border-gray-100/80 dark:border-dark-border/50 overflow-hidden">
             <div className="p-4 sm:p-6">
@@ -625,33 +696,9 @@ export function EmailDetail({
                 </div>
               )}
             </div>
-
-            {/* Mellékletek */}
-            {email.attachments && email.attachments.length > 0 && (
-              <div className="border-t border-gray-100 dark:border-dark-border/50 bg-gradient-to-b from-gray-50 to-gray-100/50 dark:from-dark-bg-tertiary/30 dark:to-dark-bg-tertiary/50 p-4 sm:p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/25">
-                    <Paperclip className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <span className="text-sm font-semibold text-gray-800 dark:text-dark-text">
-                      {email.attachments.length} melléklet
-                    </span>
-                    <p className="text-xs text-gray-500 dark:text-dark-text-muted">
-                      Kattints a letöltéshez
-                    </p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {email.attachments.map((att) => (
-                    <AttachmentView key={att.id} attachment={att} />
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* Gyors válasz gombok alul */}
+          {/* Alsó válasz gombok */}
           <div className="flex items-center justify-center gap-3 mt-6 pb-6">
             <button
               onClick={() =>
@@ -661,23 +708,27 @@ export function EmailDetail({
                   threadId: email.threadId || undefined,
                 })
               }
-              className="flex items-center gap-2.5 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-2xl text-sm font-semibold shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 transition-all active:scale-[0.98]"
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-blue-500/25 hover:shadow-lg transition-all active:scale-[0.98]"
             >
               <Reply className="h-4 w-4" />
               <span>Válasz</span>
             </button>
-            <button
-              onClick={() =>
-                onForward?.({
-                  subject: `Fwd: ${email.subject || ''}`,
-                  body: `\n\n---------- Továbbított üzenet ----------\nKüldő: ${email.fromName || ''} <${email.from}>\nDátum: ${formatFullDate(email.date)}\nTárgy: ${email.subject}\nCímzett: ${email.to}\n\n${email.body || ''}`,
-                })
-              }
-              className="flex items-center gap-2.5 px-6 py-3 bg-white dark:bg-dark-bg-secondary hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary text-gray-700 dark:text-dark-text border border-gray-200 dark:border-dark-border rounded-2xl text-sm font-semibold shadow-lg shadow-gray-200/50 dark:shadow-black/20 hover:shadow-xl transition-all active:scale-[0.98]"
-            >
-              <Forward className="h-4 w-4" />
-              <span>Továbbítás</span>
-            </button>
+            {(email.cc || (email.to && email.to.includes(','))) && (
+              <button
+                onClick={() =>
+                  onReply({
+                    to: email.from || '',
+                    subject: `Re: ${email.subject || ''}`,
+                    threadId: email.threadId || undefined,
+                    cc: [email.to, email.cc].filter(Boolean).join(', '),
+                  })
+                }
+                className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-dark-bg-secondary hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary text-gray-700 dark:text-dark-text border border-gray-200 dark:border-dark-border rounded-xl text-sm font-medium shadow-sm hover:shadow transition-all active:scale-[0.98]"
+              >
+                <ReplyAll className="h-4 w-4" />
+                <span>Válasz mindenkinek</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
