@@ -71,6 +71,8 @@ router.post('/logout', (req, res) => {
   req.session.save((err) => {
     if (err) {
       console.error('Session mentési hiba logout után:', err);
+      res.status(500).json({ error: 'Session mentési hiba' });
+      return;
     }
     res.json({ success: true });
   });
@@ -109,6 +111,8 @@ router.post('/switch-account', (req, res) => {
     req.session.save((err) => {
       if (err) {
         console.error('Session mentési hiba switch után:', err);
+        res.status(500).json({ error: 'Session mentési hiba' });
+        return;
       }
       res.json({ success: true, activeAccountId: accountId });
     });

@@ -37,7 +37,18 @@ function encrypt(text: string): string {
 
 function decrypt(encrypted: string): string {
   const key = getEncryptionKey();
-  const [ivHex, authTagHex, encryptedText] = encrypted.split(':');
+  const parts = encrypted.split(':');
+
+  if (parts.length !== 3) {
+    throw new Error('Érvénytelen titkosított adat formátum');
+  }
+
+  const [ivHex, authTagHex, encryptedText] = parts;
+
+  if (!ivHex || !authTagHex || !encryptedText) {
+    throw new Error('Hiányzó titkosítási komponens');
+  }
+
   const iv = Buffer.from(ivHex, 'hex');
   const authTag = Buffer.from(authTagHex, 'hex');
   const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
@@ -71,7 +82,18 @@ export async function handleAuthCallback(code: string) {
 
   const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
   const userInfo = await oauth2.userinfo.get();
-  const email = userInfo.data.email!;
+
+  if (!userInfo.data.email) {
+    throw new Error('Google fiókból nem sikerült email címet lekérni');
+  }
+  if (!tokens.access_token) {
+    throw new Error('Hiányzó access token a Google válaszból');
+  }
+  if (!tokens.refresh_token) {
+    throw new Error('Hiányzó refresh token a Google válaszból');
+  }
+
+  const email = userInfo.data.email;
   const name = userInfo.data.name || email;
 
   const existingAccount = queryOne<{ id: string }>(
@@ -80,8 +102,8 @@ export async function handleAuthCallback(code: string) {
   );
 
   const accountId = existingAccount?.id || uuidv4();
-  const encryptedAccess = encrypt(tokens.access_token!);
-  const encryptedRefresh = encrypt(tokens.refresh_token!);
+  const encryptedAccess = encrypt(tokens.access_token);
+  const encryptedRefresh = encrypt(tokens.refresh_token);
 
   if (existingAccount) {
     execute(
