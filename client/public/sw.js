@@ -1,5 +1,7 @@
 // ZMail Service Worker
-const CACHE_NAME = 'zmail-cache-v1';
+// Cache verzió - növeld minden jelentős frissítésnél!
+const CACHE_VERSION = 2;
+const CACHE_NAME = `zmail-cache-v${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
 
 // Statikus fájlok cache-elése
