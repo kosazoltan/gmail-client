@@ -71,6 +71,9 @@ jobs:
           set -e
           cd /var/www/gmail-client
 
+          # Fix git ownership issue
+          git config --global --add safe.directory /var/www/gmail-client
+
           if [ ! -d ".git" ]; then
             echo "Cloning repository..."
             cd /var/www
