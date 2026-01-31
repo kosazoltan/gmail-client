@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import DOMPurify from 'dompurify';
 import { useEmailDetail, useMarkRead, useDeleteEmail } from '../../hooks/useEmails';
 import { AttachmentView } from './AttachmentView';
@@ -34,6 +34,224 @@ interface EmailDetailProps {
   onForward?: (email: { subject: string; body: string }) => void;
 }
 
+// Iframe-ben megjelenített HTML email komponens
+function EmailHtmlFrame({ html, isDark }: { html: string; isDark: boolean }) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [height, setHeight] = useState(400);
+
+  // Szanitizált HTML wrapper stílusokkal
+  const wrappedHtml = useMemo(() => {
+    // A HTML-t megtisztítjuk de több tag-et engedélyezünk a jobb megjelenítéshez
+    const cleanHtml = DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: [
+        'html', 'head', 'body', 'style',
+        'div', 'span', 'p', 'br', 'hr',
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'strong', 'b', 'em', 'i', 'u', 's', 'strike',
+        'a', 'img',
+        'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption', 'colgroup', 'col',
+        'ul', 'ol', 'li', 'dl', 'dt', 'dd',
+        'blockquote', 'pre', 'code',
+        'center', 'font', 'small', 'big', 'sup', 'sub',
+      ],
+      ALLOWED_ATTR: [
+        'href', 'src', 'alt', 'title', 'width', 'height',
+        'style', 'class', 'id', 'name',
+        'border', 'cellpadding', 'cellspacing', 'align', 'valign',
+        'bgcolor', 'color', 'face', 'size',
+        'colspan', 'rowspan',
+        'target', 'rel',
+      ],
+      ALLOW_DATA_ATTR: false,
+      ADD_ATTR: ['target'],
+      FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'textarea', 'select'],
+    });
+
+    // Dark mode stílusok
+    const darkModeStyles = isDark ? `
+      body {
+        background-color: #1a1a2e !important;
+        color: #e0e0e0 !important;
+      }
+      a { color: #60a5fa !important; }
+      table { border-color: #374151 !important; }
+      td, th { border-color: #374151 !important; }
+      hr { border-color: #374151 !important; }
+      blockquote { border-color: #3b82f6 !important; background-color: rgba(59, 130, 246, 0.1) !important; }
+    ` : '';
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          * {
+            box-sizing: border-box;
+          }
+          html, body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 15px;
+            line-height: 1.6;
+            color: #1f2937;
+            background-color: transparent;
+            overflow-x: hidden;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+          }
+          body {
+            padding: 4px;
+          }
+          img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+          }
+          a {
+            color: #2563eb;
+            text-decoration: none;
+          }
+          a:hover {
+            text-decoration: underline;
+          }
+          table {
+            border-collapse: collapse;
+            max-width: 100%;
+          }
+          td, th {
+            padding: 8px 12px;
+          }
+          blockquote {
+            margin: 16px 0;
+            padding: 12px 16px;
+            border-left: 4px solid #3b82f6;
+            background-color: #eff6ff;
+            border-radius: 0 8px 8px 0;
+          }
+          pre {
+            background-color: #1f2937;
+            color: #e5e7eb;
+            padding: 16px;
+            border-radius: 12px;
+            overflow-x: auto;
+            font-size: 14px;
+          }
+          code {
+            font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
+          }
+          hr {
+            border: none;
+            border-top: 1px solid #e5e7eb;
+            margin: 24px 0;
+          }
+          h1, h2, h3, h4, h5, h6 {
+            margin-top: 24px;
+            margin-bottom: 12px;
+            font-weight: 600;
+            line-height: 1.3;
+          }
+          h1 { font-size: 1.875rem; }
+          h2 { font-size: 1.5rem; }
+          h3 { font-size: 1.25rem; }
+          p {
+            margin: 0 0 16px 0;
+          }
+          ul, ol {
+            padding-left: 24px;
+            margin: 12px 0;
+          }
+          li {
+            margin: 4px 0;
+          }
+          /* Email specifikus stílusok */
+          .gmail_quote, .yahoo_quoted {
+            border-left: 2px solid #d1d5db;
+            padding-left: 12px;
+            margin: 16px 0;
+            color: #6b7280;
+          }
+          /* Gombok szép megjelenítése */
+          a[style*="background"],
+          a[style*="border-radius"],
+          td[style*="background"] a {
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            text-align: center;
+            text-decoration: none !important;
+          }
+          ${darkModeStyles}
+        </style>
+      </head>
+      <body>${cleanHtml}</body>
+      </html>
+    `;
+  }, [html, isDark]);
+
+  // Magasság automatikus állítása
+  const updateHeight = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (iframe?.contentDocument?.body) {
+      const newHeight = Math.max(
+        iframe.contentDocument.body.scrollHeight,
+        iframe.contentDocument.documentElement.scrollHeight,
+        200
+      );
+      setHeight(newHeight + 20);
+    }
+  }, []);
+
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const handleLoad = () => {
+      updateHeight();
+      // Linkek új ablakban nyíljanak
+      const links = iframe.contentDocument?.querySelectorAll('a');
+      links?.forEach(link => {
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener noreferrer');
+      });
+    };
+
+    iframe.addEventListener('load', handleLoad);
+
+    // srcdoc változás esetén is frissítsük
+    const timer = setTimeout(updateHeight, 100);
+
+    return () => {
+      iframe.removeEventListener('load', handleLoad);
+      clearTimeout(timer);
+    };
+  }, [wrappedHtml, updateHeight]);
+
+  // Window resize esetén is frissítsük
+  useEffect(() => {
+    window.addEventListener('resize', updateHeight);
+    return () => window.removeEventListener('resize', updateHeight);
+  }, [updateHeight]);
+
+  return (
+    <iframe
+      ref={iframeRef}
+      srcDoc={wrappedHtml}
+      sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+      className="w-full border-0"
+      style={{
+        height: `${height}px`,
+        minHeight: '200px',
+        backgroundColor: 'transparent',
+      }}
+      title="Email tartalom"
+    />
+  );
+}
+
 export function EmailDetail({
   emailId,
   accountId,
@@ -48,17 +266,8 @@ export function EmailDetail({
   const [showMoreActions, setShowMoreActions] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
-  // HTML szanitizálás XSS elleni védelem - hook-nak a return előtt kell lennie
-  const sanitizedHtml = useMemo(() => {
-    if (!email?.bodyHtml) return '';
-    return DOMPurify.sanitize(email.bodyHtml, {
-      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'b', 'i', 'u', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'div', 'span', 'hr'],
-      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'style', 'target', 'rel', 'width', 'height'],
-      ALLOW_DATA_ATTR: false,
-      ADD_ATTR: ['target'],
-      FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
-    });
-  }, [email?.bodyHtml]);
+  // Dark mode detektálás
+  const isDark = document.documentElement.classList.contains('dark');
 
   // Automatikus olvasottnak jelölés - ref-fel elkerüljük a felesleges újrafutást
   const markReadRef = useRef(markRead);
@@ -402,22 +611,9 @@ export function EmailDetail({
 
           {/* Email body kártya */}
           <div className="bg-white dark:bg-dark-bg-secondary rounded-3xl shadow-lg shadow-gray-200/50 dark:shadow-black/20 border border-gray-100/80 dark:border-dark-border/50 overflow-hidden">
-            <div className="p-5 sm:p-8">
-              {sanitizedHtml ? (
-                <div
-                  className="prose prose-sm sm:prose-base max-w-none dark:prose-invert
-                    prose-headings:text-gray-900 dark:prose-headings:text-dark-text prose-headings:font-semibold
-                    prose-p:text-gray-700 dark:prose-p:text-dark-text-secondary prose-p:leading-relaxed
-                    prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline
-                    prose-strong:text-gray-900 dark:prose-strong:text-dark-text
-                    prose-img:rounded-2xl prose-img:shadow-lg
-                    prose-blockquote:border-l-4 prose-blockquote:border-blue-500 prose-blockquote:bg-blue-50 dark:prose-blockquote:bg-blue-500/10 prose-blockquote:rounded-r-xl prose-blockquote:py-1
-                    prose-pre:bg-gray-900 prose-pre:rounded-2xl
-                    prose-code:text-pink-600 dark:prose-code:text-pink-400
-                    prose-ul:list-disc prose-ol:list-decimal
-                    prose-li:text-gray-700 dark:prose-li:text-dark-text-secondary"
-                  dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-                />
+            <div className="p-4 sm:p-6">
+              {email.bodyHtml ? (
+                <EmailHtmlFrame html={email.bodyHtml} isDark={isDark} />
               ) : email.body ? (
                 <pre className="whitespace-pre-wrap text-sm sm:text-base text-gray-700 dark:text-dark-text-secondary font-sans leading-relaxed">
                   {email.body}
