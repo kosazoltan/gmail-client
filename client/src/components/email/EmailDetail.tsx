@@ -35,6 +35,7 @@ interface EmailDetailProps {
   onBack: () => void;
   onReply: (email: { to: string; subject: string; threadId?: string; cc?: string }) => void;
   onForward?: (email: { subject: string; body: string }) => void;
+  onDeleteSuccess?: () => void;
 }
 
 // Iframe-ben megjelenített HTML email komponens
@@ -261,6 +262,7 @@ export function EmailDetail({
   onBack,
   onReply,
   onForward,
+  onDeleteSuccess,
 }: EmailDetailProps) {
   const { data: email, isLoading } = useEmailDetail(emailId, accountId);
   const markRead = useMarkRead();
@@ -496,7 +498,11 @@ export function EmailDetail({
                   deleteEmail.mutate(email.id, {
                     onSuccess: () => {
                       setShowDeleteConfirm(false);
-                      onBack();
+                      if (onDeleteSuccess) {
+                        onDeleteSuccess();
+                      } else {
+                        onBack();
+                      }
                     },
                   });
                 }}

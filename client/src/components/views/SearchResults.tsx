@@ -89,6 +89,21 @@ export function SearchResults() {
               `/compose?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
             );
           }}
+          onDeleteSuccess={() => {
+            const currentEmails = emailsRef.current;
+            const deletedIndex = currentEmails.findIndex(e => e.id === selectedEmail?.id);
+            if (currentEmails.length > 1 && deletedIndex !== -1) {
+              if (deletedIndex < currentEmails.length - 1) {
+                setSelectedEmail(currentEmails[deletedIndex + 1]);
+              } else if (deletedIndex > 0) {
+                setSelectedEmail(currentEmails[deletedIndex - 1]);
+              } else {
+                setSelectedEmail(null);
+              }
+            } else {
+              setSelectedEmail(null);
+            }
+          }}
         />
       </div>
     </div>
