@@ -284,9 +284,15 @@ jobs:
           # Backend újraindítása
           systemctl restart gmail-client-backend
 
-          # Várakozás, majd ellenőrzés hogy fut-e
-          sleep 3
+          # Várakozás
+          sleep 5
+
+          # Ellenőrzés hogy fut-e
           systemctl is-active gmail-client-backend
+
+          # Check for startup errors in logs
+          echo "Recent backend logs:"
+          journalctl -u gmail-client-backend --no-pager -n 30
 
           echo "Backend service started and verified"
         EOF
