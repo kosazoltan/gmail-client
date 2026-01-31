@@ -43,13 +43,6 @@ export function LabelManager({ emailId, currentLabels, onClose }: LabelManagerPr
 
   const labels = data?.labels || [];
 
-  // DEBUG - töröld később
-  if (labels.length > 0) {
-    console.log('All labels:', labels);
-    console.log('User labels:', labels.filter((l) => l.type === 'user'));
-    console.log('System labels:', labels.filter((l) => l.type === 'system'));
-  }
-
   // Rendszer címkék ID-i amik megjelennek
   const SYSTEM_LABEL_IDS = ['INBOX', 'SENT', 'DRAFT', 'TRASH', 'SPAM', 'STARRED', 'IMPORTANT', 'UNREAD'];
   const SHOWN_SYSTEM_LABELS = ['INBOX', 'STARRED', 'IMPORTANT'];
