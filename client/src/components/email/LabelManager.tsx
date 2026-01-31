@@ -43,13 +43,13 @@ export function LabelManager({ emailId, currentLabels, onClose }: LabelManagerPr
 
   const labels = data?.labels || [];
 
-  // Rendszer címkék ID-i
+  // Rendszer címkék ID-i amik megjelennek
   const SYSTEM_LABEL_IDS = ['INBOX', 'SENT', 'DRAFT', 'TRASH', 'SPAM', 'STARRED', 'IMPORTANT', 'UNREAD'];
   const SHOWN_SYSTEM_LABELS = ['INBOX', 'STARRED', 'IMPORTANT'];
 
-  // Szűrjük ki a felhasználói és rendszer címkéket
-  const userLabels = labels.filter((l) => !SYSTEM_LABEL_IDS.includes(l.id));
-  const systemLabels = labels.filter((l) => SHOWN_SYSTEM_LABELS.includes(l.id));
+  // Szűrjük ki a felhasználói és rendszer címkéket a type mező alapján
+  const userLabels = labels.filter((l) => l.type === 'user');
+  const systemLabels = labels.filter((l) => l.type === 'system' && SHOWN_SYSTEM_LABELS.includes(l.id));
 
   const handleToggleLabel = (label: GmailLabel) => {
     const isActive = currentLabels.includes(label.id);
