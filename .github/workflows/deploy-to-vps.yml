@@ -144,8 +144,20 @@ jobs:
         ssh ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_SERVER_IP }} 'bash -s' << 'EOF'
           set -e
           cd /var/www/gmail-client/server
+
+          # Clean dist folder to ensure fresh build
+          echo "Cleaning dist folder..."
+          rm -rf dist
+
           echo "Building TypeScript..."
           npm run build
+
+          # Verify key files exist
+          echo "Verifying build..."
+          ls -la dist/server.js
+          ls -la dist/routes/labels.routes.js
+          ls -la dist/routes/push.routes.js
+
           echo "Backend TypeScript compiled successfully"
         EOF
 
