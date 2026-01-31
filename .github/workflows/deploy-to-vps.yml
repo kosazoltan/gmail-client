@@ -68,6 +68,7 @@ jobs:
     - name: Deploy Backend
       run: |
         ssh ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_SERVER_IP }} 'bash -s' << 'EOF'
+          set -e
           cd /var/www/gmail-client
 
           if [ ! -d ".git" ]; then
@@ -141,9 +142,11 @@ jobs:
     - name: Build Backend TypeScript
       run: |
         ssh ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_SERVER_IP }} 'bash -s' << 'EOF'
+          set -e
           cd /var/www/gmail-client/server
-          npm run build || npx tsc
-          echo "Backend TypeScript compiled"
+          echo "Building TypeScript..."
+          npm run build
+          echo "Backend TypeScript compiled successfully"
         EOF
 
     - name: Setup Node.js for Frontend Build
@@ -262,13 +265,18 @@ jobs:
     - name: Start Backend Service
       run: |
         ssh ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_SERVER_IP }} 'bash -s' << 'EOF'
+          set -e
           # Jogosultságok beállítása
           chown -R www-data:www-data /var/www/gmail-client
 
           # Backend újraindítása
-          systemctl restart gmail-client-backend || systemctl start gmail-client-backend
+          systemctl restart gmail-client-backend
 
-          echo "Backend service started"
+          # Várakozás, majd ellenőrzés hogy fut-e
+          sleep 3
+          systemctl is-active gmail-client-backend
+
+          echo "Backend service started and verified"
         EOF
 
     - name: Setup SSL Certificate
@@ -292,6 +300,7 @@ jobs:
         echo "Waiting for services to start..."
         sleep 10
         ssh ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_SERVER_IP }} 'bash -s' << 'EOF'
+          set -e
           echo "=== Gmail Client Deployment Status ==="
           echo ""
           echo "Backend service:"
@@ -300,8 +309,16 @@ jobs:
           echo "Nginx service:"
           systemctl status nginx --no-pager | head -5
           echo ""
-          echo "Testing local connection:"
-          curl -s -o /dev/null -w "Backend HTTP Status: %{http_code}\n" http://localhost:5000/health || echo "Backend not responding yet"
+          echo "Testing endpoints:"
+          curl -sf -o /dev/null http://localhost:5000/api/health && echo "✓ Health endpoint OK"
+          # Labels endpoint should return 400 (no auth) not 404
+          LABELS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/api/labels)
+          if [ "$LABELS_STATUS" = "400" ]; then
+            echo "✓ Labels endpoint OK (returns 400 without auth)"
+          else
+            echo "✗ Labels endpoint returned $LABELS_STATUS (expected 400)"
+            exit 1
+          fi
           echo ""
           echo "=== Deployment Complete ==="
           echo "Gmail Client available at: https://mail.mindenes.org"
