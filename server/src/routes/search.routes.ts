@@ -17,12 +17,15 @@ function validateAccountAccess(req: { query: { accountId?: string }; session: { 
   return accountId;
 }
 
-// FTS query sanitization - speciális karakterek eltávolítása
+// FTS query sanitization - speciális karakterek és operátorok eltávolítása
 function sanitizeFtsQuery(query: string): string {
-  // FTS5 speciális karakterek escape-elése: " * - OR AND NOT ( )
-  // Egyszerű megoldás: csak alfanumerikus és szóközök maradnak
+  // FTS5 speciális karakterek és operátorok eltávolítása
+  // Eltávolítjuk: " * - ( ) { } [ ] ^ ~ : az FTS operátorok ellen
+  // Valamint az SQL injection ellen is védekezünk
   return query
-    .replace(/[^\w\sáéíóöőúüű@.\-]/gi, ' ')
+    .replace(/[^\w\sáéíóöőúüű@.]/gi, ' ')  // Csak alfanumerikus, magyar ékezetek, @, . marad
+    .replace(/\b(AND|OR|NOT|NEAR)\b/gi, ' ')  // FTS5 operátorok eltávolítása
+    .replace(/\s+/g, ' ')  // Többszörös szóközök egy szóközre
     .trim()
     .substring(0, MAX_QUERY_LENGTH);
 }

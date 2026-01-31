@@ -198,24 +198,28 @@ export function getOAuth2ClientForAccount(accountId: string) {
   });
 
   oauth2Client.on('tokens', (tokens) => {
-    const updates: string[] = [];
-    const params: unknown[] = [];
+    try {
+      const updates: string[] = [];
+      const params: unknown[] = [];
 
-    if (tokens.access_token) {
-      updates.push('access_token = ?');
-      params.push(encrypt(tokens.access_token));
-    }
-    if (tokens.refresh_token) {
-      updates.push('refresh_token = ?');
-      params.push(encrypt(tokens.refresh_token));
-    }
-    if (tokens.expiry_date) {
-      updates.push('token_expiry = ?');
-      params.push(tokens.expiry_date);
-    }
-    if (updates.length > 0) {
-      params.push(accountId);
-      execute('UPDATE accounts SET ' + updates.join(', ') + ' WHERE id = ?', params);
+      if (tokens.access_token) {
+        updates.push('access_token = ?');
+        params.push(encrypt(tokens.access_token));
+      }
+      if (tokens.refresh_token) {
+        updates.push('refresh_token = ?');
+        params.push(encrypt(tokens.refresh_token));
+      }
+      if (tokens.expiry_date) {
+        updates.push('token_expiry = ?');
+        params.push(tokens.expiry_date);
+      }
+      if (updates.length > 0) {
+        params.push(accountId);
+        execute('UPDATE accounts SET ' + updates.join(', ') + ' WHERE id = ?', params);
+      }
+    } catch (error) {
+      console.error('Token frissítés mentési hiba:', error);
     }
   });
 

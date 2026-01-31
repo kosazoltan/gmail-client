@@ -61,7 +61,7 @@ export async function syncAccount(accountId: string, fullSync = false) {
     const profile = await getProfile(gmail);
     execute(
       'UPDATE accounts SET history_id = ?, last_sync_at = ? WHERE id = ?',
-      [profile.historyId?.toString(), Date.now(), accountId],
+      [profile.historyId ? profile.historyId.toString() : null, Date.now(), accountId],
     );
 
     execute(

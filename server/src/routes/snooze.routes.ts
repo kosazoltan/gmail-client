@@ -66,8 +66,14 @@ router.post('/', (req, res) => {
 
     // Validáljuk a snoozeUntil timestamp-et
     const snoozeTimestamp = parseInt(snoozeUntil);
-    if (isNaN(snoozeTimestamp) || snoozeTimestamp <= Date.now()) {
+    const now = Date.now();
+    const maxSnoozeTime = now + 365 * 24 * 60 * 60 * 1000; // Max 1 év
+
+    if (isNaN(snoozeTimestamp) || snoozeTimestamp <= now) {
       return res.status(400).json({ error: 'Érvénytelen szundi időpont - jövőbeli időpontot adj meg' });
+    }
+    if (snoozeTimestamp > maxSnoozeTime) {
+      return res.status(400).json({ error: 'Túl távoli időpont - maximum 1 évre szundizható' });
     }
 
     // Ellenőrizzük, hogy létezik-e az email

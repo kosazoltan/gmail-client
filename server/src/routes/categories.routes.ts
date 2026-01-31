@@ -29,11 +29,26 @@ router.post('/', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
+  const accountId = req.session.activeAccountId;
+  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók' }); return; }
+
   const categoryId = req.params.id;
   const { name, color, icon } = req.body;
 
+  // Ellenőrizzük, hogy a kategória a felhasználóé
+  const existing = queryOne<{ account_id: string }>(
+    'SELECT account_id FROM categories WHERE id = ?',
+    [categoryId],
+  );
+  if (!existing || existing.account_id !== accountId) {
+    res.status(404).json({ error: 'Kategória nem található' });
+    return;
+  }
+
+  // Csak engedélyezett oszlopok frissítése (SQL injection védelem)
   const updates: string[] = [];
   const params: unknown[] = [];
+
   if (name) { updates.push('name = ?'); params.push(name); }
   if (color) { updates.push('color = ?'); params.push(color); }
   if (icon) { updates.push('icon = ?'); params.push(icon); }
@@ -46,17 +61,44 @@ router.put('/:id', (req, res) => {
 });
 
 router.delete('/:id', (req, res) => {
+  const accountId = req.session.activeAccountId;
+  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók' }); return; }
+
   const categoryId = req.params.id;
-  const cat = queryOne<{ id: string; is_system: number }>('SELECT id, is_system FROM categories WHERE id = ?', [categoryId]);
-  if (cat?.is_system) { res.status(400).json({ error: 'Rendszer kategória nem törölhető' }); return; }
+  const cat = queryOne<{ id: string; is_system: number; account_id: string }>(
+    'SELECT id, is_system, account_id FROM categories WHERE id = ?',
+    [categoryId],
+  );
+
+  if (!cat || cat.account_id !== accountId) {
+    res.status(404).json({ error: 'Kategória nem található' });
+    return;
+  }
+  if (cat.is_system) {
+    res.status(400).json({ error: 'Rendszer kategória nem törölhető' });
+    return;
+  }
+
   execute('DELETE FROM categories WHERE id = ?', [categoryId]);
   res.json({ success: true });
 });
 
 router.get('/rules', (req, res) => {
-  const accountId = (req.query.accountId as string) || req.session.activeAccountId;
+  const accountId = req.session.activeAccountId;
   if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók' }); return; }
-  const rules = queryAll('SELECT * FROM categorization_rules WHERE account_id = ?', [accountId]);
+
+  // Ellenőrizzük a jogosultságot ha query param-ból jön az accountId
+  const requestedAccountId = req.query.accountId as string | undefined;
+  if (requestedAccountId && requestedAccountId !== accountId) {
+    const accountIds = req.session.accountIds || [];
+    if (!accountIds.includes(requestedAccountId)) {
+      res.status(403).json({ error: 'Nincs jogosultság ehhez a fiókhoz' });
+      return;
+    }
+  }
+
+  const targetAccountId = requestedAccountId || accountId;
+  const rules = queryAll('SELECT * FROM categorization_rules WHERE account_id = ?', [targetAccountId]);
   res.json({ rules });
 });
 
@@ -76,6 +118,19 @@ router.post('/rules', (req, res) => {
 });
 
 router.delete('/rules/:id', (req, res) => {
+  const accountId = req.session.activeAccountId;
+  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók' }); return; }
+
+  // Ellenőrizzük, hogy a szabály a felhasználóé
+  const rule = queryOne<{ account_id: string }>(
+    'SELECT account_id FROM categorization_rules WHERE id = ?',
+    [req.params.id],
+  );
+  if (!rule || rule.account_id !== accountId) {
+    res.status(404).json({ error: 'Szabály nem található' });
+    return;
+  }
+
   execute('DELETE FROM categorization_rules WHERE id = ?', [req.params.id]);
   res.json({ success: true });
 });
