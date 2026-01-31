@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
 import { useEmails, useToggleStar, useMarkRead, useDeleteEmail } from '../../hooks/useEmails';
 import { useKeyboardShortcuts, useSearchFocus } from '../../hooks/useKeyboardShortcuts';
-import { EmailList } from '../email/EmailList';
+import { ThreadedEmailList } from '../email/ThreadedEmailList';
 import { EmailDetail } from '../email/EmailDetail';
 import { KeyboardShortcutsHelp } from '../common/KeyboardShortcutsHelp';
 import { LoginScreen } from '../auth/LoginScreen';
@@ -168,7 +168,7 @@ export function InboxView() {
           w-full lg:w-2/5 xl:w-1/3 border-r border-gray-200 dark:border-dark-border overflow-auto
           ${selectedEmail ? 'hidden lg:block' : 'block'}
         `}>
-          <EmailList
+          <ThreadedEmailList
             emails={emails}
             isLoading={isLoading}
             selectedEmailId={selectedEmail?.id || null}

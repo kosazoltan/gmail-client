@@ -71,14 +71,18 @@ function parseMessage(message: gmail_v1.Schema$Message) {
   // Mellékletek
   const attachmentsList = extractAttachments(message.payload);
 
+  // Subject dekódolása RFC 2047 formátumból
+  const rawSubject = getHeader('Subject');
+  const decodedSubject = decodeRFC2047(rawSubject);
+
   return {
     id: message.id!,
     threadId: message.threadId,
-    subject: getHeader('Subject'),
+    subject: decodedSubject,
     from: fromEmail,
     fromName: fromName,
-    to: getHeader('To'),
-    cc: getHeader('Cc'),
+    to: decodeRFC2047(getHeader('To')),
+    cc: decodeRFC2047(getHeader('Cc')),
     snippet: message.snippet,
     body: text,
     bodyHtml: html,
@@ -99,14 +103,18 @@ function parseMessageMetadata(message: gmail_v1.Schema$Message) {
   const fromRaw = getHeader('From');
   const { email: fromEmail, name: fromName } = parseEmailAddress(fromRaw);
 
+  // Subject dekódolása RFC 2047 formátumból
+  const rawSubject = getHeader('Subject');
+  const decodedSubject = decodeRFC2047(rawSubject);
+
   return {
     id: message.id!,
     threadId: message.threadId,
-    subject: getHeader('Subject'),
+    subject: decodedSubject,
     from: fromEmail,
     fromName: fromName,
-    to: getHeader('To'),
-    cc: getHeader('Cc'),
+    to: decodeRFC2047(getHeader('To')),
+    cc: decodeRFC2047(getHeader('Cc')),
     snippet: message.snippet,
     date: parseInt(message.internalDate || '0'),
     isRead: !message.labelIds?.includes('UNREAD'),
@@ -118,13 +126,79 @@ function parseMessageMetadata(message: gmail_v1.Schema$Message) {
   };
 }
 
+// RFC 2047 MIME encoded-word dekódolás (=?charset?encoding?text?= formátum)
+function decodeRFC2047(text: string): string {
+  if (!text) return text;
+
+  // RFC 2047 encoded-word pattern: =?charset?encoding?encoded_text?=
+  const encodedWordPattern = /=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g;
+
+  return text.replace(encodedWordPattern, (match, charset, encoding, encodedText) => {
+    try {
+      const upperEncoding = encoding.toUpperCase();
+      let decoded: Buffer;
+
+      if (upperEncoding === 'B') {
+        // Base64 kódolás
+        decoded = Buffer.from(encodedText, 'base64');
+      } else if (upperEncoding === 'Q') {
+        // Quoted-printable kódolás
+        // Az underscore space-t jelent a Q kódolásban
+        const normalized = encodedText.replace(/_/g, ' ');
+        // =XX hexadecimális kódokat dekódolunk
+        const bytes: number[] = [];
+        let i = 0;
+        while (i < normalized.length) {
+          if (normalized[i] === '=' && i + 2 < normalized.length) {
+            const hex = normalized.substring(i + 1, i + 3);
+            const byte = parseInt(hex, 16);
+            if (!isNaN(byte)) {
+              bytes.push(byte);
+              i += 3;
+              continue;
+            }
+          }
+          bytes.push(normalized.charCodeAt(i));
+          i++;
+        }
+        decoded = Buffer.from(bytes);
+      } else {
+        return match; // Ismeretlen kódolás, marad az eredeti
+      }
+
+      // Charset alapján dekódolás - a legtöbb esetben UTF-8
+      const lowerCharset = charset.toLowerCase();
+      if (lowerCharset === 'utf-8' || lowerCharset === 'utf8') {
+        return decoded.toString('utf-8');
+      } else if (lowerCharset === 'iso-8859-1' || lowerCharset === 'latin1') {
+        return decoded.toString('latin1');
+      } else if (lowerCharset === 'iso-8859-2' || lowerCharset === 'latin2') {
+        // ISO-8859-2 (közép-európai) - próbáljuk UTF-8-ként
+        return decoded.toString('utf-8');
+      } else if (lowerCharset.includes('windows-1250') || lowerCharset.includes('cp1250')) {
+        // Windows-1250 (közép-európai Windows) - próbáljuk UTF-8-ként
+        return decoded.toString('utf-8');
+      } else if (lowerCharset.includes('windows-1252') || lowerCharset.includes('cp1252')) {
+        return decoded.toString('latin1');
+      } else {
+        // Alapértelmezett: UTF-8
+        return decoded.toString('utf-8');
+      }
+    } catch {
+      return match; // Hiba esetén marad az eredeti
+    }
+  });
+}
+
 // Email cím és név szétbontása: "Név <email>" formátumból
 function parseEmailAddress(raw: string): { email: string; name: string } {
-  const match = raw.match(/^(.+?)\s*<(.+?)>$/);
+  // Először dekódoljuk az esetleges MIME kódolt részeket
+  const decoded = decodeRFC2047(raw);
+  const match = decoded.match(/^(.+?)\s*<(.+?)>$/);
   if (match) {
     return { name: match[1].replace(/"/g, '').trim(), email: match[2] };
   }
-  return { email: raw, name: '' };
+  return { email: decoded, name: '' };
 }
 
 // Body kinyerése a MIME struktúrából
