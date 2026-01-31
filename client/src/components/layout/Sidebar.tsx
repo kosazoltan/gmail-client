@@ -9,7 +9,6 @@ import {
   Users,
   MessageSquare,
   Clock,
-  Tags,
   PenSquare,
   ChevronLeft,
   Database,
@@ -21,6 +20,8 @@ import {
   Bell,
   Newspaper,
   HelpCircle,
+  User,
+  Receipt,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useState } from 'react';
@@ -36,7 +37,8 @@ const navItems = [
   { path: '/by-sender', icon: Users, label: 'Küldő szerint' },
   { path: '/by-topic', icon: MessageSquare, label: 'Téma szerint' },
   { path: '/by-time', icon: Clock, label: 'Időszak szerint' },
-  { path: '/by-category', icon: Tags, label: 'Kategóriák' },
+  { path: '/personal', icon: User, label: 'Személyes' },
+  { path: '/invoices', icon: Receipt, label: 'Számlák' },
   { path: '/attachments', icon: Paperclip, label: 'Mellékletek' },
   { path: '/newsletters', icon: Newspaper, label: 'Hírlevelek' },
   { path: '/reminders', icon: Bell, label: 'Emlékeztetők' },
