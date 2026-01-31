@@ -41,7 +41,14 @@ router.delete('/:id', (req, res) => {
     }
   }
 
-  res.json({ success: true });
+  // Session explicit mentése
+  req.session.save((err) => {
+    if (err) {
+      console.error('Session mentési hiba fiók törlés után:', err);
+      return res.status(500).json({ error: 'Session mentési hiba' });
+    }
+    res.json({ success: true });
+  });
 });
 
 // Szinkronizálás indítása

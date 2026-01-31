@@ -60,10 +60,10 @@ router.post('/', (req, res) => {
     return res.status(404).json({ error: 'Email nem található' });
   }
 
-  // Ellenőrizzük, hogy nincs-e már aktív emlékeztető ehhez az emailhez
+  // Ellenőrizzük, hogy nincs-e már aktív emlékeztető ehhez az emailhez (account_id szűréssel)
   const existingReminder = queryOne(
-    'SELECT id FROM reminders WHERE email_id = ? AND is_completed = 0',
-    [emailId],
+    'SELECT id FROM reminders WHERE email_id = ? AND account_id = ? AND is_completed = 0',
+    [emailId, accountId],
   );
 
   if (existingReminder) {

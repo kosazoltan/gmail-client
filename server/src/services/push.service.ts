@@ -1,4 +1,5 @@
 import webpush from 'web-push';
+import crypto from 'crypto';
 import { queryAll, queryOne, execute } from '../db/index.js';
 
 // VAPID kulcsok - ezeket környezeti változóból olvassuk
@@ -111,11 +112,13 @@ export async function sendPushToAccount(
       );
       sent++;
     } catch (error: unknown) {
-      const err = error as { statusCode?: number };
-      console.error('Push notification failed:', err);
+      console.error('Push notification failed:', error);
 
       // Ha a subscription érvénytelen, töröljük
-      if (err.statusCode === 410 || err.statusCode === 404) {
+      const statusCode = error && typeof error === 'object' && 'statusCode' in error
+        ? (error as { statusCode: number }).statusCode
+        : undefined;
+      if (statusCode === 410 || statusCode === 404) {
         execute('DELETE FROM push_subscriptions WHERE id = ?', [sub.id]);
       }
       failed++;
@@ -156,8 +159,10 @@ export async function sendPushToAll(payload: {
       );
       sent++;
     } catch (error: unknown) {
-      const err = error as { statusCode?: number };
-      if (err.statusCode === 410 || err.statusCode === 404) {
+      const statusCode = error && typeof error === 'object' && 'statusCode' in error
+        ? (error as { statusCode: number }).statusCode
+        : undefined;
+      if (statusCode === 410 || statusCode === 404) {
         execute('DELETE FROM push_subscriptions WHERE id = ?', [sub.id]);
       }
       failed++;

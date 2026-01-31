@@ -190,8 +190,10 @@ async function incrementalSync(
       }
     }
   } catch (err) {
-    const error = err as { code?: number };
-    if (error?.code === 404) {
+    const errorCode = err && typeof err === 'object' && 'code' in err
+      ? (err as { code: number }).code
+      : undefined;
+    if (errorCode === 404) {
       console.log('HistoryId érvénytelen, teljes szinkronizálás...');
       const daysBack = parseInt(process.env.SYNC_DAYS_BACK || '30');
       processedCount = await fullSyncMessages(gmail, accountId, daysBack);
