@@ -1,42 +1,37 @@
 // ZMail Service Worker
-// Cache verzió - növeld minden jelentős frissítésnél!
-const CACHE_VERSION = 2;
-const CACHE_NAME = `zmail-cache-v${CACHE_VERSION}`;
+// Network-first stratégia - mindig friss tartalom, cache csak offline fallback
+const CACHE_NAME = 'zmail-offline-v1';
 const OFFLINE_URL = '/offline.html';
 
-// Statikus fájlok cache-elése
-const STATIC_ASSETS = [
-  '/',
-  '/index.html',
+// Csak az offline fallback fájlokat cache-eljük
+const OFFLINE_ASSETS = [
   '/offline.html',
-  '/manifest.json',
-  '/zmail-logo.svg',
   '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png',
 ];
 
-// Install event - cache statikus fájlokat
+// Install event - csak offline fallback cache
 self.addEventListener('install', (event) => {
   console.log('[SW] Installing Service Worker...');
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[SW] Caching static assets');
-      return cache.addAll(STATIC_ASSETS);
+      console.log('[SW] Caching offline assets only');
+      return cache.addAll(OFFLINE_ASSETS);
     })
   );
   // Azonnal aktiválódjon
   self.skipWaiting();
 });
 
-// Activate event - töröljük a régi cache-eket
+// Activate event - töröljük az ÖSSZES régi cache-t
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating Service Worker...');
+  console.log('[SW] Activating Service Worker - clearing all caches...');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
+          // Töröljük az összes cache-t kivéve az offline-t
           if (cacheName !== CACHE_NAME) {
-            console.log('[SW] Deleting old cache:', cacheName);
+            console.log('[SW] Deleting cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -47,16 +42,15 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch event - network first, cache fallback stratégia
+// Fetch event - NETWORK FIRST, csak offline esetén cache
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // API hívások - mindig network, nem cache-elünk
+  // API hívások - mindig network
   if (url.pathname.startsWith('/api')) {
     event.respondWith(
       fetch(request).catch(() => {
-        // Ha offline, visszaadunk egy JSON hibát
         return new Response(
           JSON.stringify({ error: 'Offline - nincs internetkapcsolat' }),
           {
@@ -69,38 +63,31 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Statikus fájlok - stale-while-revalidate stratégia
+  // Minden más - NETWORK FIRST (mindig friss tartalom)
   if (request.method === 'GET') {
     event.respondWith(
-      caches.open(CACHE_NAME).then(async (cache) => {
-        // Próbáljuk a cache-ből
-        const cachedResponse = await cache.match(request);
-
-        // Háttérben frissítjük
-        const fetchPromise = fetch(request)
-          .then((networkResponse) => {
-            // Csak sikeres válaszokat cache-elünk
-            if (networkResponse && networkResponse.status === 200) {
-              cache.put(request, networkResponse.clone());
+      fetch(request)
+        .then((networkResponse) => {
+          // Sikeres network response - visszaadjuk közvetlenül
+          return networkResponse;
+        })
+        .catch(async () => {
+          // Offline - próbáljuk a cache-ből (csak navigate esetén)
+          if (request.mode === 'navigate') {
+            const cache = await caches.open(CACHE_NAME);
+            const cachedResponse = await cache.match(OFFLINE_URL);
+            if (cachedResponse) {
+              return cachedResponse;
             }
-            return networkResponse;
-          })
-          .catch(() => {
-            // Ha offline és nincs cache, offline oldalt mutatunk
-            if (!cachedResponse && request.mode === 'navigate') {
-              return cache.match(OFFLINE_URL);
-            }
-            return null;
-          });
-
-        // Cache-ből azonnal visszaadjuk, ha van
-        return cachedResponse || fetchPromise;
-      })
+          }
+          // Ha nincs cache, hibaüzenet
+          return new Response('Offline', { status: 503 });
+        })
     );
   }
 });
 
-// Push notification kezelés (jövőbeli feature)
+// Push notification kezelés
 self.addEventListener('push', (event) => {
   if (!event.data) return;
 
@@ -110,6 +97,7 @@ self.addEventListener('push', (event) => {
     icon: '/icons/icon-192x192.png',
     badge: '/icons/icon-72x72.png',
     vibrate: [100, 50, 100],
+    tag: data.tag,
     data: {
       url: data.url || '/',
     },
@@ -149,14 +137,4 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-// Background sync (jövőbeli feature - offline email küldés)
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'send-email') {
-    event.waitUntil(
-      // Itt lenne az offline sorba állított emailek küldése
-      console.log('[SW] Background sync: send-email')
-    );
-  }
-});
-
-console.log('[SW] Service Worker loaded');
+console.log('[SW] Service Worker loaded - Network First mode');
