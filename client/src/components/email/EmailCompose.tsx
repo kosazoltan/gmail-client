@@ -34,10 +34,10 @@ export function EmailCompose() {
   const isReply = searchParams.get('reply') === 'true';
   const isForward = searchParams.has('body') && !isReply;
   const [to, setTo] = useState(searchParams.get('to') || '');
-  const [cc, setCc] = useState('');
+  const [cc, setCc] = useState(searchParams.get('cc') || '');
   const [subject, setSubject] = useState(searchParams.get('subject') || '');
   const [body, setBody] = useState(searchParams.get('body') || '');
-  const [showCc, setShowCc] = useState(false);
+  const [showCc, setShowCc] = useState(!!searchParams.get('cc'));
   const [showTemplatesManager, setShowTemplatesManager] = useState(false);
   const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
 

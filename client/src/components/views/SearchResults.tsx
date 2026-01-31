@@ -79,9 +79,9 @@ export function SearchResults() {
           emailId={selectedEmail?.id || null}
           accountId={accountId}
           onBack={() => setSelectedEmail(null)}
-          onReply={({ to, subject, threadId }) => {
+          onReply={({ to, subject, threadId, cc }) => {
             navigate(
-              `/compose?reply=true&to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}`,
+              `/compose?reply=true&to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}${cc ? `&cc=${encodeURIComponent(cc)}` : ''}`,
             );
           }}
           onForward={({ subject, body }) => {
