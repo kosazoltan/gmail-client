@@ -30,6 +30,14 @@ export function ByTopicView() {
     enabled: !!selectedTopic,
   });
 
+  // Emailek a témához
+  const emails = topicEmails?.emails || [];
+
+  // Ref a friss emails lista eléréséhez (stale closure fix)
+  // FONTOS: A hookokat a korai return előtt kell hívni!
+  const emailsRef = useRef(emails);
+  useEffect(() => { emailsRef.current = emails; }, [emails]);
+
   if (!selectedTopic) {
     return (
       <div className="overflow-auto h-full">
@@ -68,12 +76,6 @@ export function ByTopicView() {
       </div>
     );
   }
-
-  const emails = topicEmails?.emails || [];
-
-  // Ref a friss emails lista eléréséhez (stale closure fix)
-  const emailsRef = useRef(emails);
-  useEffect(() => { emailsRef.current = emails; }, [emails]);
 
   return (
     <div className="flex h-full relative">

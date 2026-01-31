@@ -36,6 +36,14 @@ export function BySenderView() {
     enabled: !!selectedSender,
   });
 
+  // Küldő leveleinek nézete
+  const emails = senderEmails?.emails || [];
+
+  // Ref a friss emails lista eléréséhez (stale closure fix)
+  // FONTOS: A hookokat a korai return előtt kell hívni!
+  const emailsRef = useRef(emails);
+  useEffect(() => { emailsRef.current = emails; }, [emails]);
+
   // Küldő lista nézet
   if (!selectedSender) {
     return (
@@ -92,13 +100,6 @@ export function BySenderView() {
       </div>
     );
   }
-
-  // Küldő leveleinek nézete
-  const emails = senderEmails?.emails || [];
-
-  // Ref a friss emails lista eléréséhez (stale closure fix)
-  const emailsRef = useRef(emails);
-  useEffect(() => { emailsRef.current = emails; }, [emails]);
 
   return (
     <div className="flex h-full relative">

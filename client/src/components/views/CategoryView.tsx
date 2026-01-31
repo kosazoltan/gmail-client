@@ -49,6 +49,14 @@ export function CategoryView() {
     enabled: !!selectedCategory,
   });
 
+  // Emailek a kategóriához
+  const emails = categoryEmails?.emails || [];
+
+  // Ref a friss emails lista eléréséhez (stale closure fix)
+  // FONTOS: A hookokat a korai return előtt kell hívni!
+  const emailsRef = useRef(emails);
+  useEffect(() => { emailsRef.current = emails; }, [emails]);
+
   if (!selectedCategory) {
     return (
       <div className="overflow-auto h-full">
@@ -94,12 +102,6 @@ export function CategoryView() {
       </div>
     );
   }
-
-  const emails = categoryEmails?.emails || [];
-
-  // Ref a friss emails lista eléréséhez (stale closure fix)
-  const emailsRef = useRef(emails);
-  useEffect(() => { emailsRef.current = emails; }, [emails]);
 
   return (
     <div className="flex h-full relative">

@@ -38,6 +38,14 @@ export function ByTimeView() {
     older: 'bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400',
   };
 
+  // Emailek az időszakhoz
+  const emails = periodEmails?.emails || [];
+
+  // Ref a friss emails lista eléréséhez (stale closure fix)
+  // FONTOS: A hookokat a korai return előtt kell hívni!
+  const emailsRef = useRef(emails);
+  useEffect(() => { emailsRef.current = emails; }, [emails]);
+
   if (!selectedPeriod) {
     return (
       <div className="overflow-auto h-full">
@@ -77,12 +85,6 @@ export function ByTimeView() {
       </div>
     );
   }
-
-  const emails = periodEmails?.emails || [];
-
-  // Ref a friss emails lista eléréséhez (stale closure fix)
-  const emailsRef = useRef(emails);
-  useEffect(() => { emailsRef.current = emails; }, [emails]);
 
   return (
     <div className="flex h-full relative">
