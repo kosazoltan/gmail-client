@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ShieldAlert, ChevronDown, ChevronRight, ExternalLink, X } from 'lucide-react';
 
 interface LoginHelpProps {
@@ -162,6 +163,24 @@ export function LoginHelp({ isOpen, onClose }: LoginHelpProps) {
             <ExternalLink className="h-3 w-3" />
             Fejlesztoknek: Google Cloud Console OAuth beallitasok
           </a>
+
+          {/* Privacy & Terms links */}
+          <div className="mt-4 pt-3 border-t border-gray-200 dark:border-dark-border flex gap-4 text-xs">
+            <Link
+              to="/privacy"
+              onClick={onClose}
+              className="text-gray-500 dark:text-dark-text-muted hover:text-blue-600 dark:hover:text-blue-400"
+            >
+              Adatvédelmi Szabályzat
+            </Link>
+            <Link
+              to="/terms"
+              onClick={onClose}
+              className="text-gray-500 dark:text-dark-text-muted hover:text-blue-600 dark:hover:text-blue-400"
+            >
+              Felhasználási Feltételek
+            </Link>
+          </div>
         </div>
 
         {/* Footer */}

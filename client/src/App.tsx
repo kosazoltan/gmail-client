@@ -13,6 +13,8 @@ import { NewslettersView } from './components/views/NewslettersView';
 import { SearchResults } from './components/views/SearchResults';
 import { EmailCompose } from './components/email/EmailCompose';
 import { DatabaseManager } from './components/database/DatabaseManager';
+import { PrivacyPolicy } from './components/pages/PrivacyPolicy';
+import { TermsOfService } from './components/pages/TermsOfService';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,6 +43,8 @@ function App() {
               <Route path="/search" element={<SearchResults />} />
               <Route path="/compose" element={<EmailCompose />} />
               <Route path="/database" element={<DatabaseManager />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<TermsOfService />} />
             </Route>
           </Routes>
         </BrowserRouter>
