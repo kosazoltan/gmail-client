@@ -24,6 +24,7 @@ import snoozeRoutes, { processExpiredSnoozes } from './routes/snooze.routes.js';
 import remindersRoutes from './routes/reminders.routes.js';
 import newslettersRoutes from './routes/newsletters.routes.js';
 import labelsRoutes from './routes/labels.routes.js';
+import pushRoutes from './routes/push.routes.js';
 
 const PORT = parseInt(process.env.PORT || '5000');
 
@@ -81,6 +82,7 @@ async function start() {
   app.use('/api/reminders', remindersRoutes);
   app.use('/api/newsletters', newslettersRoutes);
   app.use('/api/labels', labelsRoutes);
+  app.use('/api/push', pushRoutes);
 
   // Health check
   app.get('/api/health', (_req, res) => {

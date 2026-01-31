@@ -10,6 +10,7 @@ import {
 } from './gmail.service.js';
 import { categorizeEmail } from './categorization.service.js';
 import { extractContactsFromEmail, autoExtractContactsIfNeeded } from './contacts.service.js';
+import { sendPushToAccount } from './push.service.js';
 
 // Gmail üzenet interfész (getMessage visszatérési típusa)
 interface GmailMessage {
@@ -168,8 +169,22 @@ async function incrementalSync(
     for (const msgId of newMessageIds) {
       try {
         const msg = await getMessage(gmail, msgId);
-        saveEmail(accountId, msg);
+        const isNew = saveEmail(accountId, msg);
         processedCount++;
+
+        // Push notification küldése új, olvasatlan emailekről
+        if (isNew && !msg.isRead) {
+          sendPushToAccount(accountId, {
+            title: msg.fromName || msg.from,
+            body: msg.subject || 'Új üzenet',
+            icon: '/icons/icon-192x192.png',
+            badge: '/icons/icon-72x72.png',
+            url: `/?email=${msg.id}`,
+            tag: `email-${msg.id}`,
+          }).catch((err) => {
+            console.error('Push notification hiba:', err);
+          });
+        }
       } catch (err) {
         console.error(`Hiba inkrementális szinkronizálásnál (${msgId}):`, err);
       }
@@ -188,7 +203,17 @@ async function incrementalSync(
   return processedCount;
 }
 
-function saveEmail(accountId: string, msg: GmailMessage) {
+function saveEmail(accountId: string, msg: GmailMessage): boolean {
+  // Ellenőrizzük, hogy már létezik-e
+  const existing = queryOne<{ id: string }>(
+    'SELECT id FROM emails WHERE id = ? AND account_id = ?',
+    [msg.id, accountId],
+  );
+
+  if (existing) {
+    return false; // Már létezett
+  }
+
   const categoryId = categorizeEmail(accountId, {
     from: msg.from,
     subject: msg.subject || '',
@@ -221,6 +246,8 @@ function saveEmail(accountId: string, msg: GmailMessage) {
 
   // Kontaktok kinyerése
   extractContactsFromEmail(accountId, msg.from, msg.fromName, msg.to, msg.cc);
+
+  return true; // Új email volt
 }
 
 function findOrCreateTopic(

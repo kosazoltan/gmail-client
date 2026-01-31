@@ -380,4 +380,23 @@ export const api = {
     getStats: () =>
       request<import('../types').NewsletterStats>('/newsletters/stats'),
   },
+
+  push: {
+    getVapidKey: () =>
+      request<{ publicKey: string }>('/push/vapid-public-key'),
+    subscribe: (subscription: PushSubscriptionJSON) =>
+      request<{ success: boolean; message: string }>('/push/subscribe', {
+        method: 'POST',
+        body: JSON.stringify({ subscription }),
+      }),
+    unsubscribe: (endpoint: string) =>
+      request<{ success: boolean; message: string }>('/push/unsubscribe', {
+        method: 'POST',
+        body: JSON.stringify({ endpoint }),
+      }),
+    test: () =>
+      request<{ success: boolean; sent: number; failed: number }>('/push/test', {
+        method: 'POST',
+      }),
+  },
 };

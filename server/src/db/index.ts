@@ -188,6 +188,16 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
       last_email_at INTEGER,
       UNIQUE(account_id, sender_email)
     );
+
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      endpoint TEXT NOT NULL,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      UNIQUE(account_id, endpoint)
+    );
   `);
 
   // Indexek
