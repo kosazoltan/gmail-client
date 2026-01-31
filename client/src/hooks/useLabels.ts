@@ -38,8 +38,9 @@ export function useAddLabelToEmail() {
   return useMutation({
     mutationFn: ({ emailId, labelIds }: { emailId: string; labelIds: string[] }) =>
       api.labels.addToEmail(emailId, labelIds),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['email', variables.emailId] });
     },
   });
 }
@@ -50,8 +51,9 @@ export function useRemoveLabelFromEmail() {
   return useMutation({
     mutationFn: ({ emailId, labelIds }: { emailId: string; labelIds: string[] }) =>
       api.labels.removeFromEmail(emailId, labelIds),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['email', variables.emailId] });
     },
   });
 }
@@ -69,8 +71,9 @@ export function useMoveEmail() {
       addLabelIds: string[];
       removeLabelIds: string[];
     }) => api.labels.moveEmail(emailId, addLabelIds, removeLabelIds),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['email', variables.emailId] });
     },
   });
 }
