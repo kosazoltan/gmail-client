@@ -1,6 +1,7 @@
 {
   "name": "gmail-client-server",
   "version": "1.0.0",
+  "type": "module",
   "description": "Gmail kliens szerver - Express + TypeScript",
   "scripts": {
     "dev": "tsx watch src/server.ts",
