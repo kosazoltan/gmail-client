@@ -43,11 +43,13 @@ export function LabelManager({ emailId, currentLabels, onClose }: LabelManagerPr
 
   const labels = data?.labels || [];
 
-  // Szűrjük ki a felhasználói címkéket
-  const userLabels = labels.filter((l) => l.type === 'user');
-  const systemLabels = labels.filter(
-    (l) => l.type === 'system' && ['INBOX', 'STARRED', 'IMPORTANT'].includes(l.id),
-  );
+  // Rendszer címkék ID-i
+  const SYSTEM_LABEL_IDS = ['INBOX', 'SENT', 'DRAFT', 'TRASH', 'SPAM', 'STARRED', 'IMPORTANT', 'UNREAD'];
+  const SHOWN_SYSTEM_LABELS = ['INBOX', 'STARRED', 'IMPORTANT'];
+
+  // Szűrjük ki a felhasználói és rendszer címkéket
+  const userLabels = labels.filter((l) => !SYSTEM_LABEL_IDS.includes(l.id));
+  const systemLabels = labels.filter((l) => SHOWN_SYSTEM_LABELS.includes(l.id));
 
   const handleToggleLabel = (label: GmailLabel) => {
     const isActive = currentLabels.includes(label.id);
@@ -74,7 +76,7 @@ export function LabelManager({ emailId, currentLabels, onClose }: LabelManagerPr
   };
 
   const getLabelDisplayName = (label: GmailLabel) => {
-    if (label.type === 'system') {
+    if (SYSTEM_LABEL_IDS.includes(label.id)) {
       return SYSTEM_LABEL_NAMES[label.id] || label.name;
     }
     return label.name;
@@ -84,7 +86,7 @@ export function LabelManager({ emailId, currentLabels, onClose }: LabelManagerPr
     if (label.color?.backgroundColor) {
       return label.color.backgroundColor;
     }
-    if (label.type === 'system') {
+    if (SYSTEM_LABEL_IDS.includes(label.id)) {
       return SYSTEM_LABEL_COLORS[label.id] || '#6b7280';
     }
     return '#6b7280';
