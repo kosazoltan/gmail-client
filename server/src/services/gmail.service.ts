@@ -250,12 +250,14 @@ export async function sendEmail(
 
     const parts: string[] = [];
 
-    // Body rész
+    // Body rész - base64 kódolva az ékezetes karakterek megfelelő kezeléséhez
+    const bodyBase64 = Buffer.from(body, 'utf-8').toString('base64');
     parts.push(
       `--${boundary}`,
       'Content-Type: text/html; charset=utf-8',
+      'Content-Transfer-Encoding: base64',
       '',
-      body,
+      bodyBase64,
     );
 
     // Melléklet részek
@@ -275,10 +277,14 @@ export async function sendEmail(
     raw = Buffer.from([...headers, '', ...parts].join('\r\n')).toString('base64url');
   } else {
     // Egyszerű email melléklet nélkül
+    // Body-t base64-be kódoljuk az ékezetes karakterek megfelelő kezeléséhez
+    const bodyBase64 = Buffer.from(body, 'utf-8').toString('base64');
+
     const messageParts = [
       `To: ${to}`,
       `Subject: ${encodeRFC2047(subject)}`,
       'Content-Type: text/html; charset=utf-8',
+      'Content-Transfer-Encoding: base64',
       'MIME-Version: 1.0',
     ];
 
@@ -290,7 +296,7 @@ export async function sendEmail(
       messageParts.push(`References: ${inReplyTo}`);
     }
 
-    messageParts.push('', body);
+    messageParts.push('', bodyBase64);
 
     raw = Buffer.from(messageParts.join('\r\n')).toString('base64url');
   }
