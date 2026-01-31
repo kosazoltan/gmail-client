@@ -23,9 +23,11 @@ import {
   Calendar,
   User,
   Users,
+  Tag,
 } from 'lucide-react';
 import { SnoozeMenu } from './SnoozeMenu';
 import { ReminderMenu } from './ReminderMenu';
+import { LabelManager } from './LabelManager';
 
 interface EmailDetailProps {
   emailId: string | null;
@@ -266,6 +268,7 @@ export function EmailDetail({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showMoreActions, setShowMoreActions] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showLabelManager, setShowLabelManager] = useState(false);
 
   // Dark mode detektálás
   const isDark = document.documentElement.classList.contains('dark');
@@ -409,6 +412,31 @@ export function EmailDetail({
             >
               <Trash2 className="h-5 w-5" />
             </button>
+
+            {/* Címkék gomb */}
+            <div className="relative">
+              <button
+                onClick={() => setShowLabelManager(!showLabelManager)}
+                className="p-2.5 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-purple-600 dark:hover:text-purple-400 transition-all active:scale-95 touch-manipulation"
+                aria-label="Címkék"
+                title="Címkék kezelése"
+              >
+                <Tag className="h-5 w-5" />
+              </button>
+              {showLabelManager && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowLabelManager(false)}
+                  />
+                  <LabelManager
+                    emailId={email.id}
+                    currentLabels={email.labels || []}
+                    onClose={() => setShowLabelManager(false)}
+                  />
+                </>
+              )}
+            </div>
 
             {/* További műveletek */}
             <div className="relative">

@@ -210,3 +210,15 @@ export interface NewsletterStats {
   activeSenders: number;
   totalEmails: number;
 }
+
+export interface GmailLabel {
+  id: string;
+  name: string;
+  type: 'system' | 'user';
+  messagesTotal: number;
+  messagesUnread: number;
+  color: {
+    textColor: string;
+    backgroundColor: string;
+  } | null;
+}

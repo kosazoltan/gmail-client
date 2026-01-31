@@ -323,6 +323,33 @@ export const api = {
     cleanup: () => request('/database/cleanup', { method: 'POST' }),
   },
 
+  labels: {
+    list: () =>
+      request<{ labels: import('../types').GmailLabel[] }>('/labels'),
+    create: (data: { name: string; backgroundColor?: string; textColor?: string }) =>
+      request<{ label: { id: string; name: string } }>('/labels', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    delete: (labelId: string) =>
+      request<{ success: boolean }>(`/labels/${labelId}`, { method: 'DELETE' }),
+    addToEmail: (emailId: string, labelIds: string[]) =>
+      request<{ success: boolean }>(`/labels/email/${emailId}/add`, {
+        method: 'POST',
+        body: JSON.stringify({ labelIds }),
+      }),
+    removeFromEmail: (emailId: string, labelIds: string[]) =>
+      request<{ success: boolean }>(`/labels/email/${emailId}/remove`, {
+        method: 'POST',
+        body: JSON.stringify({ labelIds }),
+      }),
+    moveEmail: (emailId: string, addLabelIds: string[], removeLabelIds: string[]) =>
+      request<{ success: boolean }>(`/labels/email/${emailId}/move`, {
+        method: 'POST',
+        body: JSON.stringify({ addLabelIds, removeLabelIds }),
+      }),
+  },
+
   newsletters: {
     getSenders: () =>
       request<{ senders: import('../types').NewsletterSender[] }>('/newsletters/senders'),

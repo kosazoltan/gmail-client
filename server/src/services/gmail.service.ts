@@ -462,3 +462,86 @@ export async function deleteMessage(gmail: gmail_v1.Gmail, messageId: string) {
     id: messageId,
   });
 }
+
+// Gmail címkék listázása
+export async function listLabels(gmail: gmail_v1.Gmail) {
+  const response = await gmail.users.labels.list({
+    userId: 'me',
+  });
+
+  return (response.data.labels || []).map((label) => ({
+    id: label.id!,
+    name: label.name!,
+    type: label.type || 'user',
+    messagesTotal: label.messagesTotal || 0,
+    messagesUnread: label.messagesUnread || 0,
+    color: label.color
+      ? {
+          textColor: label.color.textColor,
+          backgroundColor: label.color.backgroundColor,
+        }
+      : null,
+  }));
+}
+
+// Egy címke lekérése
+export async function getLabel(gmail: gmail_v1.Gmail, labelId: string) {
+  const response = await gmail.users.labels.get({
+    userId: 'me',
+    id: labelId,
+  });
+
+  const label = response.data;
+  return {
+    id: label.id!,
+    name: label.name!,
+    type: label.type || 'user',
+    messagesTotal: label.messagesTotal || 0,
+    messagesUnread: label.messagesUnread || 0,
+    color: label.color
+      ? {
+          textColor: label.color.textColor,
+          backgroundColor: label.color.backgroundColor,
+        }
+      : null,
+  };
+}
+
+// Új címke létrehozása
+export async function createLabel(
+  gmail: gmail_v1.Gmail,
+  options: {
+    name: string;
+    backgroundColor?: string;
+    textColor?: string;
+  },
+) {
+  const response = await gmail.users.labels.create({
+    userId: 'me',
+    requestBody: {
+      name: options.name,
+      labelListVisibility: 'labelShow',
+      messageListVisibility: 'show',
+      color:
+        options.backgroundColor && options.textColor
+          ? {
+              backgroundColor: options.backgroundColor,
+              textColor: options.textColor,
+            }
+          : undefined,
+    },
+  });
+
+  return {
+    id: response.data.id!,
+    name: response.data.name!,
+  };
+}
+
+// Címke törlése
+export async function deleteLabel(gmail: gmail_v1.Gmail, labelId: string) {
+  await gmail.users.labels.delete({
+    userId: 'me',
+    id: labelId,
+  });
+}
