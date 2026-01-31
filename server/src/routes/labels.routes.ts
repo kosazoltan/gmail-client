@@ -38,15 +38,13 @@ router.get('/', async (req, res) => {
     const gmail = getGmailClient(oauth2Client);
     const labels = await listLabels(gmail);
 
-    // Szűrjük ki a rendszer címkéket és formázzuk az eredményt
-    const userLabels = labels.filter(
-      (l) =>
-        l.type === 'user' ||
-        // Néhány hasznos rendszer címke
-        ['INBOX', 'SENT', 'DRAFT', 'TRASH', 'SPAM', 'STARRED', 'IMPORTANT'].includes(l.id),
+    // Szűrjük ki a nem hasznos címkéket (CATEGORY_*, CHAT, stb)
+    const EXCLUDED_PREFIXES = ['CATEGORY_', 'CHAT', 'FORUMS', 'UPDATES', 'PROMOTIONS', 'SOCIAL'];
+    const filteredLabels = labels.filter(
+      (l) => !EXCLUDED_PREFIXES.some((prefix) => l.id.startsWith(prefix)),
     );
 
-    res.json({ labels: userLabels });
+    res.json({ labels: filteredLabels });
   } catch (error) {
     console.error('Címkék listázás hiba:', error);
     res.status(500).json({ error: 'Címkék lekérése sikertelen' });
