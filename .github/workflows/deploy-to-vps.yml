@@ -281,8 +281,15 @@ jobs:
           # Jogosultságok beállítása
           chown -R www-data:www-data /var/www/gmail-client
 
-          # Backend újraindítása
-          systemctl restart gmail-client-backend
+          # Leállítjuk és töröljük a régi processt
+          echo "Stopping old backend..."
+          systemctl stop gmail-client-backend || true
+          pkill -f "node dist/server.js" || true
+          sleep 2
+
+          # Backend indítása
+          echo "Starting backend..."
+          systemctl start gmail-client-backend
 
           # Várakozás
           sleep 5
