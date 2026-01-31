@@ -329,12 +329,30 @@ jobs:
           echo ""
           echo "Testing endpoints:"
           curl -sf -o /dev/null http://localhost:5000/api/health && echo "✓ Health endpoint OK"
-          # Labels endpoint should return 400 (no auth) not 404
+
+          # Check labels endpoint (should return 400, not 404)
+          echo "Testing labels endpoint..."
+          LABELS_RESPONSE=$(curl -s http://localhost:5000/api/labels)
           LABELS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/api/labels)
+          echo "Labels response: $LABELS_RESPONSE"
+          echo "Labels status: $LABELS_STATUS"
+
           if [ "$LABELS_STATUS" = "400" ]; then
             echo "✓ Labels endpoint OK (returns 400 without auth)"
+          elif [ "$LABELS_STATUS" = "404" ]; then
+            echo "✗ Labels endpoint returned 404 - route not registered!"
+            echo ""
+            echo "Checking dist files..."
+            ls -la /var/www/gmail-client/server/dist/routes/ | head -20
+            echo ""
+            echo "Checking server.js imports..."
+            head -30 /var/www/gmail-client/server/dist/server.js
+            echo ""
+            echo "Checking package.json type..."
+            cat /var/www/gmail-client/server/package.json | head -10
+            exit 1
           else
-            echo "✗ Labels endpoint returned $LABELS_STATUS (expected 400)"
+            echo "Labels endpoint returned unexpected status: $LABELS_STATUS"
             exit 1
           fi
           echo ""
