@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useSession, useSyncAccount } from '../../hooks/useAccounts';
 import { useCreateSavedSearch } from '../../hooks/useSavedSearches';
 import { ThemeToggle } from './ThemeToggle';
+import { HeaderAccountSwitcher } from '../accounts/HeaderAccountSwitcher';
 
 interface HeaderProps {
   searchQuery: string;
@@ -160,6 +161,9 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar }: HeaderP
           />
         </button>
       )}
+
+      {/* Fiókváltó */}
+      <HeaderAccountSwitcher />
     </header>
   );
 }

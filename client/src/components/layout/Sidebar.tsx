@@ -1,8 +1,7 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { useSession, useLogin } from '../../hooks/useAccounts';
+import { useSession } from '../../hooks/useAccounts';
 import { useSavedSearches, useDeleteSavedSearch, useIncrementSearchUsage } from '../../hooks/useSavedSearches';
 import { useDueRemindersCount } from '../../hooks/useReminders';
-import { AccountSwitcher } from '../accounts/AccountSwitcher';
 import { ZMailLogo } from '../common/ZMailLogo';
 import { LoginHelp } from '../auth/LoginHelp';
 import {
@@ -21,7 +20,6 @@ import {
   X,
   Bell,
   Newspaper,
-  LogIn,
   HelpCircle,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -47,7 +45,6 @@ const navItems = [
 
 export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
   const { data: session } = useSession();
-  const login = useLogin();
   const navigate = useNavigate();
   const location = useLocation();
   const { data: savedSearchesData } = useSavedSearches();
@@ -254,43 +251,23 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
         </div>
       )}
 
-      {/* Fiókkezelés */}
-      <div className="border-t border-gray-200 dark:border-dark-border p-3">
-        {session?.authenticated ? (
-          <AccountSwitcher compact={!isOpen} />
-        ) : (
-          <div className="space-y-2">
-            <button
-              onClick={() => login.mutate()}
-              className={cn(
-                'flex items-center gap-2 rounded-lg px-3 py-3 text-sm hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary w-full touch-manipulation min-h-[44px]',
-                isOpen
-                  ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 font-medium'
-                  : 'text-gray-600 dark:text-dark-text-secondary justify-center px-2',
-              )}
-              aria-label="Bejelentkezés Google fiókkal"
-              title="Bejelentkezés Google fiókkal"
-            >
-              <LogIn className="h-5 w-5" aria-hidden="true" />
-              {isOpen && <span>Bejelentkezés</span>}
-            </button>
-
-            {/* Bejelentkezési segítség gomb */}
-            <button
-              onClick={() => setShowLoginHelp(true)}
-              className={cn(
-                'flex items-center gap-2 rounded-lg px-3 py-3 text-sm hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary w-full text-gray-500 dark:text-dark-text-muted touch-manipulation min-h-[44px]',
-                !isOpen && 'justify-center px-2',
-              )}
-              aria-label="Bejelentkezési segítség"
-              title="Bejelentkezési segítség"
-            >
-              <HelpCircle className="h-5 w-5" aria-hidden="true" />
-              {isOpen && <span>Bejelentkezési segítség</span>}
-            </button>
-          </div>
-        )}
-      </div>
+      {/* Bejelentkezési segítség - csak ha nincs bejelentkezve */}
+      {!session?.authenticated && (
+        <div className="border-t border-gray-200 dark:border-dark-border p-3">
+          <button
+            onClick={() => setShowLoginHelp(true)}
+            className={cn(
+              'flex items-center gap-2 rounded-lg px-3 py-3 text-sm hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary w-full text-gray-500 dark:text-dark-text-muted touch-manipulation min-h-[44px]',
+              !isOpen && 'justify-center px-2',
+            )}
+            aria-label="Bejelentkezési segítség"
+            title="Bejelentkezési segítség"
+          >
+            <HelpCircle className="h-5 w-5" aria-hidden="true" />
+            {isOpen && <span>Bejelentkezési segítség</span>}
+          </button>
+        </div>
+      )}
 
       {/* Login Help Modal */}
       <LoginHelp isOpen={showLoginHelp} onClose={() => setShowLoginHelp(false)} />
