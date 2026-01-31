@@ -16,6 +16,7 @@ import { EmailCompose } from './components/email/EmailCompose';
 import { DatabaseManager } from './components/database/DatabaseManager';
 import { PrivacyPolicy } from './components/pages/PrivacyPolicy';
 import { TermsOfService } from './components/pages/TermsOfService';
+import { InstallPrompt } from './components/pwa/InstallPrompt';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -49,6 +50,7 @@ function App() {
               <Route path="/terms" element={<TermsOfService />} />
             </Route>
           </Routes>
+          <InstallPrompt />
         </BrowserRouter>
       </QueryClientProvider>
     </ThemeProvider>
