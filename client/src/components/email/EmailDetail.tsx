@@ -16,10 +16,12 @@ import {
   Loader2,
   Paperclip,
   MoreHorizontal,
-  Clock,
   Mail,
   ChevronDown,
   ChevronUp,
+  Calendar,
+  User,
+  Users,
 } from 'lucide-react';
 import { SnoozeMenu } from './SnoozeMenu';
 import { ReminderMenu } from './ReminderMenu';
@@ -70,20 +72,31 @@ export function EmailDetail({
 
   if (!emailId) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-dark-text-muted">
-        <Mail className="h-16 w-16 mb-4 opacity-20" />
-        <p className="text-lg">Válassz ki egy levelet</p>
-        <p className="text-sm mt-1 opacity-60">a megtekintéshez</p>
+      <div className="flex flex-col items-center justify-center h-full bg-gradient-to-b from-gray-50 to-gray-100 dark:from-dark-bg dark:to-dark-bg-secondary">
+        <div className="p-8 rounded-3xl bg-white/60 dark:bg-dark-bg-secondary/60 backdrop-blur-sm">
+          <Mail className="h-20 w-20 mb-4 text-gray-300 dark:text-dark-text-muted mx-auto" />
+          <p className="text-lg font-medium text-gray-500 dark:text-dark-text-secondary text-center">
+            Válassz ki egy levelet
+          </p>
+          <p className="text-sm mt-1 text-gray-400 dark:text-dark-text-muted text-center">
+            a megtekintéshez
+          </p>
+        </div>
       </div>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-          <span className="text-sm text-gray-400 dark:text-dark-text-muted">Betöltés...</span>
+      <div className="flex items-center justify-center h-full bg-gradient-to-b from-gray-50 to-gray-100 dark:from-dark-bg dark:to-dark-bg-secondary">
+        <div className="flex flex-col items-center gap-4 p-8 rounded-3xl bg-white/60 dark:bg-dark-bg-secondary/60 backdrop-blur-sm">
+          <div className="relative">
+            <div className="absolute inset-0 bg-blue-400/20 rounded-full animate-ping" />
+            <Loader2 className="h-10 w-10 animate-spin text-blue-500 relative" />
+          </div>
+          <span className="text-sm font-medium text-gray-500 dark:text-dark-text-secondary">
+            Betöltés...
+          </span>
         </div>
       </div>
     );
@@ -91,9 +104,13 @@ export function EmailDetail({
 
   if (!email) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-dark-text-muted">
-        <Mail className="h-16 w-16 mb-4 opacity-20" />
-        <p>Email nem található</p>
+      <div className="flex flex-col items-center justify-center h-full bg-gradient-to-b from-gray-50 to-gray-100 dark:from-dark-bg dark:to-dark-bg-secondary">
+        <div className="p-8 rounded-3xl bg-white/60 dark:bg-dark-bg-secondary/60 backdrop-blur-sm">
+          <Mail className="h-20 w-20 mb-4 text-gray-300 dark:text-dark-text-muted mx-auto" />
+          <p className="text-gray-500 dark:text-dark-text-secondary text-center">
+            Email nem található
+          </p>
+        </div>
       </div>
     );
   }
@@ -102,128 +119,137 @@ export function EmailDetail({
   const initials = getInitials(sender);
   const avatarColor = emailToColor(email.from || '');
 
-  // Időformázás rövidebb verzió
-  const formatTime = (timestamp: number) => {
+  // Dátum formázás
+  const formatDateTime = (timestamp: number) => {
     const date = new Date(timestamp);
     const now = new Date();
     const isToday = date.toDateString() === now.toDateString();
+    const isYesterday = new Date(now.getTime() - 86400000).toDateString() === date.toDateString();
+
+    const time = date.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
 
     if (isToday) {
-      return date.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
+      return `Ma, ${time}`;
     }
-    return date.toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' });
+    if (isYesterday) {
+      return `Tegnap, ${time}`;
+    }
+    return date.toLocaleDateString('hu-HU', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 dark:bg-dark-bg">
-      {/* Kompakt fejléc */}
-      <div className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-dark-bg-secondary border-b border-gray-100 dark:border-dark-border">
-        <button
-          onClick={onBack}
-          className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary lg:hidden transition-colors"
-          aria-label="Vissza"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-
-        <div className="flex-1 min-w-0">
-          <h1 className="text-base font-semibold text-gray-900 dark:text-dark-text truncate">
-            {email.subject || '(Nincs tárgy)'}
-          </h1>
-        </div>
-
-        {/* Fő akciók */}
-        <div className="flex items-center gap-1">
+    <div className="flex flex-col h-full bg-gradient-to-b from-slate-50 via-gray-50 to-slate-100 dark:from-dark-bg dark:via-dark-bg dark:to-dark-bg-secondary">
+      {/* Sticky fejléc műveleti gombokkal */}
+      <div className="sticky top-0 z-20 backdrop-blur-md bg-white/80 dark:bg-dark-bg-secondary/80 border-b border-gray-200/50 dark:border-dark-border/50">
+        <div className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3">
+          {/* Vissza gomb - mobil */}
           <button
-            onClick={() =>
-              onReply({
-                to: email.from || '',
-                subject: `Re: ${email.subject || ''}`,
-                threadId: email.threadId || undefined,
-              })
-            }
-            className="p-2.5 rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-colors touch-manipulation"
-            aria-label="Válasz"
-            title="Válasz"
+            onClick={onBack}
+            className="p-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-600 dark:text-dark-text-secondary lg:hidden transition-all active:scale-95"
+            aria-label="Vissza"
           >
-            <Reply className="h-5 w-5" />
+            <ArrowLeft className="h-5 w-5" />
           </button>
 
-          <button
-            onClick={() =>
-              onForward?.({
-                subject: `Fwd: ${email.subject || ''}`,
-                body: `\n\n---------- Továbbított üzenet ----------\nKüldő: ${email.fromName || ''} <${email.from}>\nDátum: ${formatFullDate(email.date)}\nTárgy: ${email.subject}\nCímzett: ${email.to}\n\n${email.body || ''}`,
-              })
-            }
-            className="p-2.5 rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-colors touch-manipulation"
-            aria-label="Továbbítás"
-            title="Továbbítás"
-          >
-            <Forward className="h-5 w-5" />
-          </button>
+          {/* Spacer */}
+          <div className="flex-1" />
 
-          {/* Közvetlen törlés gomb */}
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="p-2.5 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-red-600 dark:hover:text-red-400 transition-colors touch-manipulation"
-            aria-label="Törlés"
-            title="Törlés"
-          >
-            <Trash2 className="h-5 w-5" />
-          </button>
-
-          {/* További műveletek dropdown */}
-          <div className="relative">
+          {/* Műveleti gombok */}
+          <div className="flex items-center gap-1">
             <button
-              onClick={() => setShowMoreActions(!showMoreActions)}
-              className="p-2.5 rounded-full hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary transition-colors touch-manipulation"
-              aria-label="További műveletek"
+              onClick={() =>
+                onReply({
+                  to: email.from || '',
+                  subject: `Re: ${email.subject || ''}`,
+                  threadId: email.threadId || undefined,
+                })
+              }
+              className="p-2.5 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-all active:scale-95 touch-manipulation"
+              aria-label="Válasz"
+              title="Válasz"
             >
-              <MoreHorizontal className="h-5 w-5" />
+              <Reply className="h-5 w-5" />
             </button>
 
-            {showMoreActions && (
-              <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setShowMoreActions(false)}
-                />
-                <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-dark-bg-secondary rounded-xl shadow-lg border border-gray-100 dark:border-dark-border py-1 z-50">
-                  <div className="px-1">
-                    <SnoozeMenu emailId={email.id} variant="menu-item" onClose={() => setShowMoreActions(false)} />
+            <button
+              onClick={() =>
+                onForward?.({
+                  subject: `Fwd: ${email.subject || ''}`,
+                  body: `\n\n---------- Továbbított üzenet ----------\nKüldő: ${email.fromName || ''} <${email.from}>\nDátum: ${formatFullDate(email.date)}\nTárgy: ${email.subject}\nCímzett: ${email.to}\n\n${email.body || ''}`,
+                })
+              }
+              className="p-2.5 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-all active:scale-95 touch-manipulation"
+              aria-label="Továbbítás"
+              title="Továbbítás"
+            >
+              <Forward className="h-5 w-5" />
+            </button>
+
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="p-2.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-red-600 dark:hover:text-red-400 transition-all active:scale-95 touch-manipulation"
+              aria-label="Törlés"
+              title="Törlés"
+            >
+              <Trash2 className="h-5 w-5" />
+            </button>
+
+            {/* További műveletek */}
+            <div className="relative">
+              <button
+                onClick={() => setShowMoreActions(!showMoreActions)}
+                className="p-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary transition-all active:scale-95 touch-manipulation"
+                aria-label="További műveletek"
+              >
+                <MoreHorizontal className="h-5 w-5" />
+              </button>
+
+              {showMoreActions && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowMoreActions(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-2 w-52 bg-white dark:bg-dark-bg-secondary rounded-2xl shadow-xl shadow-gray-200/50 dark:shadow-black/20 border border-gray-100 dark:border-dark-border py-2 z-50">
+                    <div className="px-2">
+                      <SnoozeMenu emailId={email.id} variant="menu-item" onClose={() => setShowMoreActions(false)} />
+                    </div>
+                    <div className="px-2">
+                      <ReminderMenu emailId={email.id} variant="menu-item" onClose={() => setShowMoreActions(false)} />
+                    </div>
                   </div>
-                  <div className="px-1">
-                    <ReminderMenu emailId={email.id} variant="menu-item" onClose={() => setShowMoreActions(false)} />
-                  </div>
-                </div>
-              </>
-            )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Törlés megerősítő modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-dark-bg-secondary rounded-2xl p-6 max-w-sm mx-4 shadow-2xl dark:border dark:border-dark-border">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 rounded-full bg-red-100 dark:bg-red-500/20">
-                <Trash2 className="h-6 w-6 text-red-600 dark:text-red-400" />
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-dark-bg-secondary rounded-3xl p-6 max-w-sm w-full shadow-2xl shadow-gray-400/20 dark:shadow-black/40 dark:border dark:border-dark-border animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center mb-6">
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-red-50 to-red-100 dark:from-red-500/20 dark:to-red-500/10 mb-4">
+                <Trash2 className="h-8 w-8 text-red-500 dark:text-red-400" />
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-dark-text">
-                  Email törlése
-                </h3>
-                <p className="text-sm text-gray-500 dark:text-dark-text-secondary">
-                  A levél a kukába kerül
-                </p>
-              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-dark-text">
+                Email törlése
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-dark-text-secondary mt-1">
+                A levél a kukába kerül
+              </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl border border-gray-200 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary dark:text-dark-text transition-colors"
+                className="flex-1 px-4 py-3 text-sm font-medium rounded-2xl border border-gray-200 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary dark:text-dark-text transition-all active:scale-[0.98]"
               >
                 Mégse
               </button>
@@ -237,7 +263,7 @@ export function EmailDetail({
                   });
                 }}
                 disabled={deleteEmail.isPending}
-                className="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+                className="flex-1 px-4 py-3 text-sm font-medium rounded-2xl bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 disabled:opacity-50 transition-all active:scale-[0.98] shadow-lg shadow-red-500/25"
               >
                 {deleteEmail.isPending ? 'Törlés...' : 'Törlés'}
               </button>
@@ -248,132 +274,179 @@ export function EmailDetail({
 
       {/* Email tartalom - scrollozható */}
       <div className="flex-1 overflow-auto">
-        <div className="max-w-4xl mx-auto p-4">
-          {/* Küldő kártya */}
-          <div className="bg-white dark:bg-dark-bg-secondary rounded-2xl shadow-sm border border-gray-100 dark:border-dark-border mb-4 overflow-hidden">
-            <div className="p-4">
-              <div className="flex items-start gap-3">
+        <div className="max-w-3xl mx-auto px-3 py-4 sm:px-6 sm:py-6">
+          {/* Tárgy kártya */}
+          <div className="mb-4 sm:mb-6">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-dark-text leading-tight">
+              {email.subject || '(Nincs tárgy)'}
+            </h1>
+          </div>
+
+          {/* Küldő információs kártya */}
+          <div className="bg-white dark:bg-dark-bg-secondary rounded-3xl shadow-lg shadow-gray-200/50 dark:shadow-black/20 border border-gray-100/80 dark:border-dark-border/50 mb-4 sm:mb-6 overflow-hidden">
+            <div className="p-4 sm:p-5">
+              <div className="flex items-start gap-4">
                 {/* Avatar */}
-                <div
-                  className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-white text-base font-semibold shadow-sm"
-                  style={{ backgroundColor: avatarColor }}
-                >
-                  {initials}
+                <div className="relative flex-shrink-0">
+                  <div
+                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center text-white text-lg sm:text-xl font-bold shadow-lg"
+                    style={{
+                      background: `linear-gradient(135deg, ${avatarColor} 0%, ${avatarColor}dd 100%)`,
+                      boxShadow: `0 8px 24px -4px ${avatarColor}40`,
+                    }}
+                  >
+                    {initials}
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-400 rounded-full border-2 border-white dark:border-dark-bg-secondary" />
                 </div>
 
                 {/* Küldő infó */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-semibold text-gray-900 dark:text-dark-text truncate">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h2 className="text-lg font-semibold text-gray-900 dark:text-dark-text truncate">
                         {sender}
-                      </span>
+                      </h2>
+                      <p className="text-sm text-gray-500 dark:text-dark-text-secondary truncate mt-0.5">
+                        {email.from}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-dark-text-muted">
-                        <Clock className="h-3.5 w-3.5" />
-                        <span>{formatTime(email.date)}</span>
-                      </div>
-                      {/* Törlés gomb a küldő kártyában */}
-                      <button
-                        onClick={() => setShowDeleteConfirm(true)}
-                        className="p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-400 dark:text-dark-text-muted hover:text-red-600 dark:hover:text-red-400 transition-colors touch-manipulation"
-                        aria-label="Törlés"
-                        title="Törlés"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                    {/* Törlés gomb */}
+                    <button
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="p-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-all flex-shrink-0"
+                      aria-label="Törlés"
+                      title="Törlés"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
 
-                  <div className="text-sm text-gray-500 dark:text-dark-text-secondary mt-0.5 truncate">
-                    {email.from}
+                  {/* Dátum */}
+                  <div className="flex items-center gap-2 mt-3">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 dark:bg-dark-bg-tertiary text-xs font-medium text-gray-600 dark:text-dark-text-secondary">
+                      <Calendar className="h-3.5 w-3.5" />
+                      <span>{formatDateTime(email.date)}</span>
+                    </div>
                   </div>
 
                   {/* Részletek toggle */}
                   <button
                     onClick={() => setShowDetails(!showDetails)}
-                    className="flex items-center gap-1 mt-2 text-xs text-gray-400 dark:text-dark-text-muted hover:text-gray-600 dark:hover:text-dark-text-secondary transition-colors"
+                    className="flex items-center gap-1.5 mt-3 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
                   >
                     {showDetails ? (
                       <>
-                        <ChevronUp className="h-3.5 w-3.5" />
+                        <ChevronUp className="h-4 w-4" />
                         <span>Részletek elrejtése</span>
                       </>
                     ) : (
                       <>
-                        <ChevronDown className="h-3.5 w-3.5" />
+                        <ChevronDown className="h-4 w-4" />
                         <span>Részletek mutatása</span>
                       </>
                     )}
                   </button>
-
-                  {/* Részletes infó */}
-                  {showDetails && (
-                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-dark-border space-y-1.5 text-xs">
-                      <div className="flex gap-2">
-                        <span className="text-gray-400 dark:text-dark-text-muted w-16">Küldő:</span>
-                        <span className="text-gray-600 dark:text-dark-text-secondary">
-                          {email.fromName ? `${email.fromName} <${email.from}>` : email.from}
-                        </span>
-                      </div>
-                      <div className="flex gap-2">
-                        <span className="text-gray-400 dark:text-dark-text-muted w-16">Címzett:</span>
-                        <span className="text-gray-600 dark:text-dark-text-secondary">{email.to}</span>
-                      </div>
-                      {email.cc && (
-                        <div className="flex gap-2">
-                          <span className="text-gray-400 dark:text-dark-text-muted w-16">Másolat:</span>
-                          <span className="text-gray-600 dark:text-dark-text-secondary">{email.cc}</span>
-                        </div>
-                      )}
-                      <div className="flex gap-2">
-                        <span className="text-gray-400 dark:text-dark-text-muted w-16">Dátum:</span>
-                        <span className="text-gray-600 dark:text-dark-text-secondary">{formatFullDate(email.date)}</span>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
+
+              {/* Részletes infó */}
+              {showDetails && (
+                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-dark-border/50">
+                  <div className="grid gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg bg-gray-100 dark:bg-dark-bg-tertiary">
+                        <User className="h-4 w-4 text-gray-500 dark:text-dark-text-secondary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-400 dark:text-dark-text-muted uppercase tracking-wider">Küldő</p>
+                        <p className="text-sm text-gray-700 dark:text-dark-text-secondary mt-0.5 break-all">
+                          {email.fromName ? `${email.fromName} <${email.from}>` : email.from}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg bg-gray-100 dark:bg-dark-bg-tertiary">
+                        <Users className="h-4 w-4 text-gray-500 dark:text-dark-text-secondary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-400 dark:text-dark-text-muted uppercase tracking-wider">Címzett</p>
+                        <p className="text-sm text-gray-700 dark:text-dark-text-secondary mt-0.5 break-all">{email.to}</p>
+                      </div>
+                    </div>
+                    {email.cc && (
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 rounded-lg bg-gray-100 dark:bg-dark-bg-tertiary">
+                          <Users className="h-4 w-4 text-gray-500 dark:text-dark-text-secondary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-400 dark:text-dark-text-muted uppercase tracking-wider">Másolat</p>
+                          <p className="text-sm text-gray-700 dark:text-dark-text-secondary mt-0.5 break-all">{email.cc}</p>
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg bg-gray-100 dark:bg-dark-bg-tertiary">
+                        <Calendar className="h-4 w-4 text-gray-500 dark:text-dark-text-secondary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-400 dark:text-dark-text-muted uppercase tracking-wider">Dátum</p>
+                        <p className="text-sm text-gray-700 dark:text-dark-text-secondary mt-0.5">{formatFullDate(email.date)}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Email body kártya */}
-          <div className="bg-white dark:bg-dark-bg-secondary rounded-2xl shadow-sm border border-gray-100 dark:border-dark-border overflow-hidden">
-            <div className="p-5 sm:p-6">
+          <div className="bg-white dark:bg-dark-bg-secondary rounded-3xl shadow-lg shadow-gray-200/50 dark:shadow-black/20 border border-gray-100/80 dark:border-dark-border/50 overflow-hidden">
+            <div className="p-5 sm:p-8">
               {sanitizedHtml ? (
                 <div
-                  className="prose prose-sm sm:prose max-w-none dark:prose-invert
-                    prose-headings:text-gray-900 dark:prose-headings:text-dark-text
-                    prose-p:text-gray-700 dark:prose-p:text-dark-text-secondary
-                    prose-a:text-blue-600 dark:prose-a:text-blue-400
+                  className="prose prose-sm sm:prose-base max-w-none dark:prose-invert
+                    prose-headings:text-gray-900 dark:prose-headings:text-dark-text prose-headings:font-semibold
+                    prose-p:text-gray-700 dark:prose-p:text-dark-text-secondary prose-p:leading-relaxed
+                    prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline
                     prose-strong:text-gray-900 dark:prose-strong:text-dark-text
-                    prose-img:rounded-lg prose-img:shadow-md"
+                    prose-img:rounded-2xl prose-img:shadow-lg
+                    prose-blockquote:border-l-4 prose-blockquote:border-blue-500 prose-blockquote:bg-blue-50 dark:prose-blockquote:bg-blue-500/10 prose-blockquote:rounded-r-xl prose-blockquote:py-1
+                    prose-pre:bg-gray-900 prose-pre:rounded-2xl
+                    prose-code:text-pink-600 dark:prose-code:text-pink-400
+                    prose-ul:list-disc prose-ol:list-decimal
+                    prose-li:text-gray-700 dark:prose-li:text-dark-text-secondary"
                   dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                 />
               ) : email.body ? (
-                <pre className="whitespace-pre-wrap text-sm text-gray-700 dark:text-dark-text-secondary font-sans leading-relaxed">
+                <pre className="whitespace-pre-wrap text-sm sm:text-base text-gray-700 dark:text-dark-text-secondary font-sans leading-relaxed">
                   {email.body}
                 </pre>
               ) : (
-                <p className="text-gray-400 dark:text-dark-text-muted italic text-center py-8">
-                  Nincs megjeleníthető tartalom
-                </p>
+                <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-dark-text-muted">
+                  <Mail className="h-12 w-12 mb-3 opacity-50" />
+                  <p className="italic">Nincs megjeleníthető tartalom</p>
+                </div>
               )}
             </div>
 
             {/* Mellékletek */}
             {email.attachments && email.attachments.length > 0 && (
-              <div className="border-t border-gray-100 dark:border-dark-border bg-gray-50 dark:bg-dark-bg-tertiary/50 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-500/20">
-                    <Paperclip className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <div className="border-t border-gray-100 dark:border-dark-border/50 bg-gradient-to-b from-gray-50 to-gray-100/50 dark:from-dark-bg-tertiary/30 dark:to-dark-bg-tertiary/50 p-4 sm:p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/25">
+                    <Paperclip className="h-5 w-5 text-white" />
                   </div>
-                  <span className="text-sm font-medium text-gray-700 dark:text-dark-text">
-                    {email.attachments.length} melléklet
-                  </span>
+                  <div>
+                    <span className="text-sm font-semibold text-gray-800 dark:text-dark-text">
+                      {email.attachments.length} melléklet
+                    </span>
+                    <p className="text-xs text-gray-500 dark:text-dark-text-muted">
+                      Kattints a letöltéshez
+                    </p>
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {email.attachments.map((att) => (
                     <AttachmentView key={att.id} attachment={att} />
                   ))}
@@ -383,7 +456,7 @@ export function EmailDetail({
           </div>
 
           {/* Gyors válasz gombok alul */}
-          <div className="flex items-center justify-center gap-2 mt-4 pb-4">
+          <div className="flex items-center justify-center gap-3 mt-6 pb-6">
             <button
               onClick={() =>
                 onReply({
@@ -392,7 +465,7 @@ export function EmailDetail({
                   threadId: email.threadId || undefined,
                 })
               }
-              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-medium shadow-sm hover:shadow transition-all"
+              className="flex items-center gap-2.5 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-2xl text-sm font-semibold shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 transition-all active:scale-[0.98]"
             >
               <Reply className="h-4 w-4" />
               <span>Válasz</span>
@@ -404,7 +477,7 @@ export function EmailDetail({
                   body: `\n\n---------- Továbbított üzenet ----------\nKüldő: ${email.fromName || ''} <${email.from}>\nDátum: ${formatFullDate(email.date)}\nTárgy: ${email.subject}\nCímzett: ${email.to}\n\n${email.body || ''}`,
                 })
               }
-              className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-dark-bg-secondary hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary text-gray-700 dark:text-dark-text border border-gray-200 dark:border-dark-border rounded-full text-sm font-medium shadow-sm hover:shadow transition-all"
+              className="flex items-center gap-2.5 px-6 py-3 bg-white dark:bg-dark-bg-secondary hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary text-gray-700 dark:text-dark-text border border-gray-200 dark:border-dark-border rounded-2xl text-sm font-semibold shadow-lg shadow-gray-200/50 dark:shadow-black/20 hover:shadow-xl transition-all active:scale-[0.98]"
             >
               <Forward className="h-4 w-4" />
               <span>Továbbítás</span>
