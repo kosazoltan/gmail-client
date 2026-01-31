@@ -463,25 +463,43 @@ export async function deleteMessage(gmail: gmail_v1.Gmail, messageId: string) {
   });
 }
 
+// Gmail címke típus
+export interface GmailLabelInfo {
+  id: string;
+  name: string;
+  type: string;
+  messagesTotal: number;
+  messagesUnread: number;
+  color: {
+    textColor: string;
+    backgroundColor: string;
+  } | null;
+}
+
 // Gmail címkék listázása
-export async function listLabels(gmail: gmail_v1.Gmail) {
+export async function listLabels(gmail: gmail_v1.Gmail): Promise<GmailLabelInfo[]> {
   const response = await gmail.users.labels.list({
     userId: 'me',
   });
 
-  return (response.data.labels || []).map((label) => ({
-    id: label.id!,
-    name: label.name!,
-    type: label.type || 'user',
-    messagesTotal: label.messagesTotal || 0,
-    messagesUnread: label.messagesUnread || 0,
-    color: label.color
-      ? {
-          textColor: label.color.textColor,
-          backgroundColor: label.color.backgroundColor,
-        }
-      : null,
-  }));
+  return (response.data.labels ?? [])
+    .filter((label): label is typeof label & { id: string; name: string } =>
+      typeof label.id === 'string' && typeof label.name === 'string'
+    )
+    .map((label) => ({
+      id: label.id,
+      name: label.name,
+      type: label.type ?? 'user',
+      messagesTotal: label.messagesTotal ?? 0,
+      messagesUnread: label.messagesUnread ?? 0,
+      color:
+        label.color?.textColor && label.color?.backgroundColor
+          ? {
+              textColor: label.color.textColor,
+              backgroundColor: label.color.backgroundColor,
+            }
+          : null,
+    }));
 }
 
 // Egy címke lekérése

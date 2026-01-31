@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request } from 'express';
 import { getOAuth2ClientForAccount } from '../services/auth.service.js';
 import {
   getGmailClient,
@@ -11,12 +11,35 @@ import { execute, queryOne } from '../db/index.js';
 
 const router = Router();
 
+// Helper: labelIds tömb validálása
+function isValidLabelIds(labelIds: unknown): labelIds is string[] {
+  return (
+    Array.isArray(labelIds) &&
+    labelIds.length > 0 &&
+    labelIds.every((id) => typeof id === 'string' && id.length > 0)
+  );
+}
+
+// Helper: emailId validálása
+function isValidEmailId(emailId: string): boolean {
+  return typeof emailId === 'string' && emailId.length > 0 && /^[a-zA-Z0-9]+$/.test(emailId);
+}
+
+// Helper: JSON biztonságos parse
+function safeParseLabels(labelsJson: string | null): string[] {
+  if (!labelsJson) return [];
+  try {
+    const parsed = JSON.parse(labelsJson);
+    return Array.isArray(parsed) ? parsed.filter((l): l is string => typeof l === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
 // Jogosultság ellenőrzés helper
-function validateAccountAccess(req: {
-  query: { accountId?: string };
-  session: { activeAccountId?: string | null; accountIds?: string[] };
-}): string | null {
-  const accountId = (req.query.accountId as string) || req.session.activeAccountId;
+function validateAccountAccess(req: Request): string | null {
+  const accountId =
+    (req.query.accountId as string | undefined) || req.session.activeAccountId || null;
   if (!accountId) return null;
 
   const accountIds = req.session.accountIds || [];
@@ -110,8 +133,13 @@ router.post('/email/:emailId/add', async (req, res) => {
   const { emailId } = req.params;
   const { labelIds } = req.body;
 
-  if (!labelIds || !Array.isArray(labelIds) || labelIds.length === 0) {
-    res.status(400).json({ error: 'labelIds tömb kötelező' });
+  if (!isValidEmailId(emailId)) {
+    res.status(400).json({ error: 'Érvénytelen emailId' });
+    return;
+  }
+
+  if (!isValidLabelIds(labelIds)) {
+    res.status(400).json({ error: 'labelIds kötelező és string tömb kell legyen' });
     return;
   }
 
@@ -128,7 +156,7 @@ router.post('/email/:emailId/add', async (req, res) => {
     );
 
     if (email) {
-      const currentLabels: string[] = email.labels ? JSON.parse(email.labels) : [];
+      const currentLabels = safeParseLabels(email.labels);
       const newLabels = [...new Set([...currentLabels, ...labelIds])];
       execute('UPDATE emails SET labels = ? WHERE id = ?', [JSON.stringify(newLabels), emailId]);
     }
@@ -151,8 +179,13 @@ router.post('/email/:emailId/remove', async (req, res) => {
   const { emailId } = req.params;
   const { labelIds } = req.body;
 
-  if (!labelIds || !Array.isArray(labelIds) || labelIds.length === 0) {
-    res.status(400).json({ error: 'labelIds tömb kötelező' });
+  if (!isValidEmailId(emailId)) {
+    res.status(400).json({ error: 'Érvénytelen emailId' });
+    return;
+  }
+
+  if (!isValidLabelIds(labelIds)) {
+    res.status(400).json({ error: 'labelIds kötelező és string tömb kell legyen' });
     return;
   }
 
@@ -169,7 +202,7 @@ router.post('/email/:emailId/remove', async (req, res) => {
     );
 
     if (email) {
-      const currentLabels: string[] = email.labels ? JSON.parse(email.labels) : [];
+      const currentLabels = safeParseLabels(email.labels);
       const newLabels = currentLabels.filter((l) => !labelIds.includes(l));
       execute('UPDATE emails SET labels = ? WHERE id = ?', [JSON.stringify(newLabels), emailId]);
     }
@@ -192,13 +225,27 @@ router.post('/email/:emailId/move', async (req, res) => {
   const { emailId } = req.params;
   const { addLabelIds, removeLabelIds } = req.body;
 
+  if (!isValidEmailId(emailId)) {
+    res.status(400).json({ error: 'Érvénytelen emailId' });
+    return;
+  }
+
+  // Validáljuk a labelIds tömböket ha megadták
+  const validAddLabelIds = isValidLabelIds(addLabelIds) ? addLabelIds : [];
+  const validRemoveLabelIds = isValidLabelIds(removeLabelIds) ? removeLabelIds : [];
+
+  if (validAddLabelIds.length === 0 && validRemoveLabelIds.length === 0) {
+    res.status(400).json({ error: 'Legalább egy addLabelIds vagy removeLabelIds kötelező' });
+    return;
+  }
+
   try {
     const { oauth2Client } = getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
 
     await modifyMessage(gmail, emailId, {
-      addLabels: addLabelIds || [],
-      removeLabels: removeLabelIds || [],
+      addLabels: validAddLabelIds,
+      removeLabels: validRemoveLabelIds,
     });
 
     // Frissítsük az adatbázisban is
@@ -208,16 +255,16 @@ router.post('/email/:emailId/move', async (req, res) => {
     );
 
     if (email) {
-      let currentLabels: string[] = email.labels ? JSON.parse(email.labels) : [];
+      let currentLabels = safeParseLabels(email.labels);
 
       // Eltávolítás
-      if (removeLabelIds && removeLabelIds.length > 0) {
-        currentLabels = currentLabels.filter((l) => !removeLabelIds.includes(l));
+      if (validRemoveLabelIds.length > 0) {
+        currentLabels = currentLabels.filter((l) => !validRemoveLabelIds.includes(l));
       }
 
       // Hozzáadás
-      if (addLabelIds && addLabelIds.length > 0) {
-        currentLabels = [...new Set([...currentLabels, ...addLabelIds])];
+      if (validAddLabelIds.length > 0) {
+        currentLabels = [...new Set([...currentLabels, ...validAddLabelIds])];
       }
 
       execute('UPDATE emails SET labels = ? WHERE id = ?', [JSON.stringify(currentLabels), emailId]);
