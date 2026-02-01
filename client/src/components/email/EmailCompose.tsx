@@ -33,9 +33,8 @@ function formatEmailBody(text: string): string {
     if (line.trim() === '') {
       return '<div><br/></div>';
     }
-    // Minden sor explicit színnel a sötét mód támogatásához
-    // A szín a CSS változókat használja ami automatikusan vált világos/sötét módban
-    return `<div style="color: inherit;">${line || '<br/>'}</div>`;
+    // Nincs inline style - a szülő elem CSS fogja meghatározni a színt
+    return `<div>${line || '<br/>'}</div>`;
   });
 
   return formatted.join('');
@@ -272,7 +271,7 @@ export function EmailCompose() {
             contentEditable
             onInput={handleBodyInput}
             onKeyDown={handleKeyDown}
-            className="w-full px-3 py-2 text-sm outline-none bg-transparent text-gray-900 dark:text-dark-text min-h-[240px] max-h-[500px] overflow-y-auto border border-gray-200 dark:border-dark-border rounded-lg focus:border-blue-400 focus:ring-1 focus:ring-blue-400 [&_div]:text-inherit [&_*]:text-inherit"
+            className="w-full px-3 py-2 text-sm outline-none bg-transparent text-gray-900 dark:text-gray-300 min-h-[240px] max-h-[500px] overflow-y-auto border border-gray-200 dark:border-dark-border rounded-lg focus:border-blue-400 focus:ring-1 focus:ring-blue-400 [&_div]:!text-[inherit] [&_*]:!text-[inherit]"
             style={{
               whiteSpace: 'pre-wrap',
               wordWrap: 'break-word',
