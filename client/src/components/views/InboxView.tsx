@@ -220,9 +220,11 @@ export function InboxView() {
             emailId={selectedEmail?.id || null}
             accountId={accountId}
             onBack={() => setSelectedEmail(null)}
-            onReply={({ to, subject, threadId }) => {
+            onReply={({ to, subject, threadId, body, fromName, date }) => {
+              const originalBody = body || '';
+              const replyBody = `\n\n─────────────────────────\nDátum: ${date ? new Date(date).toLocaleString('hu-HU') : ''}\nFeladó: ${fromName || to}\n\n${originalBody}`;
               navigate(
-                `/compose?reply=true&to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}`,
+                `/compose?reply=true&to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}&body=${encodeURIComponent(replyBody)}`,
               );
             }}
             onForward={({ subject, body }) => {

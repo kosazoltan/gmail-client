@@ -150,19 +150,17 @@ export function InvoicesView() {
           emailId={selectedEmail?.id || null}
           accountId={accountId}
           onBack={() => setSelectedEmail(null)}
-          onReply={({ to, subject, threadId, cc, body }) => {
+          onReply={({ to, subject, threadId, body, fromName, date }) => {
+            const originalBody = body || '';
+            const replyBody = `\n\n─────────────────────────\nDátum: ${date ? new Date(date).toLocaleString('hu-HU') : ''}\nFeladó: ${fromName || to}\n\n${originalBody}`;
             navigate(
-              `/compose?reply=true&to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}${cc ? `&cc=${encodeURIComponent(cc)}` : ''}${body ? `&body=${encodeURIComponent(body)}` : ''}`,
+              `/compose?reply=true&to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}&body=${encodeURIComponent(replyBody)}`,
             );
           }}
           onForward={({ subject, body }) => {
             navigate(
               `/compose?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
             );
-          }}
-          onDeleteSuccess={() => {
-            const nextEmail = getNextEmailAfterDelete(emailsRef.current, selectedEmail?.id);
-            setSelectedEmail(nextEmail);
           }}
         />
       </div>
