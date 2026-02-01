@@ -79,6 +79,32 @@ html.dark .prose th {
   border-color: #373a40;
 }
 
+/* Sötét mód email tartalom - csak fekete/sötét szövegeket világosítunk */
+html.dark .email-content {
+  /* Fekete (#000000, #000, rgb(0,0,0)) szövegek -> világos szürke */
+  --email-text-light: #d1d5db;
+}
+
+/* Inline style-okkal rendelkező elemek felülírása csak sötét módban */
+html.dark .email-content [style*="color: #000"],
+html.dark .email-content [style*="color:#000"],
+html.dark .email-content [style*="color: rgb(0, 0, 0)"],
+html.dark .email-content [style*="color:rgb(0,0,0)"],
+html.dark .email-content [style*="color: black"],
+html.dark .email-content [style*="color:black"] {
+  color: var(--email-text-light) !important;
+}
+
+/* Sötét background-ok */
+html.dark .email-content [style*="background-color: #000"],
+html.dark .email-content [style*="background-color:#000"],
+html.dark .email-content [style*="background: #000"],
+html.dark .email-content [style*="background:#000"],
+html.dark .email-content [style*="background-color: black"],
+html.dark .email-content [style*="background:black"] {
+  background-color: transparent !important;
+}
+
 /* Sötét mód input mezők */
 html.dark input,
 html.dark textarea,
