@@ -124,6 +124,12 @@ export const api = {
         `/views/by-category/${categoryId}${query}`,
       );
     },
+    trash: (params?: { page?: number; accountId?: string }) => {
+      const query = new URLSearchParams();
+      if (params?.page) query.set('page', params.page.toString());
+      if (params?.accountId) query.set('accountId', params.accountId);
+      return request<import('../types').PaginatedEmails>(`/views/trash?${query}`);
+    },
   },
 
   categories: {

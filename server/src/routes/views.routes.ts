@@ -211,4 +211,38 @@ function formatEmail(email: EmailRecord) {
   };
 }
 
+// Kuka - törölt levelek (TRASH label)
+router.get('/trash', (req, res) => {
+  const accountId = validateAccountAccess(req);
+  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
+
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = Math.min(parseInt(req.query.limit as string) || 50, MAX_LIMIT);
+  const offset = (page - 1) * limit;
+
+  // Szűrjük azokat az emaileket, amelyek labels JSON-jében benne van a "TRASH"
+  const allEmails = queryAll<EmailRecord>(
+    'SELECT * FROM emails WHERE account_id = ? ORDER BY date DESC',
+    [accountId]
+  );
+
+  const trashedEmails = allEmails.filter(email => {
+    try {
+      const labels: string[] = email.labels ? JSON.parse(email.labels) : [];
+      return labels.includes('TRASH');
+    } catch {
+      return false;
+    }
+  });
+
+  const paginatedEmails = trashedEmails.slice(offset, offset + limit);
+
+  res.json({
+    emails: paginatedEmails.map(formatEmail),
+    total: trashedEmails.length,
+    page,
+    totalPages: Math.ceil(trashedEmails.length / limit),
+  });
+});
+
 export default router;

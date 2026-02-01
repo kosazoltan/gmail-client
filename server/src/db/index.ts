@@ -231,6 +231,13 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
     CREATE INDEX IF NOT EXISTS idx_emails_subject ON emails(subject);
     CREATE INDEX IF NOT EXISTS idx_emails_starred ON emails(is_starred);
     CREATE INDEX IF NOT EXISTS idx_attachments_email ON attachments(email_id);
+
+    -- Keresési indexek - COLLATE NOCASE a case-insensitive kereséshez
+    CREATE INDEX IF NOT EXISTS idx_emails_search_subject ON emails(subject COLLATE NOCASE);
+    CREATE INDEX IF NOT EXISTS idx_emails_search_from_email ON emails(from_email COLLATE NOCASE);
+    CREATE INDEX IF NOT EXISTS idx_emails_search_from_name ON emails(from_name COLLATE NOCASE);
+    CREATE INDEX IF NOT EXISTS idx_emails_search_body ON emails(body COLLATE NOCASE);
+    CREATE INDEX IF NOT EXISTS idx_emails_search_snippet ON emails(snippet COLLATE NOCASE);
   `);
 
   console.log('Adatbázis inicializálva.');

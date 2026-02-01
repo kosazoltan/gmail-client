@@ -8,6 +8,7 @@ import { ByTopicView } from './components/views/ByTopicView';
 import { ByTimeView } from './components/views/ByTimeView';
 import { PersonalView } from './components/views/PersonalView';
 import { InvoicesView } from './components/views/InvoicesView';
+import { TrashView } from './components/views/TrashView';
 import { AttachmentsView } from './components/views/AttachmentsView';
 import { RemindersView } from './components/views/RemindersView';
 import { NewslettersView } from './components/views/NewslettersView';
@@ -40,6 +41,7 @@ function App() {
               <Route path="/by-time" element={<ByTimeView />} />
               <Route path="/personal" element={<PersonalView />} />
               <Route path="/invoices" element={<InvoicesView />} />
+              <Route path="/trash" element={<TrashView />} />
               <Route path="/attachments" element={<AttachmentsView />} />
               <Route path="/reminders" element={<RemindersView onEmailSelect={() => {}} />} />
               <Route path="/newsletters" element={<NewslettersView onEmailSelect={() => {}} />} />
