@@ -200,18 +200,6 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
     );
   `);
 
-  // FTS5 virtuális tábla létrehozása a kereséshez
-  _db.run(`
-    CREATE VIRTUAL TABLE IF NOT EXISTS emails_fts USING fts5(
-      subject,
-      from_email,
-      from_name,
-      body,
-      snippet,
-      content=emails,
-      content_rowid=rowid
-    );
-  `);
 
   // Indexek
   _db.run(`
