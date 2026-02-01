@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSendEmail, useReplyEmail, type EmailAttachment } from '../../hooks/useEmails';
 import { Send, X, Loader2, Paperclip, File, Image, FileText, Trash2 } from 'lucide-react';
@@ -24,24 +24,72 @@ function AttachmentIcon({ mimeType, className }: { mimeType: string; className?:
   return <File className={className} />;
 }
 
+// Email body formázása válaszoláshoz
+function formatEmailBody(text: string): string {
+  if (!text) return '';
+
+  const lines = text.split('\n');
+  const formatted = lines.map((line) => {
+    if (line.trim() === '') {
+      return '<div><br/></div>';
+    }
+    // Minden sor normál megjelenítéssel
+    return `<div>${line || '<br/>'}</div>`;
+  });
+
+  return formatted.join('');
+}
+
 export function EmailCompose() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sendEmail = useSendEmail();
   const replyEmail = useReplyEmail();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bodyEditorRef = useRef<HTMLDivElement>(null);
 
   const isReply = searchParams.get('reply') === 'true';
   const isForward = searchParams.has('body') && !isReply;
   const [to, setTo] = useState(searchParams.get('to') || '');
-  const [cc, setCc] = useState(searchParams.get('cc') || '');
+  const [cc, setCc] = useState('');
   const [subject, setSubject] = useState(searchParams.get('subject') || '');
   const [body, setBody] = useState(searchParams.get('body') || '');
-  const [showCc, setShowCc] = useState(!!searchParams.get('cc'));
+  const [showCc, setShowCc] = useState(false);
   const [showTemplatesManager, setShowTemplatesManager] = useState(false);
   const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
 
   const threadId = searchParams.get('threadId') || undefined;
+
+  // Inicializálás: contenteditable div feltöltése formázott szöveggel
+  useEffect(() => {
+    if (bodyEditorRef.current && body) {
+      bodyEditorRef.current.innerHTML = formatEmailBody(body);
+      // Kurzor a szöveg elejére helyezése (íráshoz)
+      bodyEditorRef.current.focus();
+      const range = document.createRange();
+      range.selectNodeContents(bodyEditorRef.current);
+      range.collapse(true);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    }
+  }, []);
+
+  // Body frissítése contenteditable div-ből
+  const handleBodyInput = () => {
+    if (bodyEditorRef.current) {
+      setBody(bodyEditorRef.current.innerText);
+    }
+  };
+
+  // Billentyűzet esemény - új szöveg kék színűvé tétele
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    // Ha válaszolunk (isReply), akkor az új szöveg kék legyen
+    if (isReply && bodyEditorRef.current) {
+      // Beállítjuk a szöveg színét kékre az új karakterekhez
+      document.execCommand('foreColor', false, '#2563eb');
+    }
+  };
 
   const handleTemplateSelect = (template: Template) => {
     if (template.subject && !subject) {
@@ -218,12 +266,17 @@ export function EmailCompose() {
             />
           </div>
 
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="Levél szövege..."
-            rows={10}
-            className="w-full px-3 py-2 text-sm resize-none outline-none bg-transparent dark:text-dark-text"
+          <div
+            ref={bodyEditorRef}
+            contentEditable
+            onInput={handleBodyInput}
+            onKeyDown={handleKeyDown}
+            className="w-full px-3 py-2 text-sm outline-none bg-transparent dark:text-dark-text min-h-[240px] max-h-[500px] overflow-y-auto border border-gray-200 dark:border-dark-border rounded-lg focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+            style={{
+              whiteSpace: 'pre-wrap',
+              wordWrap: 'break-word',
+            }}
+            data-placeholder={body ? '' : 'Levél szövege... (Válaszoláskor az új szöveged kék színnel jelenik meg)'}
           />
 
           {/* Mellékletek */}

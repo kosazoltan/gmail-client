@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
 import { useEmails, useToggleStar, useMarkRead, useDeleteEmail } from '../../hooks/useEmails';
 import { useKeyboardShortcuts, useSearchFocus } from '../../hooks/useKeyboardShortcuts';
-import { ThreadedEmailList } from '../email/ThreadedEmailList';
+import { EmailList } from '../email/EmailList';
 import { EmailDetail } from '../email/EmailDetail';
 import { KeyboardShortcutsHelp } from '../common/KeyboardShortcutsHelp';
 import { LoginScreen } from '../auth/LoginScreen';
@@ -55,8 +55,12 @@ export function InboxView() {
   // Válasz
   const handleReply = useCallback(() => {
     if (!selectedEmail) return;
+    // Eredeti üzenet egyszerű formában (prefix nélkül)
+    const originalBody = selectedEmail.body || selectedEmail.snippet || '';
+    const replyBody = `\n\n─────────────────────────\nDátum: ${new Date(selectedEmail.date).toLocaleString('hu-HU')}\nFeladó: ${selectedEmail.fromName || selectedEmail.from || ''}\n\n${originalBody}`;
+
     navigate(
-      `/compose?reply=true&to=${encodeURIComponent(selectedEmail.from || '')}&subject=${encodeURIComponent(`Re: ${selectedEmail.subject || ''}`)}${selectedEmail.threadId ? `&threadId=${selectedEmail.threadId}` : ''}`,
+      `/compose?reply=true&to=${encodeURIComponent(selectedEmail.from || '')}&subject=${encodeURIComponent(`Re: ${selectedEmail.subject || ''}`)}${selectedEmail.threadId ? `&threadId=${selectedEmail.threadId}` : ''}&body=${encodeURIComponent(replyBody)}`,
     );
   }, [selectedEmail, navigate]);
 
@@ -168,26 +172,22 @@ export function InboxView() {
           w-full lg:w-2/5 xl:w-1/3 border-r border-gray-200 dark:border-dark-border overflow-auto
           ${selectedEmail ? 'hidden lg:block' : 'block'}
         `}>
-          <ThreadedEmailList
+          <EmailList
             emails={emails}
             isLoading={isLoading}
             selectedEmailId={selectedEmail?.id || null}
             onSelectEmail={setSelectedEmail}
             onDeleteEmail={(emailId) => {
               // Ha a kiválasztott emailt töröljük, válasszuk ki a következőt
-              // Használjuk a ref-et a friss emails lista eléréséhez (stale closure fix)
-              const currentEmails = emailsRef.current;
-              const emailIndex = currentEmails.findIndex(e => e.id === emailId);
+              const emailIndex = emails.findIndex(e => e.id === emailId);
               deleteEmail.mutate(emailId, {
                 onSuccess: () => {
                   if (selectedEmail?.id === emailId) {
-                    if (currentEmails.length > 1 && emailIndex !== -1) {
-                      if (emailIndex < currentEmails.length - 1) {
-                        setSelectedEmail(currentEmails[emailIndex + 1]);
-                      } else if (emailIndex > 0) {
-                        setSelectedEmail(currentEmails[emailIndex - 1]);
+                    if (emails.length > 1) {
+                      if (emailIndex < emails.length - 1) {
+                        setSelectedEmail(emails[emailIndex + 1]);
                       } else {
-                        setSelectedEmail(null);
+                        setSelectedEmail(emails[emailIndex - 1]);
                       }
                     } else {
                       setSelectedEmail(null);
@@ -233,30 +233,15 @@ export function InboxView() {
             emailId={selectedEmail?.id || null}
             accountId={accountId}
             onBack={() => setSelectedEmail(null)}
-            onReply={({ to, subject, threadId, cc }) => {
+            onReply={({ to, subject, threadId }) => {
               navigate(
-                `/compose?reply=true&to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}${cc ? `&cc=${encodeURIComponent(cc)}` : ''}`,
+                `/compose?reply=true&to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}`,
               );
             }}
             onForward={({ subject, body }) => {
               navigate(
                 `/compose?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
               );
-            }}
-            onDeleteSuccess={() => {
-              const currentEmails = emailsRef.current;
-              const deletedIndex = currentEmails.findIndex(e => e.id === selectedEmail?.id);
-              if (currentEmails.length > 1 && deletedIndex !== -1) {
-                if (deletedIndex < currentEmails.length - 1) {
-                  setSelectedEmail(currentEmails[deletedIndex + 1]);
-                } else if (deletedIndex > 0) {
-                  setSelectedEmail(currentEmails[deletedIndex - 1]);
-                } else {
-                  setSelectedEmail(null);
-                }
-              } else {
-                setSelectedEmail(null);
-              }
             }}
           />
         </div>
