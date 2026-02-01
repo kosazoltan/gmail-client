@@ -3,6 +3,9 @@ import { X, Download, ExternalLink, FileText, Image, FileSpreadsheet, File, Load
 import { formatFileSize } from '../../lib/utils';
 import { api } from '../../lib/api';
 import type { Attachment } from '../../types';
+import { PDFViewer } from '../viewers/PDFViewer';
+import { ImageViewer } from '../viewers/ImageViewer';
+import { OfficeViewer } from '../viewers/OfficeViewer';
 
 interface AttachmentPreviewProps {
   attachment: Attachment;
@@ -57,6 +60,28 @@ export function AttachmentPreview({ attachment, isOpen, onClose }: AttachmentPre
   const downloadUrl = api.attachments.downloadUrl(attachment.id);
   const previewType = canPreview(attachment.mimeType, attachment.filename);
 
+  // Use specialized viewers for better UX
+  if (previewType === 'image') {
+    return <ImageViewer url={downloadUrl} filename={attachment.filename} onClose={onClose} />;
+  }
+
+  if (previewType === 'pdf') {
+    return <PDFViewer url={downloadUrl} filename={attachment.filename} onClose={onClose} />;
+  }
+
+  if (previewType === 'office') {
+    return (
+      <OfficeViewer
+        url={downloadUrl}
+        filename={attachment.filename}
+        mimeType={attachment.mimeType || ''}
+        onClose={onClose}
+      />
+    );
+  }
+
+  // Fallback for text files and unsupported types
+
   const handleDownload = () => {
     window.open(downloadUrl, '_blank');
   };
@@ -69,13 +94,6 @@ export function AttachmentPreview({ attachment, isOpen, onClose }: AttachmentPre
   const handleError = () => {
     setIsLoading(false);
     setError('A fájl nem tölthető be előnézetben');
-  };
-
-  // Office fájlok Google Docs Viewer-rel
-  const getOfficeViewerUrl = () => {
-    // A teljes URL-t kell megadni a Google Docs Viewer-nek
-    const fullUrl = window.location.origin + downloadUrl;
-    return `https://docs.google.com/gview?url=${encodeURIComponent(fullUrl)}&embedded=true`;
   };
 
   return (
@@ -96,18 +114,6 @@ export function AttachmentPreview({ attachment, isOpen, onClose }: AttachmentPre
             <Download className="h-4 w-4" />
             Letöltés
           </button>
-
-          {previewType === 'office' && (
-            <a
-              href={getOfficeViewerUrl()}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-colors"
-            >
-              <ExternalLink className="h-4 w-4" />
-              Új ablakban
-            </a>
-          )}
 
           <button
             onClick={onClose}
@@ -138,36 +144,6 @@ export function AttachmentPreview({ attachment, isOpen, onClose }: AttachmentPre
               Letöltés helyett
             </button>
           </div>
-        )}
-
-        {previewType === 'image' && (
-          <img
-            src={downloadUrl}
-            alt={attachment.filename}
-            className={`max-w-full max-h-full object-contain rounded-lg shadow-2xl ${isLoading ? 'invisible' : ''}`}
-            onLoad={handleLoad}
-            onError={handleError}
-          />
-        )}
-
-        {previewType === 'pdf' && (
-          <iframe
-            src={downloadUrl}
-            title={attachment.filename}
-            className={`w-full h-full max-w-5xl bg-white rounded-lg shadow-2xl ${isLoading ? 'invisible' : ''}`}
-            onLoad={handleLoad}
-            onError={handleError}
-          />
-        )}
-
-        {previewType === 'office' && (
-          <iframe
-            src={getOfficeViewerUrl()}
-            title={attachment.filename}
-            className={`w-full h-full max-w-5xl bg-white rounded-lg shadow-2xl ${isLoading ? 'invisible' : ''}`}
-            onLoad={handleLoad}
-            onError={handleError}
-          />
         )}
 
         {previewType === 'text' && (
