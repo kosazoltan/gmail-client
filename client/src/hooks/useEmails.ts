@@ -89,9 +89,11 @@ export function useDeleteEmail() {
   return useMutation({
     mutationFn: (emailId: string) => api.emails.delete(emailId),
     onSuccess: () => {
+      // MINDEN email listát frissítünk azonnal
       queryClient.invalidateQueries({ queryKey: ['emails'] });
       queryClient.invalidateQueries({ queryKey: ['email'] });
-      // Kategória és egyéb nézetek frissítése is
+      queryClient.invalidateQueries({ queryKey: ['inbox'] }); // Beérkezett nézet
+      queryClient.invalidateQueries({ queryKey: ['trash'] }); // Kuka nézet
       queryClient.invalidateQueries({ queryKey: ['views'] });
       queryClient.invalidateQueries({ queryKey: ['search'] });
     },
