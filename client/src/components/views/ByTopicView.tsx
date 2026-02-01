@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
@@ -30,14 +30,6 @@ export function ByTopicView() {
     queryFn: () => api.views.byTopicEmails(selectedTopic!.id),
     enabled: !!selectedTopic,
   });
-
-  // Emailek a témához
-  const emails = topicEmails?.emails || [];
-
-  // Ref a friss emails lista eléréséhez (stale closure fix)
-  // FONTOS: A hookokat a korai return előtt kell hívni!
-  const emailsRef = useRef(emails);
-  useEffect(() => { emailsRef.current = emails; }, [emails]);
 
   if (!selectedTopic) {
     return (
@@ -78,6 +70,8 @@ export function ByTopicView() {
     );
   }
 
+  const emails = topicEmails?.emails || [];
+
   return (
     <div className="flex h-full relative">
       {/* Email lista - rejtett ha van kiválasztott email kis képernyőn */}
@@ -105,11 +99,19 @@ export function ByTopicView() {
           selectedEmailId={selectedEmail?.id || null}
           onSelectEmail={setSelectedEmail}
           onDeleteEmail={(emailId) => {
+            const emailIndex = emails.findIndex(e => e.id === emailId);
             deleteEmail.mutate(emailId, {
               onSuccess: () => {
                 if (selectedEmail?.id === emailId) {
-                  const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);
-                  setSelectedEmail(nextEmail);
+                  if (emails.length > 1) {
+                    if (emailIndex < emails.length - 1) {
+                      setSelectedEmail(emails[emailIndex + 1]);
+                    } else {
+                      setSelectedEmail(emails[emailIndex - 1]);
+                    }
+                  } else {
+                    setSelectedEmail(null);
+                  }
                 }
               }
             });
@@ -127,19 +129,17 @@ export function ByTopicView() {
           emailId={selectedEmail?.id || null}
           accountId={accountId}
           onBack={() => setSelectedEmail(null)}
-          onReply={({ to, subject, threadId, cc, body }) => {
+          onReply={({ to, subject, threadId, body, fromName, date }) => {
+            const originalBody = body || '';
+            const replyBody = `\n\n─────────────────────────\nDátum: ${date ? new Date(date).toLocaleString('hu-HU') : ''}\nFeladó: ${fromName || to}\n\n${originalBody}`;
             navigate(
-              `/compose?reply=true&to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}${cc ? `&cc=${encodeURIComponent(cc)}` : ''}${body ? `&body=${encodeURIComponent(body)}` : ''}`,
+              `/compose?reply=true&to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}&body=${encodeURIComponent(replyBody)}`,
             );
           }}
           onForward={({ subject, body }) => {
             navigate(
               `/compose?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
             );
-          }}
-          onDeleteSuccess={() => {
-            const nextEmail = getNextEmailAfterDelete(emailsRef.current, selectedEmail?.id);
-            setSelectedEmail(nextEmail);
           }}
         />
       </div>
