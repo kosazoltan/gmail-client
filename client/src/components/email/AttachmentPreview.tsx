@@ -60,13 +60,6 @@ export function AttachmentPreview({ attachment, isOpen, onClose }: AttachmentPre
   const downloadUrl = api.attachments.downloadUrl(attachment.id);
   const previewType = canPreview(attachment.mimeType, attachment.filename);
 
-  console.log('AttachmentPreview:', {
-    filename: attachment.filename,
-    mimeType: attachment.mimeType,
-    previewType,
-    downloadUrl
-  });
-
   // Use specialized viewers for better UX
   if (previewType === 'image') {
     return <ImageViewer url={downloadUrl} filename={attachment.filename} onClose={onClose} />;
