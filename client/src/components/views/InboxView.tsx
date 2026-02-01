@@ -1,7 +1,8 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
-import { useEmails, useToggleStar, useMarkRead, useDeleteEmail } from '../../hooks/useEmails';
+import { useInbox } from '../../hooks/useInbox';
+import { useToggleStar, useMarkRead, useDeleteEmail } from '../../hooks/useEmails';
 import { useKeyboardShortcuts, useSearchFocus } from '../../hooks/useKeyboardShortcuts';
 import { EmailList } from '../email/EmailList';
 import { EmailDetail } from '../email/EmailDetail';
@@ -19,7 +20,7 @@ export function InboxView() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const accountId = session?.activeAccountId || undefined;
-  const { data, isLoading } = useEmails({ accountId, page, limit: 50 });
+  const { data, isLoading } = useInbox({ accountId, page });
   const toggleStar = useToggleStar();
   const markRead = useMarkRead();
   const deleteEmail = useDeleteEmail();
