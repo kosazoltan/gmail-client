@@ -352,11 +352,8 @@ export function EmailDetail({
             <div className="p-5 sm:p-6">
               {sanitizedHtml ? (
                 <div
-                  className="email-content prose prose-sm sm:prose max-w-none dark:prose-invert
-                    prose-headings:text-gray-900 dark:prose-headings:text-dark-text
-                    prose-p:text-gray-700 dark:prose-p:text-dark-text-secondary
-                    prose-a:text-blue-600 dark:prose-a:text-blue-400
-                    prose-strong:text-gray-900 dark:prose-strong:text-dark-text
+                  className="email-content prose prose-sm sm:prose max-w-none
+                    text-gray-900 dark:text-gray-300
                     prose-img:rounded-lg prose-img:shadow-md"
                   dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                 />

@@ -289,7 +289,30 @@ router.delete('/:id', async (req, res) => {
     const gmail = getGmailClient(oauth2Client);
 
     await trashMessage(gmail, emailId);
-    execute('DELETE FROM emails WHERE id = ?', [emailId]);
+
+    // Frissítsük az adatbázisban is - hozzáadjuk a TRASH labelt
+    const email = queryOne<{ labels: string | null }>(
+      'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
+      [emailId, accountId]
+    );
+
+    if (email) {
+      const currentLabels = (() => {
+        try {
+          return email.labels ? JSON.parse(email.labels) : [];
+        } catch {
+          return [];
+        }
+      })();
+
+      // Hozzáadjuk a TRASH labelt és eltávolítjuk az INBOX-ot
+      const newLabels = [...currentLabels.filter((l: string) => l !== 'INBOX'), 'TRASH'];
+      execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
+        JSON.stringify(newLabels),
+        emailId,
+        accountId
+      ]);
+    }
 
     res.json({ success: true });
   } catch (error) {
