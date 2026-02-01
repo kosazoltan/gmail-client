@@ -26,7 +26,10 @@ export function ToastContainer() {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   useEffect(() => {
-    return toast.subscribe(setToasts);
+    const unsubscribe = toast.subscribe(setToasts);
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   if (toasts.length === 0) return null;
