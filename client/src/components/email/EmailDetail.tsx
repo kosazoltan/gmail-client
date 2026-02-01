@@ -50,13 +50,47 @@ export function EmailDetail({
   // HTML szanitizálás XSS elleni védelem - hook-nak a return előtt kell lennie
   const sanitizedHtml = useMemo(() => {
     if (!email?.bodyHtml) return '';
-    return DOMPurify.sanitize(email.bodyHtml, {
+    const cleaned = DOMPurify.sanitize(email.bodyHtml, {
       ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'b', 'i', 'u', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'div', 'span', 'hr'],
       ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'style', 'target', 'rel', 'width', 'height'],
       ALLOW_DATA_ATTR: false,
       ADD_ATTR: ['target'],
       FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
     });
+
+    // Sötét mód támogatás: Eltávolítjuk a color style attribútumokat
+    // hogy a CSS osztályok tudjanak érvényesülni
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = cleaned;
+
+    // Rekurzívan eltávolítjuk a color stílusokat minden elemből
+    const removeColorStyles = (element: Element) => {
+      if (element.hasAttribute('style')) {
+        const style = element.getAttribute('style') || '';
+        // Eltávolítjuk a color és background-color tulajdonságokat
+        const newStyle = style
+          .split(';')
+          .filter(prop => {
+            const trimmed = prop.trim().toLowerCase();
+            return !trimmed.startsWith('color:') &&
+                   !trimmed.startsWith('background-color:') &&
+                   !trimmed.startsWith('background:');
+          })
+          .join(';');
+
+        if (newStyle.trim()) {
+          element.setAttribute('style', newStyle);
+        } else {
+          element.removeAttribute('style');
+        }
+      }
+
+      // Rekurzívan minden child elemen
+      Array.from(element.children).forEach(removeColorStyles);
+    };
+
+    removeColorStyles(tempDiv);
+    return tempDiv.innerHTML;
   }, [email?.bodyHtml]);
 
   // Automatikus olvasottnak jelölés - ref-fel elkerüljük a felesleges újrafutást
@@ -357,7 +391,8 @@ export function EmailDetail({
                     prose-p:text-gray-700 dark:prose-p:text-dark-text-secondary
                     prose-a:text-blue-600 dark:prose-a:text-blue-400
                     prose-strong:text-gray-900 dark:prose-strong:text-dark-text
-                    prose-img:rounded-lg prose-img:shadow-md"
+                    prose-img:rounded-lg prose-img:shadow-md
+                    [&_*]:!text-gray-700 dark:[&_*]:!text-gray-300"
                   dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                 />
               ) : email.body ? (
