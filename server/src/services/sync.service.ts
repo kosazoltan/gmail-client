@@ -91,7 +91,8 @@ async function fullSyncMessages(
   const afterDate = new Date();
   afterDate.setDate(afterDate.getDate() - daysBack);
   const afterStr = `${afterDate.getFullYear()}/${afterDate.getMonth() + 1}/${afterDate.getDate()}`;
-  const query = `after:${afterStr}`;
+  // Lekérjük a törölt és spam leveleket is (in:anywhere tartalmazza mindent)
+  const query = `after:${afterStr} in:anywhere`;
 
   let pageToken: string | undefined;
   let totalProcessed = 0;
