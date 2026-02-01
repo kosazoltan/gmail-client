@@ -234,7 +234,7 @@ function extractBody(payload?: gmail_v1.Schema$MessagePart | null): {
   return { text, html };
 }
 
-// Mellékletek kinyerése
+// Mellékletek kinyerése (csak valódi mellékletek, inline képek kiszűrése)
 function extractAttachments(
   payload?: gmail_v1.Schema$MessagePart | null,
 ): Array<{
@@ -252,7 +252,13 @@ function extractAttachments(
 
   if (!payload) return result;
 
-  if (payload.filename && payload.filename.length > 0 && payload.body?.attachmentId) {
+  // Ellenőrizzük, hogy valódi melléklet-e (nem inline)
+  const headers = payload.headers || [];
+  const contentDisposition = headers.find(h => h.name?.toLowerCase() === 'content-disposition')?.value || '';
+  const isInline = contentDisposition.toLowerCase().includes('inline');
+
+  // Csak akkor adjuk hozzá, ha van filename, attachmentId és NEM inline
+  if (payload.filename && payload.filename.length > 0 && payload.body?.attachmentId && !isInline) {
     result.push({
       filename: payload.filename,
       mimeType: payload.mimeType || 'application/octet-stream',
