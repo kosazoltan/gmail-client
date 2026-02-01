@@ -57,13 +57,22 @@ export function AttachmentView({ attachment }: AttachmentViewProps) {
   const colorClass = getFileColor(attachment.mimeType);
   const hasPreview = canPreview(attachment.mimeType, attachment.filename);
 
+  console.log('AttachmentView:', {
+    filename: attachment.filename,
+    mimeType: attachment.mimeType,
+    hasPreview,
+    showPreview
+  });
+
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
+    console.log('handleDownload called');
     const url = api.attachments.downloadUrl(attachment.id);
     window.open(url, '_blank');
   };
 
   const handlePreview = () => {
+    console.log('handlePreview called, hasPreview:', hasPreview);
     if (hasPreview) {
       setShowPreview(true);
     } else {
