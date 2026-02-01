@@ -20,9 +20,14 @@ function isValidLabelIds(labelIds: unknown): labelIds is string[] {
   );
 }
 
-// Helper: emailId validálása
+// Helper: emailId validálása (Gmail message ID-k tartalmazhatnak _ és - karaktereket is)
 function isValidEmailId(emailId: string): boolean {
-  return typeof emailId === 'string' && emailId.length > 0 && /^[a-zA-Z0-9]+$/.test(emailId);
+  return (
+    typeof emailId === 'string' &&
+    emailId.length > 0 &&
+    emailId.length <= 100 &&
+    /^[a-zA-Z0-9_-]+$/.test(emailId)
+  );
 }
 
 // Helper: JSON biztonságos parse
@@ -83,15 +88,21 @@ router.post('/', async (req, res) => {
   }
 
   const { name, backgroundColor, textColor } = req.body;
-  if (!name) {
+  if (!name || typeof name !== 'string') {
     res.status(400).json({ error: 'Címke neve kötelező' });
+    return;
+  }
+
+  const trimmedName = name.trim();
+  if (trimmedName.length === 0 || trimmedName.length > 100) {
+    res.status(400).json({ error: 'Címke neve 1-100 karakter között kell legyen' });
     return;
   }
 
   try {
     const { oauth2Client } = getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
-    const label = await createLabel(gmail, { name, backgroundColor, textColor });
+    const label = await createLabel(gmail, { name: trimmedName, backgroundColor, textColor });
 
     res.json({ label });
   } catch (error) {
@@ -149,16 +160,16 @@ router.post('/email/:emailId/add', async (req, res) => {
 
     await modifyMessage(gmail, emailId, { addLabels: labelIds });
 
-    // Frissítsük az adatbázisban is
+    // Frissítsük az adatbázisban is (account_id validációval)
     const email = queryOne<{ labels: string | null }>(
-      'SELECT labels FROM emails WHERE id = ?',
-      [emailId],
+      'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
+      [emailId, accountId],
     );
 
     if (email) {
       const currentLabels = safeParseLabels(email.labels);
       const newLabels = [...new Set([...currentLabels, ...labelIds])];
-      execute('UPDATE emails SET labels = ? WHERE id = ?', [JSON.stringify(newLabels), emailId]);
+      execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [JSON.stringify(newLabels), emailId, accountId]);
     }
 
     res.json({ success: true });
@@ -195,16 +206,16 @@ router.post('/email/:emailId/remove', async (req, res) => {
 
     await modifyMessage(gmail, emailId, { removeLabels: labelIds });
 
-    // Frissítsük az adatbázisban is
+    // Frissítsük az adatbázisban is (account_id validációval)
     const email = queryOne<{ labels: string | null }>(
-      'SELECT labels FROM emails WHERE id = ?',
-      [emailId],
+      'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
+      [emailId, accountId],
     );
 
     if (email) {
       const currentLabels = safeParseLabels(email.labels);
       const newLabels = currentLabels.filter((l) => !labelIds.includes(l));
-      execute('UPDATE emails SET labels = ? WHERE id = ?', [JSON.stringify(newLabels), emailId]);
+      execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [JSON.stringify(newLabels), emailId, accountId]);
     }
 
     res.json({ success: true });
@@ -248,10 +259,10 @@ router.post('/email/:emailId/move', async (req, res) => {
       removeLabels: validRemoveLabelIds,
     });
 
-    // Frissítsük az adatbázisban is
+    // Frissítsük az adatbázisban is (account_id validációval)
     const email = queryOne<{ labels: string | null }>(
-      'SELECT labels FROM emails WHERE id = ?',
-      [emailId],
+      'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
+      [emailId, accountId],
     );
 
     if (email) {
@@ -267,7 +278,7 @@ router.post('/email/:emailId/move', async (req, res) => {
         currentLabels = [...new Set([...currentLabels, ...validAddLabelIds])];
       }
 
-      execute('UPDATE emails SET labels = ? WHERE id = ?', [JSON.stringify(currentLabels), emailId]);
+      execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [JSON.stringify(currentLabels), emailId, accountId]);
     }
 
     res.json({ success: true });

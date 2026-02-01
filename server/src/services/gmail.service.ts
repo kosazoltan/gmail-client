@@ -467,7 +467,7 @@ export async function deleteMessage(gmail: gmail_v1.Gmail, messageId: string) {
 export interface GmailLabelInfo {
   id: string;
   name: string;
-  type: string;
+  type: 'system' | 'user';
   messagesTotal: number;
   messagesUnread: number;
   color: {
@@ -489,7 +489,7 @@ export async function listLabels(gmail: gmail_v1.Gmail): Promise<GmailLabelInfo[
     .map((label) => ({
       id: label.id,
       name: label.name,
-      type: label.type ?? 'user',
+      type: (label.type === 'system' ? 'system' : 'user') as 'system' | 'user',
       messagesTotal: label.messagesTotal ?? 0,
       messagesUnread: label.messagesUnread ?? 0,
       color:

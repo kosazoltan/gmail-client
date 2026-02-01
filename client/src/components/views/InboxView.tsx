@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
 import { useEmails, useToggleStar, useMarkRead, useDeleteEmail } from '../../hooks/useEmails';
@@ -8,6 +8,7 @@ import { EmailDetail } from '../email/EmailDetail';
 import { KeyboardShortcutsHelp } from '../common/KeyboardShortcutsHelp';
 import { LoginScreen } from '../auth/LoginScreen';
 import type { Email } from '../../types';
+import { getNextEmailAfterDelete } from '../../lib/emailNavigation';
 
 export function InboxView() {
   const navigate = useNavigate();
@@ -99,9 +100,11 @@ export function InboxView() {
     setShowDeleteConfirm(true);
   }, [selectedEmail]);
 
-  // Törlés megerősítése után - ref-eket használunk a friss értékekhez
+  // Ref a friss emails lista eléréséhez (stale closure fix)
   const emailsRef = useRef(emails);
-  emailsRef.current = emails;
+  useEffect(() => {
+    emailsRef.current = emails;
+  }, [emails]);
 
   const confirmDelete = useCallback(() => {
     if (!selectedEmail) return;
@@ -109,24 +112,8 @@ export function InboxView() {
 
     deleteEmail.mutate(emailIdToDelete, {
       onSuccess: () => {
-        // Friss emails lista használata ref-ből
-        const currentEmails = emailsRef.current;
-        const deletedIndex = currentEmails.findIndex(e => e.id === emailIdToDelete);
-
-        // Válasszuk ki a következő emailt a friss listából
-        // Megjegyzés: a mutáció invalidálja a queryt, így hamarosan új lista jön
-        // De addig is próbáljuk a következő emailt kiválasztani
-        if (currentEmails.length > 1 && deletedIndex !== -1) {
-          if (deletedIndex < currentEmails.length - 1) {
-            setSelectedEmail(currentEmails[deletedIndex + 1]);
-          } else if (deletedIndex > 0) {
-            setSelectedEmail(currentEmails[deletedIndex - 1]);
-          } else {
-            setSelectedEmail(null);
-          }
-        } else {
-          setSelectedEmail(null);
-        }
+        const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailIdToDelete);
+        setSelectedEmail(nextEmail);
         setShowDeleteConfirm(false);
       },
     });
@@ -174,24 +161,11 @@ export function InboxView() {
             selectedEmailId={selectedEmail?.id || null}
             onSelectEmail={setSelectedEmail}
             onDeleteEmail={(emailId) => {
-              // Ha a kiválasztott emailt töröljük, válasszuk ki a következőt
-              // Használjuk a ref-et a friss emails lista eléréséhez (stale closure fix)
-              const currentEmails = emailsRef.current;
-              const emailIndex = currentEmails.findIndex(e => e.id === emailId);
               deleteEmail.mutate(emailId, {
                 onSuccess: () => {
                   if (selectedEmail?.id === emailId) {
-                    if (currentEmails.length > 1 && emailIndex !== -1) {
-                      if (emailIndex < currentEmails.length - 1) {
-                        setSelectedEmail(currentEmails[emailIndex + 1]);
-                      } else if (emailIndex > 0) {
-                        setSelectedEmail(currentEmails[emailIndex - 1]);
-                      } else {
-                        setSelectedEmail(null);
-                      }
-                    } else {
-                      setSelectedEmail(null);
-                    }
+                    const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);
+                    setSelectedEmail(nextEmail);
                   }
                 }
               });
@@ -244,19 +218,8 @@ export function InboxView() {
               );
             }}
             onDeleteSuccess={() => {
-              const currentEmails = emailsRef.current;
-              const deletedIndex = currentEmails.findIndex(e => e.id === selectedEmail?.id);
-              if (currentEmails.length > 1 && deletedIndex !== -1) {
-                if (deletedIndex < currentEmails.length - 1) {
-                  setSelectedEmail(currentEmails[deletedIndex + 1]);
-                } else if (deletedIndex > 0) {
-                  setSelectedEmail(currentEmails[deletedIndex - 1]);
-                } else {
-                  setSelectedEmail(null);
-                }
-              } else {
-                setSelectedEmail(null);
-              }
+              const nextEmail = getNextEmailAfterDelete(emailsRef.current, selectedEmail?.id);
+              setSelectedEmail(nextEmail);
             }}
           />
         </div>

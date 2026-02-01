@@ -18,6 +18,7 @@ import {
   Folder,
 } from 'lucide-react';
 import type { Email, Category } from '../../types';
+import { getNextEmailAfterDelete } from '../../lib/emailNavigation';
 
 const iconMap: Record<string, typeof Briefcase> = {
   briefcase: Briefcase,
@@ -136,23 +137,11 @@ export function CategoryView() {
           selectedEmailId={selectedEmail?.id || null}
           onSelectEmail={setSelectedEmail}
           onDeleteEmail={(emailId) => {
-            // Használjuk a ref-et a friss emails lista eléréséhez (stale closure fix)
-            const currentEmails = emailsRef.current;
-            const emailIndex = currentEmails.findIndex(e => e.id === emailId);
             deleteEmail.mutate(emailId, {
               onSuccess: () => {
                 if (selectedEmail?.id === emailId) {
-                  if (currentEmails.length > 1 && emailIndex !== -1) {
-                    if (emailIndex < currentEmails.length - 1) {
-                      setSelectedEmail(currentEmails[emailIndex + 1]);
-                    } else if (emailIndex > 0) {
-                      setSelectedEmail(currentEmails[emailIndex - 1]);
-                    } else {
-                      setSelectedEmail(null);
-                    }
-                  } else {
-                    setSelectedEmail(null);
-                  }
+                  const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);
+                  setSelectedEmail(nextEmail);
                 }
               }
             });
@@ -181,19 +170,8 @@ export function CategoryView() {
             );
           }}
           onDeleteSuccess={() => {
-            const currentEmails = emailsRef.current;
-            const deletedIndex = currentEmails.findIndex(e => e.id === selectedEmail?.id);
-            if (currentEmails.length > 1 && deletedIndex !== -1) {
-              if (deletedIndex < currentEmails.length - 1) {
-                setSelectedEmail(currentEmails[deletedIndex + 1]);
-              } else if (deletedIndex > 0) {
-                setSelectedEmail(currentEmails[deletedIndex - 1]);
-              } else {
-                setSelectedEmail(null);
-              }
-            } else {
-              setSelectedEmail(null);
-            }
+            const nextEmail = getNextEmailAfterDelete(emailsRef.current, selectedEmail?.id);
+            setSelectedEmail(nextEmail);
           }}
         />
       </div>

@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
 import { useEmails, useDeleteEmail } from '../../hooks/useEmails';
@@ -6,6 +6,7 @@ import { ThreadedEmailList } from '../email/ThreadedEmailList';
 import { EmailDetail } from '../email/EmailDetail';
 import { LoginScreen } from '../auth/LoginScreen';
 import type { Email } from '../../types';
+import { getNextEmailAfterDelete } from '../../lib/emailNavigation';
 
 // Számla kulcsszavak keresése a tárgyban, törzsben vagy melléklet nevében
 const INVOICE_KEYWORDS = [
@@ -82,7 +83,9 @@ export function InvoicesView() {
   }, [data?.emails]);
 
   const emailsRef = useRef(invoiceEmails);
-  emailsRef.current = invoiceEmails;
+  useEffect(() => {
+    emailsRef.current = invoiceEmails;
+  }, [invoiceEmails]);
 
   if (!session?.authenticated) {
     return <LoginScreen />;
@@ -101,22 +104,11 @@ export function InvoicesView() {
           selectedEmailId={selectedEmail?.id || null}
           onSelectEmail={setSelectedEmail}
           onDeleteEmail={(emailId) => {
-            const currentEmails = emailsRef.current;
-            const emailIndex = currentEmails.findIndex(e => e.id === emailId);
             deleteEmail.mutate(emailId, {
               onSuccess: () => {
                 if (selectedEmail?.id === emailId) {
-                  if (currentEmails.length > 1 && emailIndex !== -1) {
-                    if (emailIndex < currentEmails.length - 1) {
-                      setSelectedEmail(currentEmails[emailIndex + 1]);
-                    } else if (emailIndex > 0) {
-                      setSelectedEmail(currentEmails[emailIndex - 1]);
-                    } else {
-                      setSelectedEmail(null);
-                    }
-                  } else {
-                    setSelectedEmail(null);
-                  }
+                  const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);
+                  setSelectedEmail(nextEmail);
                 }
               }
             });
@@ -169,19 +161,8 @@ export function InvoicesView() {
             );
           }}
           onDeleteSuccess={() => {
-            const currentEmails = emailsRef.current;
-            const deletedIndex = currentEmails.findIndex(e => e.id === selectedEmail?.id);
-            if (currentEmails.length > 1 && deletedIndex !== -1) {
-              if (deletedIndex < currentEmails.length - 1) {
-                setSelectedEmail(currentEmails[deletedIndex + 1]);
-              } else if (deletedIndex > 0) {
-                setSelectedEmail(currentEmails[deletedIndex - 1]);
-              } else {
-                setSelectedEmail(null);
-              }
-            } else {
-              setSelectedEmail(null);
-            }
+            const nextEmail = getNextEmailAfterDelete(emailsRef.current, selectedEmail?.id);
+            setSelectedEmail(nextEmail);
           }}
         />
       </div>

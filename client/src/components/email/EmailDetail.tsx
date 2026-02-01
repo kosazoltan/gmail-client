@@ -268,6 +268,7 @@ export function EmailDetail({
   const markRead = useMarkRead();
   const deleteEmail = useDeleteEmail();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [showMoreActions, setShowMoreActions] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [showLabelManager, setShowLabelManager] = useState(false);
@@ -486,6 +487,11 @@ export function EmailDetail({
                 A levél a kukába kerül
               </p>
             </div>
+            {deleteError && (
+              <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30">
+                <p className="text-sm text-red-600 dark:text-red-400 text-center">{deleteError}</p>
+              </div>
+            )}
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
@@ -495,6 +501,7 @@ export function EmailDetail({
               </button>
               <button
                 onClick={() => {
+                  setDeleteError(null);
                   deleteEmail.mutate(email.id, {
                     onSuccess: () => {
                       setShowDeleteConfirm(false);
@@ -503,6 +510,10 @@ export function EmailDetail({
                       } else {
                         onBack();
                       }
+                    },
+                    onError: (error) => {
+                      console.error('Delete failed:', error);
+                      setDeleteError('Nem sikerült törölni az emailt. Próbáld újra.');
                     },
                   });
                 }}
