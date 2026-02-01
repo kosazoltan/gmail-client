@@ -127,9 +127,9 @@ export function ByTopicView() {
           emailId={selectedEmail?.id || null}
           accountId={accountId}
           onBack={() => setSelectedEmail(null)}
-          onReply={({ to, subject, threadId, cc }) => {
+          onReply={({ to, subject, threadId, cc, body }) => {
             navigate(
-              `/compose?reply=true&to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}${cc ? `&cc=${encodeURIComponent(cc)}` : ''}`,
+              `/compose?reply=true&to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}${cc ? `&cc=${encodeURIComponent(cc)}` : ''}${body ? `&body=${encodeURIComponent(body)}` : ''}`,
             );
           }}
           onForward={({ subject, body }) => {

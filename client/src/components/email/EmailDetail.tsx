@@ -33,7 +33,7 @@ interface EmailDetailProps {
   emailId: string | null;
   accountId?: string;
   onBack: () => void;
-  onReply: (email: { to: string; subject: string; threadId?: string; cc?: string }) => void;
+  onReply: (email: { to: string; subject: string; threadId?: string; cc?: string; body?: string }) => void;
   onForward?: (email: { subject: string; body: string }) => void;
   onDeleteSuccess?: () => void;
 }
@@ -384,6 +384,7 @@ export function EmailDetail({
                   to: email.from || '',
                   subject: `Re: ${email.subject || ''}`,
                   threadId: email.threadId || undefined,
+                  body: `\n\n---------- Eredeti üzenet ----------\nKüldő: ${email.fromName || ''} <${email.from}>\nDátum: ${formatFullDate(email.date)}\nTárgy: ${email.subject}\n\n${email.body || ''}`,
                 })
               }
               className="p-2.5 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-all active:scale-95 touch-manipulation"
@@ -663,6 +664,7 @@ export function EmailDetail({
                   to: email.from || '',
                   subject: `Re: ${email.subject || ''}`,
                   threadId: email.threadId || undefined,
+                  body: `\n\n---------- Eredeti üzenet ----------\nKüldő: ${email.fromName || ''} <${email.from}>\nDátum: ${formatFullDate(email.date)}\nTárgy: ${email.subject}\n\n${email.body || ''}`,
                 })
               }
               className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-blue-500/25 hover:shadow-lg transition-all active:scale-[0.98]"
@@ -679,6 +681,7 @@ export function EmailDetail({
                     subject: `Re: ${email.subject || ''}`,
                     threadId: email.threadId || undefined,
                     cc: [email.to, email.cc].filter(Boolean).join(', '),
+                    body: `\n\n---------- Eredeti üzenet ----------\nKüldő: ${email.fromName || ''} <${email.from}>\nDátum: ${formatFullDate(email.date)}\nTárgy: ${email.subject}\n\n${email.body || ''}`,
                   })
                 }
                 className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-dark-bg-tertiary hover:bg-gray-50 dark:hover:bg-dark-bg text-gray-700 dark:text-dark-text border border-gray-200 dark:border-dark-border rounded-xl text-sm font-medium shadow-sm hover:shadow transition-all active:scale-[0.98]"
@@ -751,6 +754,7 @@ export function EmailDetail({
                   to: email.from || '',
                   subject: `Re: ${email.subject || ''}`,
                   threadId: email.threadId || undefined,
+                  body: `\n\n---------- Eredeti üzenet ----------\nKüldő: ${email.fromName || ''} <${email.from}>\nDátum: ${formatFullDate(email.date)}\nTárgy: ${email.subject}\n\n${email.body || ''}`,
                 })
               }
               className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-blue-500/25 hover:shadow-lg transition-all active:scale-[0.98]"
@@ -766,6 +770,7 @@ export function EmailDetail({
                     subject: `Re: ${email.subject || ''}`,
                     threadId: email.threadId || undefined,
                     cc: [email.to, email.cc].filter(Boolean).join(', '),
+                    body: `\n\n---------- Eredeti üzenet ----------\nKüldő: ${email.fromName || ''} <${email.from}>\nDátum: ${formatFullDate(email.date)}\nTárgy: ${email.subject}\n\n${email.body || ''}`,
                   })
                 }
                 className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-dark-bg-secondary hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary text-gray-700 dark:text-dark-text border border-gray-200 dark:border-dark-border rounded-xl text-sm font-medium shadow-sm hover:shadow transition-all active:scale-[0.98]"
