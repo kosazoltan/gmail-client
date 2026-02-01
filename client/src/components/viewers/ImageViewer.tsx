@@ -12,6 +12,8 @@ export function ImageViewer({ url, filename, onClose }: ImageViewerProps) {
   const [rotation, setRotation] = useState<number>(0);
   const [fitToScreen, setFitToScreen] = useState<boolean>(true);
 
+  console.log('ImageViewer rendered:', { url, filename });
+
   const handleDownload = () => {
     const link = document.createElement('a');
     link.href = url;
