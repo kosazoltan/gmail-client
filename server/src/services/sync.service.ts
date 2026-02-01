@@ -11,6 +11,7 @@ import {
 import { categorizeEmail } from './categorization.service.js';
 import { extractContactsFromEmail, autoExtractContactsIfNeeded } from './contacts.service.js';
 import { sendPushToAccount } from './push.service.js';
+import { indexEmailForSearch } from './search.service.js';
 
 // Gmail üzenet interfész (getMessage visszatérési típusa)
 interface GmailMessage {
@@ -234,6 +235,9 @@ function saveEmail(accountId: string, msg: GmailMessage): boolean {
       msg.hasAttachments ? 1 : 0, categoryId, topicId,
     ],
   );
+
+  // FTS index frissítése
+  indexEmailForSearch(msg.id);
 
   if (msg.attachments && msg.attachments.length > 0) {
     for (const att of msg.attachments) {

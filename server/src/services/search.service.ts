@@ -68,18 +68,22 @@ function searchEmailsLike(options: SearchOptions) {
 
 export function indexEmailForSearch(emailId: string) {
   try {
-    const email = queryOne('SELECT * FROM emails WHERE id = ?', [emailId]);
+    const email = queryOne<{ rowid: number; subject: string; from_email: string; from_name: string; body: string; snippet: string }>(
+      'SELECT rowid, subject, from_email, from_name, body, snippet FROM emails WHERE id = ?',
+      [emailId],
+    );
 
     if (email) {
       const db = getDb();
+      // FTS5 content='emails' táblához beszúrás
       db.run(
         `INSERT INTO emails_fts(rowid, subject, from_email, from_name, body, snippet)
-         SELECT rowid, subject, from_email, from_name, body, snippet
-         FROM emails WHERE id = ?`,
-        [emailId],
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [email.rowid, email.subject || '', email.from_email || '', email.from_name || '', email.body || '', email.snippet || ''],
       );
     }
-  } catch {
-    // FTS index hiba - nem kritikus
+  } catch (err) {
+    // FTS index hiba - nem kritikus, de logoljuk
+    console.warn('FTS indexelési hiba:', err);
   }
 }
