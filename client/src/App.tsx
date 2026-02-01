@@ -18,6 +18,7 @@ import { DatabaseManager } from './components/database/DatabaseManager';
 import { PrivacyPolicy } from './components/pages/PrivacyPolicy';
 import { TermsOfService } from './components/pages/TermsOfService';
 import { InstallPrompt } from './components/pwa/InstallPrompt';
+import { ToastContainer } from './components/common/ToastContainer';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -53,6 +54,7 @@ function App() {
             </Route>
           </Routes>
           <InstallPrompt />
+          <ToastContainer />
         </BrowserRouter>
       </QueryClientProvider>
     </ThemeProvider>

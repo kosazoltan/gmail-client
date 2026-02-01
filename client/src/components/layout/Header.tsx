@@ -5,6 +5,7 @@ import { useSession, useSyncAccount } from '../../hooks/useAccounts';
 import { useCreateSavedSearch } from '../../hooks/useSavedSearches';
 import { ThemeToggle } from './ThemeToggle';
 import { HeaderAccountSwitcher } from '../accounts/HeaderAccountSwitcher';
+import { toast } from '../../lib/toast';
 
 interface HeaderProps {
   searchQuery: string;
@@ -37,7 +38,17 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar }: HeaderP
 
   const handleSync = () => {
     if (session?.activeAccountId) {
-      syncAccount.mutate({ accountId: session.activeAccountId });
+      syncAccount.mutate(
+        { accountId: session.activeAccountId },
+        {
+          onSuccess: () => {
+            toast.success('Levelek sikeresen szinkronizálva');
+          },
+          onError: () => {
+            toast.error('Hiba történt a szinkronizálás során');
+          },
+        },
+      );
     }
   };
 
