@@ -167,9 +167,12 @@ jobs:
 
           # Verify key files exist
           echo "Verifying build..."
+          ls -la dist/
           ls -la dist/server.js
           ls -la dist/routes/labels.routes.js
           ls -la dist/routes/push.routes.js
+          ls -la dist/services/ || { echo "ERROR: services folder missing!"; exit 1; }
+          ls -la dist/utils/ || { echo "ERROR: utils folder missing!"; exit 1; }
 
           echo "Backend TypeScript compiled successfully"
         EOF
