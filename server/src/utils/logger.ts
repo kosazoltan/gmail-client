@@ -48,11 +48,14 @@ const logger = winston.createLogger({
   rejectionHandlers: [new winston.transports.File({ filename: 'logs/rejections.log' })],
 });
 
-// Production: only log to files, not console
+// Production: remove console transport, only log to files
 if (process.env.NODE_ENV === 'production') {
-  logger.transports = logger.transports.filter(
-    (transport) => transport.constructor.name !== 'Console',
+  const consoleTransport = logger.transports.find(
+    (transport) => transport.constructor.name === 'Console',
   );
+  if (consoleTransport) {
+    logger.remove(consoleTransport);
+  }
 }
 
 export default logger;
