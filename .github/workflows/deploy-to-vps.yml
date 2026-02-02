@@ -300,14 +300,31 @@ jobs:
           echo "Creating data directory..."
           mkdir -p /var/www/gmail-client/server/data
           
+          # Verify dist/server.js exists before proceeding
+          echo "Verifying server files..."
+          if [ ! -f /var/www/gmail-client/server/dist/server.js ]; then
+            echo "ERROR: dist/server.js not found!"
+            ls -la /var/www/gmail-client/server/
+            ls -la /var/www/gmail-client/server/dist/ 2>/dev/null || echo "dist folder not found"
+            exit 1
+          fi
+          echo "dist/server.js found: $(ls -la /var/www/gmail-client/server/dist/server.js)"
+          
           # Jogosultságok beállítása
+          echo "Setting permissions..."
           chown -R www-data:www-data /var/www/gmail-client
+          chmod -R 755 /var/www/gmail-client/server/dist
 
-          # Leállítjuk és töröljük a régi processt
+          # Reset systemd failure counter and stop service
           echo "Stopping old backend..."
+          systemctl reset-failed gmail-client-backend 2>/dev/null || true
           systemctl stop gmail-client-backend || true
           pkill -f "node dist/server.js" || true
           sleep 2
+
+          # Clear old journal logs to avoid confusion
+          journalctl --rotate 2>/dev/null || true
+          journalctl --vacuum-time=1s 2>/dev/null || true
 
           # Backend indítása
           echo "Starting backend..."
@@ -317,15 +334,15 @@ jobs:
           sleep 5
 
           # Ellenőrzés hogy fut-e
-          if ! systemctl is-active gmail-client-backend; then
+          if ! systemctl is-active --quiet gmail-client-backend; then
             echo "Service failed to start! Checking logs..."
-            journalctl -u gmail-client-backend --no-pager -n 50
+            journalctl -u gmail-client-backend --no-pager -n 50 --since "1 minute ago"
             exit 1
           fi
 
           # Check for startup errors in logs
           echo "Recent backend logs:"
-          journalctl -u gmail-client-backend --no-pager -n 30
+          journalctl -u gmail-client-backend --no-pager -n 20 --since "1 minute ago"
 
           echo "Backend service started and verified"
         EOF
