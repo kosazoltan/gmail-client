@@ -348,11 +348,11 @@ jobs:
             echo ""
             echo "Testing node directly (will show actual error):"
             cd /var/www/gmail-client/server
-            export $(grep -v '^#' .env | xargs)
-            sudo -u www-data node dist/server.js 2>&1 &
-            NODEPID=$!
-            sleep 3
-            kill $NODEPID 2>/dev/null || true
+            echo "Environment check:"
+            cat .env | grep -v SECRET | grep -v KEY || echo "No .env"
+            echo ""
+            echo "Running node (timeout 5s):"
+            timeout 5s sudo -u www-data bash -c 'cd /var/www/gmail-client/server && export $(grep -v "^#" .env | xargs) && node dist/server.js' 2>&1 || echo "Process exited/timed out"
             exit 1
           fi
 
