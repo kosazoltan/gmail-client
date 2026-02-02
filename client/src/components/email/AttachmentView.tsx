@@ -60,16 +60,27 @@ export function AttachmentView({ attachment }: AttachmentViewProps) {
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
     const url = api.attachments.downloadUrl(attachment.id);
-    window.open(url, '_blank');
+    // Create a hidden link and click it to download
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = attachment.filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handlePreview = () => {
     if (hasPreview) {
       setShowPreview(true);
     } else {
-      // Direct download without fake event
+      // Direct download
       const url = api.attachments.downloadUrl(attachment.id);
-      window.open(url, '_blank');
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = attachment.filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 

@@ -22,7 +22,9 @@ import {
   ChevronDown,
   ChevronUp,
   Tag,
+  Download,
 } from 'lucide-react';
+import { api } from '../../lib/api';
 import { SnoozeMenu } from './SnoozeMenu';
 import { ReminderMenu } from './ReminderMenu';
 import { LabelManager } from './LabelManager';
@@ -431,13 +433,37 @@ export function EmailDetail({
             {/* Mellékletek */}
             {email.attachments && email.attachments.length > 0 && (
               <div className="border-t border-gray-100 dark:border-dark-border bg-gray-50 dark:bg-dark-bg-tertiary/50 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-500/20">
-                    <Paperclip className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-500/20">
+                      <Paperclip className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-700 dark:text-dark-text">
+                      {email.attachments.length} melléklet
+                    </span>
                   </div>
-                  <span className="text-sm font-medium text-gray-700 dark:text-dark-text">
-                    {email.attachments.length} melléklet
-                  </span>
+                  {email.attachments.length > 1 && (
+                    <button
+                      onClick={() => {
+                        // Download all attachments one by one
+                        email.attachments?.forEach((att, index) => {
+                          setTimeout(() => {
+                            const url = api.attachments.downloadUrl(att.id);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = att.filename;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          }, index * 500); // Stagger downloads to avoid browser blocking
+                        });
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/20 rounded-lg transition-colors"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Összes letöltése
+                    </button>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {email.attachments.map((att) => (
