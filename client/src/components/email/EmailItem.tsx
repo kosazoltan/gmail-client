@@ -87,7 +87,7 @@ export function EmailItem({
       onClick={handleItemClick}
       onContextMenu={handleContextMenu}
       className={cn(
-        'flex items-start gap-3 px-4 py-3 cursor-pointer border-b border-gray-100 dark:border-dark-border transition-colors',
+        'flex items-start gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 cursor-pointer border-b border-gray-100 dark:border-dark-border transition-colors',
         isSelected && !selectionMode ? 'bg-blue-50 dark:bg-blue-500/10 border-l-2 border-l-blue-500' : 'hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary',
         isChecked && 'bg-blue-50 dark:bg-blue-500/10',
         !email.isRead && !isChecked && 'bg-white dark:bg-dark-bg-secondary',
@@ -99,17 +99,17 @@ export function EmailItem({
         <button
           onClick={handleCheckboxClick}
           className={cn(
-            'flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-colors',
+            'flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-colors',
             isChecked
               ? 'bg-blue-500 text-white'
               : 'bg-gray-200 dark:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary hover:bg-gray-300 dark:hover:bg-dark-border'
           )}
         >
-          {isChecked ? <Check className="h-5 w-5" /> : <span className="text-sm font-medium">{initials}</span>}
+          {isChecked ? <Check className="h-4 w-4 sm:h-5 sm:w-5" /> : <span className="text-xs sm:text-sm font-medium">{initials}</span>}
         </button>
       ) : (
         <div
-          className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium"
+          className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-white text-xs sm:text-sm font-medium"
           style={{ backgroundColor: avatarColor }}
         >
           {initials}
@@ -118,47 +118,47 @@ export function EmailItem({
 
       {/* Tartalom */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-1 sm:gap-2">
           <span
             className={cn(
-              'text-sm truncate',
+              'text-xs sm:text-sm truncate',
               !email.isRead ? 'font-semibold text-gray-900 dark:text-dark-text' : 'text-gray-700 dark:text-dark-text-secondary',
             )}
           >
             {sender}
           </span>
-          <span className="text-xs text-gray-400 dark:text-dark-text-muted flex-shrink-0">
+          <span className="text-[10px] sm:text-xs text-gray-400 dark:text-dark-text-muted flex-shrink-0">
             {formatEmailDate(email.date)}
           </span>
         </div>
 
         <div
           className={cn(
-            'text-sm truncate mt-0.5',
+            'text-xs sm:text-sm truncate mt-0.5',
             !email.isRead ? 'font-medium text-gray-800 dark:text-dark-text' : 'text-gray-600 dark:text-dark-text-secondary',
           )}
         >
           {email.subject || '(Nincs tárgy)'}
         </div>
 
-        <div className="text-xs text-gray-400 dark:text-dark-text-muted truncate mt-0.5">
+        <div className="text-[10px] sm:text-xs text-gray-400 dark:text-dark-text-muted truncate mt-0.5 hidden sm:block">
           {email.snippet || ''}
         </div>
       </div>
 
       {/* Műveletek */}
-      <div className="flex flex-col items-center gap-1 flex-shrink-0">
+      <div className="flex flex-col items-center gap-0.5 sm:gap-1 flex-shrink-0">
         <button
           onClick={(e) => {
             e.stopPropagation();
             onToggleStar(e);
           }}
-          className="p-2.5 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-bg-tertiary transition-colors touch-manipulation"
+          className="p-1.5 sm:p-2.5 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-bg-tertiary transition-colors touch-manipulation"
           aria-label={email.isStarred ? 'Csillag eltávolítása' : 'Csillagozás'}
         >
           <Star
             className={cn(
-              'h-5 w-5',
+              'h-4 w-4 sm:h-5 sm:w-5',
               email.isStarred
                 ? 'fill-yellow-400 text-yellow-400'
                 : 'text-gray-300 dark:text-dark-text-muted hover:text-gray-400 dark:hover:text-dark-text-secondary',
@@ -166,7 +166,7 @@ export function EmailItem({
           />
         </button>
         {email.hasAttachments && (
-          <Paperclip className="h-3.5 w-3.5 text-gray-400 dark:text-dark-text-muted" />
+          <Paperclip className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-gray-400 dark:text-dark-text-muted" />
         )}
       </div>
     </div>

@@ -106,7 +106,7 @@ export function ResizablePanels({
       <div
         className={`
           border-r border-gray-200 dark:border-dark-border overflow-auto h-full
-          ${rightPanelActive ? 'hidden lg:block' : 'block'}
+          ${rightPanelActive ? 'hidden md:block' : 'block'}
         `}
         style={{
           flex: `0 0 ${leftWidth}%`,
@@ -116,29 +116,29 @@ export function ResizablePanels({
         {leftPanel}
       </div>
 
-      {/* Átméretező fogantyú - csak desktop */}
+      {/* Átméretező fogantyú - tablet és desktop */}
       <div
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}
         className={`
-          hidden lg:flex items-center justify-center
-          w-1 hover:w-1.5 bg-gray-200 dark:bg-dark-border
+          hidden md:flex items-center justify-center
+          w-2 md:w-1 hover:w-2 md:hover:w-1.5 bg-gray-200 dark:bg-dark-border
           hover:bg-blue-400 dark:hover:bg-blue-500
           cursor-col-resize transition-all duration-150 group
-          ${isDragging ? 'w-1.5 bg-blue-500 dark:bg-blue-400' : ''}
+          ${isDragging ? 'w-2 md:w-1.5 bg-blue-500 dark:bg-blue-400' : ''}
         `}
       >
         <div
           className={`
             absolute flex items-center justify-center
-            w-4 h-12 rounded-full
+            w-5 h-14 md:w-4 md:h-12 rounded-full
             bg-gray-100 dark:bg-dark-bg-tertiary
             border border-gray-300 dark:border-dark-border
-            opacity-0 group-hover:opacity-100 transition-opacity
+            opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity
             ${isDragging ? 'opacity-100 bg-blue-100 dark:bg-blue-500/20 border-blue-400' : ''}
           `}
         >
-          <GripVertical className="h-4 w-4 text-gray-400 dark:text-dark-text-muted" />
+          <GripVertical className="h-5 w-5 md:h-4 md:w-4 text-gray-400 dark:text-dark-text-muted" />
         </div>
       </div>
 
@@ -147,8 +147,8 @@ export function ResizablePanels({
         className={`
           flex-1 min-w-0
           ${rightPanelActive
-            ? 'block absolute inset-0 lg:relative lg:inset-auto bg-white dark:bg-dark-bg z-10'
-            : 'hidden lg:block'
+            ? 'block absolute inset-0 md:relative md:inset-auto bg-white dark:bg-dark-bg z-10'
+            : 'hidden md:block'
           }
         `}
       >

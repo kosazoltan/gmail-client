@@ -126,23 +126,23 @@ export function EmailDetail({
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-dark-bg">
       {/* Kompakt fejléc */}
-      <div className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-dark-bg-secondary border-b border-gray-100 dark:border-dark-border">
+      <div className="flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-1.5 sm:py-2 bg-white dark:bg-dark-bg-secondary border-b border-gray-100 dark:border-dark-border">
         <button
           onClick={onBack}
-          className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary lg:hidden transition-colors"
+          className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary lg:hidden transition-colors"
           aria-label="Vissza"
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
         </button>
 
         <div className="flex-1 min-w-0">
-          <h1 className="text-base font-semibold text-gray-900 dark:text-dark-text truncate">
+          <h1 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-dark-text truncate">
             {email.subject || '(Nincs tárgy)'}
           </h1>
         </div>
 
         {/* Fő akciók */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 sm:gap-1">
           <button
             onClick={() =>
               onReply({
@@ -154,11 +154,11 @@ export function EmailDetail({
                 date: email.date,
               })
             }
-            className="p-2.5 rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-colors touch-manipulation"
+            className="p-1.5 sm:p-2.5 rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-colors touch-manipulation"
             aria-label="Válasz"
             title="Válasz"
           >
-            <Reply className="h-5 w-5" />
+            <Reply className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
 
           <button
@@ -175,11 +175,11 @@ export function EmailDetail({
                 date: email.date,
               });
             }}
-            className="p-2.5 rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-colors touch-manipulation"
+            className="p-1.5 sm:p-2.5 rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-colors touch-manipulation"
             aria-label="Válasz mindenkinek"
             title="Válasz mindenkinek"
           >
-            <ReplyAll className="h-5 w-5" />
+            <ReplyAll className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
 
           <button
@@ -189,32 +189,32 @@ export function EmailDetail({
                 body: `\n\n---------- Továbbított üzenet ----------\nKüldő: ${email.fromName || ''} <${email.from}>\nDátum: ${formatFullDate(email.date)}\nTárgy: ${email.subject}\nCímzett: ${email.to}\n\n${email.body || ''}`,
               })
             }
-            className="p-2.5 rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-colors touch-manipulation"
+            className="p-1.5 sm:p-2.5 rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-colors touch-manipulation"
             aria-label="Továbbítás"
             title="Továbbítás"
           >
-            <Forward className="h-5 w-5" />
+            <Forward className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
 
           {/* Közvetlen törlés gomb */}
           <button
             onClick={() => setShowDeleteConfirm(true)}
-            className="p-2.5 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-red-600 dark:hover:text-red-400 transition-colors touch-manipulation"
+            className="p-1.5 sm:p-2.5 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-red-600 dark:hover:text-red-400 transition-colors touch-manipulation"
             aria-label="Törlés"
             title="Törlés"
           >
-            <Trash2 className="h-5 w-5" />
+            <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
 
           {/* Címkék gomb */}
           <div className="relative">
             <button
               onClick={() => setShowLabelManager(!showLabelManager)}
-              className="p-2.5 rounded-full hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary transition-colors touch-manipulation"
+              className="p-1.5 sm:p-2.5 rounded-full hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary transition-colors touch-manipulation"
               aria-label="Címkék"
               title="Címkék"
             >
-              <Tag className="h-5 w-5" />
+              <Tag className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
             {showLabelManager && (
               <>
@@ -235,10 +235,10 @@ export function EmailDetail({
           <div className="relative">
             <button
               onClick={() => setShowMoreActions(!showMoreActions)}
-              className="p-2.5 rounded-full hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary transition-colors touch-manipulation"
+              className="p-1.5 sm:p-2.5 rounded-full hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary transition-colors touch-manipulation"
               aria-label="További műveletek"
             >
-              <MoreHorizontal className="h-5 w-5" />
+              <MoreHorizontal className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
 
             {showMoreActions && (
@@ -319,14 +319,14 @@ export function EmailDetail({
 
       {/* Email tartalom - scrollozható */}
       <div className="flex-1 overflow-auto">
-        <div className="max-w-4xl mx-auto p-4">
+        <div className="max-w-4xl mx-auto p-2 sm:p-4">
           {/* Küldő kártya */}
-          <div className="bg-white dark:bg-dark-bg-secondary rounded-2xl shadow-sm border border-gray-100 dark:border-dark-border mb-4 overflow-hidden">
-            <div className="p-4">
-              <div className="flex items-start gap-3">
+          <div className="bg-white dark:bg-dark-bg-secondary rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-dark-border mb-2 sm:mb-4 overflow-hidden">
+            <div className="p-2.5 sm:p-4">
+              <div className="flex items-start gap-2 sm:gap-3">
                 {/* Avatar */}
                 <div
-                  className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-white text-base font-semibold shadow-sm"
+                  className="flex-shrink-0 w-9 h-9 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-white text-sm sm:text-base font-semibold shadow-sm"
                   style={{ backgroundColor: avatarColor }}
                 >
                   {initials}
@@ -334,46 +334,46 @@ export function EmailDetail({
 
                 {/* Küldő infó */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-semibold text-gray-900 dark:text-dark-text truncate">
+                  <div className="flex items-center justify-between gap-1 sm:gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+                      <span className="text-sm sm:text-base font-semibold text-gray-900 dark:text-dark-text truncate">
                         {sender}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-dark-text-muted">
-                        <Clock className="h-3.5 w-3.5" />
+                    <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                      <div className="flex items-center gap-1 text-[10px] sm:text-xs text-gray-400 dark:text-dark-text-muted">
+                        <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                         <span>{formatTime(email.date)}</span>
                       </div>
                       {/* Törlés gomb a küldő kártyában */}
                       <button
                         onClick={() => setShowDeleteConfirm(true)}
-                        className="p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-400 dark:text-dark-text-muted hover:text-red-600 dark:hover:text-red-400 transition-colors touch-manipulation"
+                        className="p-1.5 sm:p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-400 dark:text-dark-text-muted hover:text-red-600 dark:hover:text-red-400 transition-colors touch-manipulation"
                         aria-label="Törlés"
                         title="Törlés"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </button>
                     </div>
                   </div>
 
-                  <div className="text-sm text-gray-500 dark:text-dark-text-secondary mt-0.5 truncate">
+                  <div className="text-xs sm:text-sm text-gray-500 dark:text-dark-text-secondary mt-0.5 truncate">
                     {email.from}
                   </div>
 
                   {/* Részletek toggle */}
                   <button
                     onClick={() => setShowDetails(!showDetails)}
-                    className="flex items-center gap-1 mt-2 text-xs text-gray-400 dark:text-dark-text-muted hover:text-gray-600 dark:hover:text-dark-text-secondary transition-colors"
+                    className="flex items-center gap-1 mt-1.5 sm:mt-2 text-[10px] sm:text-xs text-gray-400 dark:text-dark-text-muted hover:text-gray-600 dark:hover:text-dark-text-secondary transition-colors"
                   >
                     {showDetails ? (
                       <>
-                        <ChevronUp className="h-3.5 w-3.5" />
+                        <ChevronUp className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                         <span>Részletek elrejtése</span>
                       </>
                     ) : (
                       <>
-                        <ChevronDown className="h-3.5 w-3.5" />
+                        <ChevronDown className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                         <span>Részletek mutatása</span>
                       </>
                     )}
@@ -381,7 +381,7 @@ export function EmailDetail({
 
                   {/* Részletes infó */}
                   {showDetails && (
-                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-dark-border space-y-1.5 text-xs">
+                    <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-gray-100 dark:border-dark-border space-y-1 sm:space-y-1.5 text-[10px] sm:text-xs">
                       <div className="flex gap-2">
                         <span className="text-gray-400 dark:text-dark-text-muted w-16">Küldő:</span>
                         <span className="text-gray-600 dark:text-dark-text-secondary">
@@ -410,21 +410,21 @@ export function EmailDetail({
           </div>
 
           {/* Email body kártya */}
-          <div className="bg-white dark:bg-dark-bg-secondary rounded-2xl shadow-sm border border-gray-100 dark:border-dark-border overflow-hidden">
-            <div className="p-5 sm:p-6">
+          <div className="bg-white dark:bg-dark-bg-secondary rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-dark-border overflow-hidden">
+            <div className="p-3 sm:p-5 md:p-6">
               {sanitizedHtml ? (
                 <div
-                  className="email-content prose prose-sm sm:prose max-w-none
+                  className="email-content prose prose-sm max-w-none
                     text-gray-900 dark:text-gray-300
                     prose-img:rounded-lg prose-img:shadow-md"
                   dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                 />
               ) : email.body ? (
-                <pre className="whitespace-pre-wrap text-sm text-gray-700 dark:text-dark-text-secondary font-sans leading-relaxed">
+                <pre className="whitespace-pre-wrap text-xs sm:text-sm text-gray-700 dark:text-dark-text-secondary font-sans leading-relaxed">
                   {email.body}
                 </pre>
               ) : (
-                <p className="text-gray-400 dark:text-dark-text-muted italic text-center py-8">
+                <p className="text-gray-400 dark:text-dark-text-muted italic text-center py-4 sm:py-8 text-sm">
                   Nincs megjeleníthető tartalom
                 </p>
               )}
@@ -432,7 +432,7 @@ export function EmailDetail({
 
             {/* Mellékletek */}
             {email.attachments && email.attachments.length > 0 && (
-              <div className="border-t border-gray-100 dark:border-dark-border bg-gray-50 dark:bg-dark-bg-tertiary/50 p-4">
+              <div className="border-t border-gray-100 dark:border-dark-border bg-gray-50 dark:bg-dark-bg-tertiary/50 p-2.5 sm:p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-500/20">
