@@ -1,5 +1,6 @@
 import session from 'express-session';
 import { queryOne, queryAll, execute, getDb } from './index.js';
+import logger from '../utils/logger.js';
 
 interface SessionRow {
   sid: string;
@@ -22,8 +23,8 @@ export class SqliteSessionStore extends session.Store {
     try {
       const db = getDb();
       db.run('DELETE FROM sessions WHERE expire < ?', [Date.now()]);
-    } catch {
-      // Ignore errors during cleanup
+    } catch (err) {
+      logger.debug('Session cleanup error (non-critical)', { error: err });
     }
   }
 

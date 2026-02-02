@@ -1,4 +1,5 @@
 import { queryOne, queryAll, execute } from '../db/index.js';
+import logger from '../utils/logger.js';
 
 interface EmailForCategorization {
   from: string;
@@ -83,8 +84,8 @@ export function recategorizeAllEmails(accountId: string) {
     let labels: string[] = [];
     try {
       labels = email.labels ? JSON.parse(email.labels) : [];
-    } catch {
-      // Ha a JSON parse hibás, üres tömb
+    } catch (err) {
+      logger.warn('Labels JSON parse failed', { emailId: email.id, error: err });
     }
     const categoryId = categorizeEmail(accountId, {
       from: email.from_email || '',

@@ -1,6 +1,7 @@
 import { queryOne, queryAll, execute, getDb, saveDatabase } from '../db/index.js';
 import fs from 'fs';
 import path from 'path';
+import logger from '../utils/logger.js';
 
 // Statisztikák interfész
 export interface DatabaseStats {
@@ -90,8 +91,8 @@ export function getDatabaseStats(accountId?: string): DatabaseStats {
     if (fs.existsSync(dbPath)) {
       databaseSizeBytes = fs.statSync(dbPath).size;
     }
-  } catch {
-    // Ignore
+  } catch (err) {
+    logger.debug('Failed to get database file size', { dbPath, error: err });
   }
 
   return {

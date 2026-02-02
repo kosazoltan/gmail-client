@@ -1,5 +1,6 @@
 import { google, gmail_v1 } from 'googleapis';
 import type { OAuth2Client } from 'google-auth-library';
+import logger from '../utils/logger.js';
 
 // Gmail API wrapper
 export function getGmailClient(auth: OAuth2Client): gmail_v1.Gmail {
@@ -184,7 +185,8 @@ function decodeRFC2047(text: string): string {
         // Alapértelmezett: UTF-8
         return decoded.toString('utf-8');
       }
-    } catch {
+    } catch (err) {
+      logger.warn('RFC2047 decode failed', { match, error: err });
       return match; // Hiba esetén marad az eredeti
     }
   });

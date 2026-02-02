@@ -10,6 +10,7 @@ import {
 } from '../services/gmail.service.js';
 import { getEmailAttachments } from '../services/attachment.service.js';
 import { upsertContact } from '../services/contacts.service.js';
+import logger from '../utils/logger.js';
 
 // Adatbázis rekord interfész
 interface EmailRecord {
@@ -301,7 +302,8 @@ router.delete('/:id', async (req, res) => {
       const currentLabels = (() => {
         try {
           return email.labels ? JSON.parse(email.labels) : [];
-        } catch {
+        } catch (err) {
+          logger.warn('Labels JSON parse failed in delete', { emailId, error: err });
           return [];
         }
       })();
@@ -338,7 +340,8 @@ function formatEmail(email: EmailRecord) {
     labels: (() => {
       try {
         return email.labels ? JSON.parse(email.labels) : [];
-      } catch {
+      } catch (err) {
+        logger.warn('Labels JSON parse failed in formatEmail', { emailId: email.id, error: err });
         return [];
       }
     })(),

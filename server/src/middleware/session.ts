@@ -1,6 +1,7 @@
 import session from 'express-session';
 import type { RequestHandler } from 'express';
 import { SqliteSessionStore } from '../db/session-store.js';
+import logger from '../utils/logger.js';
 
 // Session típus kiterjesztés
 declare module 'express-session' {
@@ -35,8 +36,8 @@ export function createSessionMiddleware(): RequestHandler {
       if (parts.length >= 2) {
         cookieDomain = '.' + parts.slice(-2).join('.');
       }
-    } catch {
-      // URL parse hiba esetén nem állítunk be domain-t
+    } catch (err) {
+      logger.warn('Failed to parse frontend URL for cookie domain', { frontendUrl, error: err });
     }
   }
 

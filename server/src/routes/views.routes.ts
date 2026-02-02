@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { queryOne, queryAll } from '../db/index.js';
+import logger from '../utils/logger.js';
 
 // Adatbázis rekord interfészek
 interface EmailRecord {
@@ -231,7 +232,8 @@ function formatEmail(email: EmailRecord) {
     labels: (() => {
       try {
         return email.labels ? JSON.parse(email.labels) : [];
-      } catch {
+      } catch (err) {
+        logger.warn('Labels JSON parse failed in formatEmail', { emailId: email.id, labels: email.labels, error: err });
         return [];
       }
     })(),
@@ -260,7 +262,8 @@ router.get('/inbox', (req, res) => {
     try {
       const labels: string[] = email.labels ? JSON.parse(email.labels) : [];
       return labels.includes('INBOX') && !labels.includes('TRASH');
-    } catch {
+    } catch (err) {
+      logger.warn('Labels JSON parse failed in inbox filter', { emailId: email.id, error: err });
       return false;
     }
   });
@@ -294,7 +297,8 @@ router.get('/trash', (req, res) => {
     try {
       const labels: string[] = email.labels ? JSON.parse(email.labels) : [];
       return labels.includes('TRASH');
-    } catch {
+    } catch (err) {
+      logger.warn('Labels JSON parse failed in trash filter', { emailId: email.id, error: err });
       return false;
     }
   });

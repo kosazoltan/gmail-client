@@ -8,6 +8,7 @@ import {
   modifyMessage,
 } from '../services/gmail.service.js';
 import { execute, queryOne } from '../db/index.js';
+import logger from '../utils/logger.js';
 
 const router = Router();
 
@@ -36,7 +37,8 @@ function safeParseLabels(labelsJson: string | null): string[] {
   try {
     const parsed = JSON.parse(labelsJson);
     return Array.isArray(parsed) ? parsed.filter((l): l is string => typeof l === 'string') : [];
-  } catch {
+  } catch (err) {
+    logger.warn('Labels JSON parse failed in safeParseLabels', { labels: labelsJson, error: err });
     return [];
   }
 }
