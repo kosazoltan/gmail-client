@@ -291,6 +291,15 @@ jobs:
       run: |
         ssh ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_SERVER_IP }} 'bash -s' << 'EOF'
           set -e
+          
+          # Create logs directory for winston logger
+          echo "Creating logs directory..."
+          mkdir -p /var/www/gmail-client/server/logs
+          
+          # Create data directory for SQLite database
+          echo "Creating data directory..."
+          mkdir -p /var/www/gmail-client/server/data
+          
           # Jogosultságok beállítása
           chown -R www-data:www-data /var/www/gmail-client
 
@@ -308,7 +317,11 @@ jobs:
           sleep 5
 
           # Ellenőrzés hogy fut-e
-          systemctl is-active gmail-client-backend
+          if ! systemctl is-active gmail-client-backend; then
+            echo "Service failed to start! Checking logs..."
+            journalctl -u gmail-client-backend --no-pager -n 50
+            exit 1
+          fi
 
           # Check for startup errors in logs
           echo "Recent backend logs:"
