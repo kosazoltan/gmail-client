@@ -351,8 +351,12 @@ jobs:
             echo "Environment check:"
             cat .env | grep -v SECRET | grep -v KEY || echo "No .env"
             echo ""
-            echo "Running node (timeout 5s):"
-            timeout 5s sudo -u www-data bash -c 'cd /var/www/gmail-client/server && export $(grep -v "^#" .env | xargs) && node dist/server.js' 2>&1 || echo "Process exited/timed out"
+            echo "Checking node_modules:"
+            ls -la node_modules 2>&1 | head -5 || echo "No node_modules!"
+            echo ""
+            echo "Running node:"
+            sudo -u www-data bash -c 'cd /var/www/gmail-client/server && set -a && source .env && set +a && node dist/server.js 2>&1' || true
+            echo "Node exited with code: $?"
             exit 1
           fi
 
