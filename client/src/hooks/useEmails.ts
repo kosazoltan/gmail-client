@@ -99,3 +99,18 @@ export function useDeleteEmail() {
     },
   });
 }
+
+export function useBatchDeleteEmails() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (emailIds: string[]) => api.emails.batchDelete(emailIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['email'] });
+      queryClient.invalidateQueries({ queryKey: ['inbox'] });
+      queryClient.invalidateQueries({ queryKey: ['trash'] });
+      queryClient.invalidateQueries({ queryKey: ['views'] });
+      queryClient.invalidateQueries({ queryKey: ['search'] });
+    },
+  });
+}

@@ -88,6 +88,11 @@ export const api = {
       }),
     delete: (id: string) =>
       request(`/emails/${id}`, { method: 'DELETE' }),
+    batchDelete: (emailIds: string[]) =>
+      request<{ deletedCount: number; failedCount: number }>('/emails/batch', {
+        method: 'DELETE',
+        body: JSON.stringify({ emailIds }),
+      }),
   },
 
   views: {

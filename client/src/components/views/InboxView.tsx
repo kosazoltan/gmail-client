@@ -2,13 +2,14 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
 import { useInbox } from '../../hooks/useInbox';
-import { useToggleStar, useMarkRead, useDeleteEmail } from '../../hooks/useEmails';
+import { useToggleStar, useMarkRead, useDeleteEmail, useBatchDeleteEmails } from '../../hooks/useEmails';
 import { useKeyboardShortcuts, useSearchFocus } from '../../hooks/useKeyboardShortcuts';
 import { EmailList } from '../email/EmailList';
 import { EmailDetail } from '../email/EmailDetail';
 import { KeyboardShortcutsHelp } from '../common/KeyboardShortcutsHelp';
 import { ResizablePanels } from '../common/ResizablePanels';
 import { LoginScreen } from '../auth/LoginScreen';
+import { CheckSquare, X, Trash2, Square, CheckCheck } from 'lucide-react';
 import type { Email } from '../../types';
 import { getNextEmailAfterDelete } from '../../lib/emailNavigation';
 
@@ -20,11 +21,17 @@ export function InboxView() {
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Selection mode state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
+
   const accountId = session?.activeAccountId || undefined;
   const { data, isLoading } = useInbox({ accountId, page });
   const toggleStar = useToggleStar();
   const markRead = useMarkRead();
   const deleteEmail = useDeleteEmail();
+  const batchDeleteEmails = useBatchDeleteEmails();
   const focusSearch = useSearchFocus();
 
   const emails = useMemo(() => data?.emails || [], [data?.emails]);
@@ -34,6 +41,55 @@ export function InboxView() {
     if (!selectedEmail) return -1;
     return emails.findIndex((e) => e.id === selectedEmail.id);
   }, [emails, selectedEmail]);
+
+  // Selection mode handlers
+  const toggleSelectionMode = useCallback(() => {
+    setSelectionMode((prev) => {
+      if (prev) {
+        setSelectedIds(new Set());
+      }
+      return !prev;
+    });
+  }, []);
+
+  const toggleSelectEmail = useCallback((emailId: string) => {
+    setSelectedIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(emailId)) {
+        newSet.delete(emailId);
+      } else {
+        newSet.add(emailId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const selectAllEmails = useCallback(() => {
+    setSelectedIds(new Set(emails.map((e) => e.id)));
+  }, [emails]);
+
+  const deselectAllEmails = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
+  const handleBatchDelete = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    setShowBatchDeleteConfirm(true);
+  }, [selectedIds]);
+
+  const confirmBatchDelete = useCallback(() => {
+    const idsToDelete = Array.from(selectedIds);
+    batchDeleteEmails.mutate(idsToDelete, {
+      onSuccess: () => {
+        setShowBatchDeleteConfirm(false);
+        setSelectedIds(new Set());
+        setSelectionMode(false);
+        if (selectedEmail && selectedIds.has(selectedEmail.id)) {
+          setSelectedEmail(null);
+        }
+      },
+    });
+  }, [selectedIds, batchDeleteEmails, selectedEmail]);
 
   // Navigáció következő emailre
   const handleNextEmail = useCallback(() => {
@@ -137,10 +193,15 @@ export function InboxView() {
     onSearch: focusSearch,
     onCompose: () => navigate('/compose'),
     onBack: () => {
-      if (showDeleteConfirm) {
+      if (showBatchDeleteConfirm) {
+        setShowBatchDeleteConfirm(false);
+      } else if (showDeleteConfirm) {
         setShowDeleteConfirm(false);
       } else if (showShortcutsHelp) {
         setShowShortcutsHelp(false);
+      } else if (selectionMode) {
+        setSelectionMode(false);
+        setSelectedIds(new Set());
       } else {
         setSelectedEmail(null);
       }
@@ -155,6 +216,77 @@ export function InboxView() {
 
   const leftPanel = (
     <>
+      {/* Selection toolbar */}
+      <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border">
+        <button
+          onClick={toggleSelectionMode}
+          className={`p-2 rounded-lg transition-colors ${
+            selectionMode
+              ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400'
+              : 'hover:bg-gray-200 dark:hover:bg-dark-border text-gray-600 dark:text-dark-text-secondary'
+          }`}
+          title={selectionMode ? 'Kijelölés befejezése' : 'Kijelölési mód'}
+        >
+          <CheckSquare className="h-5 w-5" />
+        </button>
+
+        {selectionMode && (
+          <>
+            <div className="h-5 w-px bg-gray-300 dark:bg-dark-border" />
+
+            <button
+              onClick={selectAllEmails}
+              className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-border text-gray-600 dark:text-dark-text-secondary"
+              title="Összes kijelölése"
+            >
+              <CheckCheck className="h-5 w-5" />
+            </button>
+
+            <button
+              onClick={deselectAllEmails}
+              className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-border text-gray-600 dark:text-dark-text-secondary"
+              title="Kijelölés törlése"
+            >
+              <Square className="h-5 w-5" />
+            </button>
+
+            {selectedIds.size > 0 && (
+              <>
+                <div className="h-5 w-px bg-gray-300 dark:bg-dark-border" />
+
+                <span className="text-sm text-gray-600 dark:text-dark-text-secondary">
+                  {selectedIds.size} kijelölve
+                </span>
+
+                <button
+                  onClick={handleBatchDelete}
+                  className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400"
+                  title="Kijelöltek törlése"
+                >
+                  <Trash2 className="h-5 w-5" />
+                </button>
+              </>
+            )}
+
+            <div className="flex-1" />
+
+            <button
+              onClick={toggleSelectionMode}
+              className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-border text-gray-600 dark:text-dark-text-secondary"
+              title="Bezárás"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </>
+        )}
+
+        {!selectionMode && (
+          <h2 className="text-sm font-medium text-gray-600 dark:text-dark-text-secondary">
+            Beérkezett levelek{data?.total ? ` (${data.total})` : ''}
+          </h2>
+        )}
+      </div>
+
       <EmailList
         emails={emails}
         isLoading={isLoading}
@@ -178,8 +310,10 @@ export function InboxView() {
             }
           });
         }}
-        title={`Beérkezett levelek${data?.total ? ` (${data.total})` : ''}`}
         emptyMessage="Nincs beérkezett levél. Szinkronizálj a frissítéshez!"
+        selectionMode={selectionMode}
+        selectedIds={selectedIds}
+        onToggleSelect={toggleSelectEmail}
       />
       {data && data.totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 p-3 border-t border-gray-200 dark:border-dark-border">
@@ -230,7 +364,7 @@ export function InboxView() {
       <ResizablePanels
         leftPanel={leftPanel}
         rightPanel={rightPanel}
-        rightPanelActive={!!selectedEmail}
+        rightPanelActive={!!selectedEmail && !selectionMode}
         storageKey="inbox-list-width"
       />
 
@@ -257,6 +391,35 @@ export function InboxView() {
                 className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
               >
                 {deleteEmail.isPending ? 'Törlés...' : 'Törlés'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Batch törlés megerősítő modal */}
+      {showBatchDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-dark-bg-secondary rounded-lg p-6 max-w-sm mx-4 shadow-xl dark:border dark:border-dark-border">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-dark-text mb-2">
+              {selectedIds.size} email törlése
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-dark-text-secondary mb-4">
+              Biztosan törölni szeretnéd a kijelölt {selectedIds.size} emailt? A levelek a kukába kerülnek.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowBatchDeleteConfirm(false)}
+                className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary dark:text-dark-text"
+              >
+                Mégse
+              </button>
+              <button
+                onClick={confirmBatchDelete}
+                disabled={batchDeleteEmails.isPending}
+                className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {batchDeleteEmails.isPending ? 'Törlés...' : `${selectedIds.size} törlése`}
               </button>
             </div>
           </div>

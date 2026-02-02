@@ -280,6 +280,74 @@ router.patch('/:id/star', async (req, res) => {
   }
 });
 
+// Batch email törlés (kukába helyezés)
+router.delete('/batch', async (req, res) => {
+  const accountId = validateAccountAccess(req);
+  if (!accountId) {
+    res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
+    return;
+  }
+
+  const { emailIds } = req.body;
+  if (!emailIds || !Array.isArray(emailIds) || emailIds.length === 0) {
+    res.status(400).json({ error: 'Hiányzó vagy érvénytelen emailIds tömb' });
+    return;
+  }
+
+  // Max 100 email egyszerre
+  if (emailIds.length > 100) {
+    res.status(400).json({ error: 'Maximum 100 email törölhető egyszerre' });
+    return;
+  }
+
+  try {
+    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const gmail = getGmailClient(oauth2Client);
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const emailId of emailIds) {
+      try {
+        await trashMessage(gmail, emailId);
+
+        // Frissítsük az adatbázisban is
+        const email = queryOne<{ labels: string | null }>(
+          'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
+          [emailId, accountId]
+        );
+
+        if (email) {
+          const currentLabels = (() => {
+            try {
+              return email.labels ? JSON.parse(email.labels) : [];
+            } catch {
+              return [];
+            }
+          })();
+
+          const newLabels = [...currentLabels.filter((l: string) => l !== 'INBOX'), 'TRASH'];
+          execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
+            JSON.stringify(newLabels),
+            emailId,
+            accountId
+          ]);
+        }
+
+        successCount++;
+      } catch (err) {
+        logger.error('Batch delete - egyedi email törlés hiba', { emailId, error: err });
+        failCount++;
+      }
+    }
+
+    res.json({ success: true, deletedCount: successCount, failedCount: failCount });
+  } catch (error) {
+    logger.error('Batch törlés hiba:', error);
+    res.status(500).json({ error: 'Batch törlés sikertelen' });
+  }
+});
+
 // Email törlése (kukába helyezés)
 router.delete('/:id', async (req, res) => {
   const emailId = req.params.id;

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Star, Paperclip, Trash2 } from 'lucide-react';
+import { Star, Paperclip, Trash2, Check } from 'lucide-react';
 import { cn, formatEmailDate, displaySender, getInitials, emailToColor } from '../../lib/utils';
 import type { Email } from '../../types';
 
@@ -9,6 +9,10 @@ interface EmailItemProps {
   onClick: () => void;
   onToggleStar: (e: React.MouseEvent) => void;
   onDelete?: (emailId: string) => void;
+  // Selection mode props
+  selectionMode?: boolean;
+  isChecked?: boolean;
+  onToggleCheck?: (emailId: string) => void;
 }
 
 interface ContextMenuState {
@@ -17,7 +21,16 @@ interface ContextMenuState {
   y: number;
 }
 
-export function EmailItem({ email, isSelected, onClick, onToggleStar, onDelete }: EmailItemProps) {
+export function EmailItem({
+  email,
+  isSelected,
+  onClick,
+  onToggleStar,
+  onDelete,
+  selectionMode = false,
+  isChecked = false,
+  onToggleCheck,
+}: EmailItemProps) {
   const sender = displaySender(email.fromName, email.from);
   const initials = getInitials(sender);
   const avatarColor = emailToColor(email.from || '');
@@ -55,25 +68,53 @@ export function EmailItem({ email, isSelected, onClick, onToggleStar, onDelete }
     onDelete?.(email.id);
   };
 
+  const handleCheckboxClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggleCheck?.(email.id);
+  };
+
+  const handleItemClick = () => {
+    if (selectionMode) {
+      onToggleCheck?.(email.id);
+    } else {
+      onClick();
+    }
+  };
+
   return (
     <>
     <div
-      onClick={onClick}
+      onClick={handleItemClick}
       onContextMenu={handleContextMenu}
       className={cn(
         'flex items-start gap-3 px-4 py-3 cursor-pointer border-b border-gray-100 dark:border-dark-border transition-colors',
-        isSelected ? 'bg-blue-50 dark:bg-blue-500/10 border-l-2 border-l-blue-500' : 'hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary',
-        !email.isRead && 'bg-white dark:bg-dark-bg-secondary',
-        email.isRead && !isSelected && 'bg-gray-50/50 dark:bg-dark-bg/50',
+        isSelected && !selectionMode ? 'bg-blue-50 dark:bg-blue-500/10 border-l-2 border-l-blue-500' : 'hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary',
+        isChecked && 'bg-blue-50 dark:bg-blue-500/10',
+        !email.isRead && !isChecked && 'bg-white dark:bg-dark-bg-secondary',
+        email.isRead && !isSelected && !isChecked && 'bg-gray-50/50 dark:bg-dark-bg/50',
       )}
     >
-      {/* Avatar */}
-      <div
-        className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium"
-        style={{ backgroundColor: avatarColor }}
-      >
-        {initials}
-      </div>
+      {/* Checkbox vagy Avatar */}
+      {selectionMode ? (
+        <button
+          onClick={handleCheckboxClick}
+          className={cn(
+            'flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-colors',
+            isChecked
+              ? 'bg-blue-500 text-white'
+              : 'bg-gray-200 dark:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary hover:bg-gray-300 dark:hover:bg-dark-border'
+          )}
+        >
+          {isChecked ? <Check className="h-5 w-5" /> : <span className="text-sm font-medium">{initials}</span>}
+        </button>
+      ) : (
+        <div
+          className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium"
+          style={{ backgroundColor: avatarColor }}
+        >
+          {initials}
+        </div>
+      )}
 
       {/* Tartalom */}
       <div className="flex-1 min-w-0">
@@ -108,7 +149,10 @@ export function EmailItem({ email, isSelected, onClick, onToggleStar, onDelete }
       {/* Műveletek */}
       <div className="flex flex-col items-center gap-1 flex-shrink-0">
         <button
-          onClick={onToggleStar}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleStar(e);
+          }}
           className="p-2.5 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-bg-tertiary transition-colors touch-manipulation"
           aria-label={email.isStarred ? 'Csillag eltávolítása' : 'Csillagozás'}
         >

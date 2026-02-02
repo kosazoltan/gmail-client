@@ -11,6 +11,10 @@ interface EmailListProps {
   onDeleteEmail?: (emailId: string) => void;
   title?: string;
   emptyMessage?: string;
+  // Selection mode props
+  selectionMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (emailId: string) => void;
 }
 
 export function EmailList({
@@ -21,6 +25,9 @@ export function EmailList({
   onDeleteEmail,
   title,
   emptyMessage = 'Nincsenek levelek',
+  selectionMode = false,
+  selectedIds = new Set(),
+  onToggleSelect,
 }: EmailListProps) {
   const toggleStar = useToggleStar();
 
@@ -63,6 +70,9 @@ export function EmailList({
             });
           }}
           onDelete={onDeleteEmail}
+          selectionMode={selectionMode}
+          isChecked={selectedIds.has(email.id)}
+          onToggleCheck={onToggleSelect}
         />
       ))}
     </div>
