@@ -28,6 +28,16 @@ const OfficeViewer = lazy(() =>
     default: module.OfficeViewer,
   }))
 );
+const SpreadsheetViewer = lazy(() =>
+  import("../viewers/SpreadsheetViewer").then((module) => ({
+    default: module.SpreadsheetViewer,
+  }))
+);
+const DocumentViewer = lazy(() =>
+  import("../viewers/DocumentViewer").then((module) => ({
+    default: module.DocumentViewer,
+  }))
+);
 
 interface AttachmentPreviewProps {
   attachment: Attachment;
@@ -39,8 +49,10 @@ interface AttachmentPreviewProps {
 function canPreview(
   mimeType: string | undefined,
   filename: string
-): "image" | "pdf" | "text" | "office" | false {
+): "image" | "pdf" | "text" | "office" | "spreadsheet" | "document" | false {
   if (!mimeType) return false;
+
+  const ext = filename.toLowerCase().substring(filename.lastIndexOf("."));
 
   // Képek
   if (mimeType.startsWith("image/") && !mimeType.includes("svg")) {
@@ -57,19 +69,29 @@ function canPreview(
     return "text";
   }
 
-  // Office dokumentumok - Google Docs Viewer-rel
-  const officeExtensions = [
-    ".doc",
-    ".docx",
-    ".xls",
-    ".xlsx",
-    ".ppt",
-    ".pptx",
-    ".odt",
-    ".ods",
-    ".odp",
-  ];
-  const ext = filename.toLowerCase().substring(filename.lastIndexOf("."));
+  // Táblázatok - natív xlsx könyvtárral
+  const spreadsheetExtensions = [".xls", ".xlsx", ".ods", ".csv"];
+  if (
+    spreadsheetExtensions.includes(ext) ||
+    mimeType.includes("spreadsheet") ||
+    mimeType.includes("excel") ||
+    mimeType === "application/vnd.ms-excel"
+  ) {
+    return "spreadsheet";
+  }
+
+  // Word dokumentumok - mammoth.js-sel
+  const documentExtensions = [".doc", ".docx"];
+  if (
+    documentExtensions.includes(ext) ||
+    mimeType.includes("wordprocessingml") ||
+    mimeType === "application/msword"
+  ) {
+    return "document";
+  }
+
+  // Prezentációk és egyéb Office dokumentumok - Google/Microsoft Viewer-rel
+  const officeExtensions = [".ppt", ".pptx", ".odt", ".odp"];
   if (officeExtensions.includes(ext)) {
     return "office";
   }
@@ -148,6 +170,31 @@ export function AttachmentPreview({
     return (
       <Suspense fallback={fallback}>
         <OfficeViewer
+          url={downloadUrl}
+          filename={attachment.filename}
+          mimeType={attachment.mimeType || ""}
+          onClose={onClose}
+        />
+      </Suspense>
+    );
+  }
+
+  if (previewType === "spreadsheet") {
+    return (
+      <Suspense fallback={fallback}>
+        <SpreadsheetViewer
+          url={downloadUrl}
+          filename={attachment.filename}
+          onClose={onClose}
+        />
+      </Suspense>
+    );
+  }
+
+  if (previewType === "document") {
+    return (
+      <Suspense fallback={fallback}>
+        <DocumentViewer
           url={downloadUrl}
           filename={attachment.filename}
           mimeType={attachment.mimeType || ""}

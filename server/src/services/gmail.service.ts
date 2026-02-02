@@ -42,7 +42,7 @@ export async function getMessage(gmail: gmail_v1.Gmail, messageId: string) {
     format: 'full',
   });
 
-  return parseMessage(response.data);
+  return parseMessage(response.data, gmail, messageId);
 }
 
 // Levél metaadatainak lekérése (gyorsabb, body nélkül)
@@ -58,7 +58,7 @@ export async function getMessageMetadata(gmail: gmail_v1.Gmail, messageId: strin
 }
 
 // Üzenet feldolgozása
-function parseMessage(message: gmail_v1.Schema$Message) {
+async function parseMessage(message: gmail_v1.Schema$Message, gmail?: gmail_v1.Gmail, messageId?: string) {
   const headers = message.payload?.headers || [];
   const getHeader = (name: string) =>
     headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value || '';
@@ -68,6 +68,29 @@ function parseMessage(message: gmail_v1.Schema$Message) {
 
   // Body kinyerése
   const { text, html } = extractBody(message.payload);
+
+  // Inline képek kinyerése
+  const inlineImages = extractInlineImages(message.payload);
+
+  // Inline képek letöltése, ha szükséges (nagyobb képeknél)
+  if (gmail && messageId && inlineImages.length > 0) {
+    for (const img of inlineImages) {
+      if (!img.data && img.attachmentId) {
+        try {
+          const attachmentData = await getAttachment(gmail, messageId, img.attachmentId);
+          // Buffer-t base64 string-gé alakítjuk
+          img.data = attachmentData.data.toString('base64');
+        } catch (err) {
+          logger.warn('Failed to fetch inline image', { contentId: img.contentId, error: err });
+        }
+      }
+    }
+  }
+
+  // HTML-ben a cid: referenciák cseréje base64 data URL-ekre
+  const processedHtml = html && inlineImages.length > 0
+    ? replaceCidReferences(html, inlineImages)
+    : html;
 
   // Mellékletek
   const attachmentsList = extractAttachments(message.payload);
@@ -86,7 +109,7 @@ function parseMessage(message: gmail_v1.Schema$Message) {
     cc: decodeRFC2047(getHeader('Cc')),
     snippet: message.snippet,
     body: text,
-    bodyHtml: html,
+    bodyHtml: processedHtml,
     date: parseInt(message.internalDate || '0'),
     isRead: !message.labelIds?.includes('UNREAD'),
     isStarred: message.labelIds?.includes('STARRED') || false,
@@ -236,6 +259,77 @@ function extractBody(payload?: gmail_v1.Schema$MessagePart | null): {
   return { text, html };
 }
 
+// Inline képek típusa (Content-ID és adat)
+export interface InlineImage {
+  contentId: string;
+  mimeType: string;
+  data?: string; // base64 encoded (ha közvetlenül elérhető)
+  attachmentId?: string; // ha nagyobb, külön le kell tölteni
+}
+
+// Inline képek kinyerése (cid: referenciákhoz)
+function extractInlineImages(
+  payload?: gmail_v1.Schema$MessagePart | null,
+): InlineImage[] {
+  const result: InlineImage[] = [];
+
+  if (!payload) return result;
+
+  const headers = payload.headers || [];
+  const contentId = headers.find(h => h.name?.toLowerCase() === 'content-id')?.value;
+  const contentDisposition = headers.find(h => h.name?.toLowerCase() === 'content-disposition')?.value || '';
+  const isInline = contentDisposition.toLowerCase().includes('inline') || contentId;
+
+  // Ha van Content-ID és inline kép
+  if (contentId && isInline && payload.mimeType?.startsWith('image/')) {
+    // Content-ID: <xxx> formátumból kinyerjük az xxx-et
+    const cid = contentId.replace(/^<|>$/g, '');
+
+    if (payload.body?.data) {
+      // Kisebb inline képek: közvetlenül tartalmazza az adatot
+      result.push({
+        contentId: cid,
+        mimeType: payload.mimeType,
+        data: payload.body.data,
+      });
+    } else if (payload.body?.attachmentId) {
+      // Nagyobb inline képek: attachmentId-vel kell letölteni
+      result.push({
+        contentId: cid,
+        mimeType: payload.mimeType,
+        attachmentId: payload.body.attachmentId,
+      });
+    }
+  }
+
+  if (payload.parts) {
+    for (const part of payload.parts) {
+      result.push(...extractInlineImages(part));
+    }
+  }
+
+  return result;
+}
+
+// HTML body-ban a cid: referenciák cseréje base64 data URL-ekre
+function replaceCidReferences(html: string, inlineImages: InlineImage[]): string {
+  let result = html;
+
+  for (const img of inlineImages) {
+    // Ha nincs adat, skip
+    if (!img.data) continue;
+
+    // cid:xxx formátumú referenciák cseréje data URL-re
+    const cidPattern = new RegExp(`cid:${img.contentId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'gi');
+    // A Gmail API base64url formátumot használ, át kell alakítani sima base64-re
+    const base64Data = img.data.replace(/-/g, '+').replace(/_/g, '/');
+    const dataUrl = `data:${img.mimeType};base64,${base64Data}`;
+    result = result.replace(cidPattern, dataUrl);
+  }
+
+  return result;
+}
+
 // Mellékletek kinyerése (csak valódi mellékletek, inline képek kiszűrése)
 function extractAttachments(
   payload?: gmail_v1.Schema$MessagePart | null,
@@ -257,7 +351,8 @@ function extractAttachments(
   // Ellenőrizzük, hogy valódi melléklet-e (nem inline)
   const headers = payload.headers || [];
   const contentDisposition = headers.find(h => h.name?.toLowerCase() === 'content-disposition')?.value || '';
-  const isInline = contentDisposition.toLowerCase().includes('inline');
+  const contentId = headers.find(h => h.name?.toLowerCase() === 'content-id')?.value;
+  const isInline = contentDisposition.toLowerCase().includes('inline') || contentId;
 
   // Csak akkor adjuk hozzá, ha van filename, attachmentId és NEM inline
   if (payload.filename && payload.filename.length > 0 && payload.body?.attachmentId && !isInline) {
