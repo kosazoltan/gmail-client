@@ -86,10 +86,10 @@ router.post('/', (req, res) => {
       return res.status(404).json({ error: 'Email nem található' });
     }
 
-    // Ellenőrizzük, hogy már szundizva van-e
+    // Ellenőrizzük, hogy már szundizva van-e (saját fiókban)
     const existing = queryOne<{ id: string }>(
-      'SELECT id FROM snoozed_emails WHERE email_id = ?',
-      [emailId],
+      'SELECT id FROM snoozed_emails WHERE email_id = ? AND account_id = ?',
+      [emailId, accountId],
     );
 
     if (existing) {

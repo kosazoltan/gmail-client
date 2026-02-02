@@ -81,6 +81,10 @@ router.post('/', (req, res) => {
 
   const reminder = queryOne('SELECT * FROM reminders WHERE id = ?', [id]);
 
+  if (!reminder) {
+    return res.status(500).json({ error: 'Emlékeztető létrehozása sikertelen' });
+  }
+
   return res.json({ reminder });
 });
 
@@ -127,6 +131,11 @@ router.patch('/:id', (req, res) => {
   }
 
   const updated = queryOne('SELECT * FROM reminders WHERE id = ?', [id]);
+
+  if (!updated) {
+    return res.status(500).json({ error: 'Emlékeztető frissítése sikertelen' });
+  }
+
   return res.json({ reminder: updated });
 });
 
@@ -174,6 +183,11 @@ router.post('/:id/complete', (req, res) => {
   execute('UPDATE reminders SET is_completed = 1 WHERE id = ?', [id]);
 
   const updated = queryOne('SELECT * FROM reminders WHERE id = ?', [id]);
+
+  if (!updated) {
+    return res.status(500).json({ error: 'Emlékeztető frissítése sikertelen' });
+  }
+
   return res.json({ reminder: updated });
 });
 

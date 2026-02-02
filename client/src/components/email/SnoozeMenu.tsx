@@ -54,7 +54,10 @@ export function SnoozeMenu({ emailId, onSuccess, onClose, className = '', varian
   if (variant === 'menu-item') {
     return (
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
         className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary transition-colors rounded-lg"
       >
         <Clock className="h-4 w-4" />

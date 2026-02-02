@@ -197,7 +197,8 @@ export function getOAuth2ClientForAccount(accountId: string) {
     expiry_date: account.token_expiry,
   });
 
-  oauth2Client.on('tokens', (tokens) => {
+  // Használjunk 'once'-ot 'on' helyett a memory leak elkerülésére
+  oauth2Client.once('tokens', (tokens) => {
     try {
       const updates: string[] = [];
       const params: unknown[] = [];

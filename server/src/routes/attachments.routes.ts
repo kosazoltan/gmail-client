@@ -41,7 +41,7 @@ router.get('/', async (req, res) => {
       limit: Math.min(parseInt(req.query.limit as string) || 50, 100),
     };
 
-    const result = await listAttachments(filter);
+    const result = listAttachments(filter);
     res.json(result);
   } catch (error) {
     console.error('Melléklet listázás hiba:', error);
@@ -75,9 +75,13 @@ router.get('/:id/download', async (req, res) => {
     );
     res.setHeader('Content-Length', result.data.length);
     res.send(result.data);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Melléklet letöltés hiba:', error);
-    res.status(404).json({ error: 'Melléklet nem található' });
+    // Ha a hiba tartalmazza, hogy nem található, akkor 404, egyébként 500
+    const isNotFound = error instanceof Error && error.message.includes('not found');
+    res.status(isNotFound ? 404 : 500).json({
+      error: isNotFound ? 'Melléklet nem található' : 'Melléklet letöltése sikertelen'
+    });
   }
 });
 

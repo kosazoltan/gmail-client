@@ -54,6 +54,14 @@ router.delete('/:id', (req, res) => {
 // Szinkronizálás indítása
 router.post('/:id/sync', async (req, res) => {
   const accountId = req.params.id;
+
+  // Ellenőrizzük, hogy a felhasználó jogosult-e szinkronizálni ezt a fiókot
+  const accountIds = req.session.accountIds || [];
+  if (!accountIds.includes(accountId)) {
+    res.status(403).json({ error: 'Nincs jogosultságod ehhez a fiókhoz' });
+    return;
+  }
+
   const fullSync = req.query.full === 'true';
 
   try {

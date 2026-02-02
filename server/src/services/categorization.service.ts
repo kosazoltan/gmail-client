@@ -24,9 +24,9 @@ export function categorizeEmail(
     [accountId],
   );
 
-  const fromDomain = email.from.split('@')[1]?.toLowerCase() || '';
-  const fromEmail = email.from.toLowerCase();
-  const subjectLower = email.subject.toLowerCase();
+  const fromEmail = (email.from || '').toLowerCase();
+  const fromDomain = fromEmail.split('@')[1] || '';
+  const subjectLower = (email.subject || '').toLowerCase();
 
   for (const rule of rules) {
     const value = rule.value.toLowerCase();

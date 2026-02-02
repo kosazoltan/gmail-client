@@ -76,8 +76,10 @@ router.get('/', (req, res) => {
     return;
   }
 
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = Math.min(parseInt(req.query.limit as string) || 50, MAX_LIMIT);
+  const parsedPage = parseInt(req.query.page as string);
+  const parsedLimit = parseInt(req.query.limit as string);
+  const page = isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
+  const limit = Math.min(isNaN(parsedLimit) || parsedLimit < 1 ? 50 : parsedLimit, MAX_LIMIT);
   const sort = (req.query.sort as string) || 'date_desc';
   const offset = (page - 1) * limit;
 

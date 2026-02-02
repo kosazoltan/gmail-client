@@ -6,6 +6,7 @@ import { EmailAutocomplete } from './EmailAutocomplete';
 import { TemplateSelector } from './TemplateSelector';
 import { TemplatesManager } from '../settings/TemplatesManager';
 import { formatFileSize } from '../../lib/utils';
+import { toast } from '../../lib/toast';
 import type { Template } from '../../types';
 
 // Lokális melléklet típus (még nem küldött)
@@ -198,6 +199,7 @@ export function EmailCompose() {
       navigate(-1);
     } catch (error) {
       console.error('Küldési hiba:', error);
+      toast.error('Nem sikerült elküldeni az emailt. Kérlek próbáld újra.');
     }
   };
 

@@ -147,33 +147,38 @@ router.get('/by-time', (req, res) => {
 });
 
 router.get('/by-time/:periodId', (req, res) => {
-  const accountId = validateAccountAccess(req);
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
+  try {
+    const accountId = validateAccountAccess(req);
+    if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
 
-  const periodId = req.params.periodId;
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = Math.min(parseInt(req.query.limit as string) || 50, MAX_LIMIT);
-  const offset = (page - 1) * limit;
+    const periodId = req.params.periodId;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, MAX_LIMIT);
+    const offset = (page - 1) * limit;
 
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const yesterdayStart = todayStart - 24 * 60 * 60 * 1000;
-  const weekStart = todayStart - 7 * 24 * 60 * 60 * 1000;
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const yesterdayStart = todayStart - 24 * 60 * 60 * 1000;
+    const weekStart = todayStart - 7 * 24 * 60 * 60 * 1000;
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
-  let from = 0;
-  let to = Date.now();
+    let from = 0;
+    let to = Date.now();
 
-  switch (periodId) {
-    case 'today': from = todayStart; to = Date.now(); break;
-    case 'yesterday': from = yesterdayStart; to = todayStart; break;
-    case 'this_week': from = weekStart; to = yesterdayStart; break;
-    case 'this_month': from = monthStart; to = weekStart; break;
-    case 'older': from = 0; to = monthStart; break;
+    switch (periodId) {
+      case 'today': from = todayStart; to = Date.now(); break;
+      case 'yesterday': from = yesterdayStart; to = todayStart; break;
+      case 'this_week': from = weekStart; to = yesterdayStart; break;
+      case 'this_month': from = monthStart; to = weekStart; break;
+      case 'older': from = 0; to = monthStart; break;
+    }
+
+    const results = queryAll<EmailRecord>('SELECT * FROM emails WHERE account_id = ? AND date >= ? AND date < ? ORDER BY date DESC LIMIT ? OFFSET ?', [accountId, from, to, limit, offset]);
+    res.json({ emails: results.map(formatEmail), periodId });
+  } catch (error) {
+    console.error('By-time period view error:', error);
+    res.status(500).json({ error: 'Adatbázis hiba történt' });
   }
-
-  const results = queryAll<EmailRecord>('SELECT * FROM emails WHERE account_id = ? AND date >= ? AND date < ? ORDER BY date DESC LIMIT ? OFFSET ?', [accountId, from, to, limit, offset]);
-  res.json({ emails: results.map(formatEmail), periodId });
 });
 
 router.get('/by-category', (req, res) => {
@@ -203,17 +208,22 @@ router.get('/by-category', (req, res) => {
 });
 
 router.get('/by-category/:id', (req, res) => {
-  const accountId = validateAccountAccess(req);
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
+  try {
+    const accountId = validateAccountAccess(req);
+    if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
 
-  const categoryId = req.params.id;
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = Math.min(parseInt(req.query.limit as string) || 50, MAX_LIMIT);
-  const offset = (page - 1) * limit;
+    const categoryId = req.params.id;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, MAX_LIMIT);
+    const offset = (page - 1) * limit;
 
-  const results = queryAll<EmailRecord>('SELECT * FROM emails WHERE account_id = ? AND category_id = ? ORDER BY date DESC LIMIT ? OFFSET ?', [accountId, categoryId, limit, offset]);
-  const cat = queryOne('SELECT * FROM categories WHERE id = ?', [categoryId]);
-  res.json({ emails: results.map(formatEmail), category: cat });
+    const results = queryAll<EmailRecord>('SELECT * FROM emails WHERE account_id = ? AND category_id = ? ORDER BY date DESC LIMIT ? OFFSET ?', [accountId, categoryId, limit, offset]);
+    const cat = queryOne('SELECT * FROM categories WHERE id = ?', [categoryId]);
+    res.json({ emails: results.map(formatEmail), category: cat });
+  } catch (error) {
+    console.error('By-category ID view error:', error);
+    res.status(500).json({ error: 'Adatbázis hiba történt' });
+  }
 });
 
 function formatEmail(email: EmailRecord) {
@@ -245,72 +255,82 @@ function formatEmail(email: EmailRecord) {
 
 // Beérkezett levelek (INBOX label, de nem TRASH)
 router.get('/inbox', (req, res) => {
-  const accountId = validateAccountAccess(req);
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
+  try {
+    const accountId = validateAccountAccess(req);
+    if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
 
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = Math.min(parseInt(req.query.limit as string) || 50, MAX_LIMIT);
-  const offset = (page - 1) * limit;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, MAX_LIMIT);
+    const offset = (page - 1) * limit;
 
-  // Szűrjük azokat az emaileket, amelyek labels JSON-jében benne van az "INBOX" DE NINCS benne a "TRASH"
-  const allEmails = queryAll<EmailRecord>(
-    'SELECT * FROM emails WHERE account_id = ? ORDER BY date DESC',
-    [accountId]
-  );
+    // Szűrjük azokat az emaileket, amelyek labels JSON-jében benne van az "INBOX" DE NINCS benne a "TRASH"
+    const allEmails = queryAll<EmailRecord>(
+      'SELECT * FROM emails WHERE account_id = ? ORDER BY date DESC',
+      [accountId]
+    );
 
-  const inboxEmails = allEmails.filter(email => {
-    try {
-      const labels: string[] = email.labels ? JSON.parse(email.labels) : [];
-      return labels.includes('INBOX') && !labels.includes('TRASH');
-    } catch (err) {
-      logger.warn('Labels JSON parse failed in inbox filter', { emailId: email.id, error: err });
-      return false;
-    }
-  });
+    const inboxEmails = allEmails.filter(email => {
+      try {
+        const labels: string[] = email.labels ? JSON.parse(email.labels) : [];
+        return labels.includes('INBOX') && !labels.includes('TRASH');
+      } catch (err) {
+        logger.warn('Labels JSON parse failed in inbox filter', { emailId: email.id, error: err });
+        return false;
+      }
+    });
 
-  const paginatedEmails = inboxEmails.slice(offset, offset + limit);
+    const paginatedEmails = inboxEmails.slice(offset, offset + limit);
 
-  res.json({
-    emails: paginatedEmails.map(formatEmail),
-    total: inboxEmails.length,
-    page,
-    totalPages: Math.ceil(inboxEmails.length / limit),
-  });
+    res.json({
+      emails: paginatedEmails.map(formatEmail),
+      total: inboxEmails.length,
+      page,
+      totalPages: Math.ceil(inboxEmails.length / limit),
+    });
+  } catch (error) {
+    console.error('Inbox view error:', error);
+    res.status(500).json({ error: 'Adatbázis hiba történt' });
+  }
 });
 
 // Kuka - törölt levelek (TRASH label)
 router.get('/trash', (req, res) => {
-  const accountId = validateAccountAccess(req);
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
+  try {
+    const accountId = validateAccountAccess(req);
+    if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
 
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = Math.min(parseInt(req.query.limit as string) || 50, MAX_LIMIT);
-  const offset = (page - 1) * limit;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, MAX_LIMIT);
+    const offset = (page - 1) * limit;
 
-  // Szűrjük azokat az emaileket, amelyek labels JSON-jében benne van a "TRASH"
-  const allEmails = queryAll<EmailRecord>(
-    'SELECT * FROM emails WHERE account_id = ? ORDER BY date DESC',
-    [accountId]
-  );
+    // Szűrjük azokat az emaileket, amelyek labels JSON-jében benne van a "TRASH"
+    const allEmails = queryAll<EmailRecord>(
+      'SELECT * FROM emails WHERE account_id = ? ORDER BY date DESC',
+      [accountId]
+    );
 
-  const trashedEmails = allEmails.filter(email => {
-    try {
-      const labels: string[] = email.labels ? JSON.parse(email.labels) : [];
-      return labels.includes('TRASH');
-    } catch (err) {
-      logger.warn('Labels JSON parse failed in trash filter', { emailId: email.id, error: err });
-      return false;
-    }
-  });
+    const trashedEmails = allEmails.filter(email => {
+      try {
+        const labels: string[] = email.labels ? JSON.parse(email.labels) : [];
+        return labels.includes('TRASH');
+      } catch (err) {
+        logger.warn('Labels JSON parse failed in trash filter', { emailId: email.id, error: err });
+        return false;
+      }
+    });
 
-  const paginatedEmails = trashedEmails.slice(offset, offset + limit);
+    const paginatedEmails = trashedEmails.slice(offset, offset + limit);
 
-  res.json({
-    emails: paginatedEmails.map(formatEmail),
-    total: trashedEmails.length,
-    page,
-    totalPages: Math.ceil(trashedEmails.length / limit),
-  });
+    res.json({
+      emails: paginatedEmails.map(formatEmail),
+      total: trashedEmails.length,
+      page,
+      totalPages: Math.ceil(trashedEmails.length / limit),
+    });
+  } catch (error) {
+    console.error('Trash view error:', error);
+    res.status(500).json({ error: 'Adatbázis hiba történt' });
+  }
 });
 
 export default router;

@@ -55,13 +55,12 @@ export class SqliteSessionStore extends session.Store {
       const expire = Date.now() + maxAge;
       const sess = JSON.stringify(session);
 
-      const existing = queryOne<{ sid: string }>('SELECT sid FROM sessions WHERE sid = ?', [sid]);
-
-      if (existing) {
-        execute('UPDATE sessions SET sess = ?, expire = ? WHERE sid = ?', [sess, expire, sid]);
-      } else {
-        execute('INSERT INTO sessions (sid, sess, expire) VALUES (?, ?, ?)', [sid, sess, expire]);
-      }
+      // Atomi UPSERT művelet a race condition elkerülésére
+      execute(
+        `INSERT INTO sessions (sid, sess, expire) VALUES (?, ?, ?)
+         ON CONFLICT(sid) DO UPDATE SET sess = excluded.sess, expire = excluded.expire`,
+        [sid, sess, expire]
+      );
 
       callback?.();
     } catch (err) {

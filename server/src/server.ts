@@ -4,7 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { createSessionMiddleware } from './middleware/session.js';
 import { errorHandler } from './middleware/error-handler.js';
-import { initializeDatabase } from './db/index.js';
+import { initializeDatabase, stopAutoSave, startAutoSave } from './db/index.js';
 import { startBackgroundSync } from './services/sync.service.js';
 import { getAllAccounts } from './services/auth.service.js';
 import logger from './utils/logger.js';
@@ -96,8 +96,12 @@ async function start() {
   // Háttér szinkronizálás indítása minden meglévő fiókhoz
   const existingAccounts = getAllAccounts();
   for (const account of existingAccounts) {
-    logger.info(`Starting background sync for account: ${account.email}`);
-    startBackgroundSync(account.id);
+    try {
+      logger.info(`Starting background sync for account: ${account.email}`);
+      startBackgroundSync(account.id);
+    } catch (err) {
+      logger.error(`Failed to start background sync for ${account.email}`, err);
+    }
   }
 
   // Lejárt szundik feldolgozása percenként
@@ -108,11 +112,25 @@ async function start() {
   // Első futtatás induláskor
   processExpiredSnoozes();
 
+  // Automatikus mentés indítása
+  startAutoSave();
+
   app.listen(PORT, () => {
     logger.info(`Gmail client server running on port ${PORT}`);
     logger.info(`${existingAccounts.length} accounts loaded`);
   });
 }
+
+// Graceful shutdown - adatbázis mentése kilépés előtt
+function gracefulShutdown(signal: string) {
+  logger.info(`${signal} signal received. Saving database and shutting down...`);
+  stopAutoSave();
+  logger.info('Database saved. Exiting.');
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 start().catch((err) => {
   logger.error('Server startup error', err);
