@@ -20,9 +20,11 @@ import {
   Mail,
   ChevronDown,
   ChevronUp,
+  Tag,
 } from 'lucide-react';
 import { SnoozeMenu } from './SnoozeMenu';
 import { ReminderMenu } from './ReminderMenu';
+import { LabelManager } from './LabelManager';
 
 interface EmailDetailProps {
   emailId: string | null;
@@ -46,6 +48,7 @@ export function EmailDetail({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [showMoreActions, setShowMoreActions] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showLabelManager, setShowLabelManager] = useState(false);
 
   // HTML szanitizálás XSS elleni védelem - hook-nak a return előtt kell lennie
   const sanitizedHtml = useMemo(() => {
@@ -176,6 +179,31 @@ export function EmailDetail({
           >
             <Trash2 className="h-5 w-5" />
           </button>
+
+          {/* Címkék gomb */}
+          <div className="relative">
+            <button
+              onClick={() => setShowLabelManager(!showLabelManager)}
+              className="p-2.5 rounded-full hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary transition-colors touch-manipulation"
+              aria-label="Címkék"
+              title="Címkék"
+            >
+              <Tag className="h-5 w-5" />
+            </button>
+            {showLabelManager && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowLabelManager(false)}
+                />
+                <LabelManager
+                  emailId={email.id}
+                  currentLabels={email.labels || []}
+                  onClose={() => setShowLabelManager(false)}
+                />
+              </>
+            )}
+          </div>
 
           {/* További műveletek dropdown */}
           <div className="relative">

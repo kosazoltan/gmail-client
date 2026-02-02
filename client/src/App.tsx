@@ -7,6 +7,7 @@ import { InboxView } from './components/views/InboxView';
 import { BySenderView } from './components/views/BySenderView';
 import { ByTopicView } from './components/views/ByTopicView';
 import { ByTimeView } from './components/views/ByTimeView';
+import { CategoryView } from './components/views/CategoryView';
 import { PersonalView } from './components/views/PersonalView';
 import { InvoicesView } from './components/views/InvoicesView';
 import { TrashView } from './components/views/TrashView';
@@ -42,6 +43,7 @@ function App() {
                 <Route path="/by-sender" element={<BySenderView />} />
                 <Route path="/by-topic" element={<ByTopicView />} />
                 <Route path="/by-time" element={<ByTimeView />} />
+                <Route path="/by-category" element={<CategoryView />} />
                 <Route path="/personal" element={<PersonalView />} />
                 <Route path="/invoices" element={<InvoicesView />} />
                 <Route path="/trash" element={<TrashView />} />

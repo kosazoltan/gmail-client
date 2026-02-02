@@ -5,6 +5,7 @@ import { useSession } from '../../hooks/useAccounts';
 import { useDeleteEmail } from '../../hooks/useEmails';
 import { EmailList } from '../email/EmailList';
 import { EmailDetail } from '../email/EmailDetail';
+import { ResizablePanels } from '../common/ResizablePanels';
 import { Search } from 'lucide-react';
 import type { Email } from '../../types';
 import { getNextEmailAfterDelete } from '../../lib/emailNavigation';

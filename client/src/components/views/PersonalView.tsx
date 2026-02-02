@@ -1,9 +1,10 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
 import { useEmails, useDeleteEmail } from '../../hooks/useEmails';
 import { ThreadedEmailList } from '../email/ThreadedEmailList';
 import { EmailDetail } from '../email/EmailDetail';
+import { ResizablePanels } from '../common/ResizablePanels';
 import { LoginScreen } from '../auth/LoginScreen';
 import type { Email } from '../../types';
 import { getNextEmailAfterDelete } from '../../lib/emailNavigation';
@@ -64,79 +65,76 @@ export function PersonalView() {
     return <LoginScreen />;
   }
 
-  return (
-    <div className="flex h-full relative">
-      {/* Email lista */}
-      <div className={`
-        w-full lg:w-2/5 xl:w-1/3 border-r border-gray-200 dark:border-dark-border overflow-auto
-        ${selectedEmail ? 'hidden lg:block' : 'block'}
-      `}>
-        <ThreadedEmailList
-          emails={personalEmails}
-          isLoading={isLoading}
-          selectedEmailId={selectedEmail?.id || null}
-          onSelectEmail={setSelectedEmail}
-          onDeleteEmail={(emailId) => {
-            deleteEmail.mutate(emailId, {
-              onSuccess: () => {
-                if (selectedEmail?.id === emailId) {
-                  const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);
-                  setSelectedEmail(nextEmail);
-                }
+  const leftPanel = (
+    <>
+      <ThreadedEmailList
+        emails={personalEmails}
+        isLoading={isLoading}
+        selectedEmailId={selectedEmail?.id || null}
+        onSelectEmail={setSelectedEmail}
+        onDeleteEmail={(emailId) => {
+          deleteEmail.mutate(emailId, {
+            onSuccess: () => {
+              if (selectedEmail?.id === emailId) {
+                const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);
+                setSelectedEmail(nextEmail);
               }
-            });
-          }}
-          title={`Személyes levelek (${personalEmails.length})`}
-          emptyMessage="Nincs személyes levél"
-        />
+            }
+          });
+        }}
+        title={`Személyes levelek (${personalEmails.length})`}
+        emptyMessage="Nincs személyes levél"
+      />
+      {data && data.totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 p-3 border-t border-gray-200 dark:border-dark-border">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="px-4 py-3 text-sm rounded-lg border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary disabled:opacity-50 dark:text-dark-text touch-manipulation"
+          >
+            Előző
+          </button>
+          <span className="text-sm text-gray-500 dark:text-dark-text-secondary">
+            {page} / {data.totalPages}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
+            disabled={page === data.totalPages}
+            className="px-4 py-3 text-sm rounded-lg border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary disabled:opacity-50 dark:text-dark-text touch-manipulation"
+          >
+            Következő
+          </button>
+        </div>
+      )}
+    </>
+  );
 
-        {/* Lapozás */}
-        {data && data.totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 p-3 border-t border-gray-200 dark:border-dark-border">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="px-4 py-3 text-sm rounded-lg border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary disabled:opacity-50 dark:text-dark-text touch-manipulation"
-            >
-              Előző
-            </button>
-            <span className="text-sm text-gray-500 dark:text-dark-text-secondary">
-              {page} / {data.totalPages}
-            </span>
-            <button
-              onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
-              disabled={page === data.totalPages}
-              className="px-4 py-3 text-sm rounded-lg border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary disabled:opacity-50 dark:text-dark-text touch-manipulation"
-            >
-              Következő
-            </button>
-          </div>
-        )}
-      </div>
+  const rightPanel = (
+    <EmailDetail
+      emailId={selectedEmail?.id || null}
+      accountId={accountId}
+      onBack={() => setSelectedEmail(null)}
+      onReply={({ to, subject, threadId, body, fromName, date }) => {
+        const originalBody = body || '';
+        const replyBody = `\n\n─────────────────────────\nDátum: ${date ? new Date(date).toLocaleString('hu-HU') : ''}\nFeladó: ${fromName || to}\n\n${originalBody}`;
+        navigate(
+          `/compose?reply=true&to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}&body=${encodeURIComponent(replyBody)}`,
+        );
+      }}
+      onForward={({ subject, body }) => {
+        navigate(
+          `/compose?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
+        );
+      }}
+    />
+  );
 
-      {/* Email részletek */}
-      <div className={`
-        flex-1
-        ${selectedEmail ? 'block absolute inset-0 lg:relative lg:inset-auto bg-white dark:bg-dark-bg z-10' : 'hidden lg:block'}
-      `}>
-        <EmailDetail
-          emailId={selectedEmail?.id || null}
-          accountId={accountId}
-          onBack={() => setSelectedEmail(null)}
-          onReply={({ to, subject, threadId, body, fromName, date }) => {
-            const originalBody = body || '';
-            const replyBody = `\n\n─────────────────────────\nDátum: ${date ? new Date(date).toLocaleString('hu-HU') : ''}\nFeladó: ${fromName || to}\n\n${originalBody}`;
-            navigate(
-              `/compose?reply=true&to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}&body=${encodeURIComponent(replyBody)}`,
-            );
-          }}
-          onForward={({ subject, body }) => {
-            navigate(
-              `/compose?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
-            );
-          }}
-        />
-      </div>
-    </div>
+  return (
+    <ResizablePanels
+      leftPanel={leftPanel}
+      rightPanel={rightPanel}
+      rightPanelActive={!!selectedEmail}
+      storageKey="personal-list-width"
+    />
   );
 }
