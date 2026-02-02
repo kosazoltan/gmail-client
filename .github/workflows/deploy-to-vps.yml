@@ -23,17 +23,24 @@ jobs:
         mkdir -p ~/.ssh
         ssh-keyscan -H ${{ secrets.VPS_SERVER_IP }} >> ~/.ssh/known_hosts
 
+    - name: Verify SSH connection
+      run: |
+        ssh -o ConnectTimeout=10 -o BatchMode=yes ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_SERVER_IP }} 'echo "SSH OK"'
+      # Fails here? Check: VPS_SSH_PRIVATE_KEY, VPS_SERVER_IP, VPS_SSH_USER in repo Secrets
+
     - name: Setup VPS Environment
       run: |
         ssh ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_SERVER_IP }} 'bash -s' << 'SETUP_EOF'
           set -e
           echo "=== Setting up VPS Environment for Gmail Client ==="
+          SUDO=""
+          if [ "$(id -u)" -ne 0 ] && command -v sudo &> /dev/null; then SUDO="sudo"; fi
 
           # Node.js telepítése (ha nincs)
           if ! command -v node &> /dev/null; then
             echo "Installing Node.js 20..."
-            curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-            apt-get install -y nodejs
+            curl -fsSL https://deb.nodesource.com/setup_20.x | $SUDO bash -
+            $SUDO apt-get install -y nodejs
             echo "Node.js installed: $(node -v)"
           else
             echo "Node.js already installed: $(node -v)"
@@ -42,10 +49,10 @@ jobs:
           # Nginx telepítése (ha nincs)
           if ! command -v nginx &> /dev/null; then
             echo "Installing Nginx..."
-            apt-get update
-            apt-get install -y nginx
-            systemctl start nginx
-            systemctl enable nginx
+            $SUDO apt-get update
+            $SUDO apt-get install -y nginx
+            $SUDO systemctl start nginx
+            $SUDO systemctl enable nginx
             echo "Nginx installed"
           else
             echo "Nginx already installed"
@@ -54,14 +61,17 @@ jobs:
           # Git telepítése (ha nincs)
           if ! command -v git &> /dev/null; then
             echo "Installing Git..."
-            apt-get install -y git
+            $SUDO apt-get install -y git
             echo "Git installed"
           else
             echo "Git already installed"
           fi
 
-          # Projekt könyvtár létrehozása
-          mkdir -p /var/www/gmail-client
+          # Projekt könyvtár létrehozása (jogosultság deploy usernek ha nem root)
+          $SUDO mkdir -p /var/www/gmail-client
+          if [ -n "$SUDO" ]; then
+            $SUDO chown -R "$(whoami):$(id -gn)" /var/www/gmail-client
+          fi
           echo "=== VPS Environment Ready ==="
         SETUP_EOF
 
@@ -264,7 +274,7 @@ jobs:
             # Health check
             location /health {
                 access_log off;
-                proxy_pass http://gmail_backend/health;
+                proxy_pass http://gmail_backend/api/health;
             }
         }
         NGINXCONF

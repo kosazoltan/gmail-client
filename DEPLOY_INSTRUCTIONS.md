@@ -1,6 +1,46 @@
 # 🚀 Production Deployment Instructions
 
-## Quick Deploy
+## GitHub Actions: Deploy to VPS
+
+The workflow `.github/workflows/deploy-to-vps.yml` runs on push to `main`/`master` or via **workflow_dispatch**.
+
+### Required repository Secrets
+
+In **Settings → Secrets and variables → Actions**, add:
+
+| Secret | Description |
+|--------|-------------|
+| `VPS_SSH_PRIVATE_KEY` | Full private key (PEM) for SSH; the key’s public part must be in `~/.ssh/authorized_keys` on the VPS |
+| `VPS_SERVER_IP` | VPS hostname or IP (e.g. `mail.mindenes.org` or the server IP) |
+| `VPS_SSH_USER` | SSH user (e.g. `root` or `ubuntu`) |
+| `SESSION_SECRET` | Random string for session signing |
+| `ENCRYPTION_KEY` | Key for encrypting sensitive data |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+
+### If the workflow fails
+
+1. **Fails at “Verify SSH connection”**  
+   - `VPS_SSH_PRIVATE_KEY`, `VPS_SERVER_IP`, or `VPS_SSH_USER` missing/wrong.  
+   - On the VPS, ensure the key is in `~/.ssh/authorized_keys` for `VPS_SSH_USER`.
+
+2. **Fails at “Setup VPS Environment”**  
+   - `apt-get`/install errors: VPS user needs sudo (or use `root`).  
+   - Network/curl errors: VPS must reach the internet (e.g. nodesource, nginx).
+
+3. **Fails at “Deploy Backend”**  
+   - Clone fails: if the repo is private, use a deploy key or token (e.g. `git clone` with a token in the URL or use an SSH deploy key on the VPS).  
+   - `npm ci` fails: check the workflow’s Node version and that `server/package-lock.json` is committed.
+
+4. **Fails at “Create Backend Environment File”**  
+   - One of the secrets above is empty or invalid; check each value in the repo Secrets.
+
+5. **Fails at “Build Backend TypeScript” or “Verify Deployment”**  
+   - Check the job logs for `npm run build` or runtime errors; ensure `dist/server.js` exists and the backend starts (e.g. `journalctl -u gmail-client-backend` on the VPS).
+
+---
+
+## Quick Deploy (manual)
 
 **SSH Details:**
 - Host: `mail.mindenes.org`
