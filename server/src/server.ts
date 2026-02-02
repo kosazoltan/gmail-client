@@ -26,6 +26,7 @@ import remindersRoutes from './routes/reminders.routes.js';
 import newslettersRoutes from './routes/newsletters.routes.js';
 import labelsRoutes from './routes/labels.routes.js';
 import pushRoutes from './routes/push.routes.js';
+import pinnedRoutes from './routes/pinned.routes.js';
 
 const PORT = parseInt(process.env.PORT || '5000');
 
@@ -84,6 +85,7 @@ async function start() {
   app.use('/api/newsletters', newslettersRoutes);
   app.use('/api/labels', labelsRoutes);
   app.use('/api/push', pushRoutes);
+  app.use('/api/pinned', pinnedRoutes);
 
   // Health check
   app.get('/api/health', (_req, res) => {

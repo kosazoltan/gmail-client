@@ -1,5 +1,5 @@
-import { EmailItem } from './EmailItem';
-import { useToggleStar } from '../../hooks/useEmails';
+import { SwipeableEmailItem } from './SwipeableEmailItem';
+import { useToggleStar, useMarkRead } from '../../hooks/useEmails';
 import { Loader2, MailX } from 'lucide-react';
 import type { Email } from '../../types';
 
@@ -15,6 +15,8 @@ interface EmailListProps {
   selectionMode?: boolean;
   selectedIds?: Set<string>;
   onToggleSelect?: (emailId: string) => void;
+  // Pinned emails
+  pinnedEmailIds?: Set<string>;
 }
 
 export function EmailList({
@@ -28,8 +30,14 @@ export function EmailList({
   selectionMode = false,
   selectedIds = new Set(),
   onToggleSelect,
+  pinnedEmailIds = new Set(),
 }: EmailListProps) {
   const toggleStar = useToggleStar();
+  const markRead = useMarkRead();
+
+  const handleToggleRead = (emailId: string, isRead: boolean) => {
+    markRead.mutate({ emailId, isRead });
+  };
 
   if (isLoading) {
     return (
@@ -57,7 +65,7 @@ export function EmailList({
         </div>
       )}
       {emails.map((email) => (
-        <EmailItem
+        <SwipeableEmailItem
           key={email.id}
           email={email}
           isSelected={email.id === selectedEmailId}
@@ -70,9 +78,11 @@ export function EmailList({
             });
           }}
           onDelete={onDeleteEmail}
+          onToggleRead={handleToggleRead}
           selectionMode={selectionMode}
           isChecked={selectedIds.has(email.id)}
           onToggleCheck={onToggleSelect}
+          isPinned={pinnedEmailIds.has(email.id)}
         />
       ))}
     </div>

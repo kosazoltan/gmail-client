@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Star, Paperclip, Trash2, Check } from 'lucide-react';
+import { Star, Paperclip, Trash2, Check, Pin, Mail, MailOpen } from 'lucide-react';
 import { cn, formatEmailDate, displaySender, getInitials, emailToColor } from '../../lib/utils';
 import type { Email } from '../../types';
 
@@ -9,6 +9,9 @@ interface EmailItemProps {
   onClick: () => void;
   onToggleStar: (e: React.MouseEvent) => void;
   onDelete?: (emailId: string) => void;
+  onTogglePin?: (emailId: string) => void;
+  onToggleRead?: (emailId: string, isRead: boolean) => void;
+  isPinned?: boolean;
   // Selection mode props
   selectionMode?: boolean;
   isChecked?: boolean;
@@ -27,6 +30,9 @@ export function EmailItem({
   onClick,
   onToggleStar,
   onDelete,
+  onTogglePin,
+  onToggleRead,
+  isPinned = false,
   selectionMode = false,
   isChecked = false,
   onToggleCheck,
@@ -66,6 +72,16 @@ export function EmailItem({
   const handleDelete = () => {
     setContextMenu({ visible: false, x: 0, y: 0 });
     onDelete?.(email.id);
+  };
+
+  const handleTogglePin = () => {
+    setContextMenu({ visible: false, x: 0, y: 0 });
+    onTogglePin?.(email.id);
+  };
+
+  const handleToggleRead = () => {
+    setContextMenu({ visible: false, x: 0, y: 0 });
+    onToggleRead?.(email.id, !email.isRead);
   };
 
   const handleCheckboxClick = (e: React.MouseEvent) => {
@@ -175,9 +191,33 @@ export function EmailItem({
     {contextMenu.visible && (
       <div
         ref={menuRef}
-        className="fixed z-50 bg-white dark:bg-dark-bg-secondary rounded-xl shadow-lg border border-gray-100 dark:border-dark-border py-1 min-w-[150px]"
+        className="fixed z-50 bg-white dark:bg-dark-bg-secondary rounded-xl shadow-lg border border-gray-100 dark:border-dark-border py-1 min-w-[180px]"
         style={{ left: contextMenu.x, top: contextMenu.y }}
       >
+        <button
+          onClick={handleTogglePin}
+          className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary transition-colors touch-manipulation"
+        >
+          <Pin className={cn('h-5 w-5', isPinned && 'fill-amber-500 text-amber-500')} />
+          <span>{isPinned ? 'Rögzítés feloldása' : 'Rögzítés'}</span>
+        </button>
+        <button
+          onClick={handleToggleRead}
+          className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary transition-colors touch-manipulation"
+        >
+          {email.isRead ? (
+            <>
+              <MailOpen className="h-5 w-5" />
+              <span>Olvasatlannak jelölés</span>
+            </>
+          ) : (
+            <>
+              <Mail className="h-5 w-5" />
+              <span>Olvasottnak jelölés</span>
+            </>
+          )}
+        </button>
+        <div className="border-t border-gray-100 dark:border-dark-border my-1" />
         <button
           onClick={handleDelete}
           className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors touch-manipulation"

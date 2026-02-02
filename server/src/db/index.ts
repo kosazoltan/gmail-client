@@ -198,6 +198,14 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
       created_at INTEGER NOT NULL,
       UNIQUE(account_id, endpoint)
     );
+
+    CREATE TABLE IF NOT EXISTS pinned_emails (
+      id TEXT PRIMARY KEY,
+      email_id TEXT NOT NULL REFERENCES emails(id) ON DELETE CASCADE,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      pinned_at INTEGER NOT NULL,
+      UNIQUE(email_id, account_id)
+    );
   `);
 
 
@@ -224,6 +232,8 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
     CREATE INDEX IF NOT EXISTS idx_reminders_account ON reminders(account_id);
     CREATE INDEX IF NOT EXISTS idx_reminders_remind_at ON reminders(remind_at);
     CREATE INDEX IF NOT EXISTS idx_newsletter_senders_account ON newsletter_senders(account_id);
+    CREATE INDEX IF NOT EXISTS idx_pinned_emails_account ON pinned_emails(account_id);
+    CREATE INDEX IF NOT EXISTS idx_pinned_emails_email ON pinned_emails(email_id);
 
     -- Extra indexek a teljesítmény javításához
     CREATE INDEX IF NOT EXISTS idx_emails_account_date ON emails(account_id, date DESC);

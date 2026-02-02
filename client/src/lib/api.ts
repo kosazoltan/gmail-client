@@ -416,4 +416,21 @@ export const api = {
         method: 'POST',
       }),
   },
+
+  pinned: {
+    list: () =>
+      request<{ pinnedEmailIds: string[] }>('/pinned'),
+    pin: (emailId: string) =>
+      request<{ success: boolean; pinnedAt?: number }>(`/pinned/${emailId}`, {
+        method: 'POST',
+      }),
+    unpin: (emailId: string) =>
+      request<{ success: boolean }>(`/pinned/${emailId}`, {
+        method: 'DELETE',
+      }),
+    toggle: (emailId: string) =>
+      request<{ isPinned: boolean; pinnedAt?: number }>(`/pinned/${emailId}/toggle`, {
+        method: 'POST',
+      }),
+  },
 };
