@@ -13,6 +13,10 @@ interface ThreadedEmailListProps {
   onDeleteEmail?: (emailId: string) => void;
   title?: string;
   emptyMessage?: string;
+  // Selection mode props
+  selectionMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (emailId: string) => void;
 }
 
 // Email csoport típus
@@ -248,6 +252,9 @@ export function ThreadedEmailList({
   onDeleteEmail,
   title,
   emptyMessage = 'Nincsenek levelek',
+  selectionMode = false,
+  selectedIds = new Set(),
+  onToggleSelect,
 }: ThreadedEmailListProps) {
   const toggleStar = useToggleStar();
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
@@ -344,6 +351,9 @@ export function ThreadedEmailList({
                       });
                     }}
                     onDelete={onDeleteEmail}
+                    selectionMode={selectionMode}
+                    isChecked={selectedIds.has(email.id)}
+                    onToggleCheck={onToggleSelect}
                   />
                 ))}
               </div>

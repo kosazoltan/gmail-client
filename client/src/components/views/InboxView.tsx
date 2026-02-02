@@ -4,7 +4,7 @@ import { useSession } from '../../hooks/useAccounts';
 import { useInbox } from '../../hooks/useInbox';
 import { useToggleStar, useMarkRead, useDeleteEmail, useBatchDeleteEmails } from '../../hooks/useEmails';
 import { useKeyboardShortcuts, useSearchFocus } from '../../hooks/useKeyboardShortcuts';
-import { EmailList } from '../email/EmailList';
+import { ThreadedEmailList } from '../email/ThreadedEmailList';
 import { EmailDetail } from '../email/EmailDetail';
 import { KeyboardShortcutsHelp } from '../common/KeyboardShortcutsHelp';
 import { ResizablePanels } from '../common/ResizablePanels';
@@ -288,34 +288,34 @@ export function InboxView() {
       </div>
 
       <div className="flex-1 overflow-auto">
-        <EmailList
-        emails={emails}
-        isLoading={isLoading}
-        selectedEmailId={selectedEmail?.id || null}
-        onSelectEmail={setSelectedEmail}
-        onDeleteEmail={(emailId) => {
-          const emailIndex = emails.findIndex(e => e.id === emailId);
-          deleteEmail.mutate(emailId, {
-            onSuccess: () => {
-              if (selectedEmail?.id === emailId) {
-                if (emails.length > 1) {
-                  if (emailIndex < emails.length - 1) {
-                    setSelectedEmail(emails[emailIndex + 1]);
+        <ThreadedEmailList
+          emails={emails}
+          isLoading={isLoading}
+          selectedEmailId={selectedEmail?.id || null}
+          onSelectEmail={setSelectedEmail}
+          onDeleteEmail={(emailId) => {
+            const emailIndex = emails.findIndex(e => e.id === emailId);
+            deleteEmail.mutate(emailId, {
+              onSuccess: () => {
+                if (selectedEmail?.id === emailId) {
+                  if (emails.length > 1) {
+                    if (emailIndex < emails.length - 1) {
+                      setSelectedEmail(emails[emailIndex + 1]);
+                    } else {
+                      setSelectedEmail(emails[emailIndex - 1]);
+                    }
                   } else {
-                    setSelectedEmail(emails[emailIndex - 1]);
+                    setSelectedEmail(null);
                   }
-                } else {
-                  setSelectedEmail(null);
                 }
               }
-            }
-          });
-        }}
-        emptyMessage="Nincs beérkezett levél. Szinkronizálj a frissítéshez!"
-        selectionMode={selectionMode}
-        selectedIds={selectedIds}
-        onToggleSelect={toggleSelectEmail}
-      />
+            });
+          }}
+          emptyMessage="Nincs beérkezett levél. Szinkronizálj a frissítéshez!"
+          selectionMode={selectionMode}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelectEmail}
+        />
       </div>
       {data && data.totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 p-3 border-t border-gray-200 dark:border-dark-border">
