@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # Backend szolgáltatás
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: gmail-client-server
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - FRONTEND_URL=http://localhost:5173
+      - BACKEND_URL=http://localhost:5000
+    env_file:
+      - ./server/.env
+    volumes:
+      - ./server/data:/app/data
+    networks:
+      - gmail-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
+
+  # Frontend szolgáltatás
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: gmail-client-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      server:
+        condition: service_healthy
+    networks:
+      - gmail-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+networks:
+  gmail-network:
+    driver: bridge
+
+volumes:
+  server-data:
+    driver: local

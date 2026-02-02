@@ -7,6 +7,7 @@ import { errorHandler } from './middleware/error-handler.js';
 import { initializeDatabase } from './db/index.js';
 import { startBackgroundSync } from './services/sync.service.js';
 import { getAllAccounts } from './services/auth.service.js';
+import logger from './utils/logger.js';
 
 // Routes
 import authRoutes from './routes/auth.routes.js';
@@ -37,7 +38,7 @@ async function start() {
   const frontendUrl = process.env.FRONTEND_URL;
 
   if (!frontendUrl) {
-    console.warn('FIGYELMEZTETÉS: FRONTEND_URL nincs beállítva! Használd a .env fájlt.');
+    logger.warn('FRONTEND_URL environment variable is not set. Using default.');
   }
 
   // Security headers - lazább beállítások a mobil böngésző kompatibilitásért
@@ -95,7 +96,7 @@ async function start() {
   // Háttér szinkronizálás indítása minden meglévő fiókhoz
   const existingAccounts = getAllAccounts();
   for (const account of existingAccounts) {
-    console.log(`Háttér szinkronizálás indítása: ${account.email}`);
+    logger.info(`Starting background sync for account: ${account.email}`);
     startBackgroundSync(account.id);
   }
 
@@ -108,12 +109,12 @@ async function start() {
   processExpiredSnoozes();
 
   app.listen(PORT, () => {
-    console.log(`Gmail kliens szerver fut port ${PORT}`);
-    console.log(`${existingAccounts.length} fiók betöltve.`);
+    logger.info(`Gmail client server running on port ${PORT}`);
+    logger.info(`${existingAccounts.length} accounts loaded`);
   });
 }
 
 start().catch((err) => {
-  console.error('Szerver indítási hiba:', err);
+  logger.error('Server startup error', err);
   process.exit(1);
 });
