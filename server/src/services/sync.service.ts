@@ -40,10 +40,17 @@ interface GmailMessage {
 // Email szinkronizálás egy fiókhoz
 export async function syncAccount(accountId: string, fullSync = false) {
   const logId = uuidv4();
-  execute(
-    'INSERT INTO sync_log (id, account_id, started_at, status) VALUES (?, ?, ?, ?)',
-    [logId, accountId, Date.now(), 'running'],
-  );
+
+  // Wrap initial sync_log insert in try-catch to handle DB failures
+  try {
+    execute(
+      'INSERT INTO sync_log (id, account_id, started_at, status) VALUES (?, ?, ?, ?)',
+      [logId, accountId, Date.now(), 'running'],
+    );
+  } catch (error) {
+    console.error('Failed to create sync log:', error);
+    throw new Error('Cannot start sync: database error');
+  }
 
   try {
     const { oauth2Client, account } = getOAuth2ClientForAccount(accountId);
@@ -75,10 +82,14 @@ export async function syncAccount(accountId: string, fullSync = false) {
     return { success: true, messagesProcessed: processedCount };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Ismeretlen hiba';
-    execute(
-      'UPDATE sync_log SET completed_at = ?, status = ?, error = ? WHERE id = ?',
-      [Date.now(), 'failed', errorMsg, logId],
-    );
+    try {
+      execute(
+        'UPDATE sync_log SET completed_at = ?, status = ?, error = ? WHERE id = ?',
+        [Date.now(), 'failed', errorMsg, logId],
+      );
+    } catch (updateError) {
+      console.error('Failed to update sync log on error:', updateError);
+    }
     throw error;
   }
 }

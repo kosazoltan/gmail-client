@@ -68,9 +68,10 @@ router.get('/:id/download', async (req, res) => {
     // Preview-hoz inline használata (ne indítson letöltést)
     // A böngésző így megpróbálja megjeleníteni a fájlt ahelyett, hogy letöltené
     res.setHeader('Content-Type', result.mimeType);
+    // RFC 5987 compliant encoding for filenames with special characters
     res.setHeader(
       'Content-Disposition',
-      `inline; filename="${encodeURIComponent(result.filename)}"`,
+      `inline; filename*=UTF-8''${encodeURIComponent(result.filename)}`,
     );
     res.setHeader('Content-Length', result.data.length);
     res.send(result.data);

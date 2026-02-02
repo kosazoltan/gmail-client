@@ -130,6 +130,7 @@ router.get('/:id', async (req, res) => {
         email = { ...email, body: fullMsg.body, body_html: fullMsg.bodyHtml };
       } catch (err) {
         console.error('Email body letöltés hiba:', err);
+        throw err; // Re-throw so outer handler catches it
       }
     }
 
