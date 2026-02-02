@@ -105,17 +105,15 @@ export function ResizablePanels({
       {/* Bal panel (email lista) */}
       <div
         className={`
-          border-r border-gray-200 dark:border-dark-border overflow-auto
-          ${rightPanelActive ? 'hidden lg:block' : 'block w-full lg:w-auto'}
+          border-r border-gray-200 dark:border-dark-border overflow-auto h-full
+          ${rightPanelActive ? 'hidden lg:block' : 'block'}
         `}
-        style={{ width: rightPanelActive ? undefined : '100%', flex: `0 0 ${leftWidth}%` }}
+        style={{
+          flex: `0 0 ${leftWidth}%`,
+          maxWidth: rightPanelActive ? undefined : '100%',
+        }}
       >
-        <div className="hidden lg:block h-full" style={{ width: '100%' }}>
-          {leftPanel}
-        </div>
-        <div className={`lg:hidden h-full ${rightPanelActive ? 'hidden' : 'block'}`}>
-          {leftPanel}
-        </div>
+        {leftPanel}
       </div>
 
       {/* Átméretező fogantyú - csak desktop */}

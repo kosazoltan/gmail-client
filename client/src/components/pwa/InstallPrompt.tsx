@@ -69,9 +69,8 @@ export function InstallPrompt() {
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
 
-    if (outcome === 'accepted') {
-      console.log('PWA telepítve');
-    }
+    // PWA telepítés eredménye kezelve
+    void outcome;
 
     setDeferredPrompt(null);
     setShowPrompt(false);
