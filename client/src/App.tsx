@@ -11,6 +11,7 @@ import { CategoryView } from './components/views/CategoryView';
 import { PersonalView } from './components/views/PersonalView';
 import { InvoicesView } from './components/views/InvoicesView';
 import { TrashView } from './components/views/TrashView';
+import { LabelView } from './components/views/LabelView';
 import { AttachmentsView } from './components/views/AttachmentsView';
 import { RemindersView } from './components/views/RemindersView';
 import { NewslettersView } from './components/views/NewslettersView';
@@ -47,6 +48,7 @@ function App() {
                 <Route path="/personal" element={<PersonalView />} />
                 <Route path="/invoices" element={<InvoicesView />} />
                 <Route path="/trash" element={<TrashView />} />
+                <Route path="/label/:labelId" element={<LabelView />} />
                 <Route path="/attachments" element={<AttachmentsView />} />
                 <Route path="/reminders" element={<RemindersView onEmailSelect={() => {}} />} />
                 <Route path="/newsletters" element={<NewslettersView onEmailSelect={() => {}} />} />

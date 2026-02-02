@@ -2,6 +2,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
 import { useSavedSearches, useDeleteSavedSearch, useIncrementSearchUsage } from '../../hooks/useSavedSearches';
 import { useDueRemindersCount } from '../../hooks/useReminders';
+import { useLabels } from '../../hooks/useLabels';
 import { ZMailLogo } from '../common/ZMailLogo';
 import { LoginHelp } from '../auth/LoginHelp';
 import {
@@ -24,9 +25,10 @@ import {
   User,
   Receipt,
   Trash2,
+  Tag,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -62,6 +64,16 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
   const savedSearches = savedSearchesData?.searches || [];
   const currentSearchQuery = location.pathname === '/search' ? new URLSearchParams(location.search).get('q') : null;
   const { data: dueRemindersCount } = useDueRemindersCount();
+  const { data: labelsData } = useLabels();
+
+  // Gyakran használt címkék (user típusúak, messagesTotal alapján rendezve)
+  const frequentLabels = useMemo(() => {
+    if (!labelsData?.labels) return [];
+    return labelsData.labels
+      .filter((l) => l.type === 'user' && l.messagesTotal > 0)
+      .sort((a, b) => b.messagesTotal - a.messagesTotal)
+      .slice(0, 5); // Top 5 leggyakrabban használt
+  }, [labelsData?.labels]);
 
   const handleSavedSearchClick = (id: string, query: string) => {
     incrementUsage.mutate(id);
@@ -161,6 +173,53 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
             </NavLink>
           );
         })}
+
+        {/* Gyakran használt címkék */}
+        {frequentLabels.length > 0 && (
+          <>
+            {isOpen && (
+              <div className="pt-3 pb-1 px-3">
+                <div className="flex items-center gap-2 text-xs font-medium text-gray-400 dark:text-dark-text-muted uppercase tracking-wider">
+                  <Tag className="h-3 w-3" aria-hidden="true" />
+                  Gyakori címkék
+                </div>
+              </div>
+            )}
+            {frequentLabels.slice(0, isOpen ? 5 : 3).map((label) => {
+              const isActive = location.pathname === `/label/${label.id}`;
+              const labelColor = label.color?.backgroundColor || '#6b7280';
+              return (
+                <NavLink
+                  key={label.id}
+                  to={`/label/${label.id}`}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors touch-manipulation min-h-[44px]',
+                    isActive
+                      ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 font-medium'
+                      : 'text-gray-600 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary hover:text-gray-900 dark:hover:text-dark-text',
+                    !isOpen && 'justify-center px-2',
+                  )}
+                  title={isOpen ? `${label.name} (${label.messagesTotal})` : label.name}
+                  aria-label={`Címke: ${label.name}`}
+                >
+                  <span
+                    className="w-3 h-3 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: labelColor }}
+                    aria-hidden="true"
+                  />
+                  {isOpen && (
+                    <div className="flex items-center justify-between flex-1 min-w-0">
+                      <span className="truncate">{label.name}</span>
+                      <span className="text-xs text-gray-400 dark:text-dark-text-muted ml-2">
+                        {label.messagesTotal}
+                      </span>
+                    </div>
+                  )}
+                </NavLink>
+              );
+            })}
+          </>
+        )}
 
         {/* Mentett keresések */}
         {savedSearches.length > 0 && (
