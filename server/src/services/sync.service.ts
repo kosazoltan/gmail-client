@@ -102,8 +102,10 @@ async function fullSyncMessages(
   const afterDate = new Date();
   afterDate.setDate(afterDate.getDate() - daysBack);
   const afterStr = `${afterDate.getFullYear()}/${afterDate.getMonth() + 1}/${afterDate.getDate()}`;
-  // Lekérjük a törölt és spam leveleket is (in:anywhere tartalmazza mindent)
-  const query = `after:${afterStr} in:anywhere`;
+  // Lekérjük MINDENT: beérkezett, elküldött, törölt és spam leveleket is
+  // in:anywhere tartalmazza a beérkezett és spam/trash leveleket
+  // OR in:sent hozzáadja az elküldött leveleket is
+  const query = `after:${afterStr} (in:anywhere OR in:sent)`;
 
   let pageToken: string | undefined;
   let totalProcessed = 0;
@@ -234,7 +236,9 @@ function saveEmail(accountId: string, msg: GmailMessage): boolean {
     labels: msg.labels,
   });
 
-  const topicId = findOrCreateTopic(accountId, msg.subject || '', msg.threadId);
+  // Ha nincs tárgy, de van body, akkor body-ból próbáljuk meghatározni a témát
+  const topicSubject = msg.subject || extractSubjectFromBody(msg.body);
+  const topicId = findOrCreateTopic(accountId, topicSubject, msg.threadId, msg.body);
 
   execute(
     `INSERT OR IGNORE INTO emails (id, account_id, thread_id, subject, from_email, from_name, to_email, cc_email, snippet, body, body_html, date, is_read, is_starred, labels, has_attachments, category_id, topic_id)
@@ -256,7 +260,31 @@ function saveEmail(accountId: string, msg: GmailMessage): boolean {
     }
   }
 
-  updateSenderGroup(accountId, msg.from, msg.fromName, msg.date);
+  // Elküldött email esetén (SENT label) a címzettet is csoportosítjuk
+  const isSent = msg.labels.includes('SENT');
+
+  if (isSent) {
+    // Ha én küldtem, akkor a címzetteket csoportosítom
+    updateSenderGroup(accountId, msg.from, msg.fromName, msg.date);
+
+    // Minden címzettet külön csoportba rak
+    if (msg.to) {
+      const recipients = parseEmailList(msg.to);
+      for (const recipient of recipients) {
+        updateSenderGroup(accountId, recipient.email, recipient.name, msg.date);
+      }
+    }
+
+    if (msg.cc) {
+      const ccRecipients = parseEmailList(msg.cc);
+      for (const ccRecipient of ccRecipients) {
+        updateSenderGroup(accountId, ccRecipient.email, ccRecipient.name, msg.date);
+      }
+    }
+  } else {
+    // Beérkezett email: csak a feladót csoportosítjuk
+    updateSenderGroup(accountId, msg.from, msg.fromName, msg.date);
+  }
 
   // Kontaktok kinyerése
   extractContactsFromEmail(accountId, msg.from, msg.fromName, msg.to, msg.cc);
@@ -264,12 +292,59 @@ function saveEmail(accountId: string, msg: GmailMessage): boolean {
   return true; // Új email volt
 }
 
+// Email cím lista feldolgozása ("Name1 <email1@domain.com>, Name2 <email2@domain.com>" formátumból)
+function parseEmailList(emailList: string): Array<{ email: string; name: string }> {
+  if (!emailList) return [];
+
+  const emails: Array<{ email: string; name: string }> = [];
+  // Split by comma, de figyelünk a <> zárójelekre
+  const parts = emailList.split(',');
+
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+
+    const match = trimmed.match(/^(.+?)\s*<(.+?)>$/);
+    if (match) {
+      emails.push({ name: match[1].replace(/"/g, '').trim(), email: match[2].trim() });
+    } else {
+      // Csak email cím van, név nélkül
+      emails.push({ email: trimmed, name: '' });
+    }
+  }
+
+  return emails;
+}
+
+// Subject kinyerése a body-ból, ha nincs subject
+function extractSubjectFromBody(body: string): string {
+  if (!body) return '';
+
+  // Első sor vagy első 100 karakter
+  const firstLine = body.split('\n')[0].trim();
+  const maxLength = 100;
+
+  if (firstLine.length > maxLength) {
+    return firstLine.substring(0, maxLength) + '...';
+  }
+
+  return firstLine || '';
+}
+
 function findOrCreateTopic(
   accountId: string,
   subject: string,
   threadId?: string | null,
+  body?: string,
 ): string | null {
-  const normalized = normalizeSubject(subject);
+  let normalized = normalizeSubject(subject);
+
+  // Ha nincs subject, próbáljuk a body-ból kinyerni
+  if (!normalized && body) {
+    const bodySubject = extractSubjectFromBody(body);
+    normalized = normalizeSubject(bodySubject);
+  }
+
   if (!normalized) return null;
 
   const existing = queryOne<{ id: string; message_count: number }>(
