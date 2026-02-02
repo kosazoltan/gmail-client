@@ -109,7 +109,7 @@ export function EmailAutocomplete({
   };
 
   return (
-    <div ref={containerRef} className="relative flex-1">
+    <div ref={containerRef} className="relative flex-1 min-w-0">
       <input
         ref={inputRef}
         type="text"
@@ -118,7 +118,7 @@ export function EmailAutocomplete({
         onKeyDown={handleKeyDown}
         onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
         placeholder={placeholder}
-        className={className}
+        className={`w-full ${className}`}
         autoComplete="off"
       />
 

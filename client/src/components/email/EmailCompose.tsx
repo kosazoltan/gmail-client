@@ -226,17 +226,17 @@ export function EmailCompose() {
         {/* Űrlap */}
         <div className="p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-500 dark:text-dark-text-secondary w-16">Címzett:</label>
+            <label className="text-sm text-gray-500 dark:text-dark-text-secondary w-20 flex-shrink-0">Címzett:</label>
             <EmailAutocomplete
               value={to}
               onChange={setTo}
               placeholder="pelda@gmail.com"
-              className="flex-1 px-3 py-1.5 text-sm border-b border-gray-200 dark:border-dark-border focus:border-blue-400 outline-none bg-transparent dark:text-dark-text"
+              className="flex-1 min-w-0 w-full px-3 py-1.5 text-sm border-b border-gray-200 dark:border-dark-border focus:border-blue-400 outline-none bg-transparent dark:text-dark-text"
             />
             {!showCc && (
               <button
                 onClick={() => setShowCc(true)}
-                className="text-xs text-blue-500 hover:text-blue-600"
+                className="text-xs text-blue-500 hover:text-blue-600 flex-shrink-0"
               >
                 Másolat
               </button>
@@ -245,24 +245,24 @@ export function EmailCompose() {
 
           {showCc && (
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-500 dark:text-dark-text-secondary w-16">Másolat:</label>
+              <label className="text-sm text-gray-500 dark:text-dark-text-secondary w-20 flex-shrink-0">Másolat:</label>
               <EmailAutocomplete
                 value={cc}
                 onChange={setCc}
                 placeholder="masik@gmail.com"
-                className="flex-1 px-3 py-1.5 text-sm border-b border-gray-200 dark:border-dark-border focus:border-blue-400 outline-none bg-transparent dark:text-dark-text"
+                className="flex-1 min-w-0 w-full px-3 py-1.5 text-sm border-b border-gray-200 dark:border-dark-border focus:border-blue-400 outline-none bg-transparent dark:text-dark-text"
               />
             </div>
           )}
 
           <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-500 dark:text-dark-text-secondary w-16">Tárgy:</label>
+            <label className="text-sm text-gray-500 dark:text-dark-text-secondary w-20 flex-shrink-0">Tárgy:</label>
             <input
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Levél tárgya"
-              className="flex-1 px-3 py-1.5 text-sm border-b border-gray-200 dark:border-dark-border focus:border-blue-400 outline-none bg-transparent dark:text-dark-text"
+              className="flex-1 min-w-0 px-3 py-1.5 text-sm border-b border-gray-200 dark:border-dark-border focus:border-blue-400 outline-none bg-transparent dark:text-dark-text"
             />
           </div>
 
