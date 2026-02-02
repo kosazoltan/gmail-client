@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { AppLayout } from './components/layout/AppLayout';
 import { InboxView } from './components/views/InboxView';
 import { BySenderView } from './components/views/BySenderView';
@@ -31,33 +32,35 @@ const queryClient = new QueryClient({
 
 function App() {
   return (
-    <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <Routes>
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<InboxView />} />
-              <Route path="/by-sender" element={<BySenderView />} />
-              <Route path="/by-topic" element={<ByTopicView />} />
-              <Route path="/by-time" element={<ByTimeView />} />
-              <Route path="/personal" element={<PersonalView />} />
-              <Route path="/invoices" element={<InvoicesView />} />
-              <Route path="/trash" element={<TrashView />} />
-              <Route path="/attachments" element={<AttachmentsView />} />
-              <Route path="/reminders" element={<RemindersView onEmailSelect={() => {}} />} />
-              <Route path="/newsletters" element={<NewslettersView onEmailSelect={() => {}} />} />
-              <Route path="/search" element={<SearchResults />} />
-              <Route path="/compose" element={<EmailCompose />} />
-              <Route path="/database" element={<DatabaseManager />} />
-              <Route path="/privacy" element={<PrivacyPolicy />} />
-              <Route path="/terms" element={<TermsOfService />} />
-            </Route>
-          </Routes>
-          <InstallPrompt />
-          <ToastContainer />
-        </BrowserRouter>
-      </QueryClientProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <Routes>
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<InboxView />} />
+                <Route path="/by-sender" element={<BySenderView />} />
+                <Route path="/by-topic" element={<ByTopicView />} />
+                <Route path="/by-time" element={<ByTimeView />} />
+                <Route path="/personal" element={<PersonalView />} />
+                <Route path="/invoices" element={<InvoicesView />} />
+                <Route path="/trash" element={<TrashView />} />
+                <Route path="/attachments" element={<AttachmentsView />} />
+                <Route path="/reminders" element={<RemindersView onEmailSelect={() => {}} />} />
+                <Route path="/newsletters" element={<NewslettersView onEmailSelect={() => {}} />} />
+                <Route path="/search" element={<SearchResults />} />
+                <Route path="/compose" element={<EmailCompose />} />
+                <Route path="/database" element={<DatabaseManager />} />
+                <Route path="/privacy" element={<PrivacyPolicy />} />
+                <Route path="/terms" element={<TermsOfService />} />
+              </Route>
+            </Routes>
+            <InstallPrompt />
+            <ToastContainer />
+          </BrowserRouter>
+        </QueryClientProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 

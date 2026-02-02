@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Download, X } from 'lucide-react';
 
@@ -15,10 +15,20 @@ export function PDFViewer({ url, filename, onClose }: PDFViewerProps) {
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [scale, setScale] = useState<number>(1.0);
+  const pdfDocumentRef = useRef<any>(null);
 
   function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
     setNumPages(numPages);
   }
+
+  // Cleanup PDF.js worker on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (pdfDocumentRef.current) {
+        pdfDocumentRef.current.destroy().catch(() => {});
+      }
+    };
+  }, []);
 
   const handleDownload = () => {
     const link = document.createElement('a');
@@ -80,7 +90,10 @@ export function PDFViewer({ url, filename, onClose }: PDFViewerProps) {
       <div className="flex-1 overflow-auto flex items-center justify-center p-4">
         <Document
           file={url}
-          onLoadSuccess={onDocumentLoadSuccess}
+          onLoadSuccess={(pdf) => {
+            pdfDocumentRef.current = pdf;
+            onDocumentLoadSuccess(pdf);
+          }}
           loading={
             <div className="text-white text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>

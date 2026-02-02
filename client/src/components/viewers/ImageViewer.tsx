@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, ZoomIn, ZoomOut, RotateCw, Download, Maximize2 } from 'lucide-react';
 
 interface ImageViewerProps {
@@ -37,6 +37,34 @@ export function ImageViewer({ url, filename, onClose }: ImageViewerProps) {
     setFitToScreen(true);
     setScale(1);
   };
+
+  // Add keyboard event handlers
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      switch(e.key) {
+        case 'Escape':
+          onClose();
+          break;
+        case '+':
+        case '=':
+          e.preventDefault();
+          handleZoomIn();
+          break;
+        case '-':
+          e.preventDefault();
+          handleZoomOut();
+          break;
+        case 'r':
+        case 'R':
+          e.preventDefault();
+          handleRotate();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, scale, fitToScreen]); // Include dependencies for handlers
 
   return (
     <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Download, ExternalLink, FileText, Image, FileSpreadsheet, File, Loader2 } from 'lucide-react';
 import { formatFileSize } from '../../lib/utils';
 import { api } from '../../lib/api';
@@ -54,6 +54,14 @@ function FileIcon({ mimeType, className }: { mimeType?: string; className?: stri
 export function AttachmentPreview({ attachment, isOpen, onClose }: AttachmentPreviewProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+
+  // Track mount status to prevent state updates after unmount
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   if (!isOpen) return null;
 
@@ -87,11 +95,13 @@ export function AttachmentPreview({ attachment, isOpen, onClose }: AttachmentPre
   };
 
   const handleLoad = () => {
+    if (!mountedRef.current) return;
     setIsLoading(false);
     setError(null);
   };
 
   const handleError = () => {
+    if (!mountedRef.current) return;
     setIsLoading(false);
     setError('A fájl nem tölthető be előnézetben');
   };
