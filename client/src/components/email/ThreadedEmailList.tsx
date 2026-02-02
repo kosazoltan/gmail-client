@@ -320,9 +320,33 @@ export function ThreadedEmailList({
         const isExpanded = expandedThreads.has(thread.id);
         const isThreadSelected = selectedThreadId === thread.id;
 
+        // Ha csak 1 email van a threadben, egyszerű EmailItem-et használunk
+        if (thread.emails.length === 1) {
+          const email = thread.emails[0];
+          return (
+            <EmailItem
+              key={email.id}
+              email={email}
+              isSelected={email.id === selectedEmailId}
+              onClick={() => onSelectEmail(email)}
+              onToggleStar={(e) => {
+                e.stopPropagation();
+                toggleStar.mutate({
+                  emailId: email.id,
+                  isStarred: !email.isStarred,
+                });
+              }}
+              onDelete={onDeleteEmail}
+              selectionMode={selectionMode}
+              isChecked={selectedIds.has(email.id)}
+              onToggleCheck={onToggleSelect}
+            />
+          );
+        }
+
         return (
           <div key={thread.id}>
-            {/* Thread header */}
+            {/* Thread header - csak ha több email van */}
             <ThreadHeader
               thread={thread}
               isExpanded={isExpanded}
