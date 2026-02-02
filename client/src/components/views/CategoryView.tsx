@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
@@ -98,6 +98,12 @@ export function CategoryView() {
 
   const emails = categoryEmails?.emails || [];
 
+  // Ref a friss emails lista eléréséhez (stale closure fix)
+  const emailsRef = useRef(emails);
+  useEffect(() => {
+    emailsRef.current = emails;
+  }, [emails]);
+
   return (
     <div className="flex h-full relative">
       {/* Email lista - rejtett ha van kiválasztott email kis képernyőn */}
@@ -131,19 +137,12 @@ export function CategoryView() {
           selectedEmailId={selectedEmail?.id || null}
           onSelectEmail={setSelectedEmail}
           onDeleteEmail={(emailId) => {
-            const emailIndex = emails.findIndex(e => e.id === emailId);
             deleteEmail.mutate(emailId, {
               onSuccess: () => {
                 if (selectedEmail?.id === emailId) {
-                  if (emails.length > 1) {
-                    if (emailIndex < emails.length - 1) {
-                      setSelectedEmail(emails[emailIndex + 1]);
-                    } else {
-                      setSelectedEmail(emails[emailIndex - 1]);
-                    }
-                  } else {
-                    setSelectedEmail(null);
-                  }
+                  // Use ref to get fresh emails list after delete
+                  const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);
+                  setSelectedEmail(nextEmail);
                 }
               }
             });

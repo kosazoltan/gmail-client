@@ -64,10 +64,10 @@ export function EmailDetail({
   markReadRef.current = markRead;
 
   useEffect(() => {
-    if (email && !email.isRead) {
+    if (email && !email.isRead && !markRead.isPending) {
       markReadRef.current.mutate({ emailId: email.id, isRead: true });
     }
-  }, [email?.id, email?.isRead]);
+  }, [email?.id, email?.isRead, markRead.isPending]);
 
   if (!emailId) {
     return (
