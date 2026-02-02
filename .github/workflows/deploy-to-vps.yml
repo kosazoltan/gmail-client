@@ -354,9 +354,18 @@ jobs:
             echo "Checking node_modules:"
             ls -la node_modules 2>&1 | head -5 || echo "No node_modules!"
             echo ""
-            echo "Running node:"
-            sudo -u www-data bash -c 'cd /var/www/gmail-client/server && set -a && source .env && set +a && node dist/server.js 2>&1' || true
-            echo "Node exited with code: $?"
+            echo "Running node as root first (to see error without permission issues):"
+            cd /var/www/gmail-client/server
+            set -a && source .env && set +a
+            node dist/server.js 2>&1 &
+            NPID=$!
+            sleep 3
+            if ps -p $NPID > /dev/null; then
+              echo "Server is running! Killing..."
+              kill $NPID
+            else
+              echo "Server crashed! Exit code: $(wait $NPID; echo $?)"
+            fi
             exit 1
           fi
 
