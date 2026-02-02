@@ -215,9 +215,9 @@ export function InboxView() {
   }
 
   const leftPanel = (
-    <>
-      {/* Selection toolbar */}
-      <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border">
+    <div className="flex flex-col h-full">
+      {/* Selection toolbar - sticky */}
+      <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border sticky top-0 z-10">
         <button
           onClick={toggleSelectionMode}
           className={`p-2 rounded-lg transition-colors ${
@@ -287,7 +287,8 @@ export function InboxView() {
         )}
       </div>
 
-      <EmailList
+      <div className="flex-1 overflow-auto">
+        <EmailList
         emails={emails}
         isLoading={isLoading}
         selectedEmailId={selectedEmail?.id || null}
@@ -315,6 +316,7 @@ export function InboxView() {
         selectedIds={selectedIds}
         onToggleSelect={toggleSelectEmail}
       />
+      </div>
       {data && data.totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 p-3 border-t border-gray-200 dark:border-dark-border">
           <button
@@ -336,7 +338,7 @@ export function InboxView() {
           </button>
         </div>
       )}
-    </>
+    </div>
   );
 
   const rightPanel = (
@@ -349,6 +351,13 @@ export function InboxView() {
         const replyBody = `\n\n─────────────────────────\nDátum: ${date ? new Date(date).toLocaleString('hu-HU') : ''}\nFeladó: ${fromName || to}\n\n${originalBody}`;
         navigate(
           `/compose?reply=true&to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}&body=${encodeURIComponent(replyBody)}`,
+        );
+      }}
+      onReplyAll={({ to, cc, subject, threadId, body, fromName, date }) => {
+        const originalBody = body || '';
+        const replyBody = `\n\n─────────────────────────\nDátum: ${date ? new Date(date).toLocaleString('hu-HU') : ''}\nFeladó: ${fromName || to}\n\n${originalBody}`;
+        navigate(
+          `/compose?reply=true&to=${encodeURIComponent(to)}${cc ? `&cc=${encodeURIComponent(cc)}` : ''}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}&body=${encodeURIComponent(replyBody)}`,
         );
       }}
       onForward={({ subject, body }) => {
