@@ -337,6 +337,22 @@ jobs:
           if ! systemctl is-active --quiet gmail-client-backend; then
             echo "Service failed to start! Checking logs..."
             journalctl -u gmail-client-backend --no-pager -n 50 --since "1 minute ago"
+            
+            echo ""
+            echo "=== Testing manual startup as www-data ==="
+            cd /var/www/gmail-client/server
+            echo "Current directory: $(pwd)"
+            echo "Node version: $(node -v)"
+            echo "Files in dist:"
+            ls -la dist/ | head -10
+            echo ""
+            echo "Testing node directly (will show actual error):"
+            cd /var/www/gmail-client/server
+            export $(grep -v '^#' .env | xargs)
+            sudo -u www-data node dist/server.js 2>&1 &
+            NODEPID=$!
+            sleep 3
+            kill $NODEPID 2>/dev/null || true
             exit 1
           fi
 
