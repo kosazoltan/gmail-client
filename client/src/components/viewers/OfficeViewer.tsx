@@ -150,6 +150,7 @@ export function OfficeViewer({ url, filename, mimeType, onClose }: OfficeViewerP
           src={viewerUrl}
           className="w-full h-full border-0"
           title={filename}
+          sandbox="allow-scripts allow-same-origin allow-popups"
           onError={() => setViewerError(true)}
         />
 

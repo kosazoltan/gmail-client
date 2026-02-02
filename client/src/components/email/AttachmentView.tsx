@@ -67,7 +67,9 @@ export function AttachmentView({ attachment }: AttachmentViewProps) {
     if (hasPreview) {
       setShowPreview(true);
     } else {
-      handleDownload({ stopPropagation: () => {} } as React.MouseEvent);
+      // Direct download without fake event
+      const url = api.attachments.downloadUrl(attachment.id);
+      window.open(url, '_blank');
     }
   };
 
