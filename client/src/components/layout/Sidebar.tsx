@@ -54,7 +54,6 @@ const navItems = [
   { path: '/reminders', icon: Bell, label: 'Emlékeztetők' },
   { path: '/scheduled', icon: CalendarClock, label: 'Ütemezett' },
   { path: '/database', icon: Database, label: 'Adatbázis' },
-  { path: '/settings', icon: Settings, label: 'Beállítások' },
 ];
 
 export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
@@ -95,7 +94,7 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'flex flex-col bg-white dark:bg-dark-bg-secondary border-r border-gray-200 dark:border-dark-border transition-all duration-200',
+        'flex flex-col h-full bg-white dark:bg-dark-bg-secondary border-r border-gray-200 dark:border-dark-border transition-all duration-200',
         isOpen ? 'w-64' : 'w-16',
       )}
     >
@@ -304,9 +303,29 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
         )}
       </nav>
 
-      {/* Billentyűparancsok gomb */}
-      {onShowShortcuts && (
-        <div className="px-2 pb-2">
+      {/* Bottom actions - Settings & Keyboard shortcuts */}
+      <div className="border-t border-gray-200 dark:border-dark-border px-2 py-2 space-y-1">
+        {/* Beállítások */}
+        <NavLink
+          to="/settings"
+          aria-label="Beállítások"
+          title="Beállítások"
+          className={({ isActive }) =>
+            cn(
+              'flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors touch-manipulation min-h-[44px]',
+              isActive
+                ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 font-medium'
+                : 'text-gray-600 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary hover:text-gray-900 dark:hover:text-dark-text',
+              !isOpen && 'justify-center px-2',
+            )
+          }
+        >
+          <Settings className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+          {isOpen && <span>Beállítások</span>}
+        </NavLink>
+
+        {/* Billentyűparancsok gomb */}
+        {onShowShortcuts && (
           <button
             onClick={onShowShortcuts}
             className={cn(
@@ -319,8 +338,8 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
             <Keyboard className="h-5 w-5" aria-hidden="true" />
             {isOpen && <span>Billentyűparancsok</span>}
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Bejelentkezési segítség - csak ha nincs bejelentkezve */}
       {!session?.authenticated && (
