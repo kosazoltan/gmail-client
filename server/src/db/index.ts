@@ -346,27 +346,31 @@ export function stopAutoSave() {
 export function queryOne<T = Record<string, unknown>>(sql: string, params: unknown[] = []): T | undefined {
   const db = getDb();
   const stmt = db.prepare(sql);
-  stmt.bind(params);
-  if (stmt.step()) {
-    const row = stmt.getAsObject() as T;
+  try {
+    stmt.bind(params);
+    if (stmt.step()) {
+      return stmt.getAsObject() as T;
+    }
+    return undefined;
+  } finally {
     stmt.free();
-    return row;
   }
-  stmt.free();
-  return undefined;
 }
 
 // Segéd: több sor lekérése
 export function queryAll<T = Record<string, unknown>>(sql: string, params: unknown[] = []): T[] {
   const db = getDb();
   const stmt = db.prepare(sql);
-  stmt.bind(params);
-  const results: T[] = [];
-  while (stmt.step()) {
-    results.push(stmt.getAsObject() as T);
+  try {
+    stmt.bind(params);
+    const results: T[] = [];
+    while (stmt.step()) {
+      results.push(stmt.getAsObject() as T);
+    }
+    return results;
+  } finally {
+    stmt.free();
   }
-  stmt.free();
-  return results;
 }
 
 // Segéd: INSERT/UPDATE/DELETE

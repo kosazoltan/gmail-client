@@ -114,7 +114,12 @@ export class SqliteSessionStore extends session.Store {
       const sessions: { [sid: string]: session.SessionData } = {};
 
       for (const row of rows) {
-        sessions[row.sid] = JSON.parse(row.sess);
+        try {
+          sessions[row.sid] = JSON.parse(row.sess);
+        } catch {
+          // Skip corrupted session data
+          logger.warn('Corrupted session data for sid:', row.sid);
+        }
       }
 
       callback(null, sessions);

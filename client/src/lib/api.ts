@@ -2,22 +2,41 @@
 // Development: /api (proxied by Vite)
 const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
-async function request<T>(url: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${BASE_URL}${url}`, {
-    ...options,
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
-  });
+// Default request timeout (30 seconds)
+const DEFAULT_TIMEOUT = 30000;
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Hálózati hiba' }));
-    throw new Error(error.error || `HTTP ${response.status}`);
+async function request<T>(url: string, options?: RequestInit & { timeout?: number }): Promise<T> {
+  const { timeout = DEFAULT_TIMEOUT, ...fetchOptions } = options || {};
+
+  // FIX: Add timeout using AbortController
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(`${BASE_URL}${url}`, {
+      ...fetchOptions,
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...fetchOptions?.headers,
+      },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Hálózati hiba' }));
+      throw new Error(error.error || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error('A kérés időtúllépés miatt megszakadt');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return response.json();
 }
 
 // Auth

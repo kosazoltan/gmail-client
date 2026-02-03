@@ -46,8 +46,10 @@ function canPreview(mimeType: string | undefined, filename: string): boolean {
 
   // Office dokumentumok
   const officeExtensions = ['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.odt', '.ods', '.odp'];
-  const ext = filename.toLowerCase().substring(filename.lastIndexOf('.'));
-  if (officeExtensions.includes(ext)) return true;
+  // FIX: Handle files without extension
+  const lastDotIndex = filename.lastIndexOf('.');
+  const ext = lastDotIndex !== -1 ? filename.toLowerCase().substring(lastDotIndex) : '';
+  if (ext && officeExtensions.includes(ext)) return true;
 
   return false;
 }

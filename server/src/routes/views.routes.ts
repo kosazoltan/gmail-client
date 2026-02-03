@@ -223,7 +223,8 @@ router.get('/by-category/:id', (req, res) => {
     const offset = (page - 1) * limit;
 
     const results = queryAll<EmailRecord>('SELECT * FROM emails WHERE account_id = ? AND category_id = ? ORDER BY date DESC LIMIT ? OFFSET ?', [accountId, categoryId, limit, offset]);
-    const cat = queryOne('SELECT * FROM categories WHERE id = ?', [categoryId]);
+    // FIX: Add account_id filter to prevent cross-account category access
+    const cat = queryOne('SELECT * FROM categories WHERE id = ? AND account_id = ?', [categoryId, accountId]);
     res.json({ emails: results.map(formatEmail), category: cat });
   } catch (error) {
     console.error('By-category ID view error:', error);

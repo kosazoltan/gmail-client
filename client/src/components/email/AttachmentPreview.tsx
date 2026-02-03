@@ -52,7 +52,9 @@ function canPreview(
 ): "image" | "pdf" | "text" | "office" | "spreadsheet" | "document" | false {
   if (!mimeType) return false;
 
-  const ext = filename.toLowerCase().substring(filename.lastIndexOf("."));
+  // FIX: Handle files without extension
+  const lastDotIndex = filename.lastIndexOf(".");
+  const ext = lastDotIndex !== -1 ? filename.toLowerCase().substring(lastDotIndex) : "";
 
   // Képek
   if (mimeType.startsWith("image/") && !mimeType.includes("svg")) {

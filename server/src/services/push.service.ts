@@ -92,7 +92,7 @@ function isInQuietHours(accountId: string): boolean {
 
   // Check if quiet hours is enabled
   const enabled = settingsMap.get('quietHoursEnabled');
-  if (!enabled || enabled !== 'true') {
+  if (enabled !== 'true') {
     return false;
   }
 

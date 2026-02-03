@@ -156,19 +156,27 @@ async function translateWithGoogle(text: string, targetLang: string, sourceLang:
     const encodedText = encodeURIComponent(text);
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLang}&tl=${targetLang}&dt=t&q=${encodedText}`;
 
+    // FIX: Add timeout using AbortController
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) return null;
 
     const data = await response.json();
+    // FIX: Additional validation for nested array structure
     // Google returns nested arrays: [[["translated text", "original text", ...]]]
-    if (Array.isArray(data) && Array.isArray(data[0])) {
+    if (Array.isArray(data) && data.length > 0 && Array.isArray(data[0]) && data[0].length > 0) {
       const translated = data[0]
-        .filter((item: unknown) => Array.isArray(item) && item[0])
+        .filter((item: unknown) => Array.isArray(item) && item.length > 0 && item[0])
         .map((item: unknown[]) => item[0])
         .join('');
       return translated || null;

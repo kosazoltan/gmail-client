@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { queryAll, queryOne, execute } from '../db/index.js';
 
 // Hírlevél detektálási minták
