@@ -77,7 +77,12 @@ export async function syncAccount(accountId: string, fullSync = false) {
     );
 
     // Automatikus kontakt kinyerés (csak első alkalommal)
-    autoExtractContactsIfNeeded(accountId);
+    // FIX: Add error handling for background contact extraction
+    try {
+      autoExtractContactsIfNeeded(accountId);
+    } catch (err) {
+      console.error(`Failed to extract contacts for account ${accountId}:`, err);
+    }
 
     return { success: true, messagesProcessed: processedCount };
   } catch (error) {

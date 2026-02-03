@@ -20,6 +20,15 @@ export function EmailAutocomplete({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  // FIX: Track mounted state to prevent setState after unmount
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // Az utolsó beírt cím kinyerése (vesszővel elválasztott lista esetén)
   const currentInput = useMemo(() => {
@@ -37,10 +46,13 @@ export function EmailAutocomplete({
     const timer = setTimeout(async () => {
       try {
         const results = await api.contacts.search(currentInput, 8);
+        // FIX: Check if still mounted before updating state
+        if (!mountedRef.current) return;
         setSuggestions(results);
         setShowSuggestions(results.length > 0);
         setSelectedIndex(0);
       } catch {
+        if (!mountedRef.current) return;
         setSuggestions([]);
         setShowSuggestions(false);
       }

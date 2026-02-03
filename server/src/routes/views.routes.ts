@@ -5,6 +5,7 @@ import logger from '../utils/logger.js';
 // Adatbázis rekord interfészek
 interface EmailRecord {
   id: string;
+  account_id: string;
   thread_id: string | null;
   subject: string | null;
   from_email: string | null;
@@ -34,6 +35,9 @@ const router = Router();
 
 // Max limit konstans a DoS védelem érdekében
 const MAX_LIMIT = 100;
+
+// BUG #12 Fix: Default account color constant
+const DEFAULT_ACCOUNT_COLOR = 'DEFAULT_ACCOUNT_COLOR';
 
 // Jogosultság ellenőrzés helper
 function validateAccountAccess(req: { query: { accountId?: string }; session: { activeAccountId?: string | null; accountIds?: string[] } }): string | null {
@@ -106,7 +110,8 @@ router.get('/by-topic/:id', (req, res) => {
 
     const topicId = req.params.id;
     const results = queryAll<EmailRecord>('SELECT * FROM emails WHERE account_id = ? AND topic_id = ? ORDER BY date DESC', [accountId, topicId]);
-    const topic = queryOne('SELECT * FROM topics WHERE id = ?', [topicId]);
+    // FIX: Add account_id filter to prevent unauthorized access to other accounts' topics
+    const topic = queryOne('SELECT * FROM topics WHERE id = ? AND account_id = ?', [topicId, accountId]);
     res.json({ emails: results.map(formatEmail), topic });
   } catch (error) {
     console.error('By-topic ID view error:', error);
@@ -289,6 +294,89 @@ router.get('/inbox', (req, res) => {
     });
   } catch (error) {
     console.error('Inbox view error:', error);
+    res.status(500).json({ error: 'Adatbázis hiba történt' });
+  }
+});
+
+// Unified Inbox - minden fiók emailjei egy helyen
+router.get('/unified', (req, res) => {
+  try {
+    const accountIds = req.session.accountIds || [];
+    if (accountIds.length === 0) {
+      res.status(400).json({ error: 'Nincs bejelentkezett fiók' });
+      return;
+    }
+
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, MAX_LIMIT);
+    const offset = (page - 1) * limit;
+    const filterAccountId = req.query.filterAccountId as string | undefined;
+
+    // Fiók információk lekérése (email és szín)
+    const accountPlaceholders = accountIds.map(() => '?').join(',');
+    const accounts = queryAll<{ id: string; email: string; color: string | null }>(
+      `SELECT id, email, color FROM accounts WHERE id IN (${accountPlaceholders})`,
+      accountIds
+    );
+    const accountMap = new Map(accounts.map(a => [a.id, { email: a.email, color: a.color }]));
+
+    // Szűrt accountIds lista
+    const targetAccountIds = filterAccountId && accountIds.includes(filterAccountId)
+      ? [filterAccountId]
+      : accountIds;
+
+    // Emailek lekérése az összes (vagy szűrt) fiókból
+    const targetPlaceholders = targetAccountIds.map(() => '?').join(',');
+    const allEmails = queryAll<EmailRecord & { account_id: string }>(
+      `SELECT * FROM emails WHERE account_id IN (${targetPlaceholders}) ORDER BY date DESC`,
+      targetAccountIds
+    );
+
+    // Szűrés: INBOX és nem TRASH
+    const inboxEmails = allEmails.filter(email => {
+      try {
+        const labels: string[] = email.labels ? JSON.parse(email.labels) : [];
+        return labels.includes('INBOX') && !labels.includes('TRASH');
+      } catch (err) {
+        logger.warn('Labels JSON parse failed in unified inbox filter', { emailId: email.id, error: err });
+        return false;
+      }
+    });
+
+    const paginatedEmails = inboxEmails.slice(offset, offset + limit);
+
+    // Formázás account adatokkal
+    const formattedEmails = paginatedEmails.map(email => {
+      const accountInfo = accountMap.get(email.account_id);
+      return {
+        ...formatEmail(email),
+        accountId: email.account_id,
+        accountEmail: accountInfo?.email || null,
+        accountColor: accountInfo?.color || 'DEFAULT_ACCOUNT_COLOR',
+      };
+    });
+
+    // Fiók statisztikák
+    const accountStats = targetAccountIds.map(accId => {
+      const accountInfo = accountMap.get(accId);
+      const count = inboxEmails.filter(e => e.account_id === accId).length;
+      return {
+        accountId: accId,
+        email: accountInfo?.email || '',
+        color: accountInfo?.color || 'DEFAULT_ACCOUNT_COLOR',
+        count,
+      };
+    });
+
+    res.json({
+      emails: formattedEmails,
+      total: inboxEmails.length,
+      page,
+      totalPages: Math.ceil(inboxEmails.length / limit),
+      accounts: accountStats,
+    });
+  } catch (error) {
+    console.error('Unified inbox view error:', error);
     res.status(500).json({ error: 'Adatbázis hiba történt' });
   }
 });

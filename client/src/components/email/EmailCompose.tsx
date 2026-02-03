@@ -1,13 +1,20 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import { useSendEmail, useReplyEmail, type EmailAttachment } from '../../hooks/useEmails';
-import { Send, X, Loader2, Paperclip, File, Image, FileText, Trash2 } from 'lucide-react';
+import { Send, X, Loader2, Paperclip, File, Image, FileText, Trash2, Clock, CalendarClock } from 'lucide-react';
 import { EmailAutocomplete } from './EmailAutocomplete';
 import { TemplateSelector } from './TemplateSelector';
 import { TemplatesManager } from '../settings/TemplatesManager';
+import { ScheduleMenu, ScheduledBadge } from './ScheduleMenu';
 import { formatFileSize } from '../../lib/utils';
 import { toast } from '../../lib/toast';
+import { useSettings, defaultSettings } from '../../hooks/useSettings';
+import { useCreateScheduledEmail } from '../../hooks/useScheduledEmails';
 import type { Template } from '../../types';
+
+// Alapértelmezett undo send késleltetés másodpercben
+const DEFAULT_UNDO_DELAY = 5;
 
 // Lokális melléklet típus (még nem küldött)
 interface LocalAttachment {
@@ -26,19 +33,31 @@ function AttachmentIcon({ mimeType, className }: { mimeType: string; className?:
 }
 
 // Email body formázása válaszoláshoz
+// XSS FIX: Sanitize text before creating HTML
 function formatEmailBody(text: string): string {
   if (!text) return '';
+
+  // First escape HTML entities to prevent XSS
+  const escapeHtml = (str: string) => {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  };
 
   const lines = text.split('\n');
   const formatted = lines.map((line) => {
     if (line.trim() === '') {
       return '<div><br/></div>';
     }
-    // Nincs inline style - a szülő elem CSS fogja meghatározni a színt
-    return `<div>${line || '<br/>'}</div>`;
+    // Escape HTML in each line to prevent XSS
+    return `<div>${escapeHtml(line) || '<br/>'}</div>`;
   });
 
-  return formatted.join('');
+  // Final sanitization pass
+  return DOMPurify.sanitize(formatted.join(''), {
+    ALLOWED_TAGS: ['div', 'br'],
+    ALLOWED_ATTR: [],
+  });
 }
 
 export function EmailCompose() {
@@ -46,8 +65,11 @@ export function EmailCompose() {
   const [searchParams] = useSearchParams();
   const sendEmail = useSendEmail();
   const replyEmail = useReplyEmail();
+  const createScheduledEmail = useCreateScheduledEmail();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bodyEditorRef = useRef<HTMLDivElement>(null);
+  const sendTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { data: settings } = useSettings();
 
   const isReply = searchParams.get('reply') === 'true';
   const isForward = searchParams.has('body') && !isReply;
@@ -58,8 +80,22 @@ export function EmailCompose() {
   const [showCc, setShowCc] = useState(false);
   const [showTemplatesManager, setShowTemplatesManager] = useState(false);
   const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
+  const [isSendPending, setIsSendPending] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState<number | null>(null);
 
   const threadId = searchParams.get('threadId') || undefined;
+
+  // Undo send késleltetés beállításból vagy alapértelmezett
+  const undoSendDelay = settings?.undoSendDelay ?? defaultSettings.undoSendDelay ?? DEFAULT_UNDO_DELAY;
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (sendTimeoutRef.current) {
+        clearTimeout(sendTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Inicializálás: contenteditable div feltöltése formázott szöveggel
   useEffect(() => {
@@ -167,10 +203,8 @@ export function EmailCompose() {
     });
   };
 
-  const handleSend = async () => {
-    if (!to || !body) return;
-
-    // Mellékletek konvertálása az API formátumba
+  // Tényleges email küldés
+  const actualSend = useCallback(async () => {
     const emailAttachments: EmailAttachment[] = attachments.map((a) => ({
       filename: a.filename,
       mimeType: a.mimeType,
@@ -196,14 +230,86 @@ export function EmailCompose() {
           attachments: emailAttachments.length > 0 ? emailAttachments : undefined,
         });
       }
+      toast.success('Email elküldve!');
       navigate(-1);
     } catch (error) {
       console.error('Küldési hiba:', error);
       toast.error('Nem sikerült elküldeni az emailt. Kérlek próbáld újra.');
+      setIsSendPending(false);
+    }
+  }, [to, subject, body, cc, threadId, attachments, isReply, replyEmail, sendEmail, navigate]);
+
+  // Küldés visszavonása
+  const cancelSend = useCallback(() => {
+    if (sendTimeoutRef.current) {
+      clearTimeout(sendTimeoutRef.current);
+      sendTimeoutRef.current = null;
+    }
+    setIsSendPending(false);
+    toast.info('Küldés visszavonva');
+  }, []);
+
+  // Küldés gomb kezelése - késleltetett küldés undo lehetőséggel
+  const handleSend = async () => {
+    if (!to || !body) return;
+
+    // Ha nincs undo delay (0), azonnal küldjük
+    if (!undoSendDelay || undoSendDelay <= 0) {
+      setIsSendPending(true);
+      await actualSend();
+      return;
+    }
+
+    // Késleltetett küldés undo lehetőséggel
+    setIsSendPending(true);
+
+    // Toast megjelenítése visszavonás lehetőséggel
+    toast.undoable(
+      `Email küldése ${undoSendDelay} másodperc múlva...`,
+      cancelSend,
+      undoSendDelay * 1000
+    );
+
+    // Időzítő beállítása a tényleges küldéshez
+    sendTimeoutRef.current = setTimeout(() => {
+      sendTimeoutRef.current = null;
+      actualSend();
+    }, undoSendDelay * 1000);
+  };
+
+  // Ütemezett küldés kezelése
+  const handleSchedule = async (timestamp: number) => {
+    if (!to) {
+      toast.error('Kérlek add meg a címzettet');
+      return;
+    }
+
+    setScheduledAt(timestamp);
+  };
+
+  // Ütemezett email mentése és küldés a megfelelő időpontban
+  const handleScheduledSend = async () => {
+    if (!to || !scheduledAt) return;
+
+    try {
+      setIsSendPending(true);
+      await createScheduledEmail.mutateAsync({
+        to,
+        cc: cc || undefined,
+        subject: subject || undefined,
+        body: body || undefined,
+        scheduledAt,
+      });
+      toast.success('Email sikeresen ütemezve!');
+      navigate(-1);
+    } catch (error) {
+      console.error('Ütemezési hiba:', error);
+      toast.error('Nem sikerült ütemezni az emailt');
+      setIsSendPending(false);
     }
   };
 
-  const isPending = sendEmail.isPending || replyEmail.isPending;
+  const isPending = sendEmail.isPending || replyEmail.isPending || isSendPending || createScheduledEmail.isPending;
 
   // Összes melléklet mérete
   const totalAttachmentSize = attachments.reduce((sum, a) => sum + a.size, 0);
@@ -216,19 +322,27 @@ export function EmailCompose() {
           <h2 className="font-medium text-gray-800 dark:text-dark-text">
             {isReply ? 'Válasz' : isForward ? 'Továbbítás' : 'Új levél'}
           </h2>
-          <button
-            onClick={() => navigate(-1)}
-            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-400 dark:text-dark-text-muted"
-            aria-label="Bezárás"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {undoSendDelay > 0 && (
+              <span className="text-xs text-gray-400 dark:text-dark-text-muted flex items-center gap-1" title="Küldés visszavonható ennyi ideig">
+                <Clock className="h-3 w-3" />
+                {undoSendDelay}mp
+              </span>
+            )}
+            <button
+              onClick={() => navigate(-1)}
+              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-400 dark:text-dark-text-muted"
+              aria-label="Bezárás"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Űrlap */}
         <div className="p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-500 dark:text-dark-text-secondary w-20 flex-shrink-0">Címzett:</label>
+            <label className="text-sm text-gray-500 dark:text-dark-text-secondary w-20 shrink-0">Címzett:</label>
             <EmailAutocomplete
               value={to}
               onChange={setTo}
@@ -238,7 +352,7 @@ export function EmailCompose() {
             {!showCc && (
               <button
                 onClick={() => setShowCc(true)}
-                className="text-xs text-blue-500 hover:text-blue-600 flex-shrink-0"
+                className="text-xs text-blue-500 hover:text-blue-600 shrink-0"
               >
                 Másolat
               </button>
@@ -247,7 +361,7 @@ export function EmailCompose() {
 
           {showCc && (
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-500 dark:text-dark-text-secondary w-20 flex-shrink-0">Másolat:</label>
+              <label className="text-sm text-gray-500 dark:text-dark-text-secondary w-20 shrink-0">Másolat:</label>
               <EmailAutocomplete
                 value={cc}
                 onChange={setCc}
@@ -258,7 +372,7 @@ export function EmailCompose() {
           )}
 
           <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-500 dark:text-dark-text-secondary w-20 flex-shrink-0">Tárgy:</label>
+            <label className="text-sm text-gray-500 dark:text-dark-text-secondary w-20 shrink-0">Tárgy:</label>
             <input
               type="text"
               value={subject}
@@ -315,21 +429,56 @@ export function EmailCompose() {
           )}
         </div>
 
+        {/* Scheduled badge */}
+        {scheduledAt && (
+          <div className="px-4 py-2 border-t border-gray-100 dark:border-dark-border">
+            <ScheduledBadge
+              scheduledAt={scheduledAt}
+              onCancel={() => setScheduledAt(null)}
+            />
+          </div>
+        )}
+
         {/* Küldés gomb */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-dark-border">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleSend}
-              disabled={!to || !body || isPending}
-              className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-              Küldés
-            </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {scheduledAt ? (
+              /* Ütemezett küldés gomb */
+              <button
+                onClick={handleScheduledSend}
+                disabled={!to || isPending}
+                className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CalendarClock className="h-4 w-4" />
+                )}
+                Ütemezés
+              </button>
+            ) : (
+              /* Azonnali küldés gomb */
+              <button
+                onClick={handleSend}
+                disabled={!to || !body || isPending}
+                className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                Küldés
+              </button>
+            )}
+
+            {/* Ütemezés menü - csak ha nincs már ütemezve */}
+            {!scheduledAt && !isReply && (
+              <ScheduleMenu
+                onSchedule={handleSchedule}
+                disabled={isPending}
+              />
+            )}
 
             {/* Melléklet csatolás gomb */}
             <input

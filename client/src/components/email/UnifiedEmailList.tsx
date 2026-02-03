@@ -6,37 +6,32 @@ import { Loader2, MailX } from 'lucide-react';
 import { toast } from '../../lib/toast';
 import type { Email } from '../../types';
 
-interface EmailListProps {
+interface UnifiedEmailListProps {
   emails: Email[];
   isLoading?: boolean;
   selectedEmailId: string | null;
   onSelectEmail: (email: Email) => void;
   onDeleteEmail?: (emailId: string) => void;
   onArchiveEmail?: (emailId: string) => void;
-  title?: string;
   emptyMessage?: string;
   // Selection mode props
   selectionMode?: boolean;
   selectedIds?: Set<string>;
   onToggleSelect?: (emailId: string) => void;
-  // Pinned emails
-  pinnedEmailIds?: Set<string>;
 }
 
-export function EmailList({
+export function UnifiedEmailList({
   emails,
   isLoading,
   selectedEmailId,
   onSelectEmail,
   onDeleteEmail,
   onArchiveEmail,
-  title,
   emptyMessage = 'Nincsenek levelek',
   selectionMode = false,
   selectedIds = new Set(),
   onToggleSelect,
-  pinnedEmailIds = new Set(),
-}: EmailListProps) {
+}: UnifiedEmailListProps) {
   const toggleStar = useToggleStar();
   const markRead = useMarkRead();
   const snoozeEmail = useSnoozeEmail();
@@ -46,7 +41,7 @@ export function EmailList({
     markRead.mutate({ emailId, isRead });
   };
 
-  // Quick snooze for swipe action - snooze until tomorrow morning
+  // Quick snooze for swipe action
   const handleQuickSnooze = (emailId: string) => {
     const options = getSnoozeOptions();
     const tomorrowOption = options.find((o) => o.id === 'tomorrow_morning');
@@ -82,34 +77,39 @@ export function EmailList({
 
   return (
     <div className="flex flex-col">
-      {title && (
-        <div className="px-4 py-2 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border">
-          <h2 className="text-sm font-medium text-gray-600 dark:text-dark-text-secondary">{title}</h2>
-        </div>
-      )}
       {emails.map((email) => (
-        <SwipeableEmailItem
-          key={email.id}
-          email={email}
-          isSelected={email.id === selectedEmailId}
-          onClick={() => onSelectEmail(email)}
-          onToggleStar={(e) => {
-            e.stopPropagation();
-            toggleStar.mutate({
-              emailId: email.id,
-              isStarred: !email.isStarred,
-            });
-          }}
-          onDelete={onDeleteEmail}
-          onArchive={onArchiveEmail}
-          onSnooze={handleQuickSnooze}
-          onToggleRead={handleToggleRead}
-          selectionMode={selectionMode}
-          isChecked={selectedIds.has(email.id)}
-          onToggleCheck={onToggleSelect}
-          isPinned={pinnedEmailIds.has(email.id)}
-          isVip={isVipEmail(email.from, vipEmails)}
-        />
+        <div key={email.id} className="relative">
+          {/* Account color indicator */}
+          {email.accountColor && (
+            <div
+              className="absolute left-0 top-0 bottom-0 w-1"
+              style={{ backgroundColor: email.accountColor }}
+              title={email.accountEmail || 'Account'}
+            />
+          )}
+          <div className={email.accountColor ? 'ml-1' : ''}>
+            <SwipeableEmailItem
+              email={email}
+              isSelected={email.id === selectedEmailId}
+              onClick={() => onSelectEmail(email)}
+              onToggleStar={(e) => {
+                e.stopPropagation();
+                toggleStar.mutate({
+                  emailId: email.id,
+                  isStarred: !email.isStarred,
+                });
+              }}
+              onDelete={onDeleteEmail}
+              onArchive={onArchiveEmail}
+              onSnooze={handleQuickSnooze}
+              onToggleRead={handleToggleRead}
+              selectionMode={selectionMode}
+              isChecked={selectedIds.has(email.id)}
+              onToggleCheck={onToggleSelect}
+              isVip={isVipEmail(email.from, vipEmails)}
+            />
+          </div>
+        </div>
       ))}
     </div>
   );

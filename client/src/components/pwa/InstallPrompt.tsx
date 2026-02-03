@@ -47,18 +47,19 @@ export function InstallPrompt() {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
+    // FIX: Unified cleanup that handles both iOS and non-iOS cases
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
     // iOS esetén 3 másodperc után mutatjuk a manuális telepítési útmutatót
     if (isIOSDevice && !isInStandaloneMode) {
-      const timer = setTimeout(() => {
+      timer = setTimeout(() => {
         setShowPrompt(true);
       }, 3000);
-      return () => {
-        clearTimeout(timer);
-        window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      };
     }
 
+    // Single cleanup function that always removes the event listener
     return () => {
+      if (timer) clearTimeout(timer);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
   }, []);

@@ -3,6 +3,7 @@ import {
   getAllAccounts,
   getAccountById,
   deleteAccount,
+  updateAccountColor,
 } from '../services/auth.service.js';
 import {
   syncAccount,
@@ -49,6 +50,31 @@ router.delete('/:id', (req, res) => {
     }
     res.json({ success: true });
   });
+});
+
+// Fiók színének frissítése
+router.put('/:id/color', (req, res) => {
+  const accountId = req.params.id;
+  const { color } = req.body;
+
+  // Ellenőrizzük, hogy a felhasználó jogosult-e módosítani ezt a fiókot
+  const accountIds = req.session.accountIds || [];
+  if (!accountIds.includes(accountId)) {
+    return res.status(403).json({ error: 'Nincs jogosultságod ehhez a fiókhoz' });
+  }
+
+  // Szín validálás (hex formátum)
+  if (!color || !/^#[0-9A-Fa-f]{6}$/.test(color)) {
+    return res.status(400).json({ error: 'Érvénytelen szín formátum (használj #RRGGBB formátumot)' });
+  }
+
+  try {
+    updateAccountColor(accountId, color);
+    res.json({ success: true, color });
+  } catch (error) {
+    console.error('Szín frissítési hiba:', error);
+    res.status(500).json({ error: 'Szín frissítése sikertelen' });
+  }
 });
 
 // Szinkronizálás indítása

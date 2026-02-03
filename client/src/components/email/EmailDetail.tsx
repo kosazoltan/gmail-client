@@ -23,11 +23,17 @@ import {
   ChevronUp,
   Tag,
   Download,
+  FileText,
+  Languages,
+  X,
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { SnoozeMenu } from './SnoozeMenu';
 import { ReminderMenu } from './ReminderMenu';
 import { LabelManager } from './LabelManager';
+import { exportEmailToPdf } from '../../lib/pdfExport';
+import { toast } from '../../lib/toast';
+import { useEmailTranslation } from '../../hooks/useTranslate';
 
 interface EmailDetailProps {
   emailId: string | null;
@@ -54,6 +60,7 @@ export function EmailDetail({
   const [showMoreActions, setShowMoreActions] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [showLabelManager, setShowLabelManager] = useState(false);
+  const { translatedContent, isTranslating, translateEmail, clearTranslation } = useEmailTranslation();
 
   // HTML szanitizálás XSS elleni védelem - hook-nak a return előtt kell lennie
   const sanitizedHtml = useMemo(() => {
@@ -69,7 +76,10 @@ export function EmailDetail({
 
   // Automatikus olvasottnak jelölés - ref-fel elkerüljük a felesleges újrafutást
   const markReadRef = useRef(markRead);
-  markReadRef.current = markRead;
+  // BUG #9 Fix: Move ref mutation to useEffect instead of render phase
+  useEffect(() => {
+    markReadRef.current = markRead;
+  }, [markRead]);
 
   useEffect(() => {
     if (email && !email.isRead && !markRead.isPending) {
@@ -254,6 +264,42 @@ export function EmailDetail({
                   <div className="px-1">
                     <ReminderMenu emailId={email.id} variant="menu-item" onClose={() => setShowMoreActions(false)} />
                   </div>
+                  <div className="border-t border-gray-100 dark:border-dark-border my-1" />
+                  <button
+                    onClick={async () => {
+                      setShowMoreActions(false);
+                      try {
+                        await exportEmailToPdf(email);
+                        toast.success('PDF sikeresen exportálva');
+                      } catch (error) {
+                        toast.error('PDF exportálás sikertelen');
+                      }
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary transition-colors"
+                  >
+                    <FileText className="h-5 w-5" />
+                    <span>Mentés PDF-ként</span>
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setShowMoreActions(false);
+                      if (translatedContent) {
+                        clearTranslation();
+                      } else {
+                        try {
+                          await translateEmail(email.subject, email.body || email.snippet, 'hu');
+                          toast.success('Fordítás kész');
+                        } catch (error) {
+                          toast.error('Fordítás sikertelen');
+                        }
+                      }
+                    }}
+                    disabled={isTranslating}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary transition-colors disabled:opacity-50"
+                  >
+                    <Languages className="h-5 w-5" />
+                    <span>{isTranslating ? 'Fordítás...' : translatedContent ? 'Eredeti mutatása' : 'Fordítás magyarra'}</span>
+                  </button>
                 </div>
               </>
             )}
@@ -411,8 +457,33 @@ export function EmailDetail({
 
           {/* Email body kártya */}
           <div className="bg-white dark:bg-dark-bg-secondary rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-dark-border overflow-hidden">
+            {/* Translation banner */}
+            {translatedContent && (
+              <div className="flex items-center justify-between px-3 sm:px-5 py-2 bg-blue-50 dark:bg-blue-500/10 border-b border-blue-100 dark:border-blue-500/20">
+                <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
+                  <Languages className="h-4 w-4" />
+                  <span>Lefordítva magyarra</span>
+                  {translatedContent.detectedLang && (
+                    <span className="text-xs text-blue-500 dark:text-blue-400">
+                      (eredeti: {translatedContent.detectedLang})
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={clearTranslation}
+                  className="p-1 hover:bg-blue-100 dark:hover:bg-blue-500/20 rounded text-blue-600 dark:text-blue-400"
+                  title="Eredeti mutatása"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
             <div className="p-3 sm:p-5 md:p-6">
-              {sanitizedHtml ? (
+              {translatedContent?.body ? (
+                <pre className="whitespace-pre-wrap text-xs sm:text-sm text-gray-700 dark:text-dark-text-secondary font-sans leading-relaxed">
+                  {translatedContent.body}
+                </pre>
+              ) : sanitizedHtml ? (
                 <div
                   className="email-content prose prose-sm max-w-none
                     text-gray-900 dark:text-gray-300

@@ -26,6 +26,9 @@ import {
   Receipt,
   Trash2,
   Tag,
+  Settings,
+  CalendarClock,
+  Mail,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useState, useMemo } from 'react';
@@ -38,6 +41,7 @@ interface SidebarProps {
 
 const navItems = [
   { path: '/', icon: Inbox, label: 'Beérkezett' },
+  { path: '/unified', icon: Mail, label: 'Minden levél' },
   { path: '/by-sender', icon: Users, label: 'Küldő szerint' },
   { path: '/by-topic', icon: MessageSquare, label: 'Téma szerint' },
   { path: '/by-time', icon: Clock, label: 'Időszak szerint' },
@@ -48,7 +52,9 @@ const navItems = [
   { path: '/attachments', icon: Paperclip, label: 'Mellékletek' },
   { path: '/newsletters', icon: Newspaper, label: 'Hírlevelek' },
   { path: '/reminders', icon: Bell, label: 'Emlékeztetők' },
+  { path: '/scheduled', icon: CalendarClock, label: 'Ütemezett' },
   { path: '/database', icon: Database, label: 'Adatbázis' },
+  { path: '/settings', icon: Settings, label: 'Beállítások' },
 ];
 
 export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {

@@ -18,6 +18,9 @@ import { NewslettersView } from './components/views/NewslettersView';
 import { SearchResults } from './components/views/SearchResults';
 import { EmailCompose } from './components/email/EmailCompose';
 import { DatabaseManager } from './components/database/DatabaseManager';
+import { SettingsView } from './components/views/SettingsView';
+import { ScheduledView } from './components/views/ScheduledView';
+import { UnifiedInboxView } from './components/views/UnifiedInboxView';
 import { PrivacyPolicy } from './components/pages/PrivacyPolicy';
 import { TermsOfService } from './components/pages/TermsOfService';
 import { InstallPrompt } from './components/pwa/InstallPrompt';
@@ -41,6 +44,7 @@ function App() {
             <Routes>
               <Route element={<AppLayout />}>
                 <Route path="/" element={<InboxView />} />
+                <Route path="/unified" element={<UnifiedInboxView />} />
                 <Route path="/by-sender" element={<BySenderView />} />
                 <Route path="/by-topic" element={<ByTopicView />} />
                 <Route path="/by-time" element={<ByTimeView />} />
@@ -55,6 +59,8 @@ function App() {
                 <Route path="/search" element={<SearchResults />} />
                 <Route path="/compose" element={<EmailCompose />} />
                 <Route path="/database" element={<DatabaseManager />} />
+                <Route path="/settings" element={<SettingsView />} />
+                <Route path="/scheduled" element={<ScheduledView />} />
                 <Route path="/privacy" element={<PrivacyPolicy />} />
                 <Route path="/terms" element={<TermsOfService />} />
               </Route>

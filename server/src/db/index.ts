@@ -40,7 +40,8 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
       token_expiry INTEGER NOT NULL,
       history_id TEXT,
       last_sync_at INTEGER,
-      created_at INTEGER NOT NULL
+      created_at INTEGER NOT NULL,
+      color TEXT DEFAULT '#3B82F6'
     );
 
     CREATE TABLE IF NOT EXISTS categories (
@@ -206,6 +207,36 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
       pinned_at INTEGER NOT NULL,
       UNIQUE(email_id, account_id)
     );
+
+    CREATE TABLE IF NOT EXISTS user_settings (
+      id TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      key TEXT NOT NULL,
+      value TEXT,
+      updated_at INTEGER NOT NULL,
+      UNIQUE(account_id, key)
+    );
+
+    CREATE TABLE IF NOT EXISTS scheduled_emails (
+      id TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      to_addresses TEXT NOT NULL,
+      cc_addresses TEXT,
+      subject TEXT,
+      body TEXT,
+      scheduled_at INTEGER NOT NULL,
+      status TEXT DEFAULT 'pending',
+      created_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS vip_senders (
+      id TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      email TEXT NOT NULL,
+      name TEXT,
+      created_at INTEGER NOT NULL,
+      UNIQUE(account_id, email)
+    );
   `);
 
 
@@ -234,6 +265,10 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
     CREATE INDEX IF NOT EXISTS idx_newsletter_senders_account ON newsletter_senders(account_id);
     CREATE INDEX IF NOT EXISTS idx_pinned_emails_account ON pinned_emails(account_id);
     CREATE INDEX IF NOT EXISTS idx_pinned_emails_email ON pinned_emails(email_id);
+    CREATE INDEX IF NOT EXISTS idx_user_settings_account ON user_settings(account_id);
+    CREATE INDEX IF NOT EXISTS idx_scheduled_emails_account ON scheduled_emails(account_id);
+    CREATE INDEX IF NOT EXISTS idx_scheduled_emails_scheduled_at ON scheduled_emails(scheduled_at);
+    CREATE INDEX IF NOT EXISTS idx_vip_senders_account ON vip_senders(account_id);
 
     -- Extra indexek a teljesítmény javításához
     CREATE INDEX IF NOT EXISTS idx_emails_account_date ON emails(account_id, date DESC);

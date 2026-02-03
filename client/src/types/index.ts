@@ -3,6 +3,21 @@ export interface Account {
   email: string;
   name: string;
   lastSyncAt: number | null;
+  color?: string | null;
+}
+
+export type SwipeAction = 'delete' | 'archive' | 'read' | 'star' | 'snooze' | 'none';
+
+export interface UserSettings {
+  swipeLeftAction?: SwipeAction;
+  swipeRightAction?: SwipeAction;
+  undoSendDelay?: number;
+  quietHoursEnabled?: boolean;
+  quietHoursStart?: string;
+  quietHoursEnd?: string;
+  quietHoursWeekendOnly?: boolean;
+  toolbarActions?: string[];
+  theme?: 'light' | 'dark' | 'system';
 }
 
 export interface Email {
@@ -25,6 +40,10 @@ export interface Email {
   body?: string | null;
   bodyHtml?: string | null;
   attachments?: Attachment[];
+  // Unified inbox-hoz
+  accountId?: string;
+  accountEmail?: string;
+  accountColor?: string;
 }
 
 export interface Attachment {
@@ -221,4 +240,22 @@ export interface GmailLabel {
     textColor: string;
     backgroundColor: string;
   } | null;
+}
+
+export interface ScheduledEmail {
+  id: string;
+  to: string;
+  cc: string | null;
+  subject: string | null;
+  body: string | null;
+  scheduledAt: number;
+  status: 'pending' | 'sent' | 'failed';
+  createdAt: number;
+}
+
+export interface VipSender {
+  id: string;
+  email: string;
+  name: string | null;
+  createdAt: number;
 }

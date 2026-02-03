@@ -2,6 +2,12 @@ import webpush from 'web-push';
 import crypto from 'crypto';
 import { queryAll, queryOne, execute } from '../db/index.js';
 
+// User settings interface
+interface UserSetting {
+  key: string;
+  value: string;
+}
+
 // VAPID kulcsok - ezeket környezeti változóból olvassuk
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || '';
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || '';
@@ -72,6 +78,63 @@ export function deleteSubscriptionsByAccount(accountId: string): void {
   execute('DELETE FROM push_subscriptions WHERE account_id = ?', [accountId]);
 }
 
+// Check if current time is within quiet hours for an account
+function isInQuietHours(accountId: string): boolean {
+  const settings = queryAll<UserSetting>(
+    'SELECT key, value FROM user_settings WHERE account_id = ?',
+    [accountId],
+  );
+
+  const settingsMap = new Map<string, string>();
+  for (const s of settings) {
+    settingsMap.set(s.key, s.value);
+  }
+
+  // Check if quiet hours is enabled
+  const enabled = settingsMap.get('quietHoursEnabled');
+  if (!enabled || enabled !== 'true') {
+    return false;
+  }
+
+  const startTime = settingsMap.get('quietHoursStart') || '22:00';
+  const endTime = settingsMap.get('quietHoursEnd') || '07:00';
+  const weekendOnly = settingsMap.get('quietHoursWeekendOnly') === 'true';
+
+  const now = new Date();
+  const currentDay = now.getDay(); // 0 = Sunday, 6 = Saturday
+  const isWeekend = currentDay === 0 || currentDay === 6;
+
+  // If weekend only mode and it's not weekend, don't apply quiet hours
+  if (weekendOnly && !isWeekend) {
+    return false;
+  }
+
+  // Parse times
+  const [startHour, startMin] = startTime.split(':').map(Number);
+  const [endHour, endMin] = endTime.split(':').map(Number);
+
+  // BUG #5 Fix: Validate parsed time values
+  if (isNaN(startHour) || isNaN(startMin) || isNaN(endHour) || isNaN(endMin)) {
+    console.warn(`Invalid quiet hours format: start="${startTime}", end="${endTime}"`);
+    return false;
+  }
+
+  const currentHour = now.getHours();
+  const currentMin = now.getMinutes();
+  const currentTimeMinutes = currentHour * 60 + currentMin;
+  const startTimeMinutes = startHour * 60 + startMin;
+  const endTimeMinutes = endHour * 60 + endMin;
+
+  // Handle overnight quiet hours (e.g., 22:00 - 07:00)
+  if (startTimeMinutes > endTimeMinutes) {
+    // Overnight: quiet if current time >= start OR current time < end
+    return currentTimeMinutes >= startTimeMinutes || currentTimeMinutes < endTimeMinutes;
+  } else {
+    // Same day: quiet if current time >= start AND current time < end
+    return currentTimeMinutes >= startTimeMinutes && currentTimeMinutes < endTimeMinutes;
+  }
+}
+
 // Push notification küldése egy fióknak
 export async function sendPushToAccount(
   accountId: string,
@@ -83,9 +146,16 @@ export async function sendPushToAccount(
     url?: string;
     tag?: string;
   },
+  options?: { ignoreQuietHours?: boolean },
 ): Promise<{ sent: number; failed: number }> {
   if (!vapidPublicKey || !vapidPrivateKey) {
     console.log('Push notification skipped - VAPID keys not configured');
+    return { sent: 0, failed: 0 };
+  }
+
+  // Check quiet hours (unless explicitly ignored)
+  if (!options?.ignoreQuietHours && isInQuietHours(accountId)) {
+    console.log(`Push notification skipped for account ${accountId} - quiet hours active`);
     return { sent: 0, failed: 0 };
   }
 

@@ -228,16 +228,20 @@ export function getOAuth2ClientForAccount(accountId: string) {
 }
 
 export function getAccountById(accountId: string) {
-  return queryOne<{ id: string; email: string; name: string; last_sync_at: number | null }>(
-    'SELECT id, email, name, last_sync_at FROM accounts WHERE id = ?',
+  return queryOne<{ id: string; email: string; name: string; last_sync_at: number | null; color: string | null }>(
+    'SELECT id, email, name, last_sync_at, color FROM accounts WHERE id = ?',
     [accountId],
   );
 }
 
 export function getAllAccounts() {
-  return queryAll<{ id: string; email: string; name: string; last_sync_at: number | null }>(
-    'SELECT id, email, name, last_sync_at FROM accounts',
+  return queryAll<{ id: string; email: string; name: string; last_sync_at: number | null; color: string | null }>(
+    'SELECT id, email, name, last_sync_at, color FROM accounts',
   );
+}
+
+export function updateAccountColor(accountId: string, color: string) {
+  execute('UPDATE accounts SET color = ? WHERE id = ?', [color, accountId]);
 }
 
 export function deleteAccount(accountId: string) {

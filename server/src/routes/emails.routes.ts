@@ -39,6 +39,19 @@ const MAX_LIMIT = 100;
 const MAX_BODY_SIZE = 5 * 1024 * 1024; // 5MB email body limit
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// FIX: Extract JSON parse helper to avoid code duplication
+function parseLabelsJson(labels: string | null, context?: { emailId?: string }): string[] {
+  if (!labels) return [];
+  try {
+    return JSON.parse(labels);
+  } catch (err) {
+    if (context?.emailId) {
+      logger.warn('Labels JSON parse failed', { emailId: context.emailId, error: err });
+    }
+    return [];
+  }
+}
+
 // Jogosultság ellenőrzés helper
 function validateAccountAccess(req: { query: { accountId?: string }; session: { activeAccountId?: string | null; accountIds?: string[] } }): string | null {
   const accountId = (req.query.accountId as string) || req.session.activeAccountId;
@@ -320,13 +333,7 @@ router.delete('/batch', async (req, res) => {
         );
 
         if (email) {
-          const currentLabels = (() => {
-            try {
-              return email.labels ? JSON.parse(email.labels) : [];
-            } catch {
-              return [];
-            }
-          })();
+          const currentLabels = parseLabelsJson(email.labels, { emailId });
 
           const newLabels = [...currentLabels.filter((l: string) => l !== 'INBOX'), 'TRASH'];
           execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
@@ -369,14 +376,7 @@ router.delete('/:id', async (req, res) => {
     );
 
     if (email) {
-      const currentLabels = (() => {
-        try {
-          return email.labels ? JSON.parse(email.labels) : [];
-        } catch (err) {
-          logger.warn('Labels JSON parse failed in delete', { emailId, error: err });
-          return [];
-        }
-      })();
+      const currentLabels = parseLabelsJson(email.labels, { emailId });
 
       // Hozzáadjuk a TRASH labelt és eltávolítjuk az INBOX-ot
       const newLabels = [...currentLabels.filter((l: string) => l !== 'INBOX'), 'TRASH'];
@@ -407,14 +407,7 @@ function formatEmail(email: EmailRecord) {
     date: email.date,
     isRead: email.is_read,
     isStarred: email.is_starred,
-    labels: (() => {
-      try {
-        return email.labels ? JSON.parse(email.labels) : [];
-      } catch (err) {
-        logger.warn('Labels JSON parse failed in formatEmail', { emailId: email.id, error: err });
-        return [];
-      }
-    })(),
+    labels: parseLabelsJson(email.labels, { emailId: email.id }),
     hasAttachments: email.has_attachments,
     categoryId: email.category_id,
     topicId: email.topic_id,

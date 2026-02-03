@@ -44,6 +44,11 @@ export const api = {
       request(`/accounts/${id}/sync${full ? '?full=true' : ''}`, {
         method: 'POST',
       }),
+    updateColor: (id: string, color: string) =>
+      request<{ success: boolean; color: string }>(`/accounts/${id}/color`, {
+        method: 'PUT',
+        body: JSON.stringify({ color }),
+      }),
   },
 
   emails: {
@@ -98,7 +103,7 @@ export const api = {
   views: {
     bySender: (params?: { page?: number; accountId?: string }) => {
       const query = new URLSearchParams();
-      if (params?.page) query.set('page', params.page.toString());
+      if (params?.page !== undefined) query.set('page', params.page.toString());
       if (params?.accountId) query.set('accountId', params.accountId);
       return request<{ senders: import('../types').SenderGroup[] }>(`/views/by-sender?${query}`);
     },
@@ -131,15 +136,32 @@ export const api = {
     },
     inbox: (params?: { page?: number; accountId?: string }) => {
       const query = new URLSearchParams();
-      if (params?.page) query.set('page', params.page.toString());
+      if (params?.page !== undefined) query.set('page', params.page.toString());
       if (params?.accountId) query.set('accountId', params.accountId);
       return request<import('../types').PaginatedEmails>(`/views/inbox?${query}`);
     },
     trash: (params?: { page?: number; accountId?: string }) => {
       const query = new URLSearchParams();
-      if (params?.page) query.set('page', params.page.toString());
+      if (params?.page !== undefined) query.set('page', params.page.toString());
       if (params?.accountId) query.set('accountId', params.accountId);
       return request<import('../types').PaginatedEmails>(`/views/trash?${query}`);
+    },
+    unified: (params?: { page?: number; filterAccountId?: string }) => {
+      const query = new URLSearchParams();
+      if (params?.page !== undefined) query.set('page', params.page.toString());
+      if (params?.filterAccountId) query.set('filterAccountId', params.filterAccountId);
+      return request<{
+        emails: import('../types').Email[];
+        total: number;
+        page: number;
+        totalPages: number;
+        accounts: Array<{
+          accountId: string;
+          email: string;
+          color: string;
+          count: number;
+        }>;
+      }>(`/views/unified?${query}`);
     },
   },
 
@@ -165,7 +187,7 @@ export const api = {
   search: {
     query: (q: string, params?: { page?: number; accountId?: string }) => {
       const query = new URLSearchParams({ q });
-      if (params?.page) query.set('page', params.page.toString());
+      if (params?.page !== undefined) query.set('page', params.page.toString());
       if (params?.accountId) query.set('accountId', params.accountId);
       return request<import('../types').PaginatedEmails>(`/search?${query}`);
     },
@@ -432,5 +454,130 @@ export const api = {
       request<{ isPinned: boolean; pinnedAt?: number }>(`/pinned/${emailId}/toggle`, {
         method: 'POST',
       }),
+  },
+
+  settings: {
+    getAll: () =>
+      request<{ settings: Record<string, unknown> }>('/settings'),
+    get: (key: string) =>
+      request<{ value: unknown }>(`/settings/${key}`),
+    set: (key: string, value: unknown) =>
+      request<{ success: boolean; key: string; value: unknown }>(`/settings/${key}`, {
+        method: 'PUT',
+        body: JSON.stringify({ value }),
+      }),
+    delete: (key: string) =>
+      request<{ success: boolean }>(`/settings/${key}`, { method: 'DELETE' }),
+  },
+
+  scheduled: {
+    list: () =>
+      request<{
+        scheduledEmails: Array<{
+          id: string;
+          to: string;
+          cc: string | null;
+          subject: string | null;
+          body: string | null;
+          scheduledAt: number;
+          status: string;
+          createdAt: number;
+        }>;
+      }>('/scheduled'),
+    create: (data: {
+      to: string;
+      cc?: string;
+      subject?: string;
+      body?: string;
+      scheduledAt: number;
+    }) =>
+      request<{
+        id: string;
+        to: string;
+        cc: string | null;
+        subject: string | null;
+        body: string | null;
+        scheduledAt: number;
+        status: string;
+        createdAt: number;
+      }>('/scheduled', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: {
+      to?: string;
+      cc?: string;
+      subject?: string;
+      body?: string;
+      scheduledAt?: number;
+    }) =>
+      request<{ success: boolean }>(`/scheduled/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/scheduled/${id}`, { method: 'DELETE' }),
+    sendNow: (id: string) =>
+      request<{ success: boolean }>(`/scheduled/${id}/send-now`, { method: 'POST' }),
+  },
+
+  vip: {
+    list: () =>
+      request<{
+        vipSenders: Array<{
+          id: string;
+          email: string;
+          name: string | null;
+          createdAt: number;
+        }>;
+      }>('/vip'),
+    emails: () =>
+      request<{ emails: string[] }>('/vip/emails'),
+    add: (email: string, name?: string) =>
+      request<{
+        id: string;
+        email: string;
+        name: string | null;
+        createdAt: number;
+      }>('/vip', {
+        method: 'POST',
+        body: JSON.stringify({ email, name }),
+      }),
+    update: (id: string, name: string) =>
+      request<{ success: boolean }>(`/vip/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name }),
+      }),
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/vip/${id}`, { method: 'DELETE' }),
+    toggle: (email: string, name?: string) =>
+      request<{ isVip: boolean; id?: string }>('/vip/toggle', {
+        method: 'POST',
+        body: JSON.stringify({ email, name }),
+      }),
+  },
+
+  translate: {
+    translate: (text: string, targetLang = 'hu', sourceLang = 'auto') =>
+      request<{
+        translatedText: string;
+        detectedLanguage: string;
+        source: string;
+      }>('/translate', {
+        method: 'POST',
+        body: JSON.stringify({ text, targetLang, sourceLang }),
+      }),
+    detect: (text: string) =>
+      request<{
+        detectedLanguage: string;
+        confidence: number;
+      }>('/translate/detect', {
+        method: 'POST',
+        body: JSON.stringify({ text }),
+      }),
+    languages: () =>
+      request<{
+        languages: Array<{ code: string; name: string }>;
+      }>('/translate/languages'),
   },
 };

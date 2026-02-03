@@ -72,3 +72,15 @@ export function useDeleteAccount() {
     },
   });
 }
+
+export function useUpdateAccountColor() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ accountId, color }: { accountId: string; color: string }) =>
+      api.accounts.updateColor(accountId, color),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['session'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    },
+  });
+}

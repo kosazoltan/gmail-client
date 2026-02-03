@@ -27,6 +27,10 @@ import newslettersRoutes from './routes/newsletters.routes.js';
 import labelsRoutes from './routes/labels.routes.js';
 import pushRoutes from './routes/push.routes.js';
 import pinnedRoutes from './routes/pinned.routes.js';
+import settingsRoutes from './routes/settings.routes.js';
+import scheduledRoutes, { processScheduledEmails } from './routes/scheduled.routes.js';
+import vipRoutes from './routes/vip.routes.js';
+import translateRoutes from './routes/translate.routes.js';
 
 const PORT = parseInt(process.env.PORT || '5000');
 
@@ -86,6 +90,10 @@ async function start() {
   app.use('/api/labels', labelsRoutes);
   app.use('/api/push', pushRoutes);
   app.use('/api/pinned', pinnedRoutes);
+  app.use('/api/settings', settingsRoutes);
+  app.use('/api/scheduled', scheduledRoutes);
+  app.use('/api/vip', vipRoutes);
+  app.use('/api/translate', translateRoutes);
 
   // Health check
   app.get('/api/health', (_req, res) => {
@@ -107,12 +115,38 @@ async function start() {
   }
 
   // Lejárt szundik feldolgozása percenként
-  setInterval(() => {
-    processExpiredSnoozes();
+  // FIX: Add try-catch to prevent interval from breaking on errors
+  setInterval(async () => {
+    try {
+      await processExpiredSnoozes();
+    } catch (error) {
+      logger.error('Error processing expired snoozes:', error);
+    }
   }, 60000);
 
-  // Első futtatás induláskor
-  processExpiredSnoozes();
+  // Ütemezett emailek feldolgozása percenként
+  setInterval(async () => {
+    try {
+      await processScheduledEmails();
+    } catch (error) {
+      logger.error('Error processing scheduled emails:', error);
+    }
+  }, 60000);
+
+  // Első futtatás induláskor (with error handling)
+  try {
+    processExpiredSnoozes();
+  } catch (err) {
+    logger.error('Initial snooze processing failed:', err);
+  }
+
+  (async () => {
+    try {
+      await processScheduledEmails();
+    } catch (err) {
+      logger.error('Initial scheduled processing failed:', err);
+    }
+  })();
 
   // Automatikus mentés indítása
   startAutoSave();

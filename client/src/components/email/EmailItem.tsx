@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Star, Paperclip, Trash2, Check, Pin, Mail, MailOpen } from 'lucide-react';
+import { Star, Paperclip, Trash2, Check, Pin, Mail, MailOpen, Crown } from 'lucide-react';
 import { cn, formatEmailDate, displaySender, getInitials, emailToColor } from '../../lib/utils';
 import type { Email } from '../../types';
 
@@ -12,6 +12,7 @@ interface EmailItemProps {
   onTogglePin?: (emailId: string) => void;
   onToggleRead?: (emailId: string, isRead: boolean) => void;
   isPinned?: boolean;
+  isVip?: boolean;
   // Selection mode props
   selectionMode?: boolean;
   isChecked?: boolean;
@@ -33,6 +34,7 @@ export function EmailItem({
   onTogglePin,
   onToggleRead,
   isPinned = false,
+  isVip = false,
   selectionMode = false,
   isChecked = false,
   onToggleCheck,
@@ -135,13 +137,20 @@ export function EmailItem({
       {/* Tartalom */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-1 sm:gap-2">
-          <span
-            className={cn(
-              'text-xs sm:text-sm truncate',
-              !email.isRead ? 'font-semibold text-gray-900 dark:text-dark-text' : 'text-gray-700 dark:text-dark-text-secondary',
+          <span className="flex items-center gap-1 min-w-0">
+            {isVip && (
+              <span title="VIP küldő">
+                <Crown className="h-3 w-3 sm:h-4 sm:w-4 text-amber-500 flex-shrink-0" />
+              </span>
             )}
-          >
-            {sender}
+            <span
+              className={cn(
+                'text-xs sm:text-sm truncate',
+                !email.isRead ? 'font-semibold text-gray-900 dark:text-dark-text' : 'text-gray-700 dark:text-dark-text-secondary',
+              )}
+            >
+              {sender}
+            </span>
           </span>
           <span className="text-[10px] sm:text-xs text-gray-400 dark:text-dark-text-muted flex-shrink-0">
             {formatEmailDate(email.date)}
