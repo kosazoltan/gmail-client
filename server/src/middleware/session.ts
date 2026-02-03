@@ -8,6 +8,7 @@ declare module 'express-session' {
   interface SessionData {
     accountIds: string[];
     activeAccountId: string | null;
+    oauthState?: string; // CSRF protection for OAuth2 flow
   }
 }
 
@@ -45,7 +46,7 @@ export function createSessionMiddleware(): RequestHandler {
     store: sessionStore,
     name: 'zmail.sid', // Egyedi session cookie név
     secret: process.env.SESSION_SECRET || 'dev-secret-change-me-32chars!!',
-    resave: true, // Session mindig mentődik minden kérésnél
+    resave: false, // FIX: Only save if modified to prevent race conditions
     saveUninitialized: false, // Üres session-öket nem mentjük
     rolling: true, // Session cookie lejárat megújítása minden kérésnél
     cookie: {

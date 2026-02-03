@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import {
   getAuthUrl,
   handleAuthCallback,
@@ -10,19 +11,44 @@ const router = Router();
 const frontendUrl = process.env.FRONTEND_URL || 'https://mail.mindenes.org';
 
 // OAuth2 login redirect URL generálás
-router.get('/login', (_req, res) => {
-  const url = getAuthUrl();
-  res.json({ url });
+router.get('/login', (req, res) => {
+  // Generate CSRF state token
+  const state = crypto.randomBytes(32).toString('hex');
+  req.session.oauthState = state;
+
+  // Save session before generating URL to ensure state is persisted
+  req.session.save((err) => {
+    if (err) {
+      console.error('Session mentési hiba login előtt:', err);
+      res.status(500).json({ error: 'Session hiba' });
+      return;
+    }
+    const url = getAuthUrl(state);
+    res.json({ url });
+  });
 });
 
 // OAuth2 callback - Google ide irányít vissza
 router.get('/callback', async (req, res) => {
   try {
     const code = req.query.code as string;
+    const state = req.query.state as string;
+
     if (!code) {
       res.status(400).json({ error: 'Hiányzó authorization code' });
       return;
     }
+
+    // CSRF protection - validate state parameter
+    const expectedState = req.session.oauthState;
+    if (!state || !expectedState || state !== expectedState) {
+      console.error('OAuth CSRF validation failed - state mismatch');
+      res.redirect(`${frontendUrl}/?error=csrf_validation_failed`);
+      return;
+    }
+
+    // Clear the state after validation (one-time use)
+    delete req.session.oauthState;
 
     const { accountId } = await handleAuthCallback(code);
 

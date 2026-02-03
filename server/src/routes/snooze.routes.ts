@@ -166,11 +166,11 @@ export function processExpiredSnoozes() {
       [now],
     );
 
-    for (const snooze of expired) {
-      execute('DELETE FROM snoozed_emails WHERE id = ?', [snooze.id]);
-    }
-
     if (expired.length > 0) {
+      // FIX: Batch delete instead of N+1 loop
+      const ids = expired.map(s => s.id);
+      const placeholders = ids.map(() => '?').join(',');
+      execute(`DELETE FROM snoozed_emails WHERE id IN (${placeholders})`, ids);
       console.log(`${expired.length} lejárt szundi törölve.`);
     }
 

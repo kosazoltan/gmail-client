@@ -269,29 +269,33 @@ router.get('/inbox', (req, res) => {
     const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), MAX_LIMIT);
     const offset = (page - 1) * limit;
 
-    // Szűrjük azokat az emaileket, amelyek labels JSON-jében benne van az "INBOX" DE NINCS benne a "TRASH"
-    const allEmails = queryAll<EmailRecord>(
-      'SELECT * FROM emails WHERE account_id = ? ORDER BY date DESC',
-      [accountId]
+    // FIX: N+1 query optimization - filter in SQL instead of loading all emails
+    // Using LIKE to filter JSON labels array for INBOX but not TRASH
+    const inboxEmails = queryAll<EmailRecord>(
+      `SELECT * FROM emails
+       WHERE account_id = ?
+         AND labels LIKE '%"INBOX"%'
+         AND labels NOT LIKE '%"TRASH"%'
+       ORDER BY date DESC
+       LIMIT ? OFFSET ?`,
+      [accountId, limit, offset]
     );
 
-    const inboxEmails = allEmails.filter(email => {
-      try {
-        const labels: string[] = email.labels ? JSON.parse(email.labels) : [];
-        return labels.includes('INBOX') && !labels.includes('TRASH');
-      } catch (err) {
-        logger.warn('Labels JSON parse failed in inbox filter', { emailId: email.id, error: err });
-        return false;
-      }
-    });
-
-    const paginatedEmails = inboxEmails.slice(offset, offset + limit);
+    // Get total count for pagination
+    const countResult = queryOne<{ count: number }>(
+      `SELECT COUNT(*) as count FROM emails
+       WHERE account_id = ?
+         AND labels LIKE '%"INBOX"%'
+         AND labels NOT LIKE '%"TRASH"%'`,
+      [accountId]
+    );
+    const total = countResult?.count || 0;
 
     res.json({
-      emails: paginatedEmails.map(formatEmail),
-      total: inboxEmails.length,
+      emails: inboxEmails.map(formatEmail),
+      total,
       page,
-      totalPages: Math.ceil(inboxEmails.length / limit),
+      totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
     console.error('Inbox view error:', error);
@@ -326,28 +330,30 @@ router.get('/unified', (req, res) => {
       ? [filterAccountId]
       : accountIds;
 
-    // Emailek lekérése az összes (vagy szűrt) fiókból
+    // FIX: N+1 query optimization - filter in SQL instead of loading all emails
     const targetPlaceholders = targetAccountIds.map(() => '?').join(',');
-    const allEmails = queryAll<EmailRecord & { account_id: string }>(
-      `SELECT * FROM emails WHERE account_id IN (${targetPlaceholders}) ORDER BY date DESC`,
-      targetAccountIds
+    const inboxEmails = queryAll<EmailRecord & { account_id: string }>(
+      `SELECT * FROM emails
+       WHERE account_id IN (${targetPlaceholders})
+         AND labels LIKE '%"INBOX"%'
+         AND labels NOT LIKE '%"TRASH"%'
+       ORDER BY date DESC
+       LIMIT ? OFFSET ?`,
+      [...targetAccountIds, limit, offset]
     );
 
-    // Szűrés: INBOX és nem TRASH
-    const inboxEmails = allEmails.filter(email => {
-      try {
-        const labels: string[] = email.labels ? JSON.parse(email.labels) : [];
-        return labels.includes('INBOX') && !labels.includes('TRASH');
-      } catch (err) {
-        logger.warn('Labels JSON parse failed in unified inbox filter', { emailId: email.id, error: err });
-        return false;
-      }
-    });
-
-    const paginatedEmails = inboxEmails.slice(offset, offset + limit);
+    // Get total count for pagination
+    const countResult = queryOne<{ count: number }>(
+      `SELECT COUNT(*) as count FROM emails
+       WHERE account_id IN (${targetPlaceholders})
+         AND labels LIKE '%"INBOX"%'
+         AND labels NOT LIKE '%"TRASH"%'`,
+      targetAccountIds
+    );
+    const total = countResult?.count || 0;
 
     // Formázás account adatokkal
-    const formattedEmails = paginatedEmails.map(email => {
+    const formattedEmails = inboxEmails.map(email => {
       const accountInfo = accountMap.get(email.account_id);
       return {
         ...formatEmail(email),
@@ -357,23 +363,32 @@ router.get('/unified', (req, res) => {
       };
     });
 
-    // Fiók statisztikák
+    // Fiók statisztikák - optimized with GROUP BY
+    const statsResults = queryAll<{ account_id: string; count: number }>(
+      `SELECT account_id, COUNT(*) as count FROM emails
+       WHERE account_id IN (${targetPlaceholders})
+         AND labels LIKE '%"INBOX"%'
+         AND labels NOT LIKE '%"TRASH"%'
+       GROUP BY account_id`,
+      targetAccountIds
+    );
+    const statsMap = new Map(statsResults.map(s => [s.account_id, s.count]));
+
     const accountStats = targetAccountIds.map(accId => {
       const accountInfo = accountMap.get(accId);
-      const count = inboxEmails.filter(e => e.account_id === accId).length;
       return {
         accountId: accId,
         email: accountInfo?.email || '',
         color: accountInfo?.color || DEFAULT_ACCOUNT_COLOR,
-        count,
+        count: statsMap.get(accId) || 0,
       };
     });
 
     res.json({
       emails: formattedEmails,
-      total: inboxEmails.length,
+      total,
       page,
-      totalPages: Math.ceil(inboxEmails.length / limit),
+      totalPages: Math.ceil(total / limit),
       accounts: accountStats,
     });
   } catch (error) {
@@ -392,29 +407,30 @@ router.get('/trash', (req, res) => {
     const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), MAX_LIMIT);
     const offset = (page - 1) * limit;
 
-    // Szűrjük azokat az emaileket, amelyek labels JSON-jében benne van a "TRASH"
-    const allEmails = queryAll<EmailRecord>(
-      'SELECT * FROM emails WHERE account_id = ? ORDER BY date DESC',
-      [accountId]
+    // FIX: N+1 query optimization - filter in SQL instead of loading all emails
+    const trashedEmails = queryAll<EmailRecord>(
+      `SELECT * FROM emails
+       WHERE account_id = ?
+         AND labels LIKE '%"TRASH"%'
+       ORDER BY date DESC
+       LIMIT ? OFFSET ?`,
+      [accountId, limit, offset]
     );
 
-    const trashedEmails = allEmails.filter(email => {
-      try {
-        const labels: string[] = email.labels ? JSON.parse(email.labels) : [];
-        return labels.includes('TRASH');
-      } catch (err) {
-        logger.warn('Labels JSON parse failed in trash filter', { emailId: email.id, error: err });
-        return false;
-      }
-    });
-
-    const paginatedEmails = trashedEmails.slice(offset, offset + limit);
+    // Get total count for pagination
+    const countResult = queryOne<{ count: number }>(
+      `SELECT COUNT(*) as count FROM emails
+       WHERE account_id = ?
+         AND labels LIKE '%"TRASH"%'`,
+      [accountId]
+    );
+    const total = countResult?.count || 0;
 
     res.json({
-      emails: paginatedEmails.map(formatEmail),
-      total: trashedEmails.length,
+      emails: trashedEmails.map(formatEmail),
+      total,
       page,
-      totalPages: Math.ceil(trashedEmails.length / limit),
+      totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
     console.error('Trash view error:', error);
