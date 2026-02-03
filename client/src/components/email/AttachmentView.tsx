@@ -52,6 +52,16 @@ function canPreview(mimeType: string | undefined, filename: string): boolean {
   return false;
 }
 
+// Helper függvény a fájl letöltéshez
+function downloadFile(url: string, filename: string): void {
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 export function AttachmentView({ attachment }: AttachmentViewProps) {
   const [showPreview, setShowPreview] = useState(false);
   const colorClass = getFileColor(attachment.mimeType);
@@ -59,28 +69,14 @@ export function AttachmentView({ attachment }: AttachmentViewProps) {
 
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const url = api.attachments.downloadUrl(attachment.id);
-    // Create a hidden link and click it to download
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = attachment.filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    downloadFile(api.attachments.downloadUrl(attachment.id), attachment.filename);
   };
 
   const handlePreview = () => {
     if (hasPreview) {
       setShowPreview(true);
     } else {
-      // Direct download
-      const url = api.attachments.downloadUrl(attachment.id);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = attachment.filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      downloadFile(api.attachments.downloadUrl(attachment.id), attachment.filename);
     }
   };
 

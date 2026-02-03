@@ -56,9 +56,15 @@ export function saveSubscription(
   }
 }
 
-// Subscription törlése
-export function deleteSubscription(endpoint: string): void {
-  execute('DELETE FROM push_subscriptions WHERE endpoint = ?', [endpoint]);
+// Subscription törlése (opcionális accountId-val a biztonság érdekében)
+export function deleteSubscription(endpoint: string, accountId?: string): void {
+  if (accountId) {
+    // Ha accountId is meg van adva, csak azt a subscription-t törli, ami ehhez a fiókhoz tartozik
+    execute('DELETE FROM push_subscriptions WHERE endpoint = ? AND account_id = ?', [endpoint, accountId]);
+  } else {
+    // Visszafelé kompatibilitás - csak endpoint alapján törlés
+    execute('DELETE FROM push_subscriptions WHERE endpoint = ?', [endpoint]);
+  }
 }
 
 // Subscription törlése account alapján

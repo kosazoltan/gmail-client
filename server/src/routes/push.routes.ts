@@ -44,6 +44,12 @@ router.post('/subscribe', (req, res) => {
 
 // Push subscription törlése
 router.post('/unsubscribe', (req, res) => {
+  const accountId = req.session.activeAccountId;
+  if (!accountId) {
+    res.status(401).json({ error: 'Nincs bejelentkezve' });
+    return;
+  }
+
   const { endpoint } = req.body;
   if (!endpoint) {
     res.status(400).json({ error: 'Endpoint kötelező' });
@@ -51,7 +57,8 @@ router.post('/unsubscribe', (req, res) => {
   }
 
   try {
-    deleteSubscription(endpoint);
+    // Az accountId-t is átadjuk, hogy csak a saját subscription-t törölhesse
+    deleteSubscription(endpoint, accountId);
     res.json({ success: true, message: 'Push értesítések kikapcsolva' });
   } catch (error) {
     console.error('Push unsubscribe error:', error);

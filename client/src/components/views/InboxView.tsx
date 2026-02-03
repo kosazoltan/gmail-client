@@ -298,14 +298,13 @@ export function InboxView() {
             deleteEmail.mutate(emailId, {
               onSuccess: () => {
                 if (selectedEmail?.id === emailId) {
-                  if (emails.length > 1) {
-                    if (emailIndex < emails.length - 1) {
-                      setSelectedEmail(emails[emailIndex + 1]);
-                    } else {
-                      setSelectedEmail(emails[emailIndex - 1]);
-                    }
-                  } else {
+                  // Ha az email nincs a listában vagy ez az egyetlen, null-ra állítjuk
+                  if (emailIndex < 0 || emails.length <= 1) {
                     setSelectedEmail(null);
+                  } else if (emailIndex < emails.length - 1) {
+                    setSelectedEmail(emails[emailIndex + 1]);
+                  } else {
+                    setSelectedEmail(emails[emailIndex - 1]);
                   }
                 }
               }

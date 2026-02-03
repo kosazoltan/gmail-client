@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, Menu, RefreshCw, BookmarkPlus, Check } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession, useSyncAccount } from '../../hooks/useAccounts';
 import { useCreateSavedSearch } from '../../hooks/useSavedSearches';
 import { ThemeToggle } from './ThemeToggle';
@@ -27,6 +27,16 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar }: HeaderP
   // Keresési lekérdezés az URL-ből
   const isSearchPage = location.pathname === '/search';
   const urlSearchQuery = new URLSearchParams(location.search).get('q') || '';
+
+  // URL query szinkronizálása a localQuery-vel (pl. back button esetén)
+  useEffect(() => {
+    if (isSearchPage && urlSearchQuery) {
+      setLocalQuery(urlSearchQuery);
+    } else if (!isSearchPage && localQuery && !searchQuery) {
+      // Ha elhagyjuk a keresési oldalt és nincs külső searchQuery, töröljük a localQuery-t
+      setLocalQuery('');
+    }
+  }, [urlSearchQuery, isSearchPage]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

@@ -4,6 +4,45 @@ import { queryAll, queryOne, execute, getDb } from '../db/index.js';
 
 const router = Router();
 
+// FONTOS: Specifikus route-ok előre, a `/` route utolsónak!
+
+// Esedékes emlékeztetők lekérése (polling endpoint)
+router.get('/due', (req, res) => {
+  const accountId = req.session?.activeAccountId;
+  if (!accountId) {
+    return res.status(401).json({ error: 'Nincs aktív fiók' });
+  }
+
+  const now = Date.now();
+  const reminders = queryAll(
+    `SELECT r.*, e.subject, e.from_email as "from", e.from_name as "fromName"
+     FROM reminders r
+     JOIN emails e ON r.email_id = e.id
+     WHERE r.account_id = ? AND r.is_completed = 0 AND r.remind_at <= ?
+     ORDER BY r.remind_at ASC`,
+    [accountId, now],
+  );
+
+  return res.json({ reminders });
+});
+
+// Lejárt emlékeztetők száma
+router.get('/count', (req, res) => {
+  const accountId = req.session?.activeAccountId;
+  if (!accountId) {
+    return res.status(401).json({ error: 'Nincs aktív fiók' });
+  }
+
+  const now = Date.now();
+  const result = queryOne(
+    `SELECT COUNT(*) as count FROM reminders
+     WHERE account_id = ? AND is_completed = 0 AND remind_at <= ?`,
+    [accountId, now],
+  );
+
+  return res.json({ count: (result as { count: number })?.count || 0 });
+});
+
 // Emlékeztetők listázása
 router.get('/', (req, res) => {
   const accountId = req.session?.activeAccountId;
@@ -189,43 +228,6 @@ router.post('/:id/complete', (req, res) => {
   }
 
   return res.json({ reminder: updated });
-});
-
-// Esedékes emlékeztetők lekérése (polling endpoint)
-router.get('/due', (req, res) => {
-  const accountId = req.session?.activeAccountId;
-  if (!accountId) {
-    return res.status(401).json({ error: 'Nincs aktív fiók' });
-  }
-
-  const now = Date.now();
-  const reminders = queryAll(
-    `SELECT r.*, e.subject, e.from_email as "from", e.from_name as "fromName"
-     FROM reminders r
-     JOIN emails e ON r.email_id = e.id
-     WHERE r.account_id = ? AND r.is_completed = 0 AND r.remind_at <= ?
-     ORDER BY r.remind_at ASC`,
-    [accountId, now],
-  );
-
-  return res.json({ reminders });
-});
-
-// Lejárt emlékeztetők száma
-router.get('/count', (req, res) => {
-  const accountId = req.session?.activeAccountId;
-  if (!accountId) {
-    return res.status(401).json({ error: 'Nincs aktív fiók' });
-  }
-
-  const now = Date.now();
-  const result = queryOne(
-    `SELECT COUNT(*) as count FROM reminders
-     WHERE account_id = ? AND is_completed = 0 AND remind_at <= ?`,
-    [accountId, now],
-  );
-
-  return res.json({ count: (result as { count: number })?.count || 0 });
 });
 
 export default router;

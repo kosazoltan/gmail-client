@@ -45,7 +45,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutOptions) {
   // useEffect-ben frissítjük a ref-et, nem render közben
   useEffect(() => {
     optionsRef.current = options;
-  });
+  }, [options]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     const opts = optionsRef.current;

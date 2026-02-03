@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Bell, Clock, Calendar, X } from 'lucide-react';
 import { useCreateReminder } from '../../hooks/useReminders';
+import { toast } from '../../lib/toast';
 
 interface ReminderMenuProps {
   emailId: string;
@@ -53,10 +54,45 @@ export function ReminderMenu({ emailId, onSuccess, onClose, variant = 'button' }
 
   const handleCustomRemind = () => {
     if (!customDate) return;
-    const [year, month, day] = customDate.split('-').map(Number);
-    const [hours, minutes] = customTime.split(':').map(Number);
+
+    // Dátum validálás
+    const dateParts = customDate.split('-');
+    if (dateParts.length !== 3) {
+      toast.error('Érvénytelen dátum formátum!');
+      return;
+    }
+    const [year, month, day] = dateParts.map(Number);
+    if (isNaN(year) || isNaN(month) || isNaN(day)) {
+      toast.error('Érvénytelen dátum!');
+      return;
+    }
+
+    // Idő validálás
+    const timeParts = customTime.split(':');
+    if (timeParts.length < 2) {
+      toast.error('Érvénytelen idő formátum!');
+      return;
+    }
+    const [hours, minutes] = timeParts.map(Number);
+    if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+      toast.error('Érvénytelen időpont!');
+      return;
+    }
+
     const date = new Date(year, month - 1, day, hours, minutes);
-    handleRemind(date.getTime());
+    const timestamp = date.getTime();
+
+    if (isNaN(timestamp)) {
+      toast.error('Érvénytelen dátum vagy időpont!');
+      return;
+    }
+
+    if (timestamp <= Date.now()) {
+      toast.error('Az emlékeztető időpontja nem lehet a múltban!');
+      return;
+    }
+
+    handleRemind(timestamp);
   };
 
   // Előre definiált időpontok
