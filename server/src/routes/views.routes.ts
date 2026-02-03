@@ -259,7 +259,7 @@ function formatEmail(email: EmailRecord) {
   };
 }
 
-// Beérkezett levelek (INBOX label, de nem TRASH)
+// Beérkezett levelek (INBOX label, de nem TRASH) + SENT válaszok ugyanabból a thread-ből
 router.get('/inbox', (req, res) => {
   try {
     const accountId = validateAccountAccess(req);
@@ -269,25 +269,41 @@ router.get('/inbox', (req, res) => {
     const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), MAX_LIMIT);
     const offset = (page - 1) * limit;
 
-    // FIX: N+1 query optimization - filter in SQL instead of loading all emails
-    // Using LIKE to filter JSON labels array for INBOX but not TRASH
+    // Get inbox threads first (thread IDs that have at least one INBOX email)
+    // Then fetch ALL emails from those threads (including SENT replies)
     const inboxEmails = queryAll<EmailRecord>(
-      `SELECT * FROM emails
-       WHERE account_id = ?
-         AND labels LIKE '%"INBOX"%'
-         AND labels NOT LIKE '%"TRASH"%'
-       ORDER BY date DESC
+      `SELECT e.* FROM emails e
+       WHERE e.account_id = ?
+         AND e.labels NOT LIKE '%"TRASH"%'
+         AND (
+           -- Email is in INBOX
+           e.labels LIKE '%"INBOX"%'
+           OR
+           -- OR email is SENT and belongs to a thread that has INBOX emails
+           (e.labels LIKE '%"SENT"%' AND e.thread_id IN (
+             SELECT DISTINCT thread_id FROM emails
+             WHERE account_id = ? AND labels LIKE '%"INBOX"%' AND labels NOT LIKE '%"TRASH"%' AND thread_id IS NOT NULL
+           ))
+         )
+       ORDER BY e.date DESC
        LIMIT ? OFFSET ?`,
-      [accountId, limit, offset]
+      [accountId, accountId, limit, offset]
     );
 
-    // Get total count for pagination
+    // Get total count for pagination (unique threads count would be more accurate but this is simpler)
     const countResult = queryOne<{ count: number }>(
-      `SELECT COUNT(*) as count FROM emails
-       WHERE account_id = ?
-         AND labels LIKE '%"INBOX"%'
-         AND labels NOT LIKE '%"TRASH"%'`,
-      [accountId]
+      `SELECT COUNT(*) as count FROM emails e
+       WHERE e.account_id = ?
+         AND e.labels NOT LIKE '%"TRASH"%'
+         AND (
+           e.labels LIKE '%"INBOX"%'
+           OR
+           (e.labels LIKE '%"SENT"%' AND e.thread_id IN (
+             SELECT DISTINCT thread_id FROM emails
+             WHERE account_id = ? AND labels LIKE '%"INBOX"%' AND labels NOT LIKE '%"TRASH"%' AND thread_id IS NOT NULL
+           ))
+         )`,
+      [accountId, accountId]
     );
     const total = countResult?.count || 0;
 
@@ -330,25 +346,41 @@ router.get('/unified', (req, res) => {
       ? [filterAccountId]
       : accountIds;
 
-    // FIX: N+1 query optimization - filter in SQL instead of loading all emails
+    // FIX: Include SENT replies from threads that have INBOX emails (same as /inbox endpoint)
     const targetPlaceholders = targetAccountIds.map(() => '?').join(',');
     const inboxEmails = queryAll<EmailRecord & { account_id: string }>(
-      `SELECT * FROM emails
-       WHERE account_id IN (${targetPlaceholders})
-         AND labels LIKE '%"INBOX"%'
-         AND labels NOT LIKE '%"TRASH"%'
-       ORDER BY date DESC
+      `SELECT e.* FROM emails e
+       WHERE e.account_id IN (${targetPlaceholders})
+         AND e.labels NOT LIKE '%"TRASH"%'
+         AND (
+           -- Email is in INBOX
+           e.labels LIKE '%"INBOX"%'
+           OR
+           -- OR email is SENT and belongs to a thread that has INBOX emails
+           (e.labels LIKE '%"SENT"%' AND e.thread_id IN (
+             SELECT DISTINCT thread_id FROM emails
+             WHERE account_id IN (${targetPlaceholders}) AND labels LIKE '%"INBOX"%' AND labels NOT LIKE '%"TRASH"%' AND thread_id IS NOT NULL
+           ))
+         )
+       ORDER BY e.date DESC
        LIMIT ? OFFSET ?`,
-      [...targetAccountIds, limit, offset]
+      [...targetAccountIds, ...targetAccountIds, limit, offset]
     );
 
     // Get total count for pagination
     const countResult = queryOne<{ count: number }>(
-      `SELECT COUNT(*) as count FROM emails
-       WHERE account_id IN (${targetPlaceholders})
-         AND labels LIKE '%"INBOX"%'
-         AND labels NOT LIKE '%"TRASH"%'`,
-      targetAccountIds
+      `SELECT COUNT(*) as count FROM emails e
+       WHERE e.account_id IN (${targetPlaceholders})
+         AND e.labels NOT LIKE '%"TRASH"%'
+         AND (
+           e.labels LIKE '%"INBOX"%'
+           OR
+           (e.labels LIKE '%"SENT"%' AND e.thread_id IN (
+             SELECT DISTINCT thread_id FROM emails
+             WHERE account_id IN (${targetPlaceholders}) AND labels LIKE '%"INBOX"%' AND labels NOT LIKE '%"TRASH"%' AND thread_id IS NOT NULL
+           ))
+         )`,
+      [...targetAccountIds, ...targetAccountIds]
     );
     const total = countResult?.count || 0;
 
