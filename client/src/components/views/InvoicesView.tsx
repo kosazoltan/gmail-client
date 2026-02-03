@@ -1,11 +1,13 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
-import { useEmails, useDeleteEmail } from '../../hooks/useEmails';
+import { useEmailsInfinite, useDeleteEmail } from '../../hooks/useEmails';
+import { useInfiniteScroll } from '../../hooks/useInfiniteScroll';
 import { ThreadedEmailList } from '../email/ThreadedEmailList';
 import { EmailDetail } from '../email/EmailDetail';
 import { ResizablePanels } from '../common/ResizablePanels';
 import { LoginScreen } from '../auth/LoginScreen';
+import { Loader2 } from 'lucide-react';
 import type { Email } from '../../types';
 import { getNextEmailAfterDelete } from '../../lib/emailNavigation';
 
@@ -71,17 +73,28 @@ export function InvoicesView() {
   const navigate = useNavigate();
   const { data: session } = useSession();
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
-  const [page, setPage] = useState(1);
 
   const accountId = session?.activeAccountId || undefined;
-  const { data, isLoading } = useEmails({ accountId, page, limit: 100 });
+  const {
+    data,
+    isLoading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useEmailsInfinite({ accountId, limit: 100 });
   const deleteEmail = useDeleteEmail();
+
+  const { containerRef } = useInfiniteScroll({
+    hasNextPage: !!hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  });
 
   // Számlák szűrése
   const invoiceEmails = useMemo(() => {
-    const emails = data?.emails || [];
+    const emails = data?.pages?.flatMap(page => page.emails) || [];
     return emails.filter(isInvoiceEmail);
-  }, [data?.emails]);
+  }, [data?.pages]);
 
   const emailsRef = useRef(invoiceEmails);
   useEffect(() => {
@@ -93,7 +106,7 @@ export function InvoicesView() {
   }
 
   const leftPanel = (
-    <>
+    <div ref={containerRef} className="flex flex-col h-full overflow-auto">
       <ThreadedEmailList
         emails={invoiceEmails}
         isLoading={isLoading}
@@ -112,28 +125,13 @@ export function InvoicesView() {
         title={`Számlák (${invoiceEmails.length})`}
         emptyMessage="Nincs számla típusú levél"
       />
-      {data && data.totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 p-3 border-t border-gray-200 dark:border-dark-border">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="px-4 py-3 text-sm rounded-lg border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary disabled:opacity-50 dark:text-dark-text touch-manipulation"
-          >
-            Előző
-          </button>
-          <span className="text-sm text-gray-500 dark:text-dark-text-secondary">
-            {page} / {data.totalPages}
-          </span>
-          <button
-            onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
-            disabled={page === data.totalPages}
-            className="px-4 py-3 text-sm rounded-lg border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary disabled:opacity-50 dark:text-dark-text touch-manipulation"
-          >
-            Következő
-          </button>
+      {isFetchingNextPage && (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+          <span className="ml-2 text-sm text-gray-500 dark:text-dark-text-secondary">További levelek betöltése...</span>
         </div>
       )}
-    </>
+    </div>
   );
 
   const rightPanel = (

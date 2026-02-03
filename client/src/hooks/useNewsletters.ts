@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 
 // Hírlevél küldők listázása
@@ -27,6 +27,25 @@ export function useNewsletterEmails(params: {
   return useQuery({
     queryKey: ['newsletters', 'emails', params],
     queryFn: () => api.newsletters.getEmails(params),
+  });
+}
+
+// Hírlevél emailek infinite scroll
+export function useNewsletterEmailsInfinite(params: {
+  limit?: number;
+  senderId?: string;
+  includeMuted?: boolean;
+} = {}) {
+  return useInfiniteQuery({
+    queryKey: ['newsletters', 'emails-infinite', params.senderId, params.includeMuted],
+    queryFn: ({ pageParam = 1 }) => api.newsletters.getEmails({ ...params, page: pageParam }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.page < lastPage.totalPages) {
+        return lastPage.page + 1;
+      }
+      return undefined;
+    },
   });
 }
 

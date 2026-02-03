@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   useNewsletterSenders,
-  useNewsletterEmails,
+  useNewsletterEmailsInfinite,
   useSyncNewsletters,
   useMuteNewsletterSender,
   useRemoveNewsletterSender,
 } from '../../hooks/useNewsletters';
+import { useInfiniteScroll } from '../../hooks/useInfiniteScroll';
 import type { NewsletterSender } from '../../types';
 import {
   Newspaper,
@@ -27,12 +28,16 @@ interface NewslettersViewProps {
 export function NewslettersView({ onEmailSelect }: NewslettersViewProps) {
   const [selectedSenderId, setSelectedSenderId] = useState<string | null>(null);
   const [includeMuted, setIncludeMuted] = useState(false);
-  const [page, setPage] = useState(1);
   const [removeConfirmId, setRemoveConfirmId] = useState<string | null>(null);
 
   const { data: sendersData, isLoading: sendersLoading } = useNewsletterSenders();
-  const { data: emailsData, isLoading: emailsLoading } = useNewsletterEmails({
-    page,
+  const {
+    data: emailsData,
+    isLoading: emailsLoading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useNewsletterEmailsInfinite({
     senderId: selectedSenderId || undefined,
     includeMuted,
   });
@@ -40,9 +45,15 @@ export function NewslettersView({ onEmailSelect }: NewslettersViewProps) {
   const muteSender = useMuteNewsletterSender();
   const removeSender = useRemoveNewsletterSender();
 
+  const { containerRef } = useInfiniteScroll({
+    hasNextPage: !!hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  });
+
   const senders = sendersData?.senders || [];
-  const emails = emailsData?.emails || [];
-  const totalPages = emailsData?.totalPages || 1;
+  const emails = useMemo(() => emailsData?.pages?.flatMap(page => page.emails) || [], [emailsData?.pages]);
+  const totalEmails = emailsData?.pages?.[0]?.total || 0;
 
   const handleSync = () => {
     syncNewsletters.mutate();
@@ -124,7 +135,6 @@ export function NewslettersView({ onEmailSelect }: NewslettersViewProps) {
             <button
               onClick={() => {
                 setSelectedSenderId(null);
-                setPage(1);
               }}
               className={`w-full px-4 py-3 text-left flex items-center justify-between border-b border-gray-200 dark:border-dark-border ${
                 !selectedSenderId
@@ -151,7 +161,6 @@ export function NewslettersView({ onEmailSelect }: NewslettersViewProps) {
                   <button
                     onClick={() => {
                       setSelectedSenderId(sender.id);
-                      setPage(1);
                     }}
                     className={`w-full px-4 py-3 text-left flex items-center gap-3 border-b border-gray-100 dark:border-dark-border ${
                       selectedSenderId === sender.id
@@ -257,16 +266,16 @@ export function NewslettersView({ onEmailSelect }: NewslettersViewProps) {
                   : 'Összes hírlevél'}
               </h1>
             </div>
-            {emailsData && (
+            {totalEmails > 0 && (
               <span className="text-sm text-gray-500 dark:text-dark-text-muted">
-                {emailsData.total} levél
+                {totalEmails} levél
               </span>
             )}
           </div>
         </div>
 
         {/* Email lista */}
-        <div className="flex-1 overflow-auto">
+        <div ref={containerRef} className="flex-1 overflow-auto">
           {emailsLoading ? (
             <div className="flex items-center justify-center h-32">
               <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
@@ -328,26 +337,11 @@ export function NewslettersView({ onEmailSelect }: NewslettersViewProps) {
                 ))}
               </div>
 
-              {/* Lapozás */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 py-4 border-t border-gray-100 dark:border-dark-border">
-                  <button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="px-3 py-1.5 text-sm rounded border border-gray-200 dark:border-dark-border disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary"
-                  >
-                    Előző
-                  </button>
-                  <span className="text-sm text-gray-500 dark:text-dark-text-muted">
-                    {page} / {totalPages}
-                  </span>
-                  <button
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                    className="px-3 py-1.5 text-sm rounded border border-gray-200 dark:border-dark-border disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary"
-                  >
-                    Következő
-                  </button>
+              {/* Loading indicator */}
+              {isFetchingNextPage && (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+                  <span className="ml-2 text-sm text-gray-500 dark:text-dark-text-secondary">További levelek betöltése...</span>
                 </div>
               )}
             </>

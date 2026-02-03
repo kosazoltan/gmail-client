@@ -1,15 +1,16 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
-import { useInbox } from '../../hooks/useInbox';
+import { useInboxInfinite } from '../../hooks/useInbox';
 import { useToggleStar, useMarkRead, useDeleteEmail, useBatchDeleteEmails } from '../../hooks/useEmails';
 import { useKeyboardShortcuts, useSearchFocus } from '../../hooks/useKeyboardShortcuts';
+import { useInfiniteScroll } from '../../hooks/useInfiniteScroll';
 import { ThreadedEmailList } from '../email/ThreadedEmailList';
 import { EmailDetail } from '../email/EmailDetail';
 import { KeyboardShortcutsHelp } from '../common/KeyboardShortcutsHelp';
 import { ResizablePanels } from '../common/ResizablePanels';
 import { LoginScreen } from '../auth/LoginScreen';
-import { CheckSquare, X, Trash2, Square, CheckCheck } from 'lucide-react';
+import { CheckSquare, X, Trash2, Square, CheckCheck, Loader2 } from 'lucide-react';
 import type { Email } from '../../types';
 import { getNextEmailAfterDelete } from '../../lib/emailNavigation';
 
@@ -17,7 +18,6 @@ export function InboxView() {
   const navigate = useNavigate();
   const { data: session } = useSession();
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
-  const [page, setPage] = useState(1);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -27,14 +27,27 @@ export function InboxView() {
   const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
 
   const accountId = session?.activeAccountId || undefined;
-  const { data, isLoading } = useInbox({ accountId, page });
+  const {
+    data,
+    isLoading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInboxInfinite({ accountId });
+
+  const { containerRef } = useInfiniteScroll({
+    hasNextPage: !!hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  });
   const toggleStar = useToggleStar();
   const markRead = useMarkRead();
   const deleteEmail = useDeleteEmail();
   const batchDeleteEmails = useBatchDeleteEmails();
   const focusSearch = useSearchFocus();
 
-  const emails = useMemo(() => data?.emails || [], [data?.emails]);
+  const emails = useMemo(() => data?.pages?.flatMap(page => page.emails) || [], [data?.pages]);
+  const totalEmails = data?.pages?.[0]?.total || 0;
 
   // Kiválasztott email indexe
   const selectedIndex = useMemo(() => {
@@ -282,12 +295,12 @@ export function InboxView() {
 
         {!selectionMode && (
           <h2 className="text-sm font-medium text-gray-600 dark:text-dark-text-secondary">
-            Beérkezett levelek{data?.total ? ` (${data.total})` : ''}
+            Beérkezett levelek{totalEmails ? ` (${totalEmails})` : ''}
           </h2>
         )}
       </div>
 
-      <div className="flex-1 overflow-auto">
+      <div ref={containerRef} className="flex-1 overflow-auto">
         <ThreadedEmailList
           emails={emails}
           isLoading={isLoading}
@@ -315,28 +328,13 @@ export function InboxView() {
           selectedIds={selectedIds}
           onToggleSelect={toggleSelectEmail}
         />
+        {isFetchingNextPage && (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+            <span className="ml-2 text-sm text-gray-500 dark:text-dark-text-secondary">További levelek betöltése...</span>
+          </div>
+        )}
       </div>
-      {data && data.totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 p-3 border-t border-gray-200 dark:border-dark-border">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="px-4 py-3 text-sm rounded-lg border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary disabled:opacity-50 dark:text-dark-text touch-manipulation"
-          >
-            Előző
-          </button>
-          <span className="text-sm text-gray-500 dark:text-dark-text-secondary">
-            {page} / {data.totalPages}
-          </span>
-          <button
-            onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
-            disabled={page === data.totalPages}
-            className="px-4 py-3 text-sm rounded-lg border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary disabled:opacity-50 dark:text-dark-text touch-manipulation"
-          >
-            Következő
-          </button>
-        </div>
-      )}
     </div>
   );
 

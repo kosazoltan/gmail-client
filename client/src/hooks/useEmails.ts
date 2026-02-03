@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 
 export function useEmails(params: {
@@ -11,6 +11,25 @@ export function useEmails(params: {
     queryKey: ['emails', params],
     queryFn: () => api.emails.list(params),
     enabled: !!params.accountId,
+  });
+}
+
+export function useEmailsInfinite(params: {
+  accountId?: string;
+  limit?: number;
+  sort?: string;
+}) {
+  return useInfiniteQuery({
+    queryKey: ['emails-infinite', params.accountId, params.limit, params.sort],
+    queryFn: ({ pageParam = 1 }) => api.emails.list({ ...params, page: pageParam }),
+    enabled: !!params.accountId,
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.page < lastPage.totalPages) {
+        return lastPage.page + 1;
+      }
+      return undefined;
+    },
   });
 }
 
