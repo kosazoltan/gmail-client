@@ -2,6 +2,10 @@ import { Router } from 'express';
 
 const router = Router();
 
+// Valid language codes whitelist
+const VALID_LANGS = new Set(['auto', 'hu', 'en', 'de', 'fr', 'es', 'it', 'pt', 'ru', 'zh', 'ja', 'ko', 'ar', 'pl', 'nl', 'cs', 'ro', 'sk', 'uk']);
+const MAX_TEXT_LENGTH = 50000; // 50KB limit
+
 // Simple translation endpoint using LibreTranslate API
 // This is a free, open-source translation API
 router.post('/', async (req, res) => {
@@ -10,6 +14,18 @@ router.post('/', async (req, res) => {
 
     if (!text) {
       res.status(400).json({ error: 'Text is required' });
+      return;
+    }
+
+    // Input validation - prevent DoS with large payloads
+    if (typeof text !== 'string' || text.length > MAX_TEXT_LENGTH) {
+      res.status(400).json({ error: `Text must not exceed ${MAX_TEXT_LENGTH} characters` });
+      return;
+    }
+
+    // Language code validation - prevent injection
+    if (!VALID_LANGS.has(targetLang) || !VALID_LANGS.has(sourceLang)) {
+      res.status(400).json({ error: 'Invalid language code' });
       return;
     }
 

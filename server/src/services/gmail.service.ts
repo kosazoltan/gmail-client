@@ -110,7 +110,7 @@ async function parseMessage(message: gmail_v1.Schema$Message, gmail?: gmail_v1.G
     snippet: message.snippet,
     body: text,
     bodyHtml: processedHtml,
-    date: parseInt(message.internalDate || '0'),
+    date: parseInt(message.internalDate || '0', 10),
     isRead: !message.labelIds?.includes('UNREAD'),
     isStarred: message.labelIds?.includes('STARRED') || false,
     labels: message.labelIds || [],
@@ -140,7 +140,7 @@ function parseMessageMetadata(message: gmail_v1.Schema$Message) {
     to: decodeRFC2047(getHeader('To')),
     cc: decodeRFC2047(getHeader('Cc')),
     snippet: message.snippet,
-    date: parseInt(message.internalDate || '0'),
+    date: parseInt(message.internalDate || '0', 10),
     isRead: !message.labelIds?.includes('UNREAD'),
     isStarred: message.labelIds?.includes('STARRED') || false,
     labels: message.labelIds || [],
@@ -311,6 +311,18 @@ function extractInlineImages(
   return result;
 }
 
+// FIX: Valid MIME types for inline images to prevent injection
+const VALID_IMAGE_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/svg+xml',
+  'image/bmp',
+  'image/x-icon',
+  'image/tiff',
+]);
+
 // HTML body-ban a cid: referenciák cseréje base64 data URL-ekre
 function replaceCidReferences(html: string, inlineImages: InlineImage[]): string {
   let result = html;
@@ -318,6 +330,12 @@ function replaceCidReferences(html: string, inlineImages: InlineImage[]): string
   for (const img of inlineImages) {
     // Ha nincs adat, skip
     if (!img.data) continue;
+
+    // FIX: Validate MIME type to prevent injection
+    if (!VALID_IMAGE_MIME_TYPES.has(img.mimeType)) {
+      logger.warn('Skipping inline image with invalid MIME type', { contentId: img.contentId, mimeType: img.mimeType });
+      continue;
+    }
 
     // cid:xxx formátumú referenciák cseréje data URL-re
     const cidPattern = new RegExp(`cid:${img.contentId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'gi');

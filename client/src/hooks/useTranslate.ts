@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '../lib/api';
 
@@ -37,6 +37,16 @@ export function useEmailTranslation() {
   const [isTranslating, setIsTranslating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // FIX: Track mounted state to prevent setState after unmount
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const translateEmail = useCallback(async (
     subject: string | null | undefined,
     body: string | null | undefined,
@@ -64,17 +74,24 @@ export function useEmailTranslation() {
         }
       }
 
-      setTranslatedContent({
-        ...results,
-        targetLang,
-      });
+      // FIX: Only update state if component is still mounted
+      if (mountedRef.current) {
+        setTranslatedContent({
+          ...results,
+          targetLang,
+        });
+      }
 
       return results;
     } catch (err) {
-      setError('Fordítás sikertelen');
+      if (mountedRef.current) {
+        setError('Fordítás sikertelen');
+      }
       throw err;
     } finally {
-      setIsTranslating(false);
+      if (mountedRef.current) {
+        setIsTranslating(false);
+      }
     }
   }, []);
 

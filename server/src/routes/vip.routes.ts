@@ -53,7 +53,7 @@ router.get('/emails', (req, res) => {
     );
 
     res.json({
-      emails: vipEmails.map((v) => v.email.toLowerCase()),
+      emails: vipEmails.filter(v => v.email).map((v) => v.email.toLowerCase()),
     });
   } catch (error) {
     console.error('VIP emails fetch error:', error);
@@ -129,8 +129,8 @@ router.put('/:id', (req, res) => {
     }
 
     execute(
-      'UPDATE vip_senders SET name = ? WHERE id = ?',
-      [name || null, id],
+      'UPDATE vip_senders SET name = ? WHERE id = ? AND account_id = ?',
+      [name || null, id, accountId],
     );
 
     res.json({ success: true });
@@ -159,7 +159,7 @@ router.delete('/:id', (req, res) => {
       return res.status(404).json({ error: 'VIP küldő nem található' });
     }
 
-    execute('DELETE FROM vip_senders WHERE id = ?', [id]);
+    execute('DELETE FROM vip_senders WHERE id = ? AND account_id = ?', [id, accountId]);
 
     res.json({ success: true });
   } catch (error) {
@@ -191,7 +191,7 @@ router.post('/toggle', (req, res) => {
 
     if (existing) {
       // Remove
-      execute('DELETE FROM vip_senders WHERE id = ?', [existing.id]);
+      execute('DELETE FROM vip_senders WHERE id = ? AND account_id = ?', [existing.id, accountId]);
       res.json({ isVip: false });
     } else {
       // Add

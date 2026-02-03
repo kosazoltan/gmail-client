@@ -17,7 +17,7 @@ router.get('/search', (req: Request, res: Response) => {
   }
 
   const query = (req.query.q as string) || '';
-  const limit = parseInt(req.query.limit as string) || 10;
+  const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 10), 50);
 
   if (!query || query.length < 1) {
     return res.json([]);

@@ -47,14 +47,19 @@ router.get('/emails', (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
   }
 
+  // Validate sortOrder against whitelist to prevent SQL injection
+  const validSortOrders = ['asc', 'desc'] as const;
+  const sortOrderParam = req.query.sortOrder as string;
+  const sortOrder = validSortOrders.includes(sortOrderParam as 'asc' | 'desc') ? sortOrderParam as 'asc' | 'desc' : 'desc';
+
   const options = {
-    page: parseInt(req.query.page as string) || 1,
-    limit: Math.min(parseInt(req.query.limit as string) || 50, MAX_LIMIT),
+    page: Math.max(1, parseInt(req.query.page as string, 10) || 1),
+    limit: Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), MAX_LIMIT),
     sortBy: (req.query.sortBy as 'date' | 'from' | 'subject' | 'size') || 'date',
-    sortOrder: (req.query.sortOrder as 'asc' | 'desc') || 'desc',
+    sortOrder,
     search: req.query.search as string | undefined,
-    dateFrom: req.query.dateFrom ? parseInt(req.query.dateFrom as string) : undefined,
-    dateTo: req.query.dateTo ? parseInt(req.query.dateTo as string) : undefined,
+    dateFrom: req.query.dateFrom ? parseInt(req.query.dateFrom as string, 10) : undefined,
+    dateTo: req.query.dateTo ? parseInt(req.query.dateTo as string, 10) : undefined,
     hasAttachments: req.query.hasAttachments === 'true' ? true : req.query.hasAttachments === 'false' ? false : undefined,
     isRead: req.query.isRead === 'true' ? true : req.query.isRead === 'false' ? false : undefined,
   };

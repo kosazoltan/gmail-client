@@ -118,7 +118,7 @@ router.post('/:emailId/toggle', (req, res) => {
 
     if (existing) {
       // Unpin
-      execute('DELETE FROM pinned_emails WHERE id = ?', [existing.id]);
+      execute('DELETE FROM pinned_emails WHERE id = ? AND account_id = ?', [existing.id, accountId]);
       return res.json({ isPinned: false });
     } else {
       // Pin

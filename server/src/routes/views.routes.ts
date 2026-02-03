@@ -36,8 +36,8 @@ const router = Router();
 // Max limit konstans a DoS védelem érdekében
 const MAX_LIMIT = 100;
 
-// BUG #12 Fix: Default account color constant
-const DEFAULT_ACCOUNT_COLOR = 'DEFAULT_ACCOUNT_COLOR';
+// Default account color constant - actual hex color value
+const DEFAULT_ACCOUNT_COLOR = '#3B82F6';
 
 // Jogosultság ellenőrzés helper
 function validateAccountAccess(req: { query: { accountId?: string }; session: { activeAccountId?: string | null; accountIds?: string[] } }): string | null {
@@ -56,8 +56,8 @@ router.get('/by-sender', (req, res) => {
     const accountId = validateAccountAccess(req);
     if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
 
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 30, MAX_LIMIT);
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 30), MAX_LIMIT);
     const offset = (page - 1) * limit;
 
     const senders = queryAll('SELECT * FROM sender_groups WHERE account_id = ? ORDER BY message_count DESC LIMIT ? OFFSET ?', [accountId, limit, offset]);
@@ -74,8 +74,8 @@ router.get('/by-sender/:email', (req, res) => {
     if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
 
     const senderEmail = decodeURIComponent(req.params.email);
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 50, MAX_LIMIT);
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), MAX_LIMIT);
     const offset = (page - 1) * limit;
 
     const results = queryAll<EmailRecord>('SELECT * FROM emails WHERE account_id = ? AND from_email = ? ORDER BY date DESC LIMIT ? OFFSET ?', [accountId, senderEmail, limit, offset]);
@@ -91,8 +91,8 @@ router.get('/by-topic', (req, res) => {
     const accountId = validateAccountAccess(req);
     if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
 
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 30, MAX_LIMIT);
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 30), MAX_LIMIT);
     const offset = (page - 1) * limit;
 
     const topicList = queryAll('SELECT * FROM topics WHERE account_id = ? ORDER BY message_count DESC LIMIT ? OFFSET ?', [accountId, limit, offset]);
@@ -157,8 +157,8 @@ router.get('/by-time/:periodId', (req, res) => {
     if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
 
     const periodId = req.params.periodId;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 50, MAX_LIMIT);
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), MAX_LIMIT);
     const offset = (page - 1) * limit;
 
     const now = new Date();
@@ -218,8 +218,8 @@ router.get('/by-category/:id', (req, res) => {
     if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
 
     const categoryId = req.params.id;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 50, MAX_LIMIT);
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), MAX_LIMIT);
     const offset = (page - 1) * limit;
 
     const results = queryAll<EmailRecord>('SELECT * FROM emails WHERE account_id = ? AND category_id = ? ORDER BY date DESC LIMIT ? OFFSET ?', [accountId, categoryId, limit, offset]);
@@ -265,8 +265,8 @@ router.get('/inbox', (req, res) => {
     const accountId = validateAccountAccess(req);
     if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
 
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 50, MAX_LIMIT);
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), MAX_LIMIT);
     const offset = (page - 1) * limit;
 
     // Szűrjük azokat az emaileket, amelyek labels JSON-jében benne van az "INBOX" DE NINCS benne a "TRASH"
@@ -308,8 +308,8 @@ router.get('/unified', (req, res) => {
       return;
     }
 
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 50, MAX_LIMIT);
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), MAX_LIMIT);
     const offset = (page - 1) * limit;
     const filterAccountId = req.query.filterAccountId as string | undefined;
 
@@ -353,7 +353,7 @@ router.get('/unified', (req, res) => {
         ...formatEmail(email),
         accountId: email.account_id,
         accountEmail: accountInfo?.email || null,
-        accountColor: accountInfo?.color || 'DEFAULT_ACCOUNT_COLOR',
+        accountColor: accountInfo?.color || DEFAULT_ACCOUNT_COLOR,
       };
     });
 
@@ -364,7 +364,7 @@ router.get('/unified', (req, res) => {
       return {
         accountId: accId,
         email: accountInfo?.email || '',
-        color: accountInfo?.color || 'DEFAULT_ACCOUNT_COLOR',
+        color: accountInfo?.color || DEFAULT_ACCOUNT_COLOR,
         count,
       };
     });
@@ -388,8 +388,8 @@ router.get('/trash', (req, res) => {
     const accountId = validateAccountAccess(req);
     if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
 
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 50, MAX_LIMIT);
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), MAX_LIMIT);
     const offset = (page - 1) * limit;
 
     // Szűrjük azokat az emaileket, amelyek labels JSON-jében benne van a "TRASH"

@@ -32,7 +32,7 @@ import scheduledRoutes, { processScheduledEmails } from './routes/scheduled.rout
 import vipRoutes from './routes/vip.routes.js';
 import translateRoutes from './routes/translate.routes.js';
 
-const PORT = parseInt(process.env.PORT || '5000');
+const PORT = parseInt(process.env.PORT || '5000', 10);
 
 // Szerver indítás
 async function start() {

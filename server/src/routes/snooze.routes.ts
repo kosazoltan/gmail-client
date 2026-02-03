@@ -65,7 +65,7 @@ router.post('/', (req, res) => {
     }
 
     // Validáljuk a snoozeUntil timestamp-et
-    const snoozeTimestamp = parseInt(snoozeUntil);
+    const snoozeTimestamp = parseInt(snoozeUntil, 10);
     const now = Date.now();
     const maxSnoozeTime = now + 365 * 24 * 60 * 60 * 1000; // Max 1 év
 
@@ -95,8 +95,8 @@ router.post('/', (req, res) => {
     if (existing) {
       // Frissítsük a meglévő szundit
       execute(
-        'UPDATE snoozed_emails SET snooze_until = ? WHERE id = ?',
-        [snoozeTimestamp, existing.id],
+        'UPDATE snoozed_emails SET snooze_until = ? WHERE id = ? AND account_id = ?',
+        [snoozeTimestamp, existing.id, accountId],
       );
 
       res.json({
@@ -148,7 +148,7 @@ router.delete('/:emailId', (req, res) => {
       return res.status(404).json({ error: 'Szundizott email nem található' });
     }
 
-    execute('DELETE FROM snoozed_emails WHERE id = ?', [existing.id]);
+    execute('DELETE FROM snoozed_emails WHERE id = ? AND account_id = ?', [existing.id, accountId]);
 
     res.json({ success: true });
   } catch (error) {

@@ -61,7 +61,7 @@ export async function syncAccount(accountId: string, fullSync = false) {
     if (!fullSync && account.history_id) {
       processedCount = await incrementalSync(gmail, accountId, account.history_id);
     } else {
-      const daysBack = parseInt(process.env.SYNC_DAYS_BACK || '30');
+      const daysBack = Math.max(1, parseInt(process.env.SYNC_DAYS_BACK || '30', 10));
       processedCount = await fullSyncMessages(gmail, accountId, daysBack);
     }
 
@@ -214,7 +214,7 @@ async function incrementalSync(
       : undefined;
     if (errorCode === 404) {
       console.log('HistoryId érvénytelen, teljes szinkronizálás...');
-      const daysBack = parseInt(process.env.SYNC_DAYS_BACK || '30');
+      const daysBack = Math.max(1, parseInt(process.env.SYNC_DAYS_BACK || '30', 10));
       processedCount = await fullSyncMessages(gmail, accountId, daysBack);
     } else {
       throw err;
@@ -421,7 +421,7 @@ const syncIntervals = new Map<string, NodeJS.Timeout>();
 export function startBackgroundSync(accountId: string) {
   if (syncIntervals.has(accountId)) return;
 
-  const intervalMs = parseInt(process.env.SYNC_INTERVAL_MS || '120000');
+  const intervalMs = Math.max(30000, parseInt(process.env.SYNC_INTERVAL_MS || '120000', 10));
   const interval = setInterval(async () => {
     try {
       await syncAccount(accountId);

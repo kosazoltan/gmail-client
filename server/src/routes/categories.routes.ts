@@ -54,8 +54,8 @@ router.put('/:id', (req, res) => {
   if (icon) { updates.push('icon = ?'); params.push(icon); }
 
   if (updates.length > 0) {
-    params.push(categoryId);
-    execute('UPDATE categories SET ' + updates.join(', ') + ' WHERE id = ?', params);
+    params.push(categoryId, accountId);
+    execute('UPDATE categories SET ' + updates.join(', ') + ' WHERE id = ? AND account_id = ?', params);
   }
   res.json({ success: true });
 });
@@ -79,7 +79,7 @@ router.delete('/:id', (req, res) => {
     return;
   }
 
-  execute('DELETE FROM categories WHERE id = ?', [categoryId]);
+  execute('DELETE FROM categories WHERE id = ? AND account_id = ?', [categoryId, accountId]);
   res.json({ success: true });
 });
 
@@ -131,7 +131,7 @@ router.delete('/rules/:id', (req, res) => {
     return;
   }
 
-  execute('DELETE FROM categorization_rules WHERE id = ?', [req.params.id]);
+  execute('DELETE FROM categorization_rules WHERE id = ? AND account_id = ?', [req.params.id, accountId]);
   res.json({ success: true });
 });
 

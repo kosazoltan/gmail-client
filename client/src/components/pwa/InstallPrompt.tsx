@@ -30,7 +30,7 @@ export function InstallPrompt() {
     // Ellenőrizzük, hogy korábban elutasította-e
     const dismissedAt = localStorage.getItem('pwa-install-dismissed');
     if (dismissedAt) {
-      const dismissedDate = new Date(parseInt(dismissedAt));
+      const dismissedDate = new Date(parseInt(dismissedAt, 10));
       const daysSinceDismissed = (Date.now() - dismissedDate.getTime()) / (1000 * 60 * 60 * 24);
       // 7 napig ne kérdezzük újra
       if (daysSinceDismissed < 7) {

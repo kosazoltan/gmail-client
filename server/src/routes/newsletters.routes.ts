@@ -115,8 +115,8 @@ router.get('/emails', (req, res) => {
       return res.status(401).json({ error: 'Nincs bejelentkezve' });
     }
 
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), 100);
     const senderId = req.query.senderId as string | undefined;
     const includeMuted = req.query.includeMuted === 'true';
 

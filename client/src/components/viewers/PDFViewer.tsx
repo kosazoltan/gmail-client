@@ -133,8 +133,8 @@ export function PDFViewer({ url, filename, onClose }: PDFViewerProps) {
             max={numPages}
             value={pageNumber}
             onChange={(e) => {
-              const page = parseInt(e.target.value);
-              if (page >= 1 && page <= numPages) {
+              const page = parseInt(e.target.value, 10);
+              if (!isNaN(page) && page >= 1 && page <= numPages) {
                 setPageNumber(page);
               }
             }}

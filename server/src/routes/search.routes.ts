@@ -50,8 +50,8 @@ router.get('/', (req, res) => {
     return;
   }
 
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = Math.min(parseInt(req.query.limit as string) || 50, MAX_LIMIT);
+  const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+  const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), MAX_LIMIT);
 
   const results = searchEmails({ accountId, query, page, limit });
   res.json(results);

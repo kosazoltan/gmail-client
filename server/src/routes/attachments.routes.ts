@@ -37,8 +37,8 @@ router.get('/', async (req, res) => {
       search: req.query.search as string | undefined,
       sort: (req.query.sort as 'date' | 'size' | 'name') || 'date',
       order: (req.query.order as 'asc' | 'desc') || 'desc',
-      page: parseInt(req.query.page as string) || 1,
-      limit: Math.min(parseInt(req.query.limit as string) || 50, 100),
+      page: Math.max(1, parseInt(req.query.page as string, 10) || 1),
+      limit: Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), 100),
     };
 
     const result = listAttachments(filter);

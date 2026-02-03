@@ -100,7 +100,7 @@ router.post('/', (req, res) => {
     }
 
     // Validate scheduledAt timestamp
-    const scheduledTimestamp = parseInt(scheduledAt);
+    const scheduledTimestamp = parseInt(scheduledAt, 10);
     const now = Date.now();
     const maxScheduleTime = now + 365 * 24 * 60 * 60 * 1000; // Max 1 year
 
@@ -158,7 +158,7 @@ router.put('/:id', (req, res) => {
 
     // Validate if scheduledAt is provided
     if (scheduledAt) {
-      const scheduledTimestamp = parseInt(scheduledAt);
+      const scheduledTimestamp = parseInt(scheduledAt, 10);
       const now = Date.now();
       if (isNaN(scheduledTimestamp) || scheduledTimestamp <= now) {
         return res.status(400).json({ error: 'Érvénytelen időpont' });
@@ -168,14 +168,15 @@ router.put('/:id', (req, res) => {
     execute(
       `UPDATE scheduled_emails
        SET to_addresses = ?, cc_addresses = ?, subject = ?, body = ?, scheduled_at = ?
-       WHERE id = ?`,
+       WHERE id = ? AND account_id = ?`,
       [
         to || existing.to_addresses,
         cc !== undefined ? cc : existing.cc_addresses,
         subject !== undefined ? subject : existing.subject,
         body !== undefined ? body : existing.body,
-        scheduledAt ? parseInt(scheduledAt) : existing.scheduled_at,
+        scheduledAt ? parseInt(scheduledAt, 10) : existing.scheduled_at,
         id,
+        accountId,
       ],
     );
 
@@ -205,7 +206,7 @@ router.delete('/:id', (req, res) => {
       return res.status(404).json({ error: 'Ütemezett email nem található' });
     }
 
-    execute('DELETE FROM scheduled_emails WHERE id = ?', [id]);
+    execute('DELETE FROM scheduled_emails WHERE id = ? AND account_id = ?', [id, accountId]);
 
     res.json({ success: true });
   } catch (error) {

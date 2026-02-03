@@ -84,7 +84,7 @@ router.post('/', (req, res) => {
   }
 
   // Validáljuk a remindAt timestamp-et
-  const remindTimestamp = parseInt(remindAt);
+  const remindTimestamp = parseInt(remindAt, 10);
   if (isNaN(remindTimestamp) || remindTimestamp <= Date.now()) {
     return res.status(400).json({ error: 'Érvénytelen emlékeztető időpont - jövőbeli időpontot adj meg' });
   }
@@ -165,8 +165,8 @@ router.patch('/:id', (req, res) => {
   }
 
   if (updates.length > 0) {
-    values.push(id);
-    execute(`UPDATE reminders SET ${updates.join(', ')} WHERE id = ?`, values);
+    values.push(id, accountId);
+    execute(`UPDATE reminders SET ${updates.join(', ')} WHERE id = ? AND account_id = ?`, values);
   }
 
   const updated = queryOne('SELECT * FROM reminders WHERE id = ?', [id]);
@@ -196,7 +196,7 @@ router.delete('/:id', (req, res) => {
     return res.status(404).json({ error: 'Emlékeztető nem található' });
   }
 
-  execute('DELETE FROM reminders WHERE id = ?', [id]);
+  execute('DELETE FROM reminders WHERE id = ? AND account_id = ?', [id, accountId]);
 
   return res.json({ success: true });
 });
@@ -219,7 +219,7 @@ router.post('/:id/complete', (req, res) => {
     return res.status(404).json({ error: 'Emlékeztető nem található' });
   }
 
-  execute('UPDATE reminders SET is_completed = 1 WHERE id = ?', [id]);
+  execute('UPDATE reminders SET is_completed = 1 WHERE id = ? AND account_id = ?', [id, accountId]);
 
   const updated = queryOne('SELECT * FROM reminders WHERE id = ?', [id]);
 

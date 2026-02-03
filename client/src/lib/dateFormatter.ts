@@ -3,6 +3,12 @@
  */
 export function formatEmailDate(date: Date | number): string {
   const emailDate = typeof date === 'number' ? new Date(date) : date;
+
+  // FIX: Handle invalid date
+  if (isNaN(emailDate.getTime())) {
+    return 'Ismeretlen dátum';
+  }
+
   const now = new Date();
 
   // Milliszekundumok közötti különbség

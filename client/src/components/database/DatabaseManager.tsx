@@ -462,7 +462,7 @@ function EmailsTab() {
                 Mégse
               </button>
               <button
-                onClick={() => deleteOldMutation.mutate(parseInt(deleteOldDays))}
+                onClick={() => deleteOldMutation.mutate(parseInt(deleteOldDays, 10))}
                 disabled={deleteOldMutation.isPending}
                 className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
               >

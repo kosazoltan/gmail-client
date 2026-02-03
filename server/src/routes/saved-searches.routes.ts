@@ -174,7 +174,7 @@ router.delete('/:id', (req, res) => {
       return res.status(404).json({ error: 'Mentett keresés nem található' });
     }
 
-    execute('DELETE FROM saved_searches WHERE id = ?', [id]);
+    execute('DELETE FROM saved_searches WHERE id = ? AND account_id = ?', [id, accountId]);
 
     res.json({ success: true });
   } catch (error) {

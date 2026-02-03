@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Download, Loader2, AlertCircle } from 'lucide-react';
 import * as mammoth from 'mammoth';
+import DOMPurify from 'dompurify';
 
 interface DocumentViewerProps {
   url: string;
@@ -30,13 +31,23 @@ export function DocumentViewer({ url, filename, mimeType, onClose }: DocumentVie
         // DOCX formátum - mammoth.js-sel
         if (mimeType.includes('wordprocessingml') || filename.endsWith('.docx')) {
           const result = await mammoth.convertToHtml({ arrayBuffer });
-          setContent(result.value);
+          // Sanitize mammoth output to prevent XSS
+          const sanitized = DOMPurify.sanitize(result.value, {
+            ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'b', 'i', 'u', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'div', 'span', 'img'],
+            ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'src', 'alt', 'width', 'height'],
+          });
+          setContent(sanitized);
         }
         // DOC formátum - próbáljuk mammoth-tal (nem garantált)
         else if (mimeType.includes('msword') || filename.endsWith('.doc')) {
           try {
             const result = await mammoth.convertToHtml({ arrayBuffer });
-            setContent(result.value);
+            // Sanitize mammoth output to prevent XSS
+            const sanitized = DOMPurify.sanitize(result.value, {
+              ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'b', 'i', 'u', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'div', 'span', 'img'],
+              ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'src', 'alt', 'width', 'height'],
+            });
+            setContent(sanitized);
           } catch {
             throw new Error('A régi .doc formátum nem támogatott. Kérjük, konvertálja .docx formátumba.');
           }
