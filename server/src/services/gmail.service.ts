@@ -1,5 +1,6 @@
 import { google, gmail_v1 } from 'googleapis';
 import type { OAuth2Client } from 'google-auth-library';
+import iconv from 'iconv-lite';
 import logger from '../utils/logger.js';
 
 // Gmail API wrapper
@@ -190,24 +191,56 @@ function decodeRFC2047(text: string): string {
         return match; // Ismeretlen kódolás, marad az eredeti
       }
 
-      // Charset alapján dekódolás - a legtöbb esetben UTF-8
-      const lowerCharset = charset.toLowerCase();
-      if (lowerCharset === 'utf-8' || lowerCharset === 'utf8') {
-        return decoded.toString('utf-8');
-      } else if (lowerCharset === 'iso-8859-1' || lowerCharset === 'latin1') {
-        return decoded.toString('latin1');
-      } else if (lowerCharset === 'iso-8859-2' || lowerCharset === 'latin2') {
-        // ISO-8859-2 (közép-európai) - próbáljuk UTF-8-ként
-        return decoded.toString('utf-8');
-      } else if (lowerCharset.includes('windows-1250') || lowerCharset.includes('cp1250')) {
-        // Windows-1250 (közép-európai Windows) - próbáljuk UTF-8-ként
-        return decoded.toString('utf-8');
-      } else if (lowerCharset.includes('windows-1252') || lowerCharset.includes('cp1252')) {
-        return decoded.toString('latin1');
-      } else {
-        // Alapértelmezett: UTF-8
+      // Charset alapján dekódolás - iconv-lite használata a speciális kódolásokhoz
+      const lowerCharset = charset.toLowerCase().replace(/[_-]/g, '');
+
+      // UTF-8
+      if (lowerCharset === 'utf8') {
         return decoded.toString('utf-8');
       }
+
+      // ISO-8859-1 / Latin1 (nyugat-európai)
+      if (lowerCharset === 'iso88591' || lowerCharset === 'latin1') {
+        return decoded.toString('latin1');
+      }
+
+      // ISO-8859-2 / Latin2 (közép-európai: magyar, lengyel, cseh, stb.)
+      if (lowerCharset === 'iso88592' || lowerCharset === 'latin2') {
+        return iconv.decode(decoded, 'iso-8859-2');
+      }
+
+      // Windows-1250 (közép-európai Windows kódolás)
+      if (lowerCharset === 'windows1250' || lowerCharset === 'cp1250') {
+        return iconv.decode(decoded, 'windows-1250');
+      }
+
+      // Windows-1252 (nyugat-európai Windows kódolás)
+      if (lowerCharset === 'windows1252' || lowerCharset === 'cp1252') {
+        return iconv.decode(decoded, 'windows-1252');
+      }
+
+      // ISO-8859-15 / Latin9 (nyugat-európai € jellel)
+      if (lowerCharset === 'iso885915' || lowerCharset === 'latin9') {
+        return iconv.decode(decoded, 'iso-8859-15');
+      }
+
+      // KOI8-R (orosz)
+      if (lowerCharset === 'koi8r') {
+        return iconv.decode(decoded, 'koi8-r');
+      }
+
+      // Windows-1251 (cirill)
+      if (lowerCharset === 'windows1251' || lowerCharset === 'cp1251') {
+        return iconv.decode(decoded, 'windows-1251');
+      }
+
+      // Ha ismert a kódolás az iconv-lite-nak, próbáljuk meg
+      if (iconv.encodingExists(charset)) {
+        return iconv.decode(decoded, charset);
+      }
+
+      // Alapértelmezett: UTF-8
+      return decoded.toString('utf-8');
     } catch (err) {
       logger.warn('RFC2047 decode failed', { match, error: err });
       return match; // Hiba esetén marad az eredeti
