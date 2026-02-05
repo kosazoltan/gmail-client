@@ -108,11 +108,16 @@ export function useDeleteEmail() {
   return useMutation({
     mutationFn: (emailId: string) => api.emails.delete(emailId),
     onSuccess: () => {
-      // MINDEN email listát frissítünk azonnal
+      // MINDEN email listát frissítünk azonnal - beleértve az infinite query-ket is
       queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['emails-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['email'] });
-      queryClient.invalidateQueries({ queryKey: ['inbox'] }); // Beérkezett nézet
-      queryClient.invalidateQueries({ queryKey: ['trash'] }); // Kuka nézet
+      queryClient.invalidateQueries({ queryKey: ['inbox'] });
+      queryClient.invalidateQueries({ queryKey: ['inbox-infinite'] }); // Infinite scroll inbox
+      queryClient.invalidateQueries({ queryKey: ['unified-inbox'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-inbox-infinite'] }); // Infinite scroll unified
+      queryClient.invalidateQueries({ queryKey: ['trash'] });
+      queryClient.invalidateQueries({ queryKey: ['trash-infinite'] }); // Infinite scroll trash
       queryClient.invalidateQueries({ queryKey: ['views'] });
       queryClient.invalidateQueries({ queryKey: ['search'] });
     },
@@ -125,9 +130,14 @@ export function useBatchDeleteEmails() {
     mutationFn: (emailIds: string[]) => api.emails.batchDelete(emailIds),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['emails-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['email'] });
       queryClient.invalidateQueries({ queryKey: ['inbox'] });
+      queryClient.invalidateQueries({ queryKey: ['inbox-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-inbox'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-inbox-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['trash'] });
+      queryClient.invalidateQueries({ queryKey: ['trash-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['views'] });
       queryClient.invalidateQueries({ queryKey: ['search'] });
     },
