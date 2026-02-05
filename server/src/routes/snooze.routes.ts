@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { queryAll, queryOne, execute } from '../db/index.js';
+import { queryAll, queryOne, execute, runInTransaction } from '../db/index.js';
 import { v4 as uuid } from 'uuid';
 
 interface SnoozedEmailWithProcessing {
@@ -95,43 +95,48 @@ router.post('/', (req, res) => {
       return res.status(404).json({ error: 'Email nem található' });
     }
 
-    // Ellenőrizzük, hogy már szundizva van-e (saját fiókban)
-    const existing = queryOne<{ id: string }>(
-      'SELECT id FROM snoozed_emails WHERE email_id = ? AND account_id = ?',
-      [emailId, accountId],
-    );
-
-    if (existing) {
-      // Frissítsük a meglévő szundit
-      execute(
-        'UPDATE snoozed_emails SET snooze_until = ? WHERE id = ? AND account_id = ?',
-        [snoozeTimestamp, existing.id, accountId],
+    // FIX: Use transaction to prevent race condition (check-then-insert/update)
+    const result = runInTransaction(() => {
+      // Ellenőrizzük, hogy már szundizva van-e (saját fiókban)
+      const existing = queryOne<{ id: string }>(
+        'SELECT id FROM snoozed_emails WHERE email_id = ? AND account_id = ?',
+        [emailId, accountId],
       );
 
-      res.json({
-        id: existing.id,
-        emailId,
-        snoozeUntil: snoozeTimestamp,
-        updated: true,
-      });
-    } else {
-      // Új szundi létrehozása
-      const id = uuid();
-      const now = Date.now();
+      if (existing) {
+        // Frissítsük a meglévő szundit
+        execute(
+          'UPDATE snoozed_emails SET snooze_until = ? WHERE id = ? AND account_id = ?',
+          [snoozeTimestamp, existing.id, accountId],
+        );
 
-      execute(
-        `INSERT INTO snoozed_emails (id, email_id, account_id, snooze_until, created_at)
-         VALUES (?, ?, ?, ?, ?)`,
-        [id, emailId, accountId, snoozeTimestamp, now],
-      );
+        return {
+          id: existing.id,
+          emailId,
+          snoozeUntil: snoozeTimestamp,
+          updated: true,
+        };
+      } else {
+        // Új szundi létrehozása
+        const id = uuid();
+        const createdAt = Date.now();
 
-      res.json({
-        id,
-        emailId,
-        snoozeUntil: snoozeTimestamp,
-        createdAt: now,
-      });
-    }
+        execute(
+          `INSERT INTO snoozed_emails (id, email_id, account_id, snooze_until, created_at)
+           VALUES (?, ?, ?, ?, ?)`,
+          [id, emailId, accountId, snoozeTimestamp, createdAt],
+        );
+
+        return {
+          id,
+          emailId,
+          snoozeUntil: snoozeTimestamp,
+          createdAt,
+        };
+      }
+    });
+
+    res.json(result);
   } catch (error) {
     console.error('Email szundizása hiba:', error);
     res.status(500).json({ error: 'Nem sikerült szundizni az emailt' });

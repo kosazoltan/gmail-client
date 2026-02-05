@@ -58,7 +58,13 @@ export function useSendEmail() {
       attachments?: EmailAttachment[];
     }) => api.emails.send(data),
     onSuccess: () => {
+      // Invalidate all email-related queries to show sent email in lists
       queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['emails-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['inbox'] });
+      queryClient.invalidateQueries({ queryKey: ['inbox-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-inbox'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-inbox-infinite'] });
     },
   });
 }
@@ -76,7 +82,14 @@ export function useReplyEmail() {
       attachments?: EmailAttachment[];
     }) => api.emails.reply(data),
     onSuccess: () => {
+      // Invalidate all email-related queries to show reply in thread
       queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['emails-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['email'] }); // Email detail for thread
+      queryClient.invalidateQueries({ queryKey: ['inbox'] });
+      queryClient.invalidateQueries({ queryKey: ['inbox-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-inbox'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-inbox-infinite'] });
     },
   });
 }

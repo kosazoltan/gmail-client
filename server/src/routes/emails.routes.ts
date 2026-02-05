@@ -262,7 +262,7 @@ router.patch('/:id/read', async (req, res) => {
       await modifyMessage(gmail, emailId, { addLabels: ['UNREAD'] });
     }
 
-    execute('UPDATE emails SET is_read = ? WHERE id = ?', [isRead ? 1 : 0, emailId]);
+    execute('UPDATE emails SET is_read = ? WHERE id = ? AND account_id = ?', [isRead ? 1 : 0, emailId, accountId]);
     res.json({ success: true });
   } catch (error) {
     console.error('Olvasott jelölés hiba:', error);
@@ -287,7 +287,7 @@ router.patch('/:id/star', async (req, res) => {
       await modifyMessage(gmail, emailId, { removeLabels: ['STARRED'] });
     }
 
-    execute('UPDATE emails SET is_starred = ? WHERE id = ?', [isStarred ? 1 : 0, emailId]);
+    execute('UPDATE emails SET is_starred = ? WHERE id = ? AND account_id = ?', [isStarred ? 1 : 0, emailId, accountId]);
     res.json({ success: true });
   } catch (error) {
     console.error('Csillagozás hiba:', error);

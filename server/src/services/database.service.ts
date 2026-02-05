@@ -76,13 +76,17 @@ export function getDatabaseStats(accountId?: string): DatabaseStats {
     params
   );
 
-  // Emailek fiókonként
-  const emailsByAccountRaw = queryAll<{ account_id: string; email: string; count: number }>(
-    `SELECT e.account_id, a.email, COUNT(*) as count
-     FROM emails e
-     JOIN accounts a ON e.account_id = a.id
-     GROUP BY e.account_id`
-  );
+  // Emailek fiókonként - csak a kért accountId-t mutatjuk, ha meg van adva
+  const emailsByAccountRaw = accountId
+    ? queryAll<{ account_id: string; email: string; count: number }>(
+        `SELECT e.account_id, a.email, COUNT(*) as count
+         FROM emails e
+         JOIN accounts a ON e.account_id = a.id
+         WHERE e.account_id = ?
+         GROUP BY e.account_id`,
+        [accountId]
+      )
+    : [];
 
   // Adatbázis méret
   const dbPath = process.env.DATABASE_URL || './data/gmail-client.db';

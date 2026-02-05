@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { queryAll, queryOne, execute, getDb } from '../db/index.js';
+import { queryAll, queryOne, execute, getDb, runInTransaction } from '../db/index.js';
 
 const router = Router();
 
@@ -99,26 +99,37 @@ router.post('/', (req, res) => {
     return res.status(404).json({ error: 'Email nem található' });
   }
 
-  // Ellenőrizzük, hogy nincs-e már aktív emlékeztető ehhez az emailhez (account_id szűréssel)
-  const existingReminder = queryOne(
-    'SELECT id FROM reminders WHERE email_id = ? AND account_id = ? AND is_completed = 0',
-    [emailId, accountId],
-  );
-
-  if (existingReminder) {
-    return res.status(400).json({ error: 'Ehhez az emailhez már van aktív emlékeztető' });
-  }
-
+  // FIX: Use transaction to prevent race condition (check-then-insert)
   const id = uuidv4();
   const now = Date.now();
 
-  execute(
-    `INSERT INTO reminders (id, email_id, account_id, remind_at, note, is_completed, created_at)
-     VALUES (?, ?, ?, ?, ?, 0, ?)`,
-    [id, emailId, accountId, remindTimestamp, note || null, now],
-  );
+  let reminder;
+  try {
+    reminder = runInTransaction(() => {
+      // Ellenőrizzük, hogy nincs-e már aktív emlékeztető ehhez az emailhez
+      const existingReminder = queryOne(
+        'SELECT id FROM reminders WHERE email_id = ? AND account_id = ? AND is_completed = 0',
+        [emailId, accountId],
+      );
 
-  const reminder = queryOne('SELECT * FROM reminders WHERE id = ?', [id]);
+      if (existingReminder) {
+        throw new Error('DUPLICATE_REMINDER');
+      }
+
+      execute(
+        `INSERT INTO reminders (id, email_id, account_id, remind_at, note, is_completed, created_at)
+         VALUES (?, ?, ?, ?, ?, 0, ?)`,
+        [id, emailId, accountId, remindTimestamp, note || null, now],
+      );
+
+      return queryOne('SELECT * FROM reminders WHERE id = ?', [id]);
+    });
+  } catch (err) {
+    if (err instanceof Error && err.message === 'DUPLICATE_REMINDER') {
+      return res.status(400).json({ error: 'Ehhez az emailhez már van aktív emlékeztető' });
+    }
+    throw err;
+  }
 
   if (!reminder) {
     return res.status(500).json({ error: 'Emlékeztető létrehozása sikertelen' });

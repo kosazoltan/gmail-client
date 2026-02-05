@@ -162,16 +162,23 @@ router.post('/email/:emailId/add', async (req, res) => {
 
     await modifyMessage(gmail, emailId, { addLabels: labelIds });
 
-    // Frissítsük az adatbázisban is (account_id validációval)
-    const email = queryOne<{ labels: string | null }>(
-      'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
-      [emailId, accountId],
-    );
+    // FIX: Wrap DB update in try-catch for Gmail-DB consistency
+    // If DB update fails after Gmail success, log warning but return success
+    // (next sync will fix the inconsistency)
+    try {
+      const email = queryOne<{ labels: string | null }>(
+        'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
+        [emailId, accountId],
+      );
 
-    if (email) {
-      const currentLabels = safeParseLabels(email.labels);
-      const newLabels = [...new Set([...currentLabels, ...labelIds])];
-      execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [JSON.stringify(newLabels), emailId, accountId]);
+      if (email) {
+        const currentLabels = safeParseLabels(email.labels);
+        const newLabels = [...new Set([...currentLabels, ...labelIds])];
+        execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [JSON.stringify(newLabels), emailId, accountId]);
+      }
+    } catch (dbError) {
+      console.warn('Gmail-DB konzisztencia figyelmeztetés: DB frissítés sikertelen címke hozzáadás után', dbError);
+      // Don't fail the request - Gmail change was successful
     }
 
     res.json({ success: true });
@@ -208,16 +215,23 @@ router.post('/email/:emailId/remove', async (req, res) => {
 
     await modifyMessage(gmail, emailId, { removeLabels: labelIds });
 
-    // Frissítsük az adatbázisban is (account_id validációval)
-    const email = queryOne<{ labels: string | null }>(
-      'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
-      [emailId, accountId],
-    );
+    // FIX: Wrap DB update in try-catch for Gmail-DB consistency
+    // If DB update fails after Gmail success, log warning but return success
+    // (next sync will fix the inconsistency)
+    try {
+      const email = queryOne<{ labels: string | null }>(
+        'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
+        [emailId, accountId],
+      );
 
-    if (email) {
-      const currentLabels = safeParseLabels(email.labels);
-      const newLabels = currentLabels.filter((l) => !labelIds.includes(l));
-      execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [JSON.stringify(newLabels), emailId, accountId]);
+      if (email) {
+        const currentLabels = safeParseLabels(email.labels);
+        const newLabels = currentLabels.filter((l) => !labelIds.includes(l));
+        execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [JSON.stringify(newLabels), emailId, accountId]);
+      }
+    } catch (dbError) {
+      console.warn('Gmail-DB konzisztencia figyelmeztetés: DB frissítés sikertelen címke eltávolítás után', dbError);
+      // Don't fail the request - Gmail change was successful
     }
 
     res.json({ success: true });

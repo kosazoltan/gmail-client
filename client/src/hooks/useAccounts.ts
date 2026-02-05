@@ -45,7 +45,27 @@ export function useSwitchAccount() {
   return useMutation({
     mutationFn: (accountId: string) => api.auth.switchAccount(accountId),
     onSuccess: () => {
-      queryClient.invalidateQueries();
+      // FIX: Invalidate specific queries instead of all
+      // This prevents unnecessary refetches (e.g., settings, UI state)
+      queryClient.invalidateQueries({ queryKey: ['session'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['emails-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['email'] });
+      queryClient.invalidateQueries({ queryKey: ['inbox'] });
+      queryClient.invalidateQueries({ queryKey: ['inbox-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-inbox'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-inbox-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['trash'] });
+      queryClient.invalidateQueries({ queryKey: ['trash-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      queryClient.invalidateQueries({ queryKey: ['labels'] });
+      queryClient.invalidateQueries({ queryKey: ['views'] });
+      queryClient.invalidateQueries({ queryKey: ['snoozed'] });
+      queryClient.invalidateQueries({ queryKey: ['reminders'] });
+      queryClient.invalidateQueries({ queryKey: ['scheduled'] });
+      queryClient.invalidateQueries({ queryKey: ['vip'] });
     },
   });
 }

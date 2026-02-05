@@ -62,6 +62,9 @@ export function EmailDetail({
   const [showLabelManager, setShowLabelManager] = useState(false);
   const { translatedContent, isTranslating, translateEmail, clearTranslation } = useEmailTranslation();
 
+  // FIX: Track download timeouts for cleanup on unmount
+  const downloadTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
   // HTML szanitizálás XSS elleni védelem - hook-nak a return előtt kell lennie
   const sanitizedHtml = useMemo(() => {
     if (!email?.bodyHtml) return '';
@@ -109,6 +112,14 @@ export function EmailDetail({
       markReadRef.current.mutate({ emailId: email.id, isRead: true });
     }
   }, [email?.id, email?.isRead, markRead.isPending]);
+
+  // FIX: Cleanup download timeouts on unmount to prevent memory leak
+  useEffect(() => {
+    return () => {
+      downloadTimeoutsRef.current.forEach(clearTimeout);
+      downloadTimeoutsRef.current = [];
+    };
+  }, []);
 
   if (!emailId) {
     return (
@@ -545,9 +556,12 @@ export function EmailDetail({
                   {email.attachments.length > 1 && (
                     <button
                       onClick={() => {
+                        // Clear any existing timeouts first
+                        downloadTimeoutsRef.current.forEach(clearTimeout);
+                        downloadTimeoutsRef.current = [];
                         // Download all attachments one by one
                         email.attachments?.forEach((att, index) => {
-                          setTimeout(() => {
+                          const timeoutId = setTimeout(() => {
                             const url = api.attachments.downloadUrl(att.id);
                             const link = document.createElement('a');
                             link.href = url;
@@ -556,6 +570,7 @@ export function EmailDetail({
                             link.click();
                             document.body.removeChild(link);
                           }, index * 500); // Stagger downloads to avoid browser blocking
+                          downloadTimeoutsRef.current.push(timeoutId);
                         });
                       }}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/20 rounded-lg transition-colors"
