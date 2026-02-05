@@ -2,6 +2,15 @@ import { Router } from 'express';
 import { queryAll, queryOne, execute } from '../db/index.js';
 import { v4 as uuid } from 'uuid';
 
+interface SnoozedEmailWithProcessing {
+  id: string;
+  email_id: string;
+  account_id: string;
+  snooze_until: number;
+  processing_instance: string | null;
+  created_at: number;
+}
+
 const router = Router();
 
 interface SnoozedEmail {
@@ -158,16 +167,27 @@ router.delete('/:emailId', (req, res) => {
 });
 
 // Ellenőrzi és törli a lejárt szundikat - ezt a szerver induláskor és periodikusan hívja
-export function processExpiredSnoozes() {
+// FIX: Use unique instance ID to prevent race conditions across multiple server instances
+export function processExpiredSnoozes(): number {
   try {
     const now = Date.now();
-    const expired = queryAll<{ id: string; email_id: string }>(
-      'SELECT id, email_id FROM snoozed_emails WHERE snooze_until <= ?',
-      [now],
+    const instanceId = uuid(); // Unique ID for this processing run
+
+    // Atomically claim expired snoozes with unique instance ID
+    // This ensures only this instance processes these specific snoozes
+    execute(
+      'UPDATE snoozed_emails SET processing_instance = ? WHERE snooze_until <= ? AND processing_instance IS NULL',
+      [instanceId, now],
+    );
+
+    // Get only the snoozes claimed by THIS instance
+    const expired = queryAll<SnoozedEmailWithProcessing>(
+      'SELECT id, email_id FROM snoozed_emails WHERE processing_instance = ?',
+      [instanceId],
     );
 
     if (expired.length > 0) {
-      // FIX: Batch delete instead of N+1 loop
+      // Batch delete the claimed snoozes
       const ids = expired.map(s => s.id);
       const placeholders = ids.map(() => '?').join(',');
       execute(`DELETE FROM snoozed_emails WHERE id IN (${placeholders})`, ids);

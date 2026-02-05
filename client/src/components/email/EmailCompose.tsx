@@ -85,6 +85,18 @@ export function EmailCompose() {
 
   const threadId = searchParams.get('threadId') || undefined;
 
+  // FIX: Ref to store email data snapshot for undo send feature
+  // This prevents stale closure issues during the undo delay window
+  interface SendSnapshot {
+    to: string;
+    cc: string;
+    subject: string;
+    body: string;
+    attachments: LocalAttachment[];
+    threadId: string | undefined;
+  }
+  const sendSnapshotRef = useRef<SendSnapshot | null>(null);
+
   // Undo send késleltetés beállításból vagy alapértelmezett
   const undoSendDelay = settings?.undoSendDelay ?? defaultSettings.undoSendDelay ?? DEFAULT_UNDO_DELAY;
 
@@ -203,9 +215,18 @@ export function EmailCompose() {
     });
   };
 
-  // Tényleges email küldés
+  // Tényleges email küldés - FIX: Use snapshot ref to avoid stale closure issues
   const actualSend = useCallback(async () => {
-    const emailAttachments: EmailAttachment[] = attachments.map((a) => ({
+    // Use snapshot if available (from delayed send), otherwise use current state
+    const snapshot = sendSnapshotRef.current;
+    const sendTo = snapshot?.to ?? to;
+    const sendCc = snapshot?.cc ?? cc;
+    const sendSubject = snapshot?.subject ?? subject;
+    const sendBody = snapshot?.body ?? body;
+    const sendAttachments = snapshot?.attachments ?? attachments;
+    const sendThreadId = snapshot?.threadId ?? threadId;
+
+    const emailAttachments: EmailAttachment[] = sendAttachments.map((a) => ({
       filename: a.filename,
       mimeType: a.mimeType,
       content: a.content,
@@ -214,27 +235,29 @@ export function EmailCompose() {
     try {
       if (isReply) {
         await replyEmail.mutateAsync({
-          to,
-          subject,
-          body,
-          cc,
-          threadId,
+          to: sendTo,
+          subject: sendSubject,
+          body: sendBody,
+          cc: sendCc,
+          threadId: sendThreadId,
           attachments: emailAttachments.length > 0 ? emailAttachments : undefined,
         });
       } else {
         await sendEmail.mutateAsync({
-          to,
-          subject,
-          body,
-          cc,
+          to: sendTo,
+          subject: sendSubject,
+          body: sendBody,
+          cc: sendCc,
           attachments: emailAttachments.length > 0 ? emailAttachments : undefined,
         });
       }
+      sendSnapshotRef.current = null; // Clear snapshot after successful send
       toast.success('Email elküldve!');
       navigate(-1);
     } catch (error) {
       console.error('Küldési hiba:', error);
       toast.error('Nem sikerült elküldeni az emailt. Kérlek próbáld újra.');
+      sendSnapshotRef.current = null; // Clear snapshot on error too
       setIsSendPending(false);
     }
   }, [to, subject, body, cc, threadId, attachments, isReply, replyEmail, sendEmail, navigate]);
@@ -245,6 +268,7 @@ export function EmailCompose() {
       clearTimeout(sendTimeoutRef.current);
       sendTimeoutRef.current = null;
     }
+    sendSnapshotRef.current = null; // FIX: Clear snapshot on cancel
     setIsSendPending(false);
     toast.info('Küldés visszavonva');
   }, []);
@@ -259,6 +283,17 @@ export function EmailCompose() {
       await actualSend();
       return;
     }
+
+    // FIX: Capture state snapshot BEFORE starting the delay
+    // This ensures we send with the values at the time user clicked Send
+    sendSnapshotRef.current = {
+      to,
+      cc,
+      subject,
+      body,
+      attachments: [...attachments], // Clone array to prevent mutations
+      threadId,
+    };
 
     // Késleltetett küldés undo lehetőséggel
     setIsSendPending(true);

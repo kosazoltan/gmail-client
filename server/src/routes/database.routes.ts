@@ -13,6 +13,8 @@ import {
   deleteOldEmails,
   cleanupOrphanedRecords,
 } from '../services/database.service.js';
+import { fixAllNamesEncoding } from '../services/contacts.service.js';
+import { getAllAccounts } from '../services/auth.service.js';
 
 const router = Router();
 
@@ -153,14 +155,26 @@ router.get('/backups/:filename', (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
   }
 
-  const filename = req.params.filename as string;
+  // FIX: Decode and normalize filename to prevent encoded path traversal
+  // Also handle Express typing where params can be string | string[]
+  const rawFilename = req.params.filename;
+  if (Array.isArray(rawFilename)) {
+    return res.status(400).json({ error: 'Érvénytelen fájlnév formátum' });
+  }
+
+  let filename: string;
+  try {
+    filename = decodeURIComponent(rawFilename).normalize('NFC');
+  } catch {
+    return res.status(400).json({ error: 'Érvénytelen fájlnév kódolás' });
+  }
 
   // Biztonsági ellenőrzés - path traversal védelem
   if (!filename.endsWith('.db') || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
     return res.status(400).json({ error: 'Érvénytelen fájlnév' });
   }
 
-  // Csak alfanumerikus karakterek, kötőjelek, pontok engedélyezve
+  // Csak alfanumerikus karakterek, kötőjelek, pontok, aláhúzás engedélyezve
   if (!/^[\w\-\.]+\.db$/.test(filename)) {
     return res.status(400).json({ error: 'Érvénytelen fájlnév formátum' });
   }
@@ -169,9 +183,9 @@ router.get('/backups/:filename', (req: Request, res: Response) => {
   const backupDir = path.resolve(path.dirname(dbPath), 'backups');
   const backupPath = path.resolve(backupDir, filename);
 
-  // Ellenőrizzük, hogy a feloldott útvonal a backup könyvtáron belül van
-  if (!backupPath.startsWith(backupDir)) {
-    return res.status(400).json({ error: 'Érvénytelen útvonal' });
+  // FIX: Include path separator in check for proper containment
+  if (!backupPath.startsWith(backupDir + path.sep)) {
+    return res.status(400).json({ error: 'Path traversal detected' });
   }
 
   if (!fs.existsSync(backupPath)) {
@@ -189,11 +203,37 @@ router.delete('/backups/:filename', (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
   }
 
-  const filename = req.params.filename as string;
+  // FIX: Decode and normalize filename to prevent encoded path traversal
+  // Also handle Express typing where params can be string | string[]
+  const rawFilename = req.params.filename;
+  if (Array.isArray(rawFilename)) {
+    return res.status(400).json({ error: 'Érvénytelen fájlnév formátum' });
+  }
 
-  // Biztonsági ellenőrzés
+  let filename: string;
+  try {
+    filename = decodeURIComponent(rawFilename).normalize('NFC');
+  } catch {
+    return res.status(400).json({ error: 'Érvénytelen fájlnév kódolás' });
+  }
+
+  // Biztonsági ellenőrzés - path traversal védelem
   if (!filename.endsWith('.db') || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
     return res.status(400).json({ error: 'Érvénytelen fájlnév' });
+  }
+
+  // Csak alfanumerikus karakterek, kötőjelek, pontok, aláhúzás engedélyezve
+  if (!/^[\w\-\.]+\.db$/.test(filename)) {
+    return res.status(400).json({ error: 'Érvénytelen fájlnév formátum' });
+  }
+
+  // FIX: Verify resolved path is within backup directory
+  const dbPath = process.env.DATABASE_URL || './data/gmail-client.db';
+  const backupDir = path.resolve(path.dirname(dbPath), 'backups');
+  const resolvedPath = path.resolve(backupDir, filename);
+
+  if (!resolvedPath.startsWith(backupDir + path.sep)) {
+    return res.status(400).json({ error: 'Path traversal detected' });
   }
 
   const success = deleteBackup(filename);
@@ -235,6 +275,32 @@ router.post('/cleanup', (req: Request, res: Response) => {
   } catch (error) {
     console.error('Cleanup hiba:', error);
     res.status(500).json({ error: 'Tisztítás sikertelen' });
+  }
+});
+
+// Admin: karakterkódolás javítása minden fiókra (session nélkül, csak localhost)
+router.post('/fix-encoding-all', (req: Request, res: Response) => {
+  // Csak localhost-ról engedélyezett
+  const ip = req.ip || req.socket.remoteAddress || '';
+  const isLocalhost = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+
+  if (!isLocalhost) {
+    return res.status(403).json({ error: 'Csak localhost-ról érhető el' });
+  }
+
+  try {
+    const accounts = getAllAccounts();
+    const results: Record<string, { contacts: number; senderGroups: number; emails: number }> = {};
+
+    for (const account of accounts) {
+      const result = fixAllNamesEncoding(account.id);
+      results[account.email] = result;
+    }
+
+    res.json({ success: true, results });
+  } catch (error) {
+    console.error('Fix encoding hiba:', error);
+    res.status(500).json({ error: 'Karakterkódolás javítása sikertelen' });
   }
 });
 

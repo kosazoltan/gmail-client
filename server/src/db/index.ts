@@ -165,6 +165,7 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
       email_id TEXT NOT NULL REFERENCES emails(id) ON DELETE CASCADE,
       account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
       snooze_until INTEGER NOT NULL,
+      processing_instance TEXT,
       created_at INTEGER NOT NULL
     );
 
@@ -226,6 +227,7 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
       body TEXT,
       scheduled_at INTEGER NOT NULL,
       status TEXT DEFAULT 'pending',
+      processing_instance TEXT,
       created_at INTEGER NOT NULL
     );
 
@@ -378,4 +380,34 @@ export function execute(sql: string, params: unknown[] = []) {
   const db = getDb();
   db.run(sql, params);
   debouncedSave(); // Debounced mentés a race condition elkerüléséhez
+}
+
+// Transaction wrapper for atomic multi-step operations
+export function runInTransaction<T>(fn: () => T): T {
+  const db = getDb();
+  db.run('BEGIN TRANSACTION');
+  try {
+    const result = fn();
+    db.run('COMMIT');
+    debouncedSave();
+    return result;
+  } catch (error) {
+    db.run('ROLLBACK');
+    throw error;
+  }
+}
+
+// Async transaction wrapper for operations with async calls
+export async function runInTransactionAsync<T>(fn: () => Promise<T>): Promise<T> {
+  const db = getDb();
+  db.run('BEGIN TRANSACTION');
+  try {
+    const result = await fn();
+    db.run('COMMIT');
+    debouncedSave();
+    return result;
+  } catch (error) {
+    db.run('ROLLBACK');
+    throw error;
+  }
 }

@@ -273,22 +273,23 @@ router.post('/:id/send-now', async (req, res) => {
 });
 
 // Process scheduled emails that are due - called periodically
-// BUG #1 & #2 Fix: Use "processing" status to prevent race conditions
+// FIX: Use unique instance ID to prevent race conditions across multiple server instances
 export async function processScheduledEmails(): Promise<number> {
   try {
     const now = Date.now();
+    const instanceId = uuid(); // Unique ID for this processing run
 
-    // First, atomically claim emails by setting status to 'processing'
-    // This prevents other processes from picking up the same emails
+    // Atomically claim emails with unique instance ID
+    // This ensures only this instance processes these specific emails
     execute(
-      "UPDATE scheduled_emails SET status = 'processing' WHERE scheduled_at <= ? AND status = 'pending'",
-      [now],
+      "UPDATE scheduled_emails SET status = 'processing', processing_instance = ? WHERE scheduled_at <= ? AND status = 'pending'",
+      [instanceId, now],
     );
 
-    // Now get the emails we've claimed
+    // Get only the emails claimed by THIS instance
     const dueEmails = queryAll<ScheduledEmailRow>(
-      "SELECT * FROM scheduled_emails WHERE status = 'processing'",
-      [],
+      "SELECT * FROM scheduled_emails WHERE status = 'processing' AND processing_instance = ?",
+      [instanceId],
     );
 
     let sentCount = 0;

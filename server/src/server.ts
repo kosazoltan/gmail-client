@@ -168,6 +168,19 @@ function gracefulShutdown(signal: string) {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
+// Global error handlers - catch unhandled errors to prevent silent failures
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Promise Rejection:', { reason, promiseInfo: String(promise) });
+  // Do NOT exit - log for alerting but continue running
+});
+
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception - shutting down:', error);
+  // Graceful shutdown on uncaught exceptions - save database first
+  stopAutoSave();
+  process.exit(1);
+});
+
 start().catch((err) => {
   logger.error('Server startup error', err);
   process.exit(1);

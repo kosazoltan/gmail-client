@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, Menu, RefreshCw, BookmarkPlus, Check } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession, useSyncAccount } from '../../hooks/useAccounts';
 import { useCreateSavedSearch } from '../../hooks/useSavedSearches';
 import { ThemeToggle } from './ThemeToggle';
@@ -23,6 +23,16 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar }: HeaderP
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [saveName, setSaveName] = useState('');
   const [justSaved, setJustSaved] = useState(false);
+  const justSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup timer on unmount to prevent memory leak
+  useEffect(() => {
+    return () => {
+      if (justSavedTimerRef.current) {
+        clearTimeout(justSavedTimerRef.current);
+      }
+    };
+  }, []);
 
   // Keresési lekérdezés az URL-ből
   const isSearchPage = location.pathname === '/search';
@@ -72,7 +82,11 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar }: HeaderP
           setShowSaveInput(false);
           setSaveName('');
           setJustSaved(true);
-          setTimeout(() => setJustSaved(false), 2000);
+          // Clear any existing timer before setting a new one
+          if (justSavedTimerRef.current) {
+            clearTimeout(justSavedTimerRef.current);
+          }
+          justSavedTimerRef.current = setTimeout(() => setJustSaved(false), 2000);
         },
       },
     );

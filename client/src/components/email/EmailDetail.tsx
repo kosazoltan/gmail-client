@@ -66,11 +66,32 @@ export function EmailDetail({
   const sanitizedHtml = useMemo(() => {
     if (!email?.bodyHtml) return '';
     return DOMPurify.sanitize(email.bodyHtml, {
-      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'b', 'i', 'u', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'div', 'span', 'hr'],
-      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'style', 'target', 'rel', 'width', 'height'],
+      ALLOWED_TAGS: [
+        // Text formatting
+        'p', 'br', 'strong', 'em', 'b', 'i', 'u', 's', 'strike', 'sub', 'sup', 'small', 'big',
+        // Links and media
+        'a', 'img',
+        // Lists
+        'ul', 'ol', 'li', 'dl', 'dt', 'dd',
+        // Headings
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        // Block elements
+        'blockquote', 'pre', 'code', 'div', 'span', 'hr', 'address', 'center',
+        // Tables - full support
+        'table', 'caption', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'colgroup', 'col',
+        // Typography and formatting
+        'font', 'label', 'abbr', 'acronym', 'cite', 'dfn', 'kbd', 'samp', 'var', 'mark',
+      ],
+      ALLOWED_ATTR: [
+        'href', 'src', 'alt', 'title', 'class', 'style', 'target', 'rel',
+        'width', 'height', 'border', 'cellpadding', 'cellspacing',
+        'align', 'valign', 'bgcolor', 'color', 'face', 'size',
+        'colspan', 'rowspan', 'scope', 'headers',
+        'dir', 'lang', 'id', 'name',
+      ],
       ALLOW_DATA_ATTR: false,
       ADD_ATTR: ['target'],
-      FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
+      FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'select', 'textarea'],
     });
   }, [email?.bodyHtml]);
 
@@ -173,19 +194,22 @@ export function EmailDetail({
 
           <button
             onClick={() => {
+              // FIX: Guard against missing callback and email.from
+              if (!onReplyAll || !email.from) return;
               // Válasz mindenkinek: eredeti küldő + minden címzett (kivéve magunkat)
               const allRecipients = [email.to, email.cc].filter(Boolean).join(', ');
-              onReplyAll?.({
-                to: email.from || '',
+              onReplyAll({
+                to: email.from,
                 cc: allRecipients || undefined,
                 subject: `Re: ${email.subject || ''}`,
                 threadId: email.threadId || undefined,
                 body: email.body || email.snippet || '',
-                fromName: email.fromName || email.from || '',
+                fromName: email.fromName || email.from,
                 date: email.date,
               });
             }}
-            className="p-1.5 sm:p-2.5 rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-colors touch-manipulation"
+            disabled={!onReplyAll || !email.from}
+            className="p-1.5 sm:p-2.5 rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-colors touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Válasz mindenkinek"
             title="Válasz mindenkinek"
           >
@@ -193,13 +217,16 @@ export function EmailDetail({
           </button>
 
           <button
-            onClick={() =>
-              onForward?.({
+            onClick={() => {
+              // FIX: Guard against missing callback
+              if (!onForward) return;
+              onForward({
                 subject: `Fwd: ${email.subject || ''}`,
-                body: `\n\n---------- Továbbított üzenet ----------\nKüldő: ${email.fromName || ''} <${email.from}>\nDátum: ${formatFullDate(email.date)}\nTárgy: ${email.subject}\nCímzett: ${email.to}\n\n${email.body || ''}`,
-              })
-            }
-            className="p-1.5 sm:p-2.5 rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-colors touch-manipulation"
+                body: `\n\n---------- Továbbított üzenet ----------\nKüldő: ${email.fromName || ''} <${email.from || ''}>\nDátum: ${formatFullDate(email.date)}\nTárgy: ${email.subject || ''}\nCímzett: ${email.to || ''}\n\n${email.body || ''}`,
+              });
+            }}
+            disabled={!onForward}
+            className="p-1.5 sm:p-2.5 rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-colors touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Továbbítás"
             title="Továbbítás"
           >
