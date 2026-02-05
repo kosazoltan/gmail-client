@@ -171,6 +171,43 @@ html.dark .email-content [style*="color:#111"] {
   color: var(--email-text-light) !important;
 }
 
+/* Szürke szövegek világosítása sötét módban - Google email kompatibilitás */
+html.dark .email-content [style*="color: #444"],
+html.dark .email-content [style*="color:#444"],
+html.dark .email-content [style*="color: #555"],
+html.dark .email-content [style*="color:#555"],
+html.dark .email-content [style*="color: #666"],
+html.dark .email-content [style*="color:#666"],
+html.dark .email-content [style*="color: #777"],
+html.dark .email-content [style*="color:#777"],
+html.dark .email-content [style*="color: #888"],
+html.dark .email-content [style*="color:#888"],
+html.dark .email-content [style*="color: #999"],
+html.dark .email-content [style*="color:#999"],
+html.dark .email-content [style*="color: #5f6368"],
+html.dark .email-content [style*="color:#5f6368"],
+html.dark .email-content [style*="color: gray"],
+html.dark .email-content [style*="color:gray"],
+html.dark .email-content [style*="color: grey"],
+html.dark .email-content [style*="color:grey"],
+html.dark .email-content [style*="color: #808080"],
+html.dark .email-content [style*="color:#808080"],
+html.dark .email-content [style*="color: rgb(95, 99, 104)"],
+html.dark .email-content [style*="color:rgb(95,99,104)"],
+html.dark .email-content [style*="color: rgb(102, 102, 102)"],
+html.dark .email-content [style*="color:rgb(102,102,102)"],
+html.dark .email-content [style*="color: rgb(119, 119, 119)"],
+html.dark .email-content [style*="color:rgb(119,119,119)"],
+html.dark .email-content [style*="color: rgb(136, 136, 136)"],
+html.dark .email-content [style*="color:rgb(136,136,136)"],
+html.dark .email-content [style*="color: rgb(153, 153, 153)"],
+html.dark .email-content [style*="color:rgb(153,153,153)"] {
+  color: #a1a1aa !important; /* Világosabb szürke - jól látható sötét háttéren */
+}
+
+/* Nagyon világos szürke szövegek - ezek sötét háttéren jól látszanak, nem kell változtatni */
+/* #aaa, #bbb, #ccc, #ddd, #eee - ezeket békén hagyjuk */
+
 /* Sötét background-ok */
 html.dark .email-content [style*="background-color: #000"],
 html.dark .email-content [style*="background-color:#000"],
@@ -179,6 +216,38 @@ html.dark .email-content [style*="background:#000"],
 html.dark .email-content [style*="background-color: black"],
 html.dark .email-content [style*="background:black"] {
   background-color: transparent !important;
+}
+
+/* Világos szürke háttérszínek felülírása sötét módban */
+html.dark .email-content [style*="background-color: #f"],
+html.dark .email-content [style*="background-color:#f"],
+html.dark .email-content [style*="background: #f"],
+html.dark .email-content [style*="background:#f"],
+html.dark .email-content [style*="background-color: #e"],
+html.dark .email-content [style*="background-color:#e"],
+html.dark .email-content [style*="background: #e"],
+html.dark .email-content [style*="background:#e"],
+html.dark .email-content [style*="background-color: #d"],
+html.dark .email-content [style*="background-color:#d"],
+html.dark .email-content [style*="background: #d"],
+html.dark .email-content [style*="background:#d"],
+html.dark .email-content [style*="background-color: #c"],
+html.dark .email-content [style*="background-color:#c"],
+html.dark .email-content [style*="background: #c"],
+html.dark .email-content [style*="background:#c"] {
+  background-color: #2c2e33 !important;
+}
+
+/* Szürke háttérszínek - Google email stílusok */
+html.dark .email-content [style*="background-color: rgb(241"],
+html.dark .email-content [style*="background-color:rgb(241"],
+html.dark .email-content [style*="background-color: rgb(245"],
+html.dark .email-content [style*="background-color:rgb(245"],
+html.dark .email-content [style*="background-color: rgb(248"],
+html.dark .email-content [style*="background-color:rgb(248"],
+html.dark .email-content [style*="background-color: rgb(250"],
+html.dark .email-content [style*="background-color:rgb(250"] {
+  background-color: #2c2e33 !important;
 }
 
 /* Sötét mód input mezők */
