@@ -92,6 +92,8 @@ export function EmailDetail({
       ALLOW_DATA_ATTR: false,
       ADD_ATTR: ['target'],
       FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'select', 'textarea'],
+      // Engedélyezzük a data: URI-kat képekhez (base64 inline images)
+      ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
     });
   }, [email?.bodyHtml]);
 

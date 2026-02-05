@@ -139,6 +139,38 @@ html.dark .email-content [style*="color:black"] {
   color: var(--email-text-light) !important;
 }
 
+/* Kék szöveg felülírása sötét módban - sokkal világosabb kék */
+html.dark .email-content [style*="color: #00f"],
+html.dark .email-content [style*="color:#00f"],
+html.dark .email-content [style*="color: #0000ff"],
+html.dark .email-content [style*="color:#0000ff"],
+html.dark .email-content [style*="color: #0000FF"],
+html.dark .email-content [style*="color:#0000FF"],
+html.dark .email-content [style*="color: blue"],
+html.dark .email-content [style*="color:blue"],
+html.dark .email-content [style*="color: rgb(0, 0, 255)"],
+html.dark .email-content [style*="color:rgb(0,0,255)"] {
+  color: #93c5fd !important; /* Világos kék - jól látható sötét háttéren */
+}
+
+/* Sötétkék szövegek */
+html.dark .email-content [style*="color: #000080"],
+html.dark .email-content [style*="color:#000080"],
+html.dark .email-content [style*="color: navy"],
+html.dark .email-content [style*="color:navy"] {
+  color: #60a5fa !important;
+}
+
+/* Egyéb sötét színek világosítása */
+html.dark .email-content [style*="color: #333"],
+html.dark .email-content [style*="color:#333"],
+html.dark .email-content [style*="color: #222"],
+html.dark .email-content [style*="color:#222"],
+html.dark .email-content [style*="color: #111"],
+html.dark .email-content [style*="color:#111"] {
+  color: var(--email-text-light) !important;
+}
+
 /* Sötét background-ok */
 html.dark .email-content [style*="background-color: #000"],
 html.dark .email-content [style*="background-color:#000"],
