@@ -79,6 +79,9 @@ export function DatabaseManager() {
 // Statisztikák tab
 function StatsTab() {
   const queryClient = useQueryClient();
+  const [showResyncConfirm, setShowResyncConfirm] = useState(false);
+  const [resyncAccountId, setResyncAccountId] = useState<string | null>(null);
+
   const { data: stats, isLoading } = useQuery({
     queryKey: ['database-stats'],
     queryFn: () => api.database.getStats(),
@@ -95,6 +98,21 @@ function StatsTab() {
     mutationFn: () => api.database.cleanup(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['database-stats'] });
+    },
+  });
+
+  const resyncMutation = useMutation({
+    mutationFn: (accountId: string) => api.accounts.resync(accountId),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['database-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      setShowResyncConfirm(false);
+      setResyncAccountId(null);
+      alert(`Újraszinkronizálás kész! ${data.messagesProcessed} email feldolgozva.`);
+    },
+    onError: (error) => {
+      alert(`Hiba történt: ${error instanceof Error ? error.message : 'Ismeretlen hiba'}`);
     },
   });
 
@@ -141,9 +159,21 @@ function StatsTab() {
           <h3 className="text-sm font-medium text-gray-700 dark:text-dark-text mb-3">Emailek fiókonként</h3>
           <div className="space-y-2">
             {stats.emailsByAccount.map((account) => (
-              <div key={account.accountId} className="flex justify-between text-sm">
+              <div key={account.accountId} className="flex items-center justify-between text-sm">
                 <span className="text-gray-600 dark:text-dark-text-secondary">{account.email}</span>
-                <span className="font-medium dark:text-dark-text">{account.count.toLocaleString()}</span>
+                <div className="flex items-center gap-3">
+                  <span className="font-medium dark:text-dark-text">{account.count.toLocaleString()}</span>
+                  <button
+                    onClick={() => {
+                      setResyncAccountId(account.accountId);
+                      setShowResyncConfirm(true);
+                    }}
+                    className="text-xs px-2 py-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/20 rounded"
+                    title="Teljes újraszinkronizálás (karakterkódolás javítása)"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -172,6 +202,43 @@ function StatsTab() {
           </button>
         </div>
       </div>
+
+      {/* Újraszinkronizálás megerősítése */}
+      {showResyncConfirm && resyncAccountId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-dark-bg-secondary rounded-xl p-6 max-w-md w-full mx-4 dark:border dark:border-dark-border">
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="h-6 w-6 text-orange-500" />
+              <h3 className="text-lg font-semibold dark:text-dark-text">Teljes újraszinkronizálás</h3>
+            </div>
+            <p className="text-gray-600 dark:text-dark-text-secondary mb-4">
+              Ez a művelet törli az összes emailt, kontaktot és kapcsolódó adatot ehhez a fiókhoz, majd újraszinkronizálja a Gmail-ből.
+            </p>
+            <p className="text-sm text-gray-500 dark:text-dark-text-muted mb-4">
+              Használd ezt, ha a karakterkódolás nem megfelelő a nevek megjelenítésénél.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowResyncConfirm(false);
+                  setResyncAccountId(null);
+                }}
+                className="px-4 py-2 text-gray-600 dark:text-dark-text-secondary hover:text-gray-800 dark:hover:text-dark-text"
+              >
+                Mégse
+              </button>
+              <button
+                onClick={() => resyncMutation.mutate(resyncAccountId)}
+                disabled={resyncMutation.isPending}
+                className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
+              >
+                <RefreshCw className={`h-4 w-4 ${resyncMutation.isPending ? 'animate-spin' : ''}`} />
+                {resyncMutation.isPending ? 'Szinkronizálás...' : 'Újraszinkronizálás'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

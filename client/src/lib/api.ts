@@ -63,6 +63,10 @@ export const api = {
       request(`/accounts/${id}/sync${full ? '?full=true' : ''}`, {
         method: 'POST',
       }),
+    resync: (id: string) =>
+      request<{ success: boolean; messagesProcessed: number; message: string }>(`/accounts/${id}/resync`, {
+        method: 'POST',
+      }),
     updateColor: (id: string, color: string) =>
       request<{ success: boolean; color: string }>(`/accounts/${id}/color`, {
         method: 'PUT',
