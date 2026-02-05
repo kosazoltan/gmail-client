@@ -1,5 +1,6 @@
 import { v4 as uuid } from 'uuid';
 import { queryOne, queryAll, execute } from '../db/index.js';
+import iconv from 'iconv-lite';
 
 interface Contact {
   id: string;
@@ -213,4 +214,131 @@ export function autoExtractContactsIfNeeded(accountId: string): void {
     console.log(`${count} email címből kontaktok kinyerve.`);
     lastExtractionTime.set(accountId, now);
   }
+}
+
+// Mojibake javítása - UTF-8 bájtok latin1-ként értelmezve, majd újra UTF-8-ként
+// Pl: "KÃ¡sza" -> "Kásza", "IldikÃ³" -> "Ildikó"
+function fixMojibake(text: string): string {
+  if (!text) return text;
+
+  // Ellenőrizzük, hogy tartalmaz-e mojibake mintákat
+  // Tipikus minták: Ã¡ (á), Ã© (é), Ã­ (í), Ã³ (ó), Ã¶ (ö), Å' (ő), Ãº (ú), Ã¼ (ü), Å± (ű)
+  const mojibakePattern = /Ã[¡©­³¶º¼]|Å[±']/;
+  if (!mojibakePattern.test(text)) {
+    return text; // Nincs mojibake, visszaadjuk az eredetit
+  }
+
+  try {
+    // A szöveg UTF-8 bájtjai latin1-ként lettek értelmezve
+    // Visszaalakítjuk: latin1 -> bytes -> UTF-8
+    const bytes = iconv.encode(text, 'latin1');
+    const fixed = iconv.decode(bytes, 'utf-8');
+
+    // Ellenőrizzük, hogy a javítás sikeres volt-e (nem tartalmaz replacement karaktert)
+    if (!fixed.includes('\uFFFD') && fixed.length > 0) {
+      return fixed;
+    }
+  } catch {
+    // Ha hiba történt, visszaadjuk az eredetit
+  }
+
+  return text;
+}
+
+// Összes kontakt nevének javítása (mojibake fix)
+export function fixContactNamesEncoding(accountId: string): number {
+  const contacts = queryAll<Contact>(
+    'SELECT * FROM contacts WHERE account_id = ? AND name IS NOT NULL',
+    [accountId]
+  );
+
+  let fixedCount = 0;
+
+  for (const contact of contacts) {
+    if (!contact.name) continue;
+
+    const fixedName = fixMojibake(contact.name);
+
+    if (fixedName !== contact.name) {
+      execute('UPDATE contacts SET name = ? WHERE id = ?', [fixedName, contact.id]);
+      console.log(`Kontakt név javítva: "${contact.name}" -> "${fixedName}"`);
+      fixedCount++;
+    }
+  }
+
+  return fixedCount;
+}
+
+// Összes sender_group nevének javítása (mojibake fix)
+export function fixSenderGroupNamesEncoding(accountId: string): number {
+  interface SenderGroup {
+    id: string;
+    name: string | null;
+  }
+
+  const groups = queryAll<SenderGroup>(
+    'SELECT id, name FROM sender_groups WHERE account_id = ? AND name IS NOT NULL',
+    [accountId]
+  );
+
+  let fixedCount = 0;
+
+  for (const group of groups) {
+    if (!group.name) continue;
+
+    const fixedName = fixMojibake(group.name);
+
+    if (fixedName !== group.name) {
+      execute('UPDATE sender_groups SET name = ? WHERE id = ?', [fixedName, group.id]);
+      console.log(`Sender group név javítva: "${group.name}" -> "${fixedName}"`);
+      fixedCount++;
+    }
+  }
+
+  return fixedCount;
+}
+
+// Összes email from_name javítása (mojibake fix)
+export function fixEmailNamesEncoding(accountId: string): number {
+  interface EmailName {
+    id: string;
+    from_name: string | null;
+  }
+
+  const emails = queryAll<EmailName>(
+    'SELECT id, from_name FROM emails WHERE account_id = ? AND from_name IS NOT NULL',
+    [accountId]
+  );
+
+  let fixedCount = 0;
+
+  for (const email of emails) {
+    if (!email.from_name) continue;
+
+    const fixedName = fixMojibake(email.from_name);
+
+    if (fixedName !== email.from_name) {
+      execute('UPDATE emails SET from_name = ? WHERE id = ?', [fixedName, email.id]);
+      fixedCount++;
+    }
+  }
+
+  return fixedCount;
+}
+
+// Minden név javítása egyszerre
+export function fixAllNamesEncoding(accountId: string): { contacts: number; senderGroups: number; emails: number } {
+  console.log(`Karakterkódolás javítása a(z) ${accountId} fiókhoz...`);
+
+  const contactsFixed = fixContactNamesEncoding(accountId);
+  const senderGroupsFixed = fixSenderGroupNamesEncoding(accountId);
+  const emailsFixed = fixEmailNamesEncoding(accountId);
+
+  console.log(`Javítva: ${contactsFixed} kontakt, ${senderGroupsFixed} feladó csoport, ${emailsFixed} email`);
+
+  return {
+    contacts: contactsFixed,
+    senderGroups: senderGroupsFixed,
+    emails: emailsFixed
+  };
 }

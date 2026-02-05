@@ -116,6 +116,20 @@ function StatsTab() {
     },
   });
 
+  const fixEncodingMutation = useMutation({
+    mutationFn: () => api.contacts.fixEncoding(),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['inbox'] });
+      queryClient.invalidateQueries({ queryKey: ['inbox-infinite'] });
+      alert(data.message);
+    },
+    onError: (error) => {
+      alert(`Hiba történt: ${error instanceof Error ? error.message : 'Ismeretlen hiba'}`);
+    },
+  });
+
   if (isLoading) {
     return <div className="text-center py-8 text-gray-500 dark:text-dark-text-secondary">Betöltés...</div>;
   }
@@ -183,7 +197,7 @@ function StatsTab() {
       {/* Karbantartás */}
       <div className="bg-gray-50 dark:bg-dark-bg-tertiary rounded-lg p-4">
         <h3 className="text-sm font-medium text-gray-700 dark:text-dark-text mb-3">Karbantartás</h3>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button
             onClick={() => vacuumMutation.mutate()}
             disabled={vacuumMutation.isPending}
@@ -199,6 +213,15 @@ function StatsTab() {
           >
             <Trash2 className="h-4 w-4" />
             Árva rekordok törlése
+          </button>
+          <button
+            onClick={() => fixEncodingMutation.mutate()}
+            disabled={fixEncodingMutation.isPending}
+            className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600 disabled:opacity-50"
+            title="Magyar ékezetes karakterek javítása a kontaktok és emailek neveiben"
+          >
+            <RefreshCw className={`h-4 w-4 ${fixEncodingMutation.isPending ? 'animate-spin' : ''}`} />
+            Karakterkódolás javítása
           </button>
         </div>
       </div>

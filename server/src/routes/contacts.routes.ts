@@ -4,7 +4,8 @@ import {
   getAllContacts,
   deleteContact,
   updateContactName,
-  extractContactsFromExistingEmails
+  extractContactsFromExistingEmails,
+  fixAllNamesEncoding
 } from '../services/contacts.service.js';
 
 const router = Router();
@@ -84,6 +85,26 @@ router.post('/extract', (req: Request, res: Response) => {
 
   const count = extractContactsFromExistingEmails(accountId);
   res.json({ success: true, extractedCount: count });
+});
+
+// Karakterkódolás javítása (mojibake fix) - kontaktok, sender_groups és emails
+router.post('/fix-encoding', (req: Request, res: Response) => {
+  const accountId = req.session.activeAccountId;
+  if (!accountId) {
+    return res.status(401).json({ error: 'Nincs aktív fiók' });
+  }
+
+  try {
+    const result = fixAllNamesEncoding(accountId);
+    res.json({
+      success: true,
+      fixed: result,
+      message: `Javítva: ${result.contacts} kontakt, ${result.senderGroups} feladó csoport, ${result.emails} email`
+    });
+  } catch (error) {
+    console.error('Karakterkódolás javítási hiba:', error);
+    res.status(500).json({ error: 'Karakterkódolás javítása sikertelen' });
+  }
 });
 
 export default router;

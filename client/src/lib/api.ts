@@ -245,6 +245,7 @@ export const api = {
     update: (id: string, name: string) =>
       request(`/contacts/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
     extract: () => request<{ extractedCount: number }>('/contacts/extract', { method: 'POST' }),
+    fixEncoding: () => request<{ success: boolean; fixed: { contacts: number; senderGroups: number; emails: number }; message: string }>('/contacts/fix-encoding', { method: 'POST' }),
   },
 
   savedSearches: {
