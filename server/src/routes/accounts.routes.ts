@@ -9,6 +9,7 @@ import {
   syncAccount,
   startBackgroundSync,
   stopBackgroundSync,
+  clearAccountData,
 } from '../services/sync.service.js';
 
 const router = Router();
@@ -96,6 +97,31 @@ router.post('/:id/sync', async (req, res) => {
   } catch (error) {
     console.error('Szinkronizálás hiba:', error);
     res.status(500).json({ error: 'Szinkronizálás sikertelen' });
+  }
+});
+
+// Teljes újraszinkronizálás (emailek és kontaktok törlése, majd újraszinkronizálás)
+// Használd ezt, ha a karakterkódolás javítása után frissíteni szeretnéd az adatokat
+router.post('/:id/resync', async (req, res) => {
+  const accountId = req.params.id;
+
+  // Ellenőrizzük, hogy a felhasználó jogosult-e
+  const accountIds = req.session.accountIds || [];
+  if (!accountIds.includes(accountId)) {
+    res.status(403).json({ error: 'Nincs jogosultságod ehhez a fiókhoz' });
+    return;
+  }
+
+  try {
+    // Töröljük az összes emailt, kontaktot és kapcsolódó adatot
+    clearAccountData(accountId);
+
+    // Teljes újraszinkronizálás
+    const result = await syncAccount(accountId, true);
+    res.json({ success: true, messagesProcessed: result.messagesProcessed, message: 'Adatok újraszinkronizálva' });
+  } catch (error) {
+    console.error('Újraszinkronizálás hiba:', error);
+    res.status(500).json({ error: 'Újraszinkronizálás sikertelen' });
   }
 });
 

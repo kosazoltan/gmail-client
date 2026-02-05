@@ -440,3 +440,28 @@ export function stopBackgroundSync(accountId: string) {
     syncIntervals.delete(accountId);
   }
 }
+
+// Fiók adatainak törlése (emailek, kontaktok, stb.) - újraszinkronizálás előtt
+export function clearAccountData(accountId: string) {
+  console.log(`Adatok törlése a(z) ${accountId} fiókhoz...`);
+
+  // Mellékletek törlése (emailekhez kapcsolódik)
+  execute('DELETE FROM attachments WHERE email_id IN (SELECT id FROM emails WHERE account_id = ?)', [accountId]);
+
+  // Emailek törlése
+  execute('DELETE FROM emails WHERE account_id = ?', [accountId]);
+
+  // Kontaktok törlése
+  execute('DELETE FROM contacts WHERE account_id = ?', [accountId]);
+
+  // Feladói csoportok törlése
+  execute('DELETE FROM sender_groups WHERE account_id = ?', [accountId]);
+
+  // Témák törlése
+  execute('DELETE FROM topics WHERE account_id = ?', [accountId]);
+
+  // History ID törlése, hogy teljes szinkronizálás történjen
+  execute('UPDATE accounts SET history_id = NULL WHERE id = ?', [accountId]);
+
+  console.log(`Adatok törölve a(z) ${accountId} fiókhoz.`);
+}
