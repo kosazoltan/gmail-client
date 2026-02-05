@@ -21,11 +21,9 @@ function getEncryptionKey(): Buffer {
     throw new Error('ENCRYPTION_KEY környezeti változó kötelező production módban!');
   }
 
-  // FIX: Configurable salt instead of hardcoded value
-  const salt = process.env.ENCRYPTION_SALT || 'dev-only-salt-value';
-  if (isProduction && (!process.env.ENCRYPTION_SALT || process.env.ENCRYPTION_SALT.length < 16)) {
-    throw new Error('ENCRYPTION_SALT környezeti változó kötelező production módban (min 16 karakter)!');
-  }
+  // Configurable salt - use 'salt' as default for backwards compatibility
+  // This matches the original hardcoded value to avoid breaking existing encrypted tokens
+  const salt = process.env.ENCRYPTION_SALT || 'salt';
 
   const key = process.env.ENCRYPTION_KEY || 'dev-only-encryption-key-32chars!';
   return crypto.scryptSync(key, salt, 32);
