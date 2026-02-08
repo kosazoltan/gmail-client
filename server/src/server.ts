@@ -168,8 +168,14 @@ function gracefulShutdown(signal: string) {
   stopAllBackgroundSyncs();
 
   // Clear periodic intervals
-  if (snoozeInterval) { clearInterval(snoozeInterval); snoozeInterval = null; }
-  if (scheduledInterval) { clearInterval(scheduledInterval); scheduledInterval = null; }
+  if (snoozeInterval) {
+    clearInterval(snoozeInterval);
+    snoozeInterval = null;
+  }
+  if (scheduledInterval) {
+    clearInterval(scheduledInterval);
+    scheduledInterval = null;
+  }
 
   // Save database
   stopAutoSave();

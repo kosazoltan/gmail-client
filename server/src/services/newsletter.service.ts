@@ -136,7 +136,13 @@ export function syncNewsletterSenders(accountId: string): number {
           `UPDATE newsletter_senders
            SET email_count = ?, last_email_at = ?, sender_name = COALESCE(?, sender_name)
            WHERE account_id = ? AND sender_email = ?`,
-          [sender.email_count, sender.last_email_at, sender.from_name, accountId, sender.from_email],
+          [
+            sender.email_count,
+            sender.last_email_at,
+            sender.from_name,
+            accountId,
+            sender.from_email,
+          ],
         );
       } else {
         // Új hírlevél küldő
@@ -144,7 +150,14 @@ export function syncNewsletterSenders(accountId: string): number {
         execute(
           `INSERT INTO newsletter_senders (id, account_id, sender_email, sender_name, is_newsletter, is_muted, email_count, last_email_at)
            VALUES (?, ?, ?, ?, 1, 0, ?, ?)`,
-          [id, accountId, sender.from_email, sender.from_name, sender.email_count, sender.last_email_at],
+          [
+            id,
+            accountId,
+            sender.from_email,
+            sender.from_name,
+            sender.email_count,
+            sender.last_email_at,
+          ],
         );
         detectedCount++;
       }
@@ -166,10 +179,10 @@ export function getNewsletterSenders(accountId: string): NewsletterSender[] {
 
 // Küldő némítása/feloldása
 export function toggleMuteSender(accountId: string, senderId: string, muted: boolean): boolean {
-  const sender = queryOne(
-    'SELECT id FROM newsletter_senders WHERE id = ? AND account_id = ?',
-    [senderId, accountId],
-  );
+  const sender = queryOne('SELECT id FROM newsletter_senders WHERE id = ? AND account_id = ?', [
+    senderId,
+    accountId,
+  ]);
 
   if (!sender) return false;
 
@@ -179,10 +192,10 @@ export function toggleMuteSender(accountId: string, senderId: string, muted: boo
 
 // Küldő eltávolítása a hírlevél listából
 export function removeSenderFromNewsletters(accountId: string, senderId: string): boolean {
-  const sender = queryOne(
-    'SELECT id FROM newsletter_senders WHERE id = ? AND account_id = ?',
-    [senderId, accountId],
-  );
+  const sender = queryOne('SELECT id FROM newsletter_senders WHERE id = ? AND account_id = ?', [
+    senderId,
+    accountId,
+  ]);
 
   if (!sender) return false;
 

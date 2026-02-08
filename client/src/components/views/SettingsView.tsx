@@ -7,18 +7,16 @@ import { ToolbarSettings } from '../settings/ToolbarSettings';
 
 export function SettingsView() {
   return (
-    <div className="flex-1 overflow-auto bg-gray-50 dark:bg-dark-bg">
-      <div className="max-w-3xl mx-auto p-4 sm:p-6">
+    <div className="dark:bg-dark-bg flex-1 overflow-auto bg-gray-50">
+      <div className="mx-auto max-w-3xl p-4 sm:p-6">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-blue-100 dark:bg-blue-500/20 rounded-lg">
+        <div className="mb-6 flex items-center gap-3">
+          <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-500/20">
             <Settings className="h-6 w-6 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-gray-800 dark:text-dark-text">
-              Beállítások
-            </h1>
-            <p className="text-sm text-gray-500 dark:text-dark-text-muted">
+            <h1 className="dark:text-dark-text text-xl font-semibold text-gray-800">Beállítások</h1>
+            <p className="dark:text-dark-text-muted text-sm text-gray-500">
               Testreszabhatod az alkalmazás működését
             </p>
           </div>
@@ -27,10 +25,10 @@ export function SettingsView() {
         {/* Settings sections */}
         <div className="space-y-6">
           {/* Swipe Settings */}
-          <section className="bg-white dark:bg-dark-bg-secondary rounded-xl border border-gray-200 dark:border-dark-border p-4 sm:p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <MoveHorizontal className="h-5 w-5 text-gray-500 dark:text-dark-text-muted" />
-              <span className="text-sm font-medium text-gray-500 dark:text-dark-text-muted uppercase tracking-wider">
+          <section className="dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <MoveHorizontal className="dark:text-dark-text-muted h-5 w-5 text-gray-500" />
+              <span className="dark:text-dark-text-muted text-sm font-medium tracking-wider text-gray-500 uppercase">
                 Swipe műveletek
               </span>
             </div>
@@ -38,10 +36,10 @@ export function SettingsView() {
           </section>
 
           {/* Undo Send Settings */}
-          <section className="bg-white dark:bg-dark-bg-secondary rounded-xl border border-gray-200 dark:border-dark-border p-4 sm:p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Send className="h-5 w-5 text-gray-500 dark:text-dark-text-muted" />
-              <span className="text-sm font-medium text-gray-500 dark:text-dark-text-muted uppercase tracking-wider">
+          <section className="dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <Send className="dark:text-dark-text-muted h-5 w-5 text-gray-500" />
+              <span className="dark:text-dark-text-muted text-sm font-medium tracking-wider text-gray-500 uppercase">
                 Email küldés
               </span>
             </div>
@@ -49,10 +47,10 @@ export function SettingsView() {
           </section>
 
           {/* Quiet Hours Settings */}
-          <section className="bg-white dark:bg-dark-bg-secondary rounded-xl border border-gray-200 dark:border-dark-border p-4 sm:p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Moon className="h-5 w-5 text-gray-500 dark:text-dark-text-muted" />
-              <span className="text-sm font-medium text-gray-500 dark:text-dark-text-muted uppercase tracking-wider">
+          <section className="dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <Moon className="dark:text-dark-text-muted h-5 w-5 text-gray-500" />
+              <span className="dark:text-dark-text-muted text-sm font-medium tracking-wider text-gray-500 uppercase">
                 Értesítések
               </span>
             </div>
@@ -60,10 +58,10 @@ export function SettingsView() {
           </section>
 
           {/* VIP Settings */}
-          <section className="bg-white dark:bg-dark-bg-secondary rounded-xl border border-gray-200 dark:border-dark-border p-4 sm:p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Crown className="h-5 w-5 text-gray-500 dark:text-dark-text-muted" />
-              <span className="text-sm font-medium text-gray-500 dark:text-dark-text-muted uppercase tracking-wider">
+          <section className="dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <Crown className="dark:text-dark-text-muted h-5 w-5 text-gray-500" />
+              <span className="dark:text-dark-text-muted text-sm font-medium tracking-wider text-gray-500 uppercase">
                 VIP küldők
               </span>
             </div>
@@ -71,10 +69,10 @@ export function SettingsView() {
           </section>
 
           {/* Toolbar Settings */}
-          <section className="bg-white dark:bg-dark-bg-secondary rounded-xl border border-gray-200 dark:border-dark-border p-4 sm:p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Wrench className="h-5 w-5 text-gray-500 dark:text-dark-text-muted" />
-              <span className="text-sm font-medium text-gray-500 dark:text-dark-text-muted uppercase tracking-wider">
+          <section className="dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <Wrench className="dark:text-dark-text-muted h-5 w-5 text-gray-500" />
+              <span className="dark:text-dark-text-muted text-sm font-medium tracking-wider text-gray-500 uppercase">
                 Eszköztár
               </span>
             </div>
@@ -83,7 +81,7 @@ export function SettingsView() {
         </div>
 
         {/* Footer info */}
-        <div className="mt-8 text-center text-xs text-gray-400 dark:text-dark-text-muted">
+        <div className="dark:text-dark-text-muted mt-8 text-center text-xs text-gray-400">
           <p>A beállítások automatikusan mentődnek.</p>
         </div>
       </div>

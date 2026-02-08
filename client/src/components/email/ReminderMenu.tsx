@@ -10,7 +10,12 @@ interface ReminderMenuProps {
   variant?: 'button' | 'menu-item';
 }
 
-export function ReminderMenu({ emailId, onSuccess, onClose, variant = 'button' }: ReminderMenuProps) {
+export function ReminderMenu({
+  emailId,
+  onSuccess,
+  onClose,
+  variant = 'button',
+}: ReminderMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
   const [customDate, setCustomDate] = useState('');
@@ -149,7 +154,7 @@ export function ReminderMenu({ emailId, onSuccess, onClose, variant = 'button' }
     return (
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary transition-colors rounded-lg"
+        className="dark:text-dark-text dark:hover:bg-dark-bg-tertiary flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100"
       >
         <Bell className="h-4 w-4" />
         <span>Emlékeztető</span>
@@ -161,7 +166,7 @@ export function ReminderMenu({ emailId, onSuccess, onClose, variant = 'button' }
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-600 dark:text-dark-text-secondary"
+        className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
         title="Emlékeztető beállítása"
       >
         <Bell className="h-4 w-4" />
@@ -169,11 +174,11 @@ export function ReminderMenu({ emailId, onSuccess, onClose, variant = 'button' }
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-1 w-72 bg-white dark:bg-dark-bg-secondary rounded-lg shadow-lg border border-gray-200 dark:border-dark-border z-50">
+        <div className="dark:bg-dark-bg-secondary dark:border-dark-border absolute top-full right-0 z-50 mt-1 w-72 rounded-lg border border-gray-200 bg-white shadow-lg">
           {!showCustom ? (
             <>
-              <div className="px-3 py-2 border-b border-gray-100 dark:border-dark-border">
-                <span className="text-xs font-medium text-gray-500 dark:text-dark-text-muted">
+              <div className="dark:border-dark-border border-b border-gray-100 px-3 py-2">
+                <span className="dark:text-dark-text-muted text-xs font-medium text-gray-500">
                   Emlékeztető időpontja
                 </span>
               </div>
@@ -184,46 +189,46 @@ export function ReminderMenu({ emailId, onSuccess, onClose, variant = 'button' }
                     key={preset.label}
                     onClick={() => handleRemind(preset.time.getTime())}
                     disabled={createReminder.isPending}
-                    className="w-full flex items-center justify-between px-3 py-2 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary text-gray-700 dark:text-dark-text disabled:opacity-50"
+                    className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text flex w-full items-center justify-between rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                   >
                     <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-gray-400 dark:text-dark-text-muted" />
+                      <Clock className="dark:text-dark-text-muted h-4 w-4 text-gray-400" />
                       <span>{preset.label}</span>
                     </div>
-                    <span className="text-xs text-gray-400 dark:text-dark-text-muted">
+                    <span className="dark:text-dark-text-muted text-xs text-gray-400">
                       {preset.sublabel}
                     </span>
                   </button>
                 ))}
 
-                <div className="border-t border-gray-100 dark:border-dark-border my-1" />
+                <div className="dark:border-dark-border my-1 border-t border-gray-100" />
 
                 <button
                   onClick={() => setShowCustom(true)}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary text-gray-700 dark:text-dark-text"
+                  className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                 >
-                  <Calendar className="h-4 w-4 text-gray-400 dark:text-dark-text-muted" />
+                  <Calendar className="dark:text-dark-text-muted h-4 w-4 text-gray-400" />
                   <span>Egyéni időpont...</span>
                 </button>
               </div>
             </>
           ) : (
             <>
-              <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 dark:border-dark-border">
-                <span className="text-xs font-medium text-gray-500 dark:text-dark-text-muted">
+              <div className="dark:border-dark-border flex items-center justify-between border-b border-gray-100 px-3 py-2">
+                <span className="dark:text-dark-text-muted text-xs font-medium text-gray-500">
                   Egyéni időpont
                 </span>
                 <button
                   onClick={() => setShowCustom(false)}
-                  className="p-1 rounded hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary"
+                  className="dark:hover:bg-dark-bg-tertiary rounded p-1 hover:bg-gray-100"
                 >
                   <X className="h-3 w-3 text-gray-400" />
                 </button>
               </div>
 
-              <div className="p-3 space-y-3">
+              <div className="space-y-3 p-3">
                 <div>
-                  <label className="block text-xs text-gray-500 dark:text-dark-text-muted mb-1">
+                  <label className="dark:text-dark-text-muted mb-1 block text-xs text-gray-500">
                     Dátum
                   </label>
                   <input
@@ -231,24 +236,24 @@ export function ReminderMenu({ emailId, onSuccess, onClose, variant = 'button' }
                     value={customDate}
                     onChange={(e) => setCustomDate(e.target.value)}
                     min={minDate}
-                    className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-dark-border rounded bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text"
+                    className="dark:border-dark-border dark:bg-dark-bg dark:text-dark-text w-full rounded border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs text-gray-500 dark:text-dark-text-muted mb-1">
+                  <label className="dark:text-dark-text-muted mb-1 block text-xs text-gray-500">
                     Időpont
                   </label>
                   <input
                     type="time"
                     value={customTime}
                     onChange={(e) => setCustomTime(e.target.value)}
-                    className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-dark-border rounded bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text"
+                    className="dark:border-dark-border dark:bg-dark-bg dark:text-dark-text w-full rounded border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs text-gray-500 dark:text-dark-text-muted mb-1">
+                  <label className="dark:text-dark-text-muted mb-1 block text-xs text-gray-500">
                     Megjegyzés (opcionális)
                   </label>
                   <input
@@ -256,14 +261,14 @@ export function ReminderMenu({ emailId, onSuccess, onClose, variant = 'button' }
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     placeholder="pl. Válaszolni kell"
-                    className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-dark-border rounded bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text"
+                    className="dark:border-dark-border dark:bg-dark-bg dark:text-dark-text w-full rounded border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900"
                   />
                 </div>
 
                 <button
                   onClick={handleCustomRemind}
                   disabled={!customDate || createReminder.isPending}
-                  className="w-full py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full rounded-lg bg-blue-600 py-2 text-sm text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {createReminder.isPending ? 'Mentés...' : 'Emlékeztető beállítása'}
                 </button>

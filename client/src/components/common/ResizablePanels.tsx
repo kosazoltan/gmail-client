@@ -101,13 +101,10 @@ export function ResizablePanels({
   }, [isDragging, minLeftWidth, maxLeftWidth]);
 
   return (
-    <div ref={containerRef} className="flex h-full relative">
+    <div ref={containerRef} className="relative flex h-full">
       {/* Bal panel (email lista) */}
       <div
-        className={`
-          border-r border-gray-200 dark:border-dark-border overflow-auto h-full
-          ${rightPanelActive ? 'hidden md:block' : 'block'}
-        `}
+        className={`dark:border-dark-border h-full overflow-auto border-r border-gray-200 ${rightPanelActive ? 'hidden md:block' : 'block'} `}
         style={{
           flex: `0 0 ${leftWidth}%`,
           maxWidth: rightPanelActive ? undefined : '100%',
@@ -120,37 +117,22 @@ export function ResizablePanels({
       <div
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}
-        className={`
-          hidden md:flex items-center justify-center
-          w-2 md:w-1 hover:w-2 md:hover:w-1.5 bg-gray-200 dark:bg-dark-border
-          hover:bg-blue-400 dark:hover:bg-blue-500
-          cursor-col-resize transition-all duration-150 group
-          ${isDragging ? 'w-2 md:w-1.5 bg-blue-500 dark:bg-blue-400' : ''}
-        `}
+        className={`dark:bg-dark-border group hidden w-2 cursor-col-resize items-center justify-center bg-gray-200 transition-all duration-150 hover:w-2 hover:bg-blue-400 md:flex md:w-1 md:hover:w-1.5 dark:hover:bg-blue-500 ${isDragging ? 'w-2 bg-blue-500 md:w-1.5 dark:bg-blue-400' : ''} `}
       >
         <div
-          className={`
-            absolute flex items-center justify-center
-            w-5 h-14 md:w-4 md:h-12 rounded-full
-            bg-gray-100 dark:bg-dark-bg-tertiary
-            border border-gray-300 dark:border-dark-border
-            opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity
-            ${isDragging ? 'opacity-100 bg-blue-100 dark:bg-blue-500/20 border-blue-400' : ''}
-          `}
+          className={`dark:bg-dark-bg-tertiary dark:border-dark-border absolute flex h-14 w-5 items-center justify-center rounded-full border border-gray-300 bg-gray-100 opacity-100 transition-opacity md:h-12 md:w-4 md:opacity-0 md:group-hover:opacity-100 ${isDragging ? 'border-blue-400 bg-blue-100 opacity-100 dark:bg-blue-500/20' : ''} `}
         >
-          <GripVertical className="h-5 w-5 md:h-4 md:w-4 text-gray-400 dark:text-dark-text-muted" />
+          <GripVertical className="dark:text-dark-text-muted h-5 w-5 text-gray-400 md:h-4 md:w-4" />
         </div>
       </div>
 
       {/* Jobb panel (email detail) */}
       <div
-        className={`
-          flex-1 min-w-0
-          ${rightPanelActive
-            ? 'block absolute inset-0 md:relative md:inset-auto bg-white dark:bg-dark-bg z-10'
+        className={`min-w-0 flex-1 ${
+          rightPanelActive
+            ? 'dark:bg-dark-bg absolute inset-0 z-10 block bg-white md:relative md:inset-auto'
             : 'hidden md:block'
-          }
-        `}
+        } `}
       >
         {rightPanel}
       </div>

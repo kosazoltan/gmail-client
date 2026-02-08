@@ -51,11 +51,10 @@ export function VIPSettings() {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-lg font-medium text-gray-800 dark:text-dark-text mb-1">
-          VIP küldők
-        </h3>
-        <p className="text-sm text-gray-500 dark:text-dark-text-muted mb-4">
-          A VIP küldőktől érkező levelek koronával lesznek jelölve, és mindig megkapod róluk az értesítést (még csendes órákban is).
+        <h3 className="dark:text-dark-text mb-1 text-lg font-medium text-gray-800">VIP küldők</h3>
+        <p className="dark:text-dark-text-muted mb-4 text-sm text-gray-500">
+          A VIP küldőktől érkező levelek koronával lesznek jelölve, és mindig megkapod róluk az
+          értesítést (még csendes órákban is).
         </p>
       </div>
 
@@ -63,7 +62,7 @@ export function VIPSettings() {
       {!showAddForm && (
         <button
           onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-2 px-4 py-2 text-sm text-[#4f6ef7] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors"
+          className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm text-[#4f6ef7] transition-colors hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-500/10"
         >
           <Plus className="h-4 w-4" />
           VIP küldő hozzáadása
@@ -72,9 +71,9 @@ export function VIPSettings() {
 
       {/* Add form */}
       {showAddForm && (
-        <div className="p-4 bg-gray-50 dark:bg-dark-bg rounded-lg space-y-3">
+        <div className="dark:bg-dark-bg space-y-3 rounded-lg bg-gray-50 p-4">
           <div>
-            <label className="block text-sm text-gray-500 dark:text-dark-text-muted mb-1">
+            <label className="dark:text-dark-text-muted mb-1 block text-sm text-gray-500">
               Email cím *
             </label>
             <input
@@ -82,12 +81,12 @@ export function VIPSettings() {
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
               placeholder="vip@example.com"
-              className="w-full px-3 py-2 border border-gray-200 dark:border-dark-border rounded-lg bg-white dark:bg-dark-bg-secondary text-gray-800 dark:text-dark-text text-sm"
+              className="dark:border-dark-border dark:bg-dark-bg-secondary dark:text-dark-text w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800"
               autoFocus
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-500 dark:text-dark-text-muted mb-1">
+            <label className="dark:text-dark-text-muted mb-1 block text-sm text-gray-500">
               Név (opcionális)
             </label>
             <input
@@ -95,14 +94,14 @@ export function VIPSettings() {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Példa Béla"
-              className="w-full px-3 py-2 border border-gray-200 dark:border-dark-border rounded-lg bg-white dark:bg-dark-bg-secondary text-gray-800 dark:text-dark-text text-sm"
+              className="dark:border-dark-border dark:bg-dark-bg-secondary dark:text-dark-text w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800"
             />
           </div>
           <div className="flex gap-2">
             <button
               onClick={handleAdd}
               disabled={addVip.isPending || !newEmail.trim()}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-[#4f6ef7] text-white rounded-lg hover:bg-[#3d5ce5] disabled:opacity-50 transition-colors"
+              className="flex items-center gap-2 rounded-lg bg-[#4f6ef7] px-4 py-2 text-sm text-white transition-colors hover:bg-[#3d5ce5] disabled:opacity-50"
             >
               {addVip.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               Hozzáadás
@@ -113,7 +112,7 @@ export function VIPSettings() {
                 setNewEmail('');
                 setNewName('');
               }}
-              className="px-4 py-2 text-sm text-gray-600 dark:text-dark-text-secondary hover:bg-gray-200 dark:hover:bg-dark-bg-tertiary rounded-lg transition-colors"
+              className="dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary rounded-lg px-4 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-200"
             >
               Mégsem
             </button>
@@ -132,22 +131,22 @@ export function VIPSettings() {
             <div
               key={vip.id}
               className={cn(
-                'flex items-center justify-between p-3 rounded-lg border',
+                'flex items-center justify-between rounded-lg border p-3',
                 confirmDeleteId === vip.id
-                  ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-500/10'
-                  : 'border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg-secondary',
+                  ? 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-500/10'
+                  : 'dark:border-dark-border dark:bg-dark-bg-secondary border-gray-200 bg-white',
               )}
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-500/20">
                   <Crown className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                 </div>
                 <div>
-                  <div className="font-medium text-gray-800 dark:text-dark-text">
+                  <div className="dark:text-dark-text font-medium text-gray-800">
                     {vip.name || vip.email}
                   </div>
                   {vip.name && (
-                    <div className="text-sm text-gray-500 dark:text-dark-text-muted">
+                    <div className="dark:text-dark-text-muted text-sm text-gray-500">
                       {vip.email}
                     </div>
                   )}
@@ -159,13 +158,13 @@ export function VIPSettings() {
                   <button
                     onClick={() => handleDelete(vip.id)}
                     disabled={deleteVip.isPending}
-                    className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                    className="rounded bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-700 disabled:opacity-50"
                   >
                     {deleteVip.isPending ? 'Törlés...' : 'Igen'}
                   </button>
                   <button
                     onClick={() => setConfirmDeleteId(null)}
-                    className="px-3 py-1 text-sm text-gray-600 dark:text-dark-text-secondary bg-gray-100 dark:bg-dark-bg-tertiary rounded hover:bg-gray-200 dark:hover:bg-dark-bg"
+                    className="dark:text-dark-text-secondary dark:bg-dark-bg-tertiary dark:hover:bg-dark-bg rounded bg-gray-100 px-3 py-1 text-sm text-gray-600 hover:bg-gray-200"
                   >
                     Nem
                   </button>
@@ -173,7 +172,7 @@ export function VIPSettings() {
               ) : (
                 <button
                   onClick={() => setConfirmDeleteId(vip.id)}
-                  className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                  className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400"
                   title="Eltávolítás"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -183,13 +182,13 @@ export function VIPSettings() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-8 text-gray-400 dark:text-dark-text-muted">
-          <User className="h-12 w-12 mx-auto mb-2 opacity-50" />
+        <div className="dark:text-dark-text-muted py-8 text-center text-gray-400">
+          <User className="mx-auto mb-2 h-12 w-12 opacity-50" />
           <p>Még nincsenek VIP küldők</p>
         </div>
       )}
 
-      <div className="text-xs text-gray-400 dark:text-dark-text-muted pt-2 border-t border-gray-100 dark:border-dark-border">
+      <div className="dark:text-dark-text-muted dark:border-dark-border border-t border-gray-100 pt-2 text-xs text-gray-400">
         Tipp: A levél részleteinél is hozzáadhatsz bárkit VIP-nek a korona ikonra kattintva.
       </div>
     </div>

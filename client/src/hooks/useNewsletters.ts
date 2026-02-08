@@ -18,12 +18,14 @@ export function useNewsletterStats() {
 }
 
 // Hírlevél emailek
-export function useNewsletterEmails(params: {
-  page?: number;
-  limit?: number;
-  senderId?: string;
-  includeMuted?: boolean;
-} = {}) {
+export function useNewsletterEmails(
+  params: {
+    page?: number;
+    limit?: number;
+    senderId?: string;
+    includeMuted?: boolean;
+  } = {},
+) {
   return useQuery({
     queryKey: ['newsletters', 'emails', params],
     queryFn: () => api.newsletters.getEmails(params),
@@ -31,11 +33,13 @@ export function useNewsletterEmails(params: {
 }
 
 // Hírlevél emailek infinite scroll
-export function useNewsletterEmailsInfinite(params: {
-  limit?: number;
-  senderId?: string;
-  includeMuted?: boolean;
-} = {}) {
+export function useNewsletterEmailsInfinite(
+  params: {
+    limit?: number;
+    senderId?: string;
+    includeMuted?: boolean;
+  } = {},
+) {
   return useInfiniteQuery({
     queryKey: ['newsletters', 'emails-infinite', params.senderId, params.includeMuted],
     queryFn: ({ pageParam = 1 }) => api.newsletters.getEmails({ ...params, page: pageParam }),

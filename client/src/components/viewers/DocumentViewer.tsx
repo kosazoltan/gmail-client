@@ -33,7 +33,37 @@ export function DocumentViewer({ url, filename, mimeType, onClose }: DocumentVie
           const result = await mammoth.convertToHtml({ arrayBuffer });
           // Sanitize mammoth output to prevent XSS
           const sanitized = DOMPurify.sanitize(result.value, {
-            ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'b', 'i', 'u', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'div', 'span', 'img'],
+            ALLOWED_TAGS: [
+              'p',
+              'br',
+              'strong',
+              'em',
+              'b',
+              'i',
+              'u',
+              'a',
+              'ul',
+              'ol',
+              'li',
+              'h1',
+              'h2',
+              'h3',
+              'h4',
+              'h5',
+              'h6',
+              'blockquote',
+              'pre',
+              'code',
+              'table',
+              'thead',
+              'tbody',
+              'tr',
+              'th',
+              'td',
+              'div',
+              'span',
+              'img',
+            ],
             ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'src', 'alt', 'width', 'height'],
           });
           setContent(sanitized);
@@ -44,21 +74,54 @@ export function DocumentViewer({ url, filename, mimeType, onClose }: DocumentVie
             const result = await mammoth.convertToHtml({ arrayBuffer });
             // Sanitize mammoth output to prevent XSS
             const sanitized = DOMPurify.sanitize(result.value, {
-              ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'b', 'i', 'u', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'div', 'span', 'img'],
+              ALLOWED_TAGS: [
+                'p',
+                'br',
+                'strong',
+                'em',
+                'b',
+                'i',
+                'u',
+                'a',
+                'ul',
+                'ol',
+                'li',
+                'h1',
+                'h2',
+                'h3',
+                'h4',
+                'h5',
+                'h6',
+                'blockquote',
+                'pre',
+                'code',
+                'table',
+                'thead',
+                'tbody',
+                'tr',
+                'th',
+                'td',
+                'div',
+                'span',
+                'img',
+              ],
               ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'src', 'alt', 'width', 'height'],
             });
             setContent(sanitized);
           } catch {
-            throw new Error('A régi .doc formátum nem támogatott. Kérjük, konvertálja .docx formátumba.');
+            throw new Error(
+              'A régi .doc formátum nem támogatott. Kérjük, konvertálja .docx formátumba.',
+            );
           }
         }
         // ODT formátum - egyszerű szöveg kinyerés (korlátozott támogatás)
         else if (mimeType.includes('opendocument.text') || filename.endsWith('.odt')) {
           // ODT is basically a ZIP with content.xml inside
           // For now, show a message that it's not fully supported
-          throw new Error('Az ODT formátum előnézete jelenleg nem támogatott. Kérjük, töltse le a fájlt.');
-        }
-        else {
+          throw new Error(
+            'Az ODT formátum előnézete jelenleg nem támogatott. Kérjük, töltse le a fájlt.',
+          );
+        } else {
           throw new Error('Nem támogatott dokumentum formátum');
         }
       } catch (err) {
@@ -92,17 +155,17 @@ export function DocumentViewer({ url, filename, mimeType, onClose }: DocumentVie
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/90 flex flex-col">
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/90">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 bg-gray-900 text-white flex-shrink-0">
+      <div className="flex flex-shrink-0 items-center justify-between bg-gray-900 p-4 text-white">
         <div className="flex items-center gap-4">
-          <h2 className="text-lg font-medium truncate max-w-md">{filename}</h2>
+          <h2 className="max-w-md truncate text-lg font-medium">{filename}</h2>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={handleDownload}
-            className="p-2 rounded hover:bg-gray-800 transition-colors"
+            className="rounded p-2 transition-colors hover:bg-gray-800"
             title="Letöltés"
           >
             <Download className="h-5 w-5" />
@@ -110,7 +173,7 @@ export function DocumentViewer({ url, filename, mimeType, onClose }: DocumentVie
 
           <button
             onClick={onClose}
-            className="p-2 rounded hover:bg-gray-800 transition-colors ml-2"
+            className="ml-2 rounded p-2 transition-colors hover:bg-gray-800"
             title="Bezárás (Esc)"
           >
             <X className="h-5 w-5" />
@@ -121,22 +184,22 @@ export function DocumentViewer({ url, filename, mimeType, onClose }: DocumentVie
       {/* Content */}
       <div className="flex-1 overflow-auto bg-white dark:bg-gray-100">
         {isLoading && (
-          <div className="flex items-center justify-center h-full bg-gray-900">
+          <div className="flex h-full items-center justify-center bg-gray-900">
             <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
             <span className="ml-3 text-gray-300">Dokumentum betöltése...</span>
           </div>
         )}
 
         {error && (
-          <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-gray-900">
-            <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-            <h3 className="text-lg font-medium text-white mb-2">
+          <div className="flex h-full flex-col items-center justify-center bg-gray-900 p-8 text-center">
+            <AlertCircle className="mb-4 h-12 w-12 text-red-500" />
+            <h3 className="mb-2 text-lg font-medium text-white">
               Nem sikerült betölteni a dokumentumot
             </h3>
-            <p className="text-sm text-gray-400 mb-4">{error}</p>
+            <p className="mb-4 text-sm text-gray-400">{error}</p>
             <button
               onClick={handleDownload}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
             >
               Letöltés helyett
             </button>
@@ -144,9 +207,9 @@ export function DocumentViewer({ url, filename, mimeType, onClose }: DocumentVie
         )}
 
         {!isLoading && !error && content && (
-          <div className="max-w-4xl mx-auto p-8 bg-white shadow-lg min-h-full">
+          <div className="mx-auto min-h-full max-w-4xl bg-white p-8 shadow-lg">
             <div
-              className="prose prose-sm max-w-none dark:prose-invert"
+              className="prose prose-sm dark:prose-invert max-w-none"
               dangerouslySetInnerHTML={{ __html: content }}
             />
           </div>
@@ -154,7 +217,7 @@ export function DocumentViewer({ url, filename, mimeType, onClose }: DocumentVie
       </div>
 
       {/* Footer info */}
-      <div className="bg-gray-900 text-gray-400 text-xs px-4 py-2 text-center flex-shrink-0">
+      <div className="flex-shrink-0 bg-gray-900 px-4 py-2 text-center text-xs text-gray-400">
         Esc a bezáráshoz
       </div>
     </div>

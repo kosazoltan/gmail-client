@@ -19,22 +19,37 @@ function isPersonalEmail(email: Email): boolean {
 
   // Kizárjuk a számlákat
   const invoiceKeywords = ['számla', 'invoice', 'bill', 'receipt', 'nyugta', 'fizetés', 'payment'];
-  const hasInvoiceKeyword = invoiceKeywords.some(kw =>
-    subject.includes(kw) || snippet.includes(kw)
+  const hasInvoiceKeyword = invoiceKeywords.some(
+    (kw) => subject.includes(kw) || snippet.includes(kw),
   );
   if (hasInvoiceKeyword) return false;
 
   // Kizárjuk a hírleveleket
-  const newsletterKeywords = ['newsletter', 'hírlevél', 'unsubscribe', 'leiratkozás', 'noreply', 'no-reply', 'donotreply'];
-  const hasNewsletterKeyword = newsletterKeywords.some(kw =>
-    subject.includes(kw) || from.includes(kw)
+  const newsletterKeywords = [
+    'newsletter',
+    'hírlevél',
+    'unsubscribe',
+    'leiratkozás',
+    'noreply',
+    'no-reply',
+    'donotreply',
+  ];
+  const hasNewsletterKeyword = newsletterKeywords.some(
+    (kw) => subject.includes(kw) || from.includes(kw),
   );
   if (hasNewsletterKeyword) return false;
 
   // Kizárjuk az automatikus értesítéseket
-  const automatedKeywords = ['notification', 'értesítés', 'alert', 'automated', 'automatic', 'system'];
-  const hasAutomatedKeyword = automatedKeywords.some(kw =>
-    subject.includes(kw) || from.includes(kw)
+  const automatedKeywords = [
+    'notification',
+    'értesítés',
+    'alert',
+    'automated',
+    'automatic',
+    'system',
+  ];
+  const hasAutomatedKeyword = automatedKeywords.some(
+    (kw) => subject.includes(kw) || from.includes(kw),
   );
   if (hasAutomatedKeyword) return false;
 
@@ -48,13 +63,10 @@ export function PersonalView() {
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
 
   const accountId = session?.activeAccountId || undefined;
-  const {
-    data,
-    isLoading,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
-  } = useEmailsInfinite({ accountId, limit: 100 });
+  const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useEmailsInfinite({
+    accountId,
+    limit: 100,
+  });
   const deleteEmail = useDeleteEmail();
 
   const { containerRef } = useInfiniteScroll({
@@ -65,7 +77,7 @@ export function PersonalView() {
 
   // Személyes emailek szűrése
   const personalEmails = useMemo(() => {
-    const emails = data?.pages?.flatMap(page => page.emails) || [];
+    const emails = data?.pages?.flatMap((page) => page.emails) || [];
     return emails.filter(isPersonalEmail);
   }, [data?.pages]);
 
@@ -79,7 +91,7 @@ export function PersonalView() {
   }
 
   const leftPanel = (
-    <div ref={containerRef} className="flex flex-col h-full overflow-auto">
+    <div ref={containerRef} className="flex h-full flex-col overflow-auto">
       <ThreadedEmailList
         emails={personalEmails}
         isLoading={isLoading}
@@ -92,7 +104,7 @@ export function PersonalView() {
                 const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);
                 setSelectedEmail(nextEmail);
               }
-            }
+            },
           });
         }}
         title={`Személyes levelek (${personalEmails.length})`}
@@ -101,7 +113,9 @@ export function PersonalView() {
       {isFetchingNextPage && (
         <div className="flex items-center justify-center py-4">
           <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-          <span className="ml-2 text-sm text-gray-500 dark:text-dark-text-secondary">További levelek betöltése...</span>
+          <span className="dark:text-dark-text-secondary ml-2 text-sm text-gray-500">
+            További levelek betöltése...
+          </span>
         </div>
       )}
     </div>

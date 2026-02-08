@@ -44,30 +44,30 @@ export function OfficeViewer({ url, filename, mimeType, onClose }: OfficeViewerP
 
   if (!isSupportedFormat) {
     return (
-      <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center">
-        <div className="bg-white dark:bg-dark-bg-secondary rounded-lg p-6 max-w-md mx-4">
-          <div className="flex items-start gap-3 mb-4">
-            <AlertCircle className="h-6 w-6 text-yellow-500 flex-shrink-0" />
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90">
+        <div className="dark:bg-dark-bg-secondary mx-4 max-w-md rounded-lg bg-white p-6">
+          <div className="mb-4 flex items-start gap-3">
+            <AlertCircle className="h-6 w-6 flex-shrink-0 text-yellow-500" />
             <div>
-              <h3 className="font-medium text-gray-900 dark:text-dark-text mb-2">
+              <h3 className="dark:text-dark-text mb-2 font-medium text-gray-900">
                 Nem támogatott formátum
               </h3>
-              <p className="text-sm text-gray-600 dark:text-dark-text-secondary">
+              <p className="dark:text-dark-text-secondary text-sm text-gray-600">
                 Ez a fájltípus nem jeleníthető meg böngészőben. Kérjük, töltsd le a megtekintéshez.
               </p>
             </div>
           </div>
 
-          <div className="flex gap-2 justify-end">
+          <div className="flex justify-end gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary dark:text-dark-text"
+              className="dark:border-dark-border dark:hover:bg-dark-bg-tertiary dark:text-dark-text rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
             >
               Bezárás
             </button>
             <button
               onClick={handleDownload}
-              className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
             >
               Letöltés
             </button>
@@ -78,24 +78,22 @@ export function OfficeViewer({ url, filename, mimeType, onClose }: OfficeViewerP
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/90 flex flex-col">
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/90">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 bg-gray-900 text-white">
+      <div className="flex items-center justify-between bg-gray-900 p-4 text-white">
         <div className="flex items-center gap-4">
-          <h2 className="text-lg font-medium truncate max-w-md">{filename}</h2>
+          <h2 className="max-w-md truncate text-lg font-medium">{filename}</h2>
           {viewerError && (
-            <span className="text-sm text-yellow-400">
-              Viewer hiba - próbáld meg letölteni
-            </span>
+            <span className="text-sm text-yellow-400">Viewer hiba - próbáld meg letölteni</span>
           )}
         </div>
 
         <div className="flex items-center gap-2">
           {/* Viewer váltás */}
-          <div className="flex items-center gap-2 mr-4">
+          <div className="mr-4 flex items-center gap-2">
             <button
               onClick={() => setUseGoogleViewer(true)}
-              className={`px-3 py-1 text-xs rounded ${
+              className={`rounded px-3 py-1 text-xs ${
                 useGoogleViewer
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
@@ -105,7 +103,7 @@ export function OfficeViewer({ url, filename, mimeType, onClose }: OfficeViewerP
             </button>
             <button
               onClick={() => setUseGoogleViewer(false)}
-              className={`px-3 py-1 text-xs rounded ${
+              className={`rounded px-3 py-1 text-xs ${
                 !useGoogleViewer
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
@@ -118,7 +116,7 @@ export function OfficeViewer({ url, filename, mimeType, onClose }: OfficeViewerP
           {/* Új lapon megnyitás */}
           <button
             onClick={handleOpenInNewTab}
-            className="p-2 rounded hover:bg-gray-800 transition-colors"
+            className="rounded p-2 transition-colors hover:bg-gray-800"
             title="Megnyitás új lapon"
           >
             <ExternalLink className="h-5 w-5" />
@@ -127,7 +125,7 @@ export function OfficeViewer({ url, filename, mimeType, onClose }: OfficeViewerP
           {/* Letöltés */}
           <button
             onClick={handleDownload}
-            className="p-2 rounded hover:bg-gray-800 transition-colors"
+            className="rounded p-2 transition-colors hover:bg-gray-800"
             title="Letöltés"
           >
             <Download className="h-5 w-5" />
@@ -136,7 +134,7 @@ export function OfficeViewer({ url, filename, mimeType, onClose }: OfficeViewerP
           {/* Bezárás */}
           <button
             onClick={onClose}
-            className="p-2 rounded hover:bg-gray-800 transition-colors ml-2"
+            className="ml-2 rounded p-2 transition-colors hover:bg-gray-800"
             title="Bezárás"
           >
             <X className="h-5 w-5" />
@@ -145,10 +143,10 @@ export function OfficeViewer({ url, filename, mimeType, onClose }: OfficeViewerP
       </div>
 
       {/* Dokumentum megjelenítő iframe */}
-      <div className="flex-1 relative">
+      <div className="relative flex-1">
         <iframe
           src={viewerUrl}
-          className="w-full h-full border-0"
+          className="h-full w-full border-0"
           title={filename}
           sandbox="allow-scripts allow-same-origin allow-popups"
           onError={() => setViewerError(true)}
@@ -156,18 +154,18 @@ export function OfficeViewer({ url, filename, mimeType, onClose }: OfficeViewerP
 
         {viewerError && (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-900/80">
-            <div className="text-center text-white max-w-md p-6">
-              <AlertCircle className="h-12 w-12 mx-auto mb-4 text-yellow-400" />
-              <h3 className="text-lg font-medium mb-2">
+            <div className="max-w-md p-6 text-center text-white">
+              <AlertCircle className="mx-auto mb-4 h-12 w-12 text-yellow-400" />
+              <h3 className="mb-2 text-lg font-medium">
                 Nem sikerült megjeleníteni a dokumentumot
               </h3>
-              <p className="text-sm text-gray-300 mb-4">
-                A fájl lehet, hogy nem elérhető publikusan, vagy a viewer nem támogatja.
-                Próbáld meg letölteni és helyi alkalmazással megnyitni.
+              <p className="mb-4 text-sm text-gray-300">
+                A fájl lehet, hogy nem elérhető publikusan, vagy a viewer nem támogatja. Próbáld meg
+                letölteni és helyi alkalmazással megnyitni.
               </p>
               <button
                 onClick={handleDownload}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="rounded-lg bg-blue-600 px-6 py-2 text-white hover:bg-blue-700"
               >
                 Letöltés
               </button>
@@ -177,7 +175,7 @@ export function OfficeViewer({ url, filename, mimeType, onClose }: OfficeViewerP
       </div>
 
       {/* Info footer */}
-      <div className="bg-gray-900 text-gray-400 text-xs px-4 py-2 text-center">
+      <div className="bg-gray-900 px-4 py-2 text-center text-xs text-gray-400">
         {useGoogleViewer ? 'Google Docs Viewer' : 'Microsoft Office Online Viewer'} használatával
         {' • '}
         Ha nem jelenik meg, próbáld meg a másik viewert vagy töltsd le a fájlt

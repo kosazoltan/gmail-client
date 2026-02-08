@@ -6,21 +6,21 @@ export function LoginScreen() {
   const login = useLogin();
 
   return (
-    <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-blue-50 to-white dark:from-dark-bg dark:to-dark-bg-secondary px-4">
-      <div className="flex flex-col items-center w-full max-w-lg bg-white/80 dark:bg-dark-bg-secondary/80 backdrop-blur-sm shadow-xl rounded-xl p-8 sm:p-10">
+    <div className="dark:from-dark-bg dark:to-dark-bg-secondary flex h-full flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-white px-4">
+      <div className="dark:bg-dark-bg-secondary/80 flex w-full max-w-lg flex-col items-center rounded-xl bg-white/80 p-8 shadow-xl backdrop-blur-sm sm:p-10">
         {/* Logo és branding */}
-        <div className="flex flex-col items-center mb-8">
+        <div className="mb-8 flex flex-col items-center">
           <ZMailLogo size={80} className="mb-4" />
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-dark-text mb-2">
+          <h1 className="dark:text-dark-text mb-2 text-3xl font-bold text-gray-900 sm:text-4xl">
             ZMail
           </h1>
-          <p className="text-gray-500 dark:text-dark-text-secondary text-center max-w-md">
+          <p className="dark:text-dark-text-secondary max-w-md text-center text-gray-500">
             Egyszerű és gyors email kliens a Gmail fiókjaidhoz
           </p>
         </div>
 
         {/* Funkciók lista */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8 text-sm text-gray-600 dark:text-dark-text-secondary max-w-lg">
+        <div className="dark:text-dark-text-secondary mb-8 grid max-w-lg grid-cols-1 gap-3 text-sm text-gray-600 sm:grid-cols-2">
           <div className="flex items-center gap-2">
             <span className="text-[#4f6ef7]">✓</span>
             <span>Billentyűparancsok</span>
@@ -51,7 +51,7 @@ export function LoginScreen() {
         <button
           onClick={() => login.mutate()}
           disabled={login.isPending}
-          className="flex items-center gap-3 px-6 py-3 bg-[#4f6ef7] hover:bg-[#3d5ce5] text-white rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-3 rounded-lg bg-[#4f6ef7] px-6 py-3 text-white shadow-md transition-all hover:bg-[#3d5ce5] hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
           aria-label="Bejelentkezés Google fiókkal"
         >
           {login.isPending ? (
@@ -76,16 +76,16 @@ export function LoginScreen() {
               />
             </svg>
           )}
-          <span className="text-white font-medium">
+          <span className="font-medium text-white">
             {login.isPending ? 'Átirányítás...' : 'Bejelentkezés Google fiókkal'}
           </span>
         </button>
       </div>
 
       {/* Lábléc infó */}
-      <p className="mt-8 text-xs text-gray-400 dark:text-dark-text-muted text-center max-w-sm">
-        A bejelentkezéssel elfogadod, hogy az alkalmazás hozzáfér a Gmail fiókodhoz.
-        Az adataid biztonságban vannak és csak helyileg tárolódnak.
+      <p className="dark:text-dark-text-muted mt-8 max-w-sm text-center text-xs text-gray-400">
+        A bejelentkezéssel elfogadod, hogy az alkalmazás hozzáfér a Gmail fiókodhoz. Az adataid
+        biztonságban vannak és csak helyileg tárolódnak.
       </p>
     </div>
   );

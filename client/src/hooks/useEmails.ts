@@ -14,11 +14,7 @@ export function useEmails(params: {
   });
 }
 
-export function useEmailsInfinite(params: {
-  accountId?: string;
-  limit?: number;
-  sort?: string;
-}) {
+export function useEmailsInfinite(params: { accountId?: string; limit?: number; sort?: string }) {
   return useInfiniteQuery({
     queryKey: ['emails-infinite', params.accountId, params.limit, params.sort],
     queryFn: ({ pageParam = 1 }) => api.emails.list({ ...params, page: pageParam }),

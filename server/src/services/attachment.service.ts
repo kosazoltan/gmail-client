@@ -3,10 +3,7 @@ import { getOAuth2ClientForAccount } from './auth.service.js';
 import { getGmailClient, getAttachment } from './gmail.service.js';
 
 export function getAttachmentInfo(attachmentId: string) {
-  return queryOne(
-    'SELECT * FROM attachments WHERE id = ?',
-    [attachmentId],
-  );
+  return queryOne('SELECT * FROM attachments WHERE id = ?', [attachmentId]);
 }
 
 export async function downloadAttachment(attachmentId: string) {
@@ -17,10 +14,7 @@ export async function downloadAttachment(attachmentId: string) {
     mime_type: string;
     size: number;
     gmail_attachment_id: string;
-  }>(
-    'SELECT * FROM attachments WHERE id = ?',
-    [attachmentId],
-  );
+  }>('SELECT * FROM attachments WHERE id = ?', [attachmentId]);
 
   if (!attachment) {
     throw new Error('Melléklet nem található');
@@ -38,11 +32,7 @@ export async function downloadAttachment(attachmentId: string) {
   const { oauth2Client } = getOAuth2ClientForAccount(email.account_id);
   const gmail = getGmailClient(oauth2Client);
 
-  const data = await getAttachment(
-    gmail,
-    attachment.email_id,
-    attachment.gmail_attachment_id,
-  );
+  const data = await getAttachment(gmail, attachment.email_id, attachment.gmail_attachment_id);
 
   return {
     data: data.data,
@@ -53,10 +43,7 @@ export async function downloadAttachment(attachmentId: string) {
 }
 
 export function getEmailAttachments(emailId: string) {
-  return queryAll(
-    'SELECT * FROM attachments WHERE email_id = ?',
-    [emailId],
-  );
+  return queryAll('SELECT * FROM attachments WHERE email_id = ?', [emailId]);
 }
 
 // Melléklet tulajdonosának (account_id) lekérdezése
@@ -80,22 +67,26 @@ function getAttachmentType(mimeType: string): string {
     mimeType.includes('document') ||
     mimeType === 'application/msword' ||
     mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-  ) return 'document';
+  )
+    return 'document';
   if (
     mimeType.includes('excel') ||
     mimeType.includes('spreadsheet') ||
     mimeType === 'application/vnd.ms-excel' ||
     mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  ) return 'spreadsheet';
+  )
+    return 'spreadsheet';
   if (
     mimeType.includes('presentation') ||
     mimeType.includes('powerpoint') ||
     mimeType === 'application/vnd.ms-powerpoint' ||
     mimeType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-  ) return 'presentation';
+  )
+    return 'presentation';
   if (mimeType.startsWith('video/')) return 'video';
   if (mimeType.startsWith('audio/')) return 'audio';
-  if (mimeType.includes('zip') || mimeType.includes('archive') || mimeType.includes('compressed')) return 'archive';
+  if (mimeType.includes('zip') || mimeType.includes('archive') || mimeType.includes('compressed'))
+    return 'archive';
   return 'other';
 }
 
@@ -147,13 +138,15 @@ export function listAttachments(filter: AttachmentFilter): AttachmentListResult 
         typeCondition = "AND a.mime_type = 'application/pdf'";
         break;
       case 'document':
-        typeCondition = "AND (a.mime_type LIKE '%word%' OR a.mime_type LIKE '%document%' OR a.mime_type = 'application/msword')";
+        typeCondition =
+          "AND (a.mime_type LIKE '%word%' OR a.mime_type LIKE '%document%' OR a.mime_type = 'application/msword')";
         break;
       case 'spreadsheet':
         typeCondition = "AND (a.mime_type LIKE '%excel%' OR a.mime_type LIKE '%spreadsheet%')";
         break;
       case 'presentation':
-        typeCondition = "AND (a.mime_type LIKE '%presentation%' OR a.mime_type LIKE '%powerpoint%')";
+        typeCondition =
+          "AND (a.mime_type LIKE '%presentation%' OR a.mime_type LIKE '%powerpoint%')";
         break;
       case 'video':
         typeCondition = "AND a.mime_type LIKE 'video/%'";
@@ -162,7 +155,8 @@ export function listAttachments(filter: AttachmentFilter): AttachmentListResult 
         typeCondition = "AND a.mime_type LIKE 'audio/%'";
         break;
       case 'archive':
-        typeCondition = "AND (a.mime_type LIKE '%zip%' OR a.mime_type LIKE '%archive%' OR a.mime_type LIKE '%compressed%')";
+        typeCondition =
+          "AND (a.mime_type LIKE '%zip%' OR a.mime_type LIKE '%archive%' OR a.mime_type LIKE '%compressed%')";
         break;
       case 'other':
         typeCondition = `AND a.mime_type NOT LIKE 'image/%'

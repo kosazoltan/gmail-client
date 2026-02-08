@@ -27,8 +27,7 @@ export function useSetting<T>(key: keyof UserSettings) {
 export function useUpdateSetting() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ key, value }: { key: string; value: unknown }) =>
-      api.settings.set(key, value),
+    mutationFn: ({ key, value }: { key: string; value: unknown }) => api.settings.set(key, value),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
       queryClient.invalidateQueries({ queryKey: ['settings', variables.key] });

@@ -37,43 +37,43 @@ export function getDatabaseStats(accountId?: string): DatabaseStats {
 
   const emailCount = queryOne<{ count: number }>(
     `SELECT COUNT(*) as count FROM emails ${accountFilter}`,
-    params
+    params,
   );
 
   const contactCount = queryOne<{ count: number }>(
     `SELECT COUNT(*) as count FROM contacts ${accountFilter}`,
-    params
+    params,
   );
 
   const attachmentCount = queryOne<{ count: number }>(
     `SELECT COUNT(*) as count FROM attachments a
      ${accountId ? 'JOIN emails e ON a.email_id = e.id WHERE e.account_id = ?' : ''}`,
-    params
+    params,
   );
 
   const categoryCount = queryOne<{ count: number }>(
     `SELECT COUNT(*) as count FROM categories ${accountFilter}`,
-    params
+    params,
   );
 
   const senderGroupCount = queryOne<{ count: number }>(
     `SELECT COUNT(*) as count FROM sender_groups ${accountFilter}`,
-    params
+    params,
   );
 
   const topicCount = queryOne<{ count: number }>(
     `SELECT COUNT(*) as count FROM topics ${accountFilter}`,
-    params
+    params,
   );
 
   const oldestEmail = queryOne<{ date: number | null }>(
     `SELECT MIN(date) as date FROM emails ${accountFilter}`,
-    params
+    params,
   );
 
   const newestEmail = queryOne<{ date: number | null }>(
     `SELECT MAX(date) as date FROM emails ${accountFilter}`,
-    params
+    params,
   );
 
   // Emailek fiókonként - csak a kért accountId-t mutatjuk, ha meg van adva
@@ -84,7 +84,7 @@ export function getDatabaseStats(accountId?: string): DatabaseStats {
          JOIN accounts a ON e.account_id = a.id
          WHERE e.account_id = ?
          GROUP BY e.account_id`,
-        [accountId]
+        [accountId],
       )
     : [];
 
@@ -109,7 +109,7 @@ export function getDatabaseStats(accountId?: string): DatabaseStats {
     databaseSizeBytes,
     oldestEmail: oldestEmail?.date || null,
     newestEmail: newestEmail?.date || null,
-    emailsByAccount: emailsByAccountRaw.map(row => ({
+    emailsByAccount: emailsByAccountRaw.map((row) => ({
       accountId: row.account_id,
       email: row.email,
       count: row.count,
@@ -130,7 +130,7 @@ export function listEmailsForManager(
     dateTo?: number;
     hasAttachments?: boolean;
     isRead?: boolean;
-  } = {}
+  } = {},
 ): { emails: EmailListItem[]; total: number; page: number; totalPages: number } {
   const {
     page = 1,
@@ -180,7 +180,7 @@ export function listEmailsForManager(
     date: 'date',
     from: 'from_email',
     subject: 'subject',
-    size: 'LENGTH(COALESCE(body, \'\')) + LENGTH(COALESCE(body_html, \'\'))',
+    size: "LENGTH(COALESCE(body, '')) + LENGTH(COALESCE(body_html, ''))",
   };
   const sortColumn = sortColumnMap[sortBy] || 'date';
 
@@ -189,7 +189,7 @@ export function listEmailsForManager(
   // Összes szám
   const countResult = queryOne<{ count: number }>(
     `SELECT COUNT(*) as count FROM emails WHERE ${whereClause}`,
-    params
+    params,
   );
   const total = countResult?.count || 0;
   const totalPages = Math.ceil(total / limit);
@@ -204,7 +204,7 @@ export function listEmailsForManager(
      WHERE ${whereClause}
      ORDER BY ${sortColumn} ${orderDirection}
      LIMIT ? OFFSET ?`,
-    [...params, limit, offset]
+    [...params, limit, offset],
   );
 
   return { emails, total, page, totalPages };
@@ -218,7 +218,7 @@ export function deleteEmails(accountId: string, emailIds: string[]): number {
   for (const emailId of emailIds) {
     const existing = queryOne<{ id: string }>(
       'SELECT id FROM emails WHERE id = ? AND account_id = ?',
-      [emailId, accountId]
+      [emailId, accountId],
     );
 
     if (existing) {
@@ -237,12 +237,12 @@ export function deleteEmails(accountId: string, emailIds: string[]): number {
 export function deleteEmailsByDateRange(
   accountId: string,
   dateFrom: number,
-  dateTo: number
+  dateTo: number,
 ): number {
   // Először az email id-ket gyűjtjük össze
   const emails = queryAll<{ id: string }>(
     'SELECT id FROM emails WHERE account_id = ? AND date >= ? AND date <= ?',
-    [accountId, dateFrom, dateTo]
+    [accountId, dateFrom, dateTo],
   );
 
   if (emails.length === 0) return 0;
@@ -254,10 +254,11 @@ export function deleteEmailsByDateRange(
   execute(`DELETE FROM attachments WHERE email_id IN (${placeholders})`, emailIds);
 
   // Emailek törlése
-  execute(
-    `DELETE FROM emails WHERE account_id = ? AND date >= ? AND date <= ?`,
-    [accountId, dateFrom, dateTo]
-  );
+  execute(`DELETE FROM emails WHERE account_id = ? AND date >= ? AND date <= ?`, [
+    accountId,
+    dateFrom,
+    dateTo,
+  ]);
 
   return emails.length;
 }
@@ -287,7 +288,12 @@ export function createBackup(): { filename: string; path: string; size: number }
 }
 
 // Backup-ok listázása
-export function listBackups(): Array<{ filename: string; path: string; size: number; createdAt: number }> {
+export function listBackups(): Array<{
+  filename: string;
+  path: string;
+  size: number;
+  createdAt: number;
+}> {
   const dbPath = process.env.DATABASE_URL || './data/gmail-client.db';
   const backupDir = path.join(path.dirname(dbPath), 'backups');
 
@@ -343,7 +349,7 @@ export function deleteOldEmails(accountId: string, olderThanDays: number): numbe
 
   const emails = queryAll<{ id: string }>(
     'SELECT id FROM emails WHERE account_id = ? AND date < ?',
-    [accountId, cutoffDate]
+    [accountId, cutoffDate],
   );
 
   if (emails.length === 0) return 0;
@@ -361,12 +367,12 @@ export function deleteOldEmails(accountId: string, olderThanDays: number): numbe
 export function cleanupOrphanedRecords(): { topics: number; senderGroups: number } {
   // Üres témák törlése
   execute(
-    `DELETE FROM topics WHERE id NOT IN (SELECT DISTINCT topic_id FROM emails WHERE topic_id IS NOT NULL)`
+    `DELETE FROM topics WHERE id NOT IN (SELECT DISTINCT topic_id FROM emails WHERE topic_id IS NOT NULL)`,
   );
 
   // Üres küldő csoportok törlése
   execute(
-    `DELETE FROM sender_groups WHERE email NOT IN (SELECT DISTINCT from_email FROM emails WHERE from_email IS NOT NULL)`
+    `DELETE FROM sender_groups WHERE email NOT IN (SELECT DISTINCT from_email FROM emails WHERE from_email IS NOT NULL)`,
   );
 
   return {

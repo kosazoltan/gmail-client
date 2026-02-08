@@ -2,7 +2,12 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
 import { useUnifiedInboxInfinite } from '../../hooks/useUnifiedInbox';
-import { useToggleStar, useMarkRead, useDeleteEmail, useBatchDeleteEmails } from '../../hooks/useEmails';
+import {
+  useToggleStar,
+  useMarkRead,
+  useDeleteEmail,
+  useBatchDeleteEmails,
+} from '../../hooks/useEmails';
 import { useKeyboardShortcuts, useSearchFocus } from '../../hooks/useKeyboardShortcuts';
 import { useInfiniteScroll } from '../../hooks/useInfiniteScroll';
 import { EmailDetail } from '../email/EmailDetail';
@@ -29,13 +34,8 @@ export function UnifiedInboxView() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
 
-  const {
-    data,
-    isLoading,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
-  } = useUnifiedInboxInfinite({ filterAccountId });
+  const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } =
+    useUnifiedInboxInfinite({ filterAccountId });
 
   const { containerRef } = useInfiniteScroll({
     hasNextPage: !!hasNextPage,
@@ -48,7 +48,7 @@ export function UnifiedInboxView() {
   const batchDeleteEmails = useBatchDeleteEmails();
   const focusSearch = useSearchFocus();
 
-  const emails = useMemo(() => data?.pages?.flatMap(page => page.emails) || [], [data?.pages]);
+  const emails = useMemo(() => data?.pages?.flatMap((page) => page.emails) || [], [data?.pages]);
   const accounts = useMemo(() => data?.pages?.[0]?.accounts || [], [data?.pages]);
   const totalEmails = data?.pages?.[0]?.total || 0;
 
@@ -140,9 +140,7 @@ export function UnifiedInboxView() {
   // Forward
   const handleForward = useCallback(() => {
     if (!selectedEmail) return;
-    navigate(
-      `/compose?subject=${encodeURIComponent(`Fwd: ${selectedEmail.subject || ''}`)}`,
-    );
+    navigate(`/compose?subject=${encodeURIComponent(`Fwd: ${selectedEmail.subject || ''}`)}`);
   }, [selectedEmail, navigate]);
 
   // Toggle star
@@ -152,9 +150,7 @@ export function UnifiedInboxView() {
       emailId: selectedEmail.id,
       isStarred: !selectedEmail.isStarred,
     });
-    setSelectedEmail((prev) =>
-      prev ? { ...prev, isStarred: !prev.isStarred } : null,
-    );
+    setSelectedEmail((prev) => (prev ? { ...prev, isStarred: !prev.isStarred } : null));
   }, [selectedEmail, toggleStar]);
 
   // Toggle read
@@ -164,9 +160,7 @@ export function UnifiedInboxView() {
       emailId: selectedEmail.id,
       isRead: !selectedEmail.isRead,
     });
-    setSelectedEmail((prev) =>
-      prev ? { ...prev, isRead: !prev.isRead } : null,
-    );
+    setSelectedEmail((prev) => (prev ? { ...prev, isRead: !prev.isRead } : null));
   }, [selectedEmail, markRead]);
 
   // Delete
@@ -230,16 +224,16 @@ export function UnifiedInboxView() {
   }
 
   const leftPanel = (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border sticky top-0 z-10">
+      <div className="dark:bg-dark-bg-tertiary dark:border-dark-border sticky top-0 z-10 flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2">
         <button
           onClick={toggleSelectionMode}
           className={cn(
-            'p-2 rounded-lg transition-colors',
+            'rounded-lg p-2 transition-colors',
             selectionMode
-              ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400'
-              : 'hover:bg-gray-200 dark:hover:bg-dark-border text-gray-600 dark:text-dark-text-secondary'
+              ? 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400'
+              : 'dark:hover:bg-dark-border dark:text-dark-text-secondary text-gray-600 hover:bg-gray-200',
           )}
           title={selectionMode ? 'Kijelölés befejezése' : 'Kijelölési mód'}
         >
@@ -248,11 +242,11 @@ export function UnifiedInboxView() {
 
         {selectionMode ? (
           <>
-            <div className="h-5 w-px bg-gray-300 dark:bg-dark-border" />
+            <div className="dark:bg-dark-border h-5 w-px bg-gray-300" />
 
             <button
               onClick={selectAllEmails}
-              className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-border text-gray-600 dark:text-dark-text-secondary"
+              className="dark:hover:bg-dark-border dark:text-dark-text-secondary rounded-lg p-2 text-gray-600 hover:bg-gray-200"
               title="Összes kijelölése"
             >
               <CheckCheck className="h-5 w-5" />
@@ -260,7 +254,7 @@ export function UnifiedInboxView() {
 
             <button
               onClick={deselectAllEmails}
-              className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-border text-gray-600 dark:text-dark-text-secondary"
+              className="dark:hover:bg-dark-border dark:text-dark-text-secondary rounded-lg p-2 text-gray-600 hover:bg-gray-200"
               title="Kijelölés törlése"
             >
               <Square className="h-5 w-5" />
@@ -268,15 +262,15 @@ export function UnifiedInboxView() {
 
             {selectedIds.size > 0 && (
               <>
-                <div className="h-5 w-px bg-gray-300 dark:bg-dark-border" />
+                <div className="dark:bg-dark-border h-5 w-px bg-gray-300" />
 
-                <span className="text-sm text-gray-600 dark:text-dark-text-secondary">
+                <span className="dark:text-dark-text-secondary text-sm text-gray-600">
                   {selectedIds.size} kijelölve
                 </span>
 
                 <button
                   onClick={handleBatchDelete}
-                  className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400"
+                  className="rounded-lg p-2 text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-500/20"
                   title="Kijelöltek törlése"
                 >
                   <Trash2 className="h-5 w-5" />
@@ -288,7 +282,7 @@ export function UnifiedInboxView() {
 
             <button
               onClick={toggleSelectionMode}
-              className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-border text-gray-600 dark:text-dark-text-secondary"
+              className="dark:hover:bg-dark-border dark:text-dark-text-secondary rounded-lg p-2 text-gray-600 hover:bg-gray-200"
               title="Bezárás"
             >
               <X className="h-5 w-5" />
@@ -298,7 +292,7 @@ export function UnifiedInboxView() {
           <>
             <div className="flex items-center gap-2">
               <Inbox className="h-5 w-5 text-blue-500" />
-              <h2 className="text-sm font-medium text-gray-600 dark:text-dark-text-secondary">
+              <h2 className="dark:text-dark-text-secondary text-sm font-medium text-gray-600">
                 Minden levél{totalEmails ? ` (${totalEmails})` : ''}
               </h2>
             </div>
@@ -310,26 +304,29 @@ export function UnifiedInboxView() {
               <button
                 onClick={() => setShowAccountFilter(!showAccountFilter)}
                 className={cn(
-                  'p-2 rounded-lg transition-colors flex items-center gap-1',
+                  'flex items-center gap-1 rounded-lg p-2 transition-colors',
                   filterAccountId
-                    ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400'
-                    : 'hover:bg-gray-200 dark:hover:bg-dark-border text-gray-600 dark:text-dark-text-secondary'
+                    ? 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400'
+                    : 'dark:hover:bg-dark-border dark:text-dark-text-secondary text-gray-600 hover:bg-gray-200',
                 )}
                 title="Fiók szűrő"
               >
                 <Filter className="h-5 w-5" />
                 {filterAccountId && (
                   <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: accounts.find(a => a.accountId === filterAccountId)?.color || '#3B82F6' }}
+                    className="h-2 w-2 rounded-full"
+                    style={{
+                      backgroundColor:
+                        accounts.find((a) => a.accountId === filterAccountId)?.color || '#3B82F6',
+                    }}
                   />
                 )}
               </button>
 
               {showAccountFilter && (
-                <div className="absolute right-0 top-full mt-1 bg-white dark:bg-dark-bg-secondary border border-gray-200 dark:border-dark-border rounded-lg shadow-lg z-20 min-w-[200px]">
-                  <div className="p-2 border-b border-gray-100 dark:border-dark-border">
-                    <span className="text-xs text-gray-500 dark:text-dark-text-muted uppercase tracking-wide">
+                <div className="dark:bg-dark-bg-secondary dark:border-dark-border absolute top-full right-0 z-20 mt-1 min-w-[200px] rounded-lg border border-gray-200 bg-white shadow-lg">
+                  <div className="dark:border-dark-border border-b border-gray-100 p-2">
+                    <span className="dark:text-dark-text-muted text-xs tracking-wide text-gray-500 uppercase">
                       Szűrés fiók szerint
                     </span>
                   </div>
@@ -340,8 +337,9 @@ export function UnifiedInboxView() {
                       setShowAccountFilter(false);
                     }}
                     className={cn(
-                      'w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary',
-                      !filterAccountId && 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                      'dark:hover:bg-dark-bg-tertiary flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50',
+                      !filterAccountId &&
+                        'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',
                     )}
                   >
                     <Inbox className="h-4 w-4" />
@@ -356,16 +354,17 @@ export function UnifiedInboxView() {
                         setShowAccountFilter(false);
                       }}
                       className={cn(
-                        'w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary',
-                        filterAccountId === account.accountId && 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                        'dark:hover:bg-dark-bg-tertiary flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50',
+                        filterAccountId === account.accountId &&
+                          'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',
                       )}
                     >
                       <span
-                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        className="h-3 w-3 flex-shrink-0 rounded-full"
                         style={{ backgroundColor: account.color }}
                       />
-                      <span className="truncate flex-1">{account.email}</span>
-                      <span className="text-xs text-gray-400 dark:text-dark-text-muted">
+                      <span className="flex-1 truncate">{account.email}</span>
+                      <span className="dark:text-dark-text-muted text-xs text-gray-400">
                         {account.count}
                       </span>
                     </button>
@@ -379,31 +378,28 @@ export function UnifiedInboxView() {
 
       {/* Account stats bar */}
       {!selectionMode && accounts.length > 1 && (
-        <div className="flex items-center gap-1 px-4 py-1.5 bg-gray-100/50 dark:bg-dark-bg/50 border-b border-gray-100 dark:border-dark-border">
+        <div className="dark:bg-dark-bg/50 dark:border-dark-border flex items-center gap-1 border-b border-gray-100 bg-gray-100/50 px-4 py-1.5">
           {accounts.map((account) => (
             <button
               key={account.accountId}
-              onClick={() => setFilterAccountId(
-                filterAccountId === account.accountId ? undefined : account.accountId
-              )}
+              onClick={() =>
+                setFilterAccountId(
+                  filterAccountId === account.accountId ? undefined : account.accountId,
+                )
+              }
               className={cn(
-                'flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-colors',
+                'flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs transition-colors',
                 filterAccountId === account.accountId
-                  ? 'bg-white dark:bg-dark-bg-secondary shadow-sm'
-                  : 'hover:bg-gray-200/50 dark:hover:bg-dark-bg-tertiary'
+                  ? 'dark:bg-dark-bg-secondary bg-white shadow-sm'
+                  : 'dark:hover:bg-dark-bg-tertiary hover:bg-gray-200/50',
               )}
               title={`${account.email} (${account.count} levél)`}
             >
-              <span
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: account.color }}
-              />
-              <span className="text-gray-600 dark:text-dark-text-secondary truncate max-w-[100px]">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: account.color }} />
+              <span className="dark:text-dark-text-secondary max-w-[100px] truncate text-gray-600">
                 {account.email.split('@')[0]}
               </span>
-              <span className="text-gray-400 dark:text-dark-text-muted">
-                {account.count}
-              </span>
+              <span className="dark:text-dark-text-muted text-gray-400">{account.count}</span>
             </button>
           ))}
         </div>
@@ -424,7 +420,7 @@ export function UnifiedInboxView() {
                   const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);
                   setSelectedEmail(nextEmail);
                 }
-              }
+              },
             });
           }}
           emptyMessage="Nincs beérkezett levél egyetlen fiókban sem."
@@ -435,7 +431,9 @@ export function UnifiedInboxView() {
         {isFetchingNextPage && (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-            <span className="ml-2 text-sm text-gray-500 dark:text-dark-text-secondary">További levelek betöltése...</span>
+            <span className="dark:text-dark-text-secondary ml-2 text-sm text-gray-500">
+              További levelek betöltése...
+            </span>
           </div>
         )}
       </div>
@@ -480,25 +478,25 @@ export function UnifiedInboxView() {
 
       {/* Delete confirmation modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-dark-bg-secondary rounded-lg p-6 max-w-sm mx-4 shadow-xl dark:border dark:border-dark-border">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-dark-text mb-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="dark:bg-dark-bg-secondary dark:border-dark-border mx-4 max-w-sm rounded-lg bg-white p-6 shadow-xl dark:border">
+            <h3 className="dark:text-dark-text mb-2 text-lg font-medium text-gray-900">
               Email törlése
             </h3>
-            <p className="text-sm text-gray-500 dark:text-dark-text-secondary mb-4">
+            <p className="dark:text-dark-text-secondary mb-4 text-sm text-gray-500">
               Biztosan törölni szeretnéd ezt az emailt? Az email a kukába kerül.
             </p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary dark:text-dark-text"
+                className="dark:border-dark-border dark:hover:bg-dark-bg-tertiary dark:text-dark-text rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
               >
                 Mégse
               </button>
               <button
                 onClick={confirmDelete}
                 disabled={deleteEmail.isPending}
-                className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 disabled:opacity-50"
               >
                 {deleteEmail.isPending ? 'Törlés...' : 'Törlés'}
               </button>
@@ -509,25 +507,26 @@ export function UnifiedInboxView() {
 
       {/* Batch delete confirmation modal */}
       {showBatchDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-dark-bg-secondary rounded-lg p-6 max-w-sm mx-4 shadow-xl dark:border dark:border-dark-border">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-dark-text mb-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="dark:bg-dark-bg-secondary dark:border-dark-border mx-4 max-w-sm rounded-lg bg-white p-6 shadow-xl dark:border">
+            <h3 className="dark:text-dark-text mb-2 text-lg font-medium text-gray-900">
               {selectedIds.size} email törlése
             </h3>
-            <p className="text-sm text-gray-500 dark:text-dark-text-secondary mb-4">
-              Biztosan törölni szeretnéd a kijelölt {selectedIds.size} emailt? A levelek a kukába kerülnek.
+            <p className="dark:text-dark-text-secondary mb-4 text-sm text-gray-500">
+              Biztosan törölni szeretnéd a kijelölt {selectedIds.size} emailt? A levelek a kukába
+              kerülnek.
             </p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowBatchDeleteConfirm(false)}
-                className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary dark:text-dark-text"
+                className="dark:border-dark-border dark:hover:bg-dark-bg-tertiary dark:text-dark-text rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
               >
                 Mégse
               </button>
               <button
                 onClick={confirmBatchDelete}
                 disabled={batchDeleteEmails.isPending}
-                className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 disabled:opacity-50"
               >
                 {batchDeleteEmails.isPending ? 'Törlés...' : `${selectedIds.size} törlése`}
               </button>

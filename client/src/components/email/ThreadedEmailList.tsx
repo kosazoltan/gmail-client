@@ -48,7 +48,8 @@ function getGroupKey(email: Email): { key: string; displayName: string } {
   if (email.threadId && normalizedSubject) {
     return {
       key: `thread:${email.threadId}`,
-      displayName: email.subject?.replace(/^(Re|Fwd|Fw|VS|SV|AW|Antw):\s*/gi, '').trim() || '(Nincs tárgy)',
+      displayName:
+        email.subject?.replace(/^(Re|Fwd|Fw|VS|SV|AW|Antw):\s*/gi, '').trim() || '(Nincs tárgy)',
     };
   }
 
@@ -65,7 +66,8 @@ function getGroupKey(email: Email): { key: string; displayName: string } {
   if (normalizedSubject) {
     return {
       key: `subject:${normalizedSubject}`,
-      displayName: email.subject?.replace(/^(Re|Fwd|Fw|VS|SV|AW|Antw):\s*/gi, '').trim() || '(Nincs tárgy)',
+      displayName:
+        email.subject?.replace(/^(Re|Fwd|Fw|VS|SV|AW|Antw):\s*/gi, '').trim() || '(Nincs tárgy)',
     };
   }
 
@@ -142,18 +144,21 @@ function ThreadHeader({
   const emailCount = thread.emails.length;
 
   // Összegyűjtjük az összes küldőt a thread-ben
-  const uniqueSenders = [...new Set(thread.emails.map(e => displaySender(e.fromName, e.from)))];
-  const sendersText = uniqueSenders.length > 2
-    ? `${uniqueSenders[0]}, ${uniqueSenders[1]} és ${uniqueSenders.length - 2} másik`
-    : uniqueSenders.join(', ');
+  const uniqueSenders = [...new Set(thread.emails.map((e) => displaySender(e.fromName, e.from)))];
+  const sendersText =
+    uniqueSenders.length > 2
+      ? `${uniqueSenders[0]}, ${uniqueSenders[1]} és ${uniqueSenders.length - 2} másik`
+      : uniqueSenders.join(', ');
 
   return (
     <div
       className={cn(
-        'flex items-start gap-3 px-4 py-3 cursor-pointer border-b border-gray-100 dark:border-dark-border transition-colors',
-        isSelected ? 'bg-blue-50 dark:bg-blue-500/10 border-l-2 border-l-blue-500' : 'hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary',
-        thread.hasUnread && 'bg-white dark:bg-dark-bg-secondary',
-        !thread.hasUnread && !isSelected && 'bg-gray-50/50 dark:bg-dark-bg/50',
+        'dark:border-dark-border flex cursor-pointer items-start gap-3 border-b border-gray-100 px-4 py-3 transition-colors',
+        isSelected
+          ? 'border-l-2 border-l-blue-500 bg-blue-50 dark:bg-blue-500/10'
+          : 'dark:hover:bg-dark-bg-tertiary hover:bg-gray-50',
+        thread.hasUnread && 'dark:bg-dark-bg-secondary bg-white',
+        !thread.hasUnread && !isSelected && 'dark:bg-dark-bg/50 bg-gray-50/50',
       )}
       onClick={(e) => {
         // Ha egynél több email van, toggle expand, egyébként select
@@ -176,12 +181,12 @@ function ThreadHeader({
             e.stopPropagation();
             onToggle();
           }}
-          className="flex-shrink-0 p-1 rounded hover:bg-gray-200 dark:hover:bg-dark-bg-tertiary transition-colors mt-1"
+          className="dark:hover:bg-dark-bg-tertiary mt-1 flex-shrink-0 rounded p-1 transition-colors hover:bg-gray-200"
         >
           {isExpanded ? (
-            <ChevronDown className="h-4 w-4 text-gray-500 dark:text-dark-text-secondary" />
+            <ChevronDown className="dark:text-dark-text-secondary h-4 w-4 text-gray-500" />
           ) : (
-            <ChevronRight className="h-4 w-4 text-gray-500 dark:text-dark-text-secondary" />
+            <ChevronRight className="dark:text-dark-text-secondary h-4 w-4 text-gray-500" />
           )}
         </button>
       ) : (
@@ -190,46 +195,50 @@ function ThreadHeader({
 
       {/* Avatar */}
       <div
-        className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium"
+        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-medium text-white"
         style={{ backgroundColor: avatarColor }}
       >
         {initials}
       </div>
 
       {/* Tartalom */}
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
             <span
               className={cn(
-                'text-sm truncate',
-                thread.hasUnread ? 'font-semibold text-gray-900 dark:text-dark-text' : 'text-gray-700 dark:text-dark-text-secondary',
+                'truncate text-sm',
+                thread.hasUnread
+                  ? 'dark:text-dark-text font-semibold text-gray-900'
+                  : 'dark:text-dark-text-secondary text-gray-700',
               )}
             >
               {sendersText}
             </span>
             {emailCount > 1 && (
-              <span className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-medium rounded-full flex-shrink-0">
+              <span className="flex flex-shrink-0 items-center gap-1 rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">
                 <MessageSquare className="h-3 w-3" />
                 {emailCount}
               </span>
             )}
           </div>
-          <span className="text-xs text-gray-400 dark:text-dark-text-muted flex-shrink-0">
+          <span className="dark:text-dark-text-muted flex-shrink-0 text-xs text-gray-400">
             {formatEmailDate(thread.latestDate)}
           </span>
         </div>
 
         <div
           className={cn(
-            'text-sm truncate mt-0.5',
-            thread.hasUnread ? 'font-medium text-gray-800 dark:text-dark-text' : 'text-gray-600 dark:text-dark-text-secondary',
+            'mt-0.5 truncate text-sm',
+            thread.hasUnread
+              ? 'dark:text-dark-text font-medium text-gray-800'
+              : 'dark:text-dark-text-secondary text-gray-600',
           )}
         >
           {thread.displayName || '(Nincs tárgy)'}
         </div>
 
-        <div className="text-xs text-gray-400 dark:text-dark-text-muted truncate mt-0.5">
+        <div className="dark:text-dark-text-muted mt-0.5 truncate text-xs text-gray-400">
           {latestEmail.snippet || ''}
         </div>
       </div>
@@ -266,7 +275,7 @@ export function ThreadedEmailList({
   const selectedThreadId = useMemo(() => {
     if (!selectedEmailId) return null;
     for (const thread of threads) {
-      if (thread.emails.some(e => e.id === selectedEmailId)) {
+      if (thread.emails.some((e) => e.id === selectedEmailId)) {
         return thread.id;
       }
     }
@@ -274,7 +283,7 @@ export function ThreadedEmailList({
   }, [threads, selectedEmailId]);
 
   const toggleThread = (threadId: string) => {
-    setExpandedThreads(prev => {
+    setExpandedThreads((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(threadId)) {
         newSet.delete(threadId);
@@ -287,17 +296,19 @@ export function ThreadedEmailList({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex h-64 items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-blue-500 dark:text-blue-400" />
-        <span className="ml-3 text-gray-500 dark:text-dark-text-secondary">Levelek betöltése...</span>
+        <span className="dark:text-dark-text-secondary ml-3 text-gray-500">
+          Levelek betöltése...
+        </span>
       </div>
     );
   }
 
   if (emails.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-gray-400 dark:text-dark-text-muted">
-        <MailX className="h-12 w-12 mb-3" />
+      <div className="dark:text-dark-text-muted flex h-64 flex-col items-center justify-center text-gray-400">
+        <MailX className="mb-3 h-12 w-12" />
         <p>{emptyMessage}</p>
       </div>
     );
@@ -306,10 +317,10 @@ export function ThreadedEmailList({
   return (
     <div className="flex flex-col">
       {title && (
-        <div className="px-4 py-2 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border">
-          <h2 className="text-sm font-medium text-gray-600 dark:text-dark-text-secondary">
+        <div className="dark:bg-dark-bg-tertiary dark:border-dark-border border-b border-gray-200 bg-gray-50 px-4 py-2">
+          <h2 className="dark:text-dark-text-secondary text-sm font-medium text-gray-600">
             {title}
-            <span className="ml-2 text-xs text-gray-400 dark:text-dark-text-muted">
+            <span className="dark:text-dark-text-muted ml-2 text-xs text-gray-400">
               ({threads.length} beszélgetés)
             </span>
           </h2>
@@ -360,7 +371,7 @@ export function ThreadedEmailList({
 
             {/* Expanded emails */}
             {isExpanded && (
-              <div className="border-l-2 border-blue-200 dark:border-blue-500/30 ml-4 bg-gray-50/50 dark:bg-dark-bg/30">
+              <div className="dark:bg-dark-bg/30 ml-4 border-l-2 border-blue-200 bg-gray-50/50 dark:border-blue-500/30">
                 {thread.emails.map((email) => (
                   <EmailItem
                     key={email.id}

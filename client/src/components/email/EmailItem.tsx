@@ -60,140 +60,164 @@ export function EmailItem({
 
   return (
     <>
-    <div
-      onClick={handleItemClick}
-      onContextMenu={handleContextMenu}
-      className={cn(
-        'flex items-start gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 cursor-pointer border-b border-gray-100 dark:border-dark-border transition-colors',
-        isSelected && !selectionMode ? 'bg-blue-50 dark:bg-blue-500/10 border-l-2 border-l-blue-500' : 'hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary',
-        isChecked && 'bg-blue-50 dark:bg-blue-500/10',
-        !email.isRead && !isChecked && 'bg-white dark:bg-dark-bg-secondary',
-        email.isRead && !isSelected && !isChecked && 'bg-gray-50/50 dark:bg-dark-bg/50',
-      )}
-    >
-      {/* Checkbox vagy Avatar */}
-      {selectionMode ? (
-        <button
-          onClick={handleCheckboxClick}
-          className={cn(
-            'flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-colors',
-            isChecked
-              ? 'bg-blue-500 text-white'
-              : 'bg-gray-200 dark:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary hover:bg-gray-300 dark:hover:bg-dark-border'
-          )}
-        >
-          {isChecked ? <Check className="h-4 w-4 sm:h-5 sm:w-5" /> : <span className="text-xs sm:text-sm font-medium">{initials}</span>}
-        </button>
-      ) : (
-        <div
-          className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-white text-xs sm:text-sm font-medium"
-          style={{ backgroundColor: avatarColor }}
-        >
-          {initials}
-        </div>
-      )}
-
-      {/* Tartalom */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-1 sm:gap-2">
-          <span className="flex items-center gap-1 min-w-0">
-            {isVip && (
-              <span title="VIP küldő">
-                <Crown className="h-3 w-3 sm:h-4 sm:w-4 text-amber-500 flex-shrink-0" />
-              </span>
-            )}
-            <span
-              className={cn(
-                'text-xs sm:text-sm truncate',
-                !email.isRead ? 'font-semibold text-gray-900 dark:text-dark-text' : 'text-gray-700 dark:text-dark-text-secondary',
-              )}
-            >
-              {sender}
-            </span>
-          </span>
-          <span className="text-[10px] sm:text-xs text-gray-400 dark:text-dark-text-muted flex-shrink-0">
-            {formatEmailDate(email.date)}
-          </span>
-        </div>
-
-        <div
-          className={cn(
-            'text-xs sm:text-sm truncate mt-0.5',
-            !email.isRead ? 'font-medium text-gray-800 dark:text-dark-text' : 'text-gray-600 dark:text-dark-text-secondary',
-          )}
-        >
-          {email.subject || '(Nincs tárgy)'}
-        </div>
-
-        <div className="text-[10px] sm:text-xs text-gray-400 dark:text-dark-text-muted truncate mt-0.5 hidden sm:block">
-          {email.snippet || ''}
-        </div>
-      </div>
-
-      {/* Műveletek */}
-      <div className="flex flex-col items-center gap-0.5 sm:gap-1 flex-shrink-0">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleStar(e);
-          }}
-          className="p-1.5 sm:p-2.5 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-bg-tertiary transition-colors touch-manipulation"
-          aria-label={email.isStarred ? 'Csillag eltávolítása' : 'Csillagozás'}
-        >
-          <Star
-            className={cn(
-              'h-4 w-4 sm:h-5 sm:w-5',
-              email.isStarred
-                ? 'fill-yellow-400 text-yellow-400'
-                : 'text-gray-300 dark:text-dark-text-muted hover:text-gray-400 dark:hover:text-dark-text-secondary',
-            )}
-          />
-        </button>
-        {email.hasAttachments && (
-          <Paperclip className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-gray-400 dark:text-dark-text-muted" />
+      <div
+        onClick={handleItemClick}
+        onContextMenu={handleContextMenu}
+        className={cn(
+          'dark:border-dark-border flex cursor-pointer items-start gap-2 border-b border-gray-100 px-3 py-2 transition-colors sm:gap-3 sm:px-4 sm:py-3',
+          isSelected && !selectionMode
+            ? 'border-l-2 border-l-blue-500 bg-blue-50 dark:bg-blue-500/10'
+            : 'dark:hover:bg-dark-bg-tertiary hover:bg-gray-50',
+          isChecked && 'bg-blue-50 dark:bg-blue-500/10',
+          !email.isRead && !isChecked && 'dark:bg-dark-bg-secondary bg-white',
+          email.isRead && !isSelected && !isChecked && 'dark:bg-dark-bg/50 bg-gray-50/50',
         )}
-      </div>
-    </div>
+      >
+        {/* Checkbox vagy Avatar */}
+        {selectionMode ? (
+          <button
+            onClick={handleCheckboxClick}
+            className={cn(
+              'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full transition-colors sm:h-10 sm:w-10',
+              isChecked
+                ? 'bg-blue-500 text-white'
+                : 'dark:bg-dark-bg-tertiary dark:text-dark-text-secondary dark:hover:bg-dark-border bg-gray-200 text-gray-500 hover:bg-gray-300',
+            )}
+          >
+            {isChecked ? (
+              <Check className="h-4 w-4 sm:h-5 sm:w-5" />
+            ) : (
+              <span className="text-xs font-medium sm:text-sm">{initials}</span>
+            )}
+          </button>
+        ) : (
+          <div
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-medium text-white sm:h-10 sm:w-10 sm:text-sm"
+            style={{ backgroundColor: avatarColor }}
+          >
+            {initials}
+          </div>
+        )}
 
-    {/* Context menu */}
-    {contextMenu && (
-      <div className="fixed inset-0 z-50" onClick={() => setContextMenu(null)}>
-        <div
-          className="absolute bg-white dark:bg-dark-bg-secondary border border-gray-200 dark:border-dark-border rounded-xl shadow-xl py-1.5 min-w-[200px] animate-scale-in"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-        >
-          <button
-            onClick={() => { onToggleRead?.(email.id, !email.isRead); setContextMenu(null); }}
-            className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary flex items-center gap-3"
+        {/* Tartalom */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-1 sm:gap-2">
+            <span className="flex min-w-0 items-center gap-1">
+              {isVip && (
+                <span title="VIP küldő">
+                  <Crown className="h-3 w-3 flex-shrink-0 text-amber-500 sm:h-4 sm:w-4" />
+                </span>
+              )}
+              <span
+                className={cn(
+                  'truncate text-xs sm:text-sm',
+                  !email.isRead
+                    ? 'dark:text-dark-text font-semibold text-gray-900'
+                    : 'dark:text-dark-text-secondary text-gray-700',
+                )}
+              >
+                {sender}
+              </span>
+            </span>
+            <span className="dark:text-dark-text-muted flex-shrink-0 text-[10px] text-gray-400 sm:text-xs">
+              {formatEmailDate(email.date)}
+            </span>
+          </div>
+
+          <div
+            className={cn(
+              'mt-0.5 truncate text-xs sm:text-sm',
+              !email.isRead
+                ? 'dark:text-dark-text font-medium text-gray-800'
+                : 'dark:text-dark-text-secondary text-gray-600',
+            )}
           >
-            {email.isRead ? <MailOpen className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
-            {email.isRead ? 'Megjelölés olvasatlanként' : 'Megjelölés olvasottként'}
-          </button>
+            {email.subject || '(Nincs tárgy)'}
+          </div>
+
+          <div className="dark:text-dark-text-muted mt-0.5 hidden truncate text-[10px] text-gray-400 sm:block sm:text-xs">
+            {email.snippet || ''}
+          </div>
+        </div>
+
+        {/* Műveletek */}
+        <div className="flex flex-shrink-0 flex-col items-center gap-0.5 sm:gap-1">
           <button
-            onClick={(e) => { onToggleStar(e); setContextMenu(null); }}
-            className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary flex items-center gap-3"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleStar(e);
+            }}
+            className="dark:hover:bg-dark-bg-tertiary touch-manipulation rounded-lg p-1.5 transition-colors hover:bg-gray-200 sm:p-2.5"
+            aria-label={email.isStarred ? 'Csillag eltávolítása' : 'Csillagozás'}
           >
-            <Star className={cn('h-4 w-4', email.isStarred && 'fill-yellow-400 text-yellow-400')} />
-            {email.isStarred ? 'Csillag eltávolítása' : 'Csillag hozzáadása'}
+            <Star
+              className={cn(
+                'h-4 w-4 sm:h-5 sm:w-5',
+                email.isStarred
+                  ? 'fill-yellow-400 text-yellow-400'
+                  : 'dark:text-dark-text-muted dark:hover:text-dark-text-secondary text-gray-300 hover:text-gray-400',
+              )}
+            />
           </button>
-          <button
-            onClick={() => { onTogglePin?.(email.id); setContextMenu(null); }}
-            className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary flex items-center gap-3"
-          >
-            <Pin className={cn('h-4 w-4', isPinned && 'fill-amber-500 text-amber-500')} />
-            {isPinned ? 'Kitűzés feloldása' : 'Kitűzés'}
-          </button>
-          <div className="my-1 border-t border-gray-100 dark:border-dark-border" />
-          <button
-            onClick={() => { onDelete?.(email.id); setContextMenu(null); }}
-            className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-3"
-          >
-            <Trash2 className="h-4 w-4" />
-            Törlés
-          </button>
+          {email.hasAttachments && (
+            <Paperclip className="dark:text-dark-text-muted h-3 w-3 text-gray-400 sm:h-3.5 sm:w-3.5" />
+          )}
         </div>
       </div>
-    )}
+
+      {/* Context menu */}
+      {contextMenu && (
+        <div className="fixed inset-0 z-50" onClick={() => setContextMenu(null)}>
+          <div
+            className="dark:bg-dark-bg-secondary dark:border-dark-border animate-scale-in absolute min-w-[200px] rounded-xl border border-gray-200 bg-white py-1.5 shadow-xl"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+          >
+            <button
+              onClick={() => {
+                onToggleRead?.(email.id, !email.isRead);
+                setContextMenu(null);
+              }}
+              className="dark:text-dark-text dark:hover:bg-dark-bg-tertiary flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+            >
+              {email.isRead ? <MailOpen className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
+              {email.isRead ? 'Megjelölés olvasatlanként' : 'Megjelölés olvasottként'}
+            </button>
+            <button
+              onClick={(e) => {
+                onToggleStar(e);
+                setContextMenu(null);
+              }}
+              className="dark:text-dark-text dark:hover:bg-dark-bg-tertiary flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+            >
+              <Star
+                className={cn('h-4 w-4', email.isStarred && 'fill-yellow-400 text-yellow-400')}
+              />
+              {email.isStarred ? 'Csillag eltávolítása' : 'Csillag hozzáadása'}
+            </button>
+            <button
+              onClick={() => {
+                onTogglePin?.(email.id);
+                setContextMenu(null);
+              }}
+              className="dark:text-dark-text dark:hover:bg-dark-bg-tertiary flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+            >
+              <Pin className={cn('h-4 w-4', isPinned && 'fill-amber-500 text-amber-500')} />
+              {isPinned ? 'Kitűzés feloldása' : 'Kitűzés'}
+            </button>
+            <div className="dark:border-dark-border my-1 border-t border-gray-100" />
+            <button
+              onClick={() => {
+                onDelete?.(email.id);
+                setContextMenu(null);
+              }}
+              className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+            >
+              <Trash2 className="h-4 w-4" />
+              Törlés
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

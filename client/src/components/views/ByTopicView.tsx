@@ -34,33 +34,33 @@ export function ByTopicView() {
 
   if (!selectedTopic) {
     return (
-      <div className="overflow-auto h-full">
-        <div className="px-4 py-3 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border flex items-center gap-2">
-          <MessageSquare className="h-5 w-5 text-gray-500 dark:text-dark-text-secondary" />
-          <h2 className="text-sm font-medium text-gray-600 dark:text-dark-text">Téma szerint</h2>
+      <div className="h-full overflow-auto">
+        <div className="dark:bg-dark-bg-tertiary dark:border-dark-border flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3">
+          <MessageSquare className="dark:text-dark-text-secondary h-5 w-5 text-gray-500" />
+          <h2 className="dark:text-dark-text text-sm font-medium text-gray-600">Téma szerint</h2>
         </div>
 
         {loadingTopics ? (
-          <div className="flex items-center justify-center h-64">
+          <div className="flex h-64 items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
           </div>
         ) : (
-          <div className="divide-y divide-gray-100 dark:divide-dark-border">
+          <div className="dark:divide-dark-border divide-y divide-gray-100">
             {(topicsData?.topics || []).map((topic) => (
               <div
                 key={topic.id}
                 onClick={() => setSelectedTopic(topic)}
-                className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary transition-colors"
+                className="dark:hover:bg-dark-bg-tertiary flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-gray-50"
               >
-                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-purple-50 dark:bg-purple-500/20 flex items-center justify-center">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-purple-50 dark:bg-purple-500/20">
                   <MessageSquare className="h-5 w-5 text-purple-500" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900 dark:text-dark-text text-sm truncate">
+                <div className="min-w-0 flex-1">
+                  <div className="dark:text-dark-text truncate text-sm font-medium text-gray-900">
                     {topic.name}
                   </div>
                 </div>
-                <div className="text-sm font-medium text-purple-600 flex-shrink-0">
+                <div className="flex-shrink-0 text-sm font-medium text-purple-600">
                   {topic.messageCount} levél
                 </div>
               </div>
@@ -75,18 +75,20 @@ export function ByTopicView() {
 
   const leftPanel = (
     <>
-      <div className="px-4 py-3 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border flex items-center gap-2">
+      <div className="dark:bg-dark-bg-tertiary dark:border-dark-border flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3">
         <button
           onClick={() => {
             setSelectedTopic(null);
             setSelectedEmail(null);
           }}
-          className="p-2.5 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-bg touch-manipulation"
+          className="dark:hover:bg-dark-bg touch-manipulation rounded-lg p-2.5 hover:bg-gray-200"
           aria-label="Vissza"
         >
-          <ArrowLeft className="h-5 w-5 text-gray-500 dark:text-dark-text-secondary" />
+          <ArrowLeft className="dark:text-dark-text-secondary h-5 w-5 text-gray-500" />
         </button>
-        <span className="text-sm font-medium text-gray-600 dark:text-dark-text">{selectedTopic.name}</span>
+        <span className="dark:text-dark-text text-sm font-medium text-gray-600">
+          {selectedTopic.name}
+        </span>
       </div>
       <EmailList
         emails={emails}
@@ -94,7 +96,7 @@ export function ByTopicView() {
         selectedEmailId={selectedEmail?.id || null}
         onSelectEmail={setSelectedEmail}
         onDeleteEmail={(emailId) => {
-          const emailIndex = emails.findIndex(e => e.id === emailId);
+          const emailIndex = emails.findIndex((e) => e.id === emailId);
           deleteEmail.mutate(emailId, {
             onSuccess: () => {
               if (selectedEmail?.id === emailId) {
@@ -108,7 +110,7 @@ export function ByTopicView() {
                   setSelectedEmail(null);
                 }
               }
-            }
+            },
           });
         }}
         emptyMessage="Nincsenek levelek ebben a témában"

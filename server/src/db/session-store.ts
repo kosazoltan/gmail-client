@@ -14,9 +14,12 @@ export class SqliteSessionStore extends session.Store {
   constructor() {
     super();
     // Lejárt session-ök törlése 15 percenként
-    this.cleanupInterval = setInterval(() => {
-      this.clearExpiredSessions();
-    }, 15 * 60 * 1000);
+    this.cleanupInterval = setInterval(
+      () => {
+        this.clearExpiredSessions();
+      },
+      15 * 60 * 1000,
+    );
   }
 
   private clearExpiredSessions() {
@@ -59,7 +62,7 @@ export class SqliteSessionStore extends session.Store {
       execute(
         `INSERT INTO sessions (sid, sess, expire) VALUES (?, ?, ?)
          ON CONFLICT(sid) DO UPDATE SET sess = excluded.sess, expire = excluded.expire`,
-        [sid, sess, expire]
+        [sid, sess, expire],
       );
 
       callback?.();
@@ -92,7 +95,10 @@ export class SqliteSessionStore extends session.Store {
 
   length(callback: (err: Error | null, length?: number) => void) {
     try {
-      const rows = queryAll<{ count: number }>('SELECT COUNT(*) as count FROM sessions WHERE expire >= ?', [Date.now()]);
+      const rows = queryAll<{ count: number }>(
+        'SELECT COUNT(*) as count FROM sessions WHERE expire >= ?',
+        [Date.now()],
+      );
       callback(null, rows[0]?.count || 0);
     } catch (err) {
       callback(err as Error);
@@ -108,9 +114,16 @@ export class SqliteSessionStore extends session.Store {
     }
   }
 
-  all(callback: (err: Error | null, sessions?: session.SessionData[] | { [sid: string]: session.SessionData } | null) => void) {
+  all(
+    callback: (
+      err: Error | null,
+      sessions?: session.SessionData[] | { [sid: string]: session.SessionData } | null,
+    ) => void,
+  ) {
     try {
-      const rows = queryAll<SessionRow>('SELECT sid, sess FROM sessions WHERE expire >= ?', [Date.now()]);
+      const rows = queryAll<SessionRow>('SELECT sid, sess FROM sessions WHERE expire >= ?', [
+        Date.now(),
+      ]);
       const sessions: { [sid: string]: session.SessionData } = {};
 
       for (const row of rows) {

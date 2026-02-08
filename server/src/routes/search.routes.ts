@@ -7,7 +7,10 @@ const MAX_LIMIT = 100;
 const MAX_QUERY_LENGTH = 500;
 
 // Jogosultság ellenőrzés helper
-function validateAccountAccess(req: { query: { accountId?: string }; session: { activeAccountId?: string | null; accountIds?: string[] } }): string | null {
+function validateAccountAccess(req: {
+  query: { accountId?: string };
+  session: { activeAccountId?: string | null; accountIds?: string[] };
+}): string | null {
   const accountId = (req.query.accountId as string) || req.session.activeAccountId;
   if (!accountId) return null;
 
@@ -23,9 +26,9 @@ function sanitizeFtsQuery(query: string): string {
   // Eltávolítjuk: " * - ( ) { } [ ] ^ ~ : az FTS operátorok ellen
   // Valamint az SQL injection ellen is védekezünk
   return query
-    .replace(/[^\w\sáéíóöőúüű@.\-]/gi, ' ')  // Csak alfanumerikus, magyar ékezetek, @, ., - marad
-    .replace(/\b(AND|OR|NOT|NEAR)\b/gi, ' ')  // FTS5 operátorok eltávolítása
-    .replace(/\s+/g, ' ')  // Többszörös szóközök egy szóközre
+    .replace(/[^\w\sáéíóöőúüű@.\-]/gi, ' ') // Csak alfanumerikus, magyar ékezetek, @, ., - marad
+    .replace(/\b(AND|OR|NOT|NEAR)\b/gi, ' ') // FTS5 operátorok eltávolítása
+    .replace(/\s+/g, ' ') // Többszörös szóközök egy szóközre
     .trim()
     .substring(0, MAX_QUERY_LENGTH);
 }

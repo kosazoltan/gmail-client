@@ -42,35 +42,37 @@ export function ByTimeView() {
 
   if (!selectedPeriod) {
     return (
-      <div className="overflow-auto h-full">
-        <div className="px-4 py-3 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border flex items-center gap-2">
-          <Clock className="h-5 w-5 text-gray-500 dark:text-dark-text-secondary" />
-          <h2 className="text-sm font-medium text-gray-600 dark:text-dark-text">Időszak szerint</h2>
+      <div className="h-full overflow-auto">
+        <div className="dark:bg-dark-bg-tertiary dark:border-dark-border flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3">
+          <Clock className="dark:text-dark-text-secondary h-5 w-5 text-gray-500" />
+          <h2 className="dark:text-dark-text text-sm font-medium text-gray-600">Időszak szerint</h2>
         </div>
 
         {loadingTime ? (
-          <div className="flex items-center justify-center h-64">
+          <div className="flex h-64 items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
           </div>
         ) : (
-          <div className="p-4 space-y-3">
+          <div className="space-y-3 p-4">
             {(timeData?.periods || []).map((period) => (
               <div
                 key={period.id}
                 onClick={() => setSelectedPeriod(period)}
-                className="flex items-center gap-4 p-4 rounded-xl border border-gray-200 dark:border-dark-border cursor-pointer hover:border-blue-300 dark:hover:border-blue-500 hover:shadow-sm transition-all"
+                className="dark:border-dark-border flex cursor-pointer items-center gap-4 rounded-xl border border-gray-200 p-4 transition-all hover:border-blue-300 hover:shadow-sm dark:hover:border-blue-500"
               >
                 <div
-                  className={`p-3 rounded-lg ${periodColors[period.id] || 'bg-gray-50 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400'}`}
+                  className={`rounded-lg p-3 ${periodColors[period.id] || 'bg-gray-50 text-gray-600 dark:bg-gray-500/20 dark:text-gray-400'}`}
                 >
                   <Calendar className="h-6 w-6" />
                 </div>
                 <div className="flex-1">
-                  <div className="font-medium text-gray-900 dark:text-dark-text">{period.name}</div>
+                  <div className="dark:text-dark-text font-medium text-gray-900">{period.name}</div>
                 </div>
-                <div className="text-lg font-semibold text-gray-800 dark:text-dark-text">
+                <div className="dark:text-dark-text text-lg font-semibold text-gray-800">
                   {period.count}
-                  <span className="text-sm font-normal text-gray-400 dark:text-dark-text-muted ml-1">levél</span>
+                  <span className="dark:text-dark-text-muted ml-1 text-sm font-normal text-gray-400">
+                    levél
+                  </span>
                 </div>
               </div>
             ))}
@@ -90,18 +92,20 @@ export function ByTimeView() {
 
   const leftPanel = (
     <>
-      <div className="px-4 py-3 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border flex items-center gap-2">
+      <div className="dark:bg-dark-bg-tertiary dark:border-dark-border flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3">
         <button
           onClick={() => {
             setSelectedPeriod(null);
             setSelectedEmail(null);
           }}
-          className="p-2.5 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-bg touch-manipulation"
+          className="dark:hover:bg-dark-bg touch-manipulation rounded-lg p-2.5 hover:bg-gray-200"
           aria-label="Vissza"
         >
-          <ArrowLeft className="h-5 w-5 text-gray-500 dark:text-dark-text-secondary" />
+          <ArrowLeft className="dark:text-dark-text-secondary h-5 w-5 text-gray-500" />
         </button>
-        <span className="text-sm font-medium text-gray-600 dark:text-dark-text">{selectedPeriod.name}</span>
+        <span className="dark:text-dark-text text-sm font-medium text-gray-600">
+          {selectedPeriod.name}
+        </span>
       </div>
       <EmailList
         emails={emails}
@@ -115,7 +119,7 @@ export function ByTimeView() {
                 const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);
                 setSelectedEmail(nextEmail);
               }
-            }
+            },
           });
         }}
         emptyMessage="Nincsenek levelek ebben az időszakban"

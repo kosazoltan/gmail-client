@@ -1,10 +1,5 @@
 import { useState } from 'react';
-import {
-  useSession,
-  useLogin,
-  useLogout,
-  useSwitchAccount,
-} from '../../hooks/useAccounts';
+import { useSession, useLogin, useLogout, useSwitchAccount } from '../../hooks/useAccounts';
 import { getInitials, emailToColor, cn } from '../../lib/utils';
 import { Plus, LogOut, X, LogIn } from 'lucide-react';
 
@@ -21,7 +16,7 @@ export function HeaderAccountSwitcher() {
     return (
       <button
         onClick={() => login.mutate()}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
+        className="flex items-center gap-2 rounded-full bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
         title="Bejelentkezés Google fiókkal"
       >
         <LogIn className="h-4 w-4" />
@@ -48,7 +43,7 @@ export function HeaderAccountSwitcher() {
   };
 
   return (
-    <div className="flex items-center gap-1 relative">
+    <div className="relative flex items-center gap-1">
       {/* Bejelentkezett fiókok */}
       {session.accounts.map((account) => {
         const isActive = account.id === session.activeAccountId;
@@ -57,10 +52,10 @@ export function HeaderAccountSwitcher() {
             key={account.id}
             onClick={() => handleAccountClick(account.id)}
             className={cn(
-              'relative w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-medium transition-all flex-shrink-0',
+              'relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-medium text-white transition-all',
               isActive
-                ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-dark-bg-secondary'
-                : 'opacity-60 hover:opacity-100 hover:scale-105',
+                ? 'dark:ring-offset-dark-bg-secondary ring-2 ring-blue-500 ring-offset-2'
+                : 'opacity-60 hover:scale-105 hover:opacity-100',
             )}
             style={{ backgroundColor: emailToColor(account.email) }}
             title={`${account.name || account.email}${isActive ? ' (aktív)' : ''}`}
@@ -73,7 +68,7 @@ export function HeaderAccountSwitcher() {
       {/* Fiók hozzáadása gomb */}
       <button
         onClick={() => login.mutate()}
-        className="w-9 h-9 rounded-full flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-dark-border text-gray-400 dark:text-dark-text-muted hover:border-blue-400 hover:text-blue-500 dark:hover:border-blue-400 dark:hover:text-blue-400 transition-colors flex-shrink-0"
+        className="dark:border-dark-border dark:text-dark-text-muted flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border-2 border-dashed border-gray-300 text-gray-400 transition-colors hover:border-blue-400 hover:text-blue-500 dark:hover:border-blue-400 dark:hover:text-blue-400"
         title="Fiók hozzáadása"
       >
         <Plus className="h-4 w-4" />
@@ -91,25 +86,25 @@ export function HeaderAccountSwitcher() {
             }}
           />
 
-          <div className="absolute right-0 top-full mt-2 z-50 bg-white dark:bg-dark-bg-secondary rounded-xl shadow-lg border border-gray-200 dark:border-dark-border py-2 min-w-[200px]">
+          <div className="dark:bg-dark-bg-secondary dark:border-dark-border absolute top-full right-0 z-50 mt-2 min-w-[200px] rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
             {/* Fiók info */}
             {(() => {
-              const account = session.accounts.find(a => a.id === dropdownAccountId);
+              const account = session.accounts.find((a) => a.id === dropdownAccountId);
               if (!account) return null;
               return (
-                <div className="px-4 py-2 border-b border-gray-100 dark:border-dark-border">
+                <div className="dark:border-dark-border border-b border-gray-100 px-4 py-2">
                   <div className="flex items-center gap-3">
                     <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0"
+                      className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-medium text-white"
                       style={{ backgroundColor: emailToColor(account.email) }}
                     >
                       {getInitials(account.name || account.email)}
                     </div>
                     <div className="min-w-0">
-                      <div className="text-sm font-medium text-gray-900 dark:text-dark-text truncate">
+                      <div className="dark:text-dark-text truncate text-sm font-medium text-gray-900">
                         {account.name}
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-dark-text-secondary truncate">
+                      <div className="dark:text-dark-text-secondary truncate text-xs text-gray-500">
                         {account.email}
                       </div>
                     </div>
@@ -121,7 +116,7 @@ export function HeaderAccountSwitcher() {
             {/* Kijelentkezés */}
             <button
               onClick={() => handleLogout(dropdownAccountId)}
-              className="flex items-center gap-2 w-full px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-500/10 text-sm text-red-600 dark:text-red-400 transition-colors"
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
             >
               <LogOut className="h-4 w-4" />
               Kijelentkezés
@@ -133,7 +128,7 @@ export function HeaderAccountSwitcher() {
                 setShowDropdown(false);
                 setDropdownAccountId(null);
               }}
-              className="flex items-center gap-2 w-full px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary text-sm text-gray-500 dark:text-dark-text-secondary transition-colors"
+              className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-500 transition-colors hover:bg-gray-50"
             >
               <X className="h-4 w-4" />
               Bezárás

@@ -20,7 +20,7 @@ export function SearchHighlight({ text, query, className = '' }: SearchHighlight
           part.toLowerCase() === query.toLowerCase() ? (
             <mark
               key={i}
-              className={`bg-yellow-200 dark:bg-yellow-600/40 text-gray-900 dark:text-dark-text font-medium ${className}`}
+              className={`dark:text-dark-text bg-yellow-200 font-medium text-gray-900 dark:bg-yellow-600/40 ${className}`}
             >
               {part}
             </mark>

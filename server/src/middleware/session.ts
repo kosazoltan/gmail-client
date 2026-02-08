@@ -15,8 +15,8 @@ declare module 'express-session' {
 let sessionStore: SqliteSessionStore | null = null;
 
 export function createSessionMiddleware(): RequestHandler {
-  const isProduction = process.env.NODE_ENV === 'production' ||
-                       process.env.FRONTEND_URL?.startsWith('https://');
+  const isProduction =
+    process.env.NODE_ENV === 'production' || process.env.FRONTEND_URL?.startsWith('https://');
 
   // Production ellenőrzés - kötelező SESSION_SECRET
   if (isProduction && !process.env.SESSION_SECRET) {

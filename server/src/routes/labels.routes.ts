@@ -174,10 +174,17 @@ router.post('/email/:emailId/add', async (req, res) => {
       if (email) {
         const currentLabels = safeParseLabels(email.labels);
         const newLabels = [...new Set([...currentLabels, ...labelIds])];
-        execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [JSON.stringify(newLabels), emailId, accountId]);
+        execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
+          JSON.stringify(newLabels),
+          emailId,
+          accountId,
+        ]);
       }
     } catch (dbError) {
-      console.warn('Gmail-DB konzisztencia figyelmeztetés: DB frissítés sikertelen címke hozzáadás után', dbError);
+      console.warn(
+        'Gmail-DB konzisztencia figyelmeztetés: DB frissítés sikertelen címke hozzáadás után',
+        dbError,
+      );
       // Don't fail the request - Gmail change was successful
     }
 
@@ -227,10 +234,17 @@ router.post('/email/:emailId/remove', async (req, res) => {
       if (email) {
         const currentLabels = safeParseLabels(email.labels);
         const newLabels = currentLabels.filter((l) => !labelIds.includes(l));
-        execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [JSON.stringify(newLabels), emailId, accountId]);
+        execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
+          JSON.stringify(newLabels),
+          emailId,
+          accountId,
+        ]);
       }
     } catch (dbError) {
-      console.warn('Gmail-DB konzisztencia figyelmeztetés: DB frissítés sikertelen címke eltávolítás után', dbError);
+      console.warn(
+        'Gmail-DB konzisztencia figyelmeztetés: DB frissítés sikertelen címke eltávolítás után',
+        dbError,
+      );
       // Don't fail the request - Gmail change was successful
     }
 
@@ -294,7 +308,11 @@ router.post('/email/:emailId/move', async (req, res) => {
         currentLabels = [...new Set([...currentLabels, ...validAddLabelIds])];
       }
 
-      execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [JSON.stringify(currentLabels), emailId, accountId]);
+      execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
+        JSON.stringify(currentLabels),
+        emailId,
+        accountId,
+      ]);
     }
 
     res.json({ success: true });

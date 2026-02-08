@@ -5,7 +5,7 @@ import {
   deleteContact,
   updateContactName,
   extractContactsFromExistingEmails,
-  fixAllNamesEncoding
+  fixAllNamesEncoding,
 } from '../services/contacts.service.js';
 
 const router = Router();
@@ -99,7 +99,7 @@ router.post('/fix-encoding', (req: Request, res: Response) => {
     res.json({
       success: true,
       fixed: result,
-      message: `Javítva: ${result.contacts} kontakt, ${result.senderGroups} feladó csoport, ${result.emails} email`
+      message: `Javítva: ${result.contacts} kontakt, ${result.senderGroups} feladó csoport, ${result.emails} email`,
     });
   } catch (error) {
     console.error('Karakterkódolás javítási hiba:', error);

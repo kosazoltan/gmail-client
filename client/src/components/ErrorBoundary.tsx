@@ -26,17 +26,15 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-dark-bg">
-          <div className="text-center p-8">
-            <h1 className="text-2xl font-bold text-red-600 mb-4">
-              Hiba történt
-            </h1>
-            <p className="text-gray-600 dark:text-dark-text-muted mb-4">
+        <div className="dark:bg-dark-bg flex h-screen items-center justify-center bg-gray-50">
+          <div className="p-8 text-center">
+            <h1 className="mb-4 text-2xl font-bold text-red-600">Hiba történt</h1>
+            <p className="dark:text-dark-text-muted mb-4 text-gray-600">
               {this.state.error?.message || 'Ismeretlen hiba'}
             </p>
             <button
               onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              className="rounded bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
             >
               Újratöltés
             </button>

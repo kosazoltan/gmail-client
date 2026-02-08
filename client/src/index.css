@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* Tailwind 4 - Custom theme */
 @theme {
@@ -17,8 +17,15 @@
 /* Alap stílusok */
 body {
   margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
-    "Helvetica Neue", Arial, sans-serif;
+  font-family:
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    'Roboto',
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
@@ -81,24 +88,24 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 }
 
 /* Képek hiba kezelése - ha nem töltődik be */
-.email-content img[src]:not([src=""]) {
+.email-content img[src]:not([src='']) {
   min-height: 20px;
   min-width: 20px;
 }
 
 /* Fehér háttér felülírása sötét módban - email tartalom konténer */
-html.dark .email-content table[bgcolor="#ffffff"],
-html.dark .email-content table[bgcolor="#FFFFFF"],
-html.dark .email-content table[bgcolor="white"],
-html.dark .email-content td[bgcolor="#ffffff"],
-html.dark .email-content td[bgcolor="#FFFFFF"],
-html.dark .email-content td[bgcolor="white"],
-html.dark .email-content [style*="background-color: #fff"],
-html.dark .email-content [style*="background-color:#fff"],
-html.dark .email-content [style*="background: #fff"],
-html.dark .email-content [style*="background:#fff"],
-html.dark .email-content [style*="background-color: white"],
-html.dark .email-content [style*="background:white"] {
+html.dark .email-content table[bgcolor='#ffffff'],
+html.dark .email-content table[bgcolor='#FFFFFF'],
+html.dark .email-content table[bgcolor='white'],
+html.dark .email-content td[bgcolor='#ffffff'],
+html.dark .email-content td[bgcolor='#FFFFFF'],
+html.dark .email-content td[bgcolor='white'],
+html.dark .email-content [style*='background-color: #fff'],
+html.dark .email-content [style*='background-color:#fff'],
+html.dark .email-content [style*='background: #fff'],
+html.dark .email-content [style*='background:#fff'],
+html.dark .email-content [style*='background-color: white'],
+html.dark .email-content [style*='background:white'] {
   background-color: #2c2e33 !important;
 }
 
@@ -134,78 +141,78 @@ html.dark .email-content {
 }
 
 /* Inline style-okkal rendelkező elemek felülírása csak sötét módban */
-html.dark .email-content [style*="color: #000"],
-html.dark .email-content [style*="color:#000"],
-html.dark .email-content [style*="color: rgb(0, 0, 0)"],
-html.dark .email-content [style*="color:rgb(0,0,0)"],
-html.dark .email-content [style*="color: black"],
-html.dark .email-content [style*="color:black"] {
+html.dark .email-content [style*='color: #000'],
+html.dark .email-content [style*='color:#000'],
+html.dark .email-content [style*='color: rgb(0, 0, 0)'],
+html.dark .email-content [style*='color:rgb(0,0,0)'],
+html.dark .email-content [style*='color: black'],
+html.dark .email-content [style*='color:black'] {
   color: var(--email-text-light) !important;
 }
 
 /* Kék szöveg felülírása sötét módban - sokkal világosabb kék */
-html.dark .email-content [style*="color: #00f"],
-html.dark .email-content [style*="color:#00f"],
-html.dark .email-content [style*="color: #0000ff"],
-html.dark .email-content [style*="color:#0000ff"],
-html.dark .email-content [style*="color: #0000FF"],
-html.dark .email-content [style*="color:#0000FF"],
-html.dark .email-content [style*="color: blue"],
-html.dark .email-content [style*="color:blue"],
-html.dark .email-content [style*="color: rgb(0, 0, 255)"],
-html.dark .email-content [style*="color:rgb(0,0,255)"] {
+html.dark .email-content [style*='color: #00f'],
+html.dark .email-content [style*='color:#00f'],
+html.dark .email-content [style*='color: #0000ff'],
+html.dark .email-content [style*='color:#0000ff'],
+html.dark .email-content [style*='color: #0000FF'],
+html.dark .email-content [style*='color:#0000FF'],
+html.dark .email-content [style*='color: blue'],
+html.dark .email-content [style*='color:blue'],
+html.dark .email-content [style*='color: rgb(0, 0, 255)'],
+html.dark .email-content [style*='color:rgb(0,0,255)'] {
   color: #93c5fd !important; /* Világos kék - jól látható sötét háttéren */
 }
 
 /* Sötétkék szövegek */
-html.dark .email-content [style*="color: #000080"],
-html.dark .email-content [style*="color:#000080"],
-html.dark .email-content [style*="color: navy"],
-html.dark .email-content [style*="color:navy"] {
+html.dark .email-content [style*='color: #000080'],
+html.dark .email-content [style*='color:#000080'],
+html.dark .email-content [style*='color: navy'],
+html.dark .email-content [style*='color:navy'] {
   color: #60a5fa !important;
 }
 
 /* Egyéb sötét színek világosítása */
-html.dark .email-content [style*="color: #333"],
-html.dark .email-content [style*="color:#333"],
-html.dark .email-content [style*="color: #222"],
-html.dark .email-content [style*="color:#222"],
-html.dark .email-content [style*="color: #111"],
-html.dark .email-content [style*="color:#111"] {
+html.dark .email-content [style*='color: #333'],
+html.dark .email-content [style*='color:#333'],
+html.dark .email-content [style*='color: #222'],
+html.dark .email-content [style*='color:#222'],
+html.dark .email-content [style*='color: #111'],
+html.dark .email-content [style*='color:#111'] {
   color: var(--email-text-light) !important;
 }
 
 /* Szürke szövegek világosítása sötét módban - Google email kompatibilitás */
-html.dark .email-content [style*="color: #444"],
-html.dark .email-content [style*="color:#444"],
-html.dark .email-content [style*="color: #555"],
-html.dark .email-content [style*="color:#555"],
-html.dark .email-content [style*="color: #666"],
-html.dark .email-content [style*="color:#666"],
-html.dark .email-content [style*="color: #777"],
-html.dark .email-content [style*="color:#777"],
-html.dark .email-content [style*="color: #888"],
-html.dark .email-content [style*="color:#888"],
-html.dark .email-content [style*="color: #999"],
-html.dark .email-content [style*="color:#999"],
-html.dark .email-content [style*="color: #5f6368"],
-html.dark .email-content [style*="color:#5f6368"],
-html.dark .email-content [style*="color: gray"],
-html.dark .email-content [style*="color:gray"],
-html.dark .email-content [style*="color: grey"],
-html.dark .email-content [style*="color:grey"],
-html.dark .email-content [style*="color: #808080"],
-html.dark .email-content [style*="color:#808080"],
-html.dark .email-content [style*="color: rgb(95, 99, 104)"],
-html.dark .email-content [style*="color:rgb(95,99,104)"],
-html.dark .email-content [style*="color: rgb(102, 102, 102)"],
-html.dark .email-content [style*="color:rgb(102,102,102)"],
-html.dark .email-content [style*="color: rgb(119, 119, 119)"],
-html.dark .email-content [style*="color:rgb(119,119,119)"],
-html.dark .email-content [style*="color: rgb(136, 136, 136)"],
-html.dark .email-content [style*="color:rgb(136,136,136)"],
-html.dark .email-content [style*="color: rgb(153, 153, 153)"],
-html.dark .email-content [style*="color:rgb(153,153,153)"] {
+html.dark .email-content [style*='color: #444'],
+html.dark .email-content [style*='color:#444'],
+html.dark .email-content [style*='color: #555'],
+html.dark .email-content [style*='color:#555'],
+html.dark .email-content [style*='color: #666'],
+html.dark .email-content [style*='color:#666'],
+html.dark .email-content [style*='color: #777'],
+html.dark .email-content [style*='color:#777'],
+html.dark .email-content [style*='color: #888'],
+html.dark .email-content [style*='color:#888'],
+html.dark .email-content [style*='color: #999'],
+html.dark .email-content [style*='color:#999'],
+html.dark .email-content [style*='color: #5f6368'],
+html.dark .email-content [style*='color:#5f6368'],
+html.dark .email-content [style*='color: gray'],
+html.dark .email-content [style*='color:gray'],
+html.dark .email-content [style*='color: grey'],
+html.dark .email-content [style*='color:grey'],
+html.dark .email-content [style*='color: #808080'],
+html.dark .email-content [style*='color:#808080'],
+html.dark .email-content [style*='color: rgb(95, 99, 104)'],
+html.dark .email-content [style*='color:rgb(95,99,104)'],
+html.dark .email-content [style*='color: rgb(102, 102, 102)'],
+html.dark .email-content [style*='color:rgb(102,102,102)'],
+html.dark .email-content [style*='color: rgb(119, 119, 119)'],
+html.dark .email-content [style*='color:rgb(119,119,119)'],
+html.dark .email-content [style*='color: rgb(136, 136, 136)'],
+html.dark .email-content [style*='color:rgb(136,136,136)'],
+html.dark .email-content [style*='color: rgb(153, 153, 153)'],
+html.dark .email-content [style*='color:rgb(153,153,153)'] {
   color: #a1a1aa !important; /* Világosabb szürke - jól látható sötét háttéren */
 }
 
@@ -213,44 +220,44 @@ html.dark .email-content [style*="color:rgb(153,153,153)"] {
 /* #aaa, #bbb, #ccc, #ddd, #eee - ezeket békén hagyjuk */
 
 /* Sötét background-ok */
-html.dark .email-content [style*="background-color: #000"],
-html.dark .email-content [style*="background-color:#000"],
-html.dark .email-content [style*="background: #000"],
-html.dark .email-content [style*="background:#000"],
-html.dark .email-content [style*="background-color: black"],
-html.dark .email-content [style*="background:black"] {
+html.dark .email-content [style*='background-color: #000'],
+html.dark .email-content [style*='background-color:#000'],
+html.dark .email-content [style*='background: #000'],
+html.dark .email-content [style*='background:#000'],
+html.dark .email-content [style*='background-color: black'],
+html.dark .email-content [style*='background:black'] {
   background-color: transparent !important;
 }
 
 /* Világos szürke háttérszínek felülírása sötét módban */
-html.dark .email-content [style*="background-color: #f"],
-html.dark .email-content [style*="background-color:#f"],
-html.dark .email-content [style*="background: #f"],
-html.dark .email-content [style*="background:#f"],
-html.dark .email-content [style*="background-color: #e"],
-html.dark .email-content [style*="background-color:#e"],
-html.dark .email-content [style*="background: #e"],
-html.dark .email-content [style*="background:#e"],
-html.dark .email-content [style*="background-color: #d"],
-html.dark .email-content [style*="background-color:#d"],
-html.dark .email-content [style*="background: #d"],
-html.dark .email-content [style*="background:#d"],
-html.dark .email-content [style*="background-color: #c"],
-html.dark .email-content [style*="background-color:#c"],
-html.dark .email-content [style*="background: #c"],
-html.dark .email-content [style*="background:#c"] {
+html.dark .email-content [style*='background-color: #f'],
+html.dark .email-content [style*='background-color:#f'],
+html.dark .email-content [style*='background: #f'],
+html.dark .email-content [style*='background:#f'],
+html.dark .email-content [style*='background-color: #e'],
+html.dark .email-content [style*='background-color:#e'],
+html.dark .email-content [style*='background: #e'],
+html.dark .email-content [style*='background:#e'],
+html.dark .email-content [style*='background-color: #d'],
+html.dark .email-content [style*='background-color:#d'],
+html.dark .email-content [style*='background: #d'],
+html.dark .email-content [style*='background:#d'],
+html.dark .email-content [style*='background-color: #c'],
+html.dark .email-content [style*='background-color:#c'],
+html.dark .email-content [style*='background: #c'],
+html.dark .email-content [style*='background:#c'] {
   background-color: #2c2e33 !important;
 }
 
 /* Szürke háttérszínek - Google email stílusok */
-html.dark .email-content [style*="background-color: rgb(241"],
-html.dark .email-content [style*="background-color:rgb(241"],
-html.dark .email-content [style*="background-color: rgb(245"],
-html.dark .email-content [style*="background-color:rgb(245"],
-html.dark .email-content [style*="background-color: rgb(248"],
-html.dark .email-content [style*="background-color:rgb(248"],
-html.dark .email-content [style*="background-color: rgb(250"],
-html.dark .email-content [style*="background-color:rgb(250"] {
+html.dark .email-content [style*='background-color: rgb(241'],
+html.dark .email-content [style*='background-color:rgb(241'],
+html.dark .email-content [style*='background-color: rgb(245'],
+html.dark .email-content [style*='background-color:rgb(245'],
+html.dark .email-content [style*='background-color: rgb(248'],
+html.dark .email-content [style*='background-color:rgb(248'],
+html.dark .email-content [style*='background-color: rgb(250'],
+html.dark .email-content [style*='background-color:rgb(250'] {
   background-color: #2c2e33 !important;
 }
 
@@ -280,7 +287,9 @@ html.dark select:focus {
 *,
 *::before,
 *::after {
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 /* PWA animációk */

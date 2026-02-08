@@ -119,15 +119,15 @@ export function AttachmentsView() {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {/* Fejléc */}
-      <div className="px-4 py-3 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border">
-        <div className="flex items-center gap-2 mb-3">
-          <Paperclip className="h-5 w-5 text-gray-500 dark:text-dark-text-secondary" />
-          <h2 className="text-sm font-medium text-gray-600 dark:text-dark-text">
+      <div className="dark:bg-dark-bg-tertiary dark:border-dark-border border-b border-gray-200 bg-gray-50 px-4 py-3">
+        <div className="mb-3 flex items-center gap-2">
+          <Paperclip className="dark:text-dark-text-secondary h-5 w-5 text-gray-500" />
+          <h2 className="dark:text-dark-text text-sm font-medium text-gray-600">
             Mellékletek
             {data && (
-              <span className="text-gray-400 dark:text-dark-text-muted ml-1">
+              <span className="dark:text-dark-text-muted ml-1 text-gray-400">
                 ({data.total} db)
               </span>
             )}
@@ -136,8 +136,8 @@ export function AttachmentsView() {
 
         {/* Keresés és rendezés */}
         <div className="flex items-center gap-3">
-          <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-dark-text-muted" />
+          <div className="relative max-w-xs flex-1">
+            <Search className="dark:text-dark-text-muted absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               value={searchQuery}
@@ -146,14 +146,14 @@ export function AttachmentsView() {
                 setPage(1);
               }}
               placeholder="Keresés fájlnév vagy tárgy szerint..."
-              className="w-full pl-9 pr-3 py-1.5 bg-white dark:bg-dark-bg border border-gray-200 dark:border-dark-border rounded-lg text-sm text-gray-900 dark:text-dark-text focus:border-blue-300 dark:focus:border-blue-500 focus:ring-1 focus:ring-blue-300 dark:focus:ring-blue-500 outline-none"
+              className="dark:bg-dark-bg dark:border-dark-border dark:text-dark-text w-full rounded-lg border border-gray-200 bg-white py-1.5 pr-3 pl-9 text-sm text-gray-900 outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-300 dark:focus:border-blue-500 dark:focus:ring-blue-500"
             />
           </div>
 
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as 'date' | 'size' | 'name')}
-            className="px-3 py-1.5 bg-white dark:bg-dark-bg border border-gray-200 dark:border-dark-border rounded-lg text-sm text-gray-700 dark:text-dark-text"
+            className="dark:bg-dark-bg dark:border-dark-border dark:text-dark-text rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700"
           >
             {sortOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -164,7 +164,7 @@ export function AttachmentsView() {
 
           <button
             onClick={toggleOrder}
-            className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-bg text-gray-500 dark:text-dark-text-secondary"
+            className="dark:hover:bg-dark-bg dark:text-dark-text-secondary rounded-lg p-1.5 text-gray-500 hover:bg-gray-200"
             title={order === 'asc' ? 'Növekvő' : 'Csökkenő'}
           >
             <ArrowUpDown className="h-4 w-4" />
@@ -173,7 +173,7 @@ export function AttachmentsView() {
       </div>
 
       {/* Típus szűrők */}
-      <div className="flex items-center gap-1 px-4 py-2 bg-white dark:bg-dark-bg-secondary border-b border-gray-200 dark:border-dark-border overflow-x-auto">
+      <div className="dark:bg-dark-bg-secondary dark:border-dark-border flex items-center gap-1 overflow-x-auto border-b border-gray-200 bg-white px-4 py-2">
         {typeFilters.map((filter) => {
           const Icon = filter.icon;
           const count = data?.typeStats[filter.id] || 0;
@@ -186,10 +186,10 @@ export function AttachmentsView() {
                 setSelectedType(filter.id);
                 setPage(1);
               }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-colors ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm whitespace-nowrap transition-colors ${
                 isActive
-                  ? 'bg-blue-50 dark:bg-blue-500/10 text-[#4f6ef7] dark:text-blue-400 font-medium'
-                  : 'text-gray-600 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary'
+                  ? 'bg-blue-50 font-medium text-[#4f6ef7] dark:bg-blue-500/10 dark:text-blue-400'
+                  : 'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary text-gray-600 hover:bg-gray-100'
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -199,7 +199,7 @@ export function AttachmentsView() {
                   className={`text-xs ${
                     isActive
                       ? 'text-[#4f6ef7] dark:text-blue-400'
-                      : 'text-gray-400 dark:text-dark-text-muted'
+                      : 'dark:text-dark-text-muted text-gray-400'
                   }`}
                 >
                   {count}
@@ -213,7 +213,7 @@ export function AttachmentsView() {
       {/* Lista */}
       <div className="flex-1 overflow-auto">
         {isLoading ? (
-          <div className="flex items-center justify-center h-64">
+          <div className="flex h-64 items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
           </div>
         ) : !data?.attachments.length ? (
@@ -223,7 +223,7 @@ export function AttachmentsView() {
             description="A levélmellékletek itt jelennek meg."
           />
         ) : (
-          <div className="divide-y divide-gray-100 dark:divide-dark-border">
+          <div className="dark:divide-dark-border divide-y divide-gray-100">
             {data.attachments.map((attachment) => {
               const TypeIcon = getTypeIcon(attachment.type);
               const typeColor = getTypeColor(attachment.type);
@@ -231,25 +231,25 @@ export function AttachmentsView() {
               return (
                 <div
                   key={attachment.id}
-                  className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary transition-colors"
+                  className="dark:hover:bg-dark-bg-tertiary flex items-center gap-4 px-4 py-3 transition-colors hover:bg-gray-50"
                 >
                   {/* Ikon */}
-                  <div className={`p-2.5 rounded-lg ${typeColor}`}>
+                  <div className={`rounded-lg p-2.5 ${typeColor}`}>
                     <TypeIcon className="h-5 w-5" />
                   </div>
 
                   {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-gray-900 dark:text-dark-text text-sm truncate">
+                  <div className="min-w-0 flex-1">
+                    <div className="dark:text-dark-text truncate text-sm font-medium text-gray-900">
                       {attachment.filename}
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-dark-text-secondary mt-0.5">
+                    <div className="dark:text-dark-text-secondary mt-0.5 flex items-center gap-2 text-xs text-gray-500">
                       <span>{formatFileSize(attachment.size)}</span>
                       <span>-</span>
                       <span>{formatRelativeTime(attachment.emailDate)}</span>
                     </div>
                     {attachment.emailSubject && (
-                      <div className="text-xs text-gray-400 dark:text-dark-text-muted mt-0.5 truncate">
+                      <div className="dark:text-dark-text-muted mt-0.5 truncate text-xs text-gray-400">
                         {attachment.emailSubject}
                       </div>
                     )}
@@ -259,14 +259,14 @@ export function AttachmentsView() {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleOpenEmail(attachment.emailId)}
-                      className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-bg text-gray-500 dark:text-dark-text-secondary"
+                      className="dark:hover:bg-dark-bg dark:text-dark-text-secondary rounded-lg p-2 text-gray-500 hover:bg-gray-200"
                       title="Email megnyitása"
                     >
                       <Mail className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => handleDownload(attachment)}
-                      className="p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10 text-[#4f6ef7] dark:text-blue-400"
+                      className="rounded-lg p-2 text-[#4f6ef7] hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-500/10"
                       title="Letöltés"
                     >
                       <Download className="h-4 w-4" />
@@ -281,21 +281,21 @@ export function AttachmentsView() {
 
       {/* Lapozás */}
       {data && data.totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 p-3 border-t border-gray-200 dark:border-dark-border bg-white dark:bg-dark-bg-secondary">
+        <div className="dark:border-dark-border dark:bg-dark-bg-secondary flex items-center justify-center gap-2 border-t border-gray-200 bg-white p-3">
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary disabled:opacity-50"
+            className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-50"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <span className="text-sm text-gray-500 dark:text-dark-text-secondary">
+          <span className="dark:text-dark-text-secondary text-sm text-gray-500">
             {page} / {data.totalPages}
           </span>
           <button
             onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
             disabled={page === data.totalPages}
-            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary disabled:opacity-50"
+            className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-50"
           >
             <ChevronRight className="h-4 w-4" />
           </button>

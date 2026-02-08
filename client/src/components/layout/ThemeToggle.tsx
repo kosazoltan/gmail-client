@@ -5,13 +5,13 @@ export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
 
   return (
-    <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-dark-bg-tertiary rounded-lg">
+    <div className="dark:bg-dark-bg-tertiary flex items-center gap-1 rounded-lg bg-gray-100 p-1">
       <button
         onClick={() => setTheme('light')}
-        className={`p-2 rounded-md transition-colors ${
+        className={`rounded-md p-2 transition-colors ${
           theme === 'light'
-            ? 'bg-white dark:bg-dark-bg-tertiary text-yellow-500 shadow-sm'
-            : 'text-gray-500 dark:text-dark-text-secondary hover:text-gray-700 dark:hover:text-dark-text'
+            ? 'dark:bg-dark-bg-tertiary bg-white text-yellow-500 shadow-sm'
+            : 'dark:text-dark-text-secondary dark:hover:text-dark-text text-gray-500 hover:text-gray-700'
         }`}
         title="Világos mód"
         aria-label="Világos mód"
@@ -20,10 +20,10 @@ export function ThemeToggle() {
       </button>
       <button
         onClick={() => setTheme('system')}
-        className={`p-2 rounded-md transition-colors ${
+        className={`rounded-md p-2 transition-colors ${
           theme === 'system'
-            ? 'bg-white dark:bg-dark-bg-tertiary text-[#4f6ef7] shadow-sm'
-            : 'text-gray-500 dark:text-dark-text-secondary hover:text-gray-700 dark:hover:text-dark-text'
+            ? 'dark:bg-dark-bg-tertiary bg-white text-[#4f6ef7] shadow-sm'
+            : 'dark:text-dark-text-secondary dark:hover:text-dark-text text-gray-500 hover:text-gray-700'
         }`}
         title="Rendszer beállítás"
         aria-label="Rendszer beállítás"
@@ -32,10 +32,10 @@ export function ThemeToggle() {
       </button>
       <button
         onClick={() => setTheme('dark')}
-        className={`p-2 rounded-md transition-colors ${
+        className={`rounded-md p-2 transition-colors ${
           theme === 'dark'
-            ? 'bg-white dark:bg-dark-bg-tertiary text-indigo-500 shadow-sm'
-            : 'text-gray-500 dark:text-dark-text-secondary hover:text-gray-700 dark:hover:text-dark-text'
+            ? 'dark:bg-dark-bg-tertiary bg-white text-indigo-500 shadow-sm'
+            : 'dark:text-dark-text-secondary dark:hover:text-dark-text text-gray-500 hover:text-gray-700'
         }`}
         title="Sötét mód"
         aria-label="Sötét mód"

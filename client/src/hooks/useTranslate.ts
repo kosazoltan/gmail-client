@@ -4,7 +4,11 @@ import { api } from '../lib/api';
 
 export function useTranslate() {
   return useMutation({
-    mutationFn: ({ text, targetLang = 'hu', sourceLang = 'auto' }: {
+    mutationFn: ({
+      text,
+      targetLang = 'hu',
+      sourceLang = 'auto',
+    }: {
       text: string;
       targetLang?: string;
       sourceLang?: string;
@@ -47,53 +51,56 @@ export function useEmailTranslation() {
     };
   }, []);
 
-  const translateEmail = useCallback(async (
-    subject: string | null | undefined,
-    body: string | null | undefined,
-    targetLang = 'hu'
-  ) => {
-    setIsTranslating(true);
-    setError(null);
+  const translateEmail = useCallback(
+    async (
+      subject: string | null | undefined,
+      body: string | null | undefined,
+      targetLang = 'hu',
+    ) => {
+      setIsTranslating(true);
+      setError(null);
 
-    try {
-      const results: { subject?: string; body?: string; detectedLang?: string } = {};
+      try {
+        const results: { subject?: string; body?: string; detectedLang?: string } = {};
 
-      // Translate subject if present
-      if (subject) {
-        const subjectResult = await api.translate.translate(subject, targetLang, 'auto');
-        results.subject = subjectResult.translatedText;
-        results.detectedLang = subjectResult.detectedLanguage;
-      }
+        // Translate subject if present
+        if (subject) {
+          const subjectResult = await api.translate.translate(subject, targetLang, 'auto');
+          results.subject = subjectResult.translatedText;
+          results.detectedLang = subjectResult.detectedLanguage;
+        }
 
-      // Translate body if present
-      if (body) {
-        const bodyResult = await api.translate.translate(body, targetLang, 'auto');
-        results.body = bodyResult.translatedText;
-        if (!results.detectedLang) {
-          results.detectedLang = bodyResult.detectedLanguage;
+        // Translate body if present
+        if (body) {
+          const bodyResult = await api.translate.translate(body, targetLang, 'auto');
+          results.body = bodyResult.translatedText;
+          if (!results.detectedLang) {
+            results.detectedLang = bodyResult.detectedLanguage;
+          }
+        }
+
+        // FIX: Only update state if component is still mounted
+        if (mountedRef.current) {
+          setTranslatedContent({
+            ...results,
+            targetLang,
+          });
+        }
+
+        return results;
+      } catch (err) {
+        if (mountedRef.current) {
+          setError('Fordítás sikertelen');
+        }
+        throw err;
+      } finally {
+        if (mountedRef.current) {
+          setIsTranslating(false);
         }
       }
-
-      // FIX: Only update state if component is still mounted
-      if (mountedRef.current) {
-        setTranslatedContent({
-          ...results,
-          targetLang,
-        });
-      }
-
-      return results;
-    } catch (err) {
-      if (mountedRef.current) {
-        setError('Fordítás sikertelen');
-      }
-      throw err;
-    } finally {
-      if (mountedRef.current) {
-        setIsTranslating(false);
-      }
-    }
-  }, []);
+    },
+    [],
+  );
 
   const clearTranslation = useCallback(() => {
     setTranslatedContent(null);

@@ -93,10 +93,10 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar }: HeaderP
   };
 
   return (
-    <header className="flex items-center gap-2 sm:gap-4 bg-white dark:bg-dark-bg-secondary border-b border-gray-200/80 dark:border-dark-border px-3 sm:px-5 py-2.5 backdrop-blur-sm">
+    <header className="dark:bg-dark-bg-secondary dark:border-dark-border flex items-center gap-2 border-b border-gray-200/80 bg-white px-3 py-2.5 backdrop-blur-sm sm:gap-4 sm:px-5">
       <button
         onClick={onToggleSidebar}
-        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary lg:hidden flex-shrink-0"
+        className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary flex-shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 lg:hidden"
         aria-label="Menü megnyitása"
         title="Menü megnyitása"
       >
@@ -104,17 +104,20 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar }: HeaderP
       </button>
 
       {/* Keresőbar */}
-      <form onSubmit={handleSearch} className="flex-1 min-w-0 max-w-2xl">
+      <form onSubmit={handleSearch} className="max-w-2xl min-w-0 flex-1">
         <div className="relative flex items-center gap-1 sm:gap-2">
-          <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-dark-text-muted" aria-hidden="true" />
+          <div className="relative min-w-0 flex-1">
+            <Search
+              className="dark:text-dark-text-muted absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400"
+              aria-hidden="true"
+            />
             <input
               type="text"
               value={localQuery}
               onChange={(e) => setLocalQuery(e.target.value)}
               placeholder="Keresés..."
               aria-label="Keresés a levelekben"
-              className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-dark-bg-tertiary border border-transparent dark:border-dark-border rounded-xl text-sm text-gray-900 dark:text-dark-text placeholder:text-gray-400 dark:placeholder:text-dark-text-muted focus:bg-white dark:focus:bg-dark-bg focus:border-[#4f6ef7]/50 dark:focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20 outline-none transition-all duration-200"
+              className="dark:bg-dark-bg-tertiary dark:border-dark-border dark:text-dark-text dark:placeholder:text-dark-text-muted dark:focus:bg-dark-bg w-full rounded-xl border border-transparent bg-gray-100 py-2 pr-4 pl-10 text-sm text-gray-900 transition-all duration-200 outline-none placeholder:text-gray-400 focus:border-[#4f6ef7]/50 focus:bg-white focus:ring-2 focus:ring-[#4f6ef7]/20 dark:focus:border-[#4f6ef7]/50"
             />
           </div>
 
@@ -139,13 +142,13 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar }: HeaderP
                         setSaveName('');
                       }
                     }}
-                    className="w-24 sm:w-32 px-2 py-1.5 bg-white dark:bg-dark-bg border border-gray-200 dark:border-dark-border rounded text-sm text-gray-900 dark:text-dark-text"
+                    className="dark:bg-dark-bg dark:border-dark-border dark:text-dark-text w-24 rounded border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900 sm:w-32"
                   />
                   <button
                     type="button"
                     onClick={handleSaveSearch}
                     disabled={!saveName.trim() || createSavedSearch.isPending}
-                    className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-blue-600 dark:text-blue-400 disabled:opacity-50"
+                    className="dark:hover:bg-dark-bg-tertiary rounded p-1.5 text-blue-600 hover:bg-gray-100 disabled:opacity-50 dark:text-blue-400"
                     aria-label="Keresés mentése"
                     title="Keresés mentése"
                   >
@@ -156,10 +159,10 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar }: HeaderP
                 <button
                   type="button"
                   onClick={() => setShowSaveInput(true)}
-                  className={`p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary transition-colors flex-shrink-0 ${
+                  className={`dark:hover:bg-dark-bg-tertiary flex-shrink-0 rounded-lg p-2 transition-colors hover:bg-gray-100 ${
                     justSaved
                       ? 'text-green-600 dark:text-green-400'
-                      : 'text-gray-500 dark:text-dark-text-secondary'
+                      : 'dark:text-dark-text-secondary text-gray-500'
                   }`}
                   title={justSaved ? 'Mentve!' : 'Keresés mentése'}
                   aria-label={justSaved ? 'Keresés elmentve' : 'Keresés mentése'}
@@ -177,7 +180,7 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar }: HeaderP
       </form>
 
       {/* Téma váltó - rejtett nagyon kis képernyőn */}
-      <div className="hidden sm:block flex-shrink-0">
+      <div className="hidden flex-shrink-0 sm:block">
         <ThemeToggle />
       </div>
 
@@ -186,7 +189,7 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar }: HeaderP
         <button
           onClick={handleSync}
           disabled={syncAccount.isPending}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary disabled:opacity-50 flex-shrink-0"
+          className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary flex-shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 disabled:opacity-50"
           title="Levelek szinkronizálása"
           aria-label="Levelek szinkronizálása"
         >

@@ -14,13 +14,7 @@ import {
   Loader2,
   Download,
 } from 'lucide-react';
-import {
-  formatFullDate,
-  displaySender,
-  getInitials,
-  emailToColor,
-  cn,
-} from '../../lib/utils';
+import { formatFullDate, displaySender, getInitials, emailToColor, cn } from '../../lib/utils';
 import { AttachmentView } from './AttachmentView';
 import { api } from '../../lib/api';
 import type { ThreadEmail } from '../../types';
@@ -71,25 +65,106 @@ function MessageBubble({
     if (!email.bodyHtml) return '';
     return DOMPurify.sanitize(email.bodyHtml, {
       ALLOWED_TAGS: [
-        'p', 'br', 'strong', 'em', 'b', 'i', 'u', 's', 'strike', 'sub', 'sup', 'small', 'big',
-        'a', 'img',
-        'ul', 'ol', 'li', 'dl', 'dt', 'dd',
-        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-        'blockquote', 'pre', 'code', 'div', 'span', 'hr', 'address', 'center',
-        'table', 'caption', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'colgroup', 'col',
-        'font', 'label', 'abbr', 'acronym', 'cite', 'dfn', 'kbd', 'samp', 'var', 'mark',
+        'p',
+        'br',
+        'strong',
+        'em',
+        'b',
+        'i',
+        'u',
+        's',
+        'strike',
+        'sub',
+        'sup',
+        'small',
+        'big',
+        'a',
+        'img',
+        'ul',
+        'ol',
+        'li',
+        'dl',
+        'dt',
+        'dd',
+        'h1',
+        'h2',
+        'h3',
+        'h4',
+        'h5',
+        'h6',
+        'blockquote',
+        'pre',
+        'code',
+        'div',
+        'span',
+        'hr',
+        'address',
+        'center',
+        'table',
+        'caption',
+        'thead',
+        'tbody',
+        'tfoot',
+        'tr',
+        'th',
+        'td',
+        'colgroup',
+        'col',
+        'font',
+        'label',
+        'abbr',
+        'acronym',
+        'cite',
+        'dfn',
+        'kbd',
+        'samp',
+        'var',
+        'mark',
       ],
       ALLOWED_ATTR: [
-        'href', 'src', 'alt', 'title', 'class', 'style', 'target', 'rel',
-        'width', 'height', 'border', 'cellpadding', 'cellspacing',
-        'align', 'valign', 'bgcolor', 'color', 'face', 'size',
-        'colspan', 'rowspan', 'scope', 'headers',
-        'dir', 'lang', 'id', 'name',
+        'href',
+        'src',
+        'alt',
+        'title',
+        'class',
+        'style',
+        'target',
+        'rel',
+        'width',
+        'height',
+        'border',
+        'cellpadding',
+        'cellspacing',
+        'align',
+        'valign',
+        'bgcolor',
+        'color',
+        'face',
+        'size',
+        'colspan',
+        'rowspan',
+        'scope',
+        'headers',
+        'dir',
+        'lang',
+        'id',
+        'name',
       ],
       ALLOW_DATA_ATTR: false,
       ADD_ATTR: ['target'],
-      FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'select', 'textarea'],
-      ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+      FORBID_TAGS: [
+        'script',
+        'iframe',
+        'object',
+        'embed',
+        'form',
+        'input',
+        'button',
+        'select',
+        'textarea',
+      ],
+      ALLOWED_URI_REGEXP:
+        /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
     });
   }, [email.bodyHtml]);
 
@@ -110,34 +185,25 @@ function MessageBubble({
   };
 
   return (
-    <div
-      className={cn(
-        'flex gap-2 sm:gap-3',
-        isSent ? 'flex-row-reverse' : 'flex-row',
-      )}
-    >
+    <div className={cn('flex gap-2 sm:gap-3', isSent ? 'flex-row-reverse' : 'flex-row')}>
       {/* Avatar */}
       <div
         className={cn(
-          'flex-shrink-0 w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-white text-[10px] sm:text-xs font-medium mt-1',
+          'mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-medium text-white sm:h-9 sm:w-9 sm:text-xs',
           isSent && 'ring-2 ring-blue-400 dark:ring-blue-500',
         )}
         style={{ backgroundColor: isSent ? '#4f6ef7' : avatarColor }}
       >
-        {isSent ? (
-          <Send className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-        ) : (
-          initials
-        )}
+        {isSent ? <Send className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> : initials}
       </div>
 
       {/* Üzenet buborék */}
       <div
         className={cn(
-          'flex-1 max-w-[85%] sm:max-w-[80%] rounded-2xl overflow-hidden border transition-shadow',
+          'max-w-[85%] flex-1 overflow-hidden rounded-2xl border transition-shadow sm:max-w-[80%]',
           isSent
-            ? 'bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/30'
-            : 'bg-white dark:bg-dark-bg-secondary border-gray-100 dark:border-dark-border',
+            ? 'border-blue-200 bg-blue-50 dark:border-blue-500/30 dark:bg-blue-500/10'
+            : 'dark:bg-dark-bg-secondary dark:border-dark-border border-gray-100 bg-white',
           isExpanded && 'shadow-md',
         )}
       >
@@ -145,18 +211,18 @@ function MessageBubble({
         <button
           onClick={onToggleExpand}
           className={cn(
-            'w-full text-left px-3 sm:px-4 py-2 sm:py-2.5 flex items-center gap-2 transition-colors',
+            'flex w-full items-center gap-2 px-3 py-2 text-left transition-colors sm:px-4 sm:py-2.5',
             isExpanded
-              ? 'border-b border-gray-100 dark:border-dark-border'
-              : 'hover:bg-gray-50/50 dark:hover:bg-dark-bg-tertiary/30',
+              ? 'dark:border-dark-border border-b border-gray-100'
+              : 'dark:hover:bg-dark-bg-tertiary/30 hover:bg-gray-50/50',
           )}
         >
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 sm:gap-2">
               <span
                 className={cn(
-                  'text-xs sm:text-sm font-medium truncate',
-                  isSent ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-dark-text',
+                  'truncate text-xs font-medium sm:text-sm',
+                  isSent ? 'text-blue-700 dark:text-blue-300' : 'dark:text-dark-text text-gray-900',
                 )}
               >
                 {isSent ? 'Én' : sender}
@@ -171,24 +237,24 @@ function MessageBubble({
                 </span>
               )}
               {email.hasAttachments && (
-                <Paperclip className="h-3 w-3 text-gray-400 dark:text-dark-text-muted flex-shrink-0" />
+                <Paperclip className="dark:text-dark-text-muted h-3 w-3 flex-shrink-0 text-gray-400" />
               )}
             </div>
             {!isExpanded && (
-              <div className="text-[10px] sm:text-xs text-gray-400 dark:text-dark-text-muted truncate mt-0.5">
+              <div className="dark:text-dark-text-muted mt-0.5 truncate text-[10px] text-gray-400 sm:text-xs">
                 {email.snippet || ''}
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
-            <span className="text-[9px] sm:text-[11px] text-gray-400 dark:text-dark-text-muted">
+          <div className="flex flex-shrink-0 items-center gap-1 sm:gap-1.5">
+            <span className="dark:text-dark-text-muted text-[9px] text-gray-400 sm:text-[11px]">
               {formatTime(email.date)}
             </span>
             {isExpanded ? (
-              <ChevronUp className="h-3.5 w-3.5 text-gray-400 dark:text-dark-text-muted" />
+              <ChevronUp className="dark:text-dark-text-muted h-3.5 w-3.5 text-gray-400" />
             ) : (
-              <ChevronDown className="h-3.5 w-3.5 text-gray-400 dark:text-dark-text-muted" />
+              <ChevronDown className="dark:text-dark-text-muted h-3.5 w-3.5 text-gray-400" />
             )}
           </div>
         </button>
@@ -197,32 +263,32 @@ function MessageBubble({
         {isExpanded && (
           <div>
             {/* Címzett infó */}
-            <div className="px-3 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs text-gray-500 dark:text-dark-text-secondary border-b border-gray-50 dark:border-dark-border/50">
+            <div className="dark:text-dark-text-secondary dark:border-dark-border/50 border-b border-gray-50 px-3 py-1.5 text-[10px] text-gray-500 sm:px-4 sm:py-2 sm:text-xs">
               <div className="flex items-center gap-1">
-                <span className="text-gray-400 dark:text-dark-text-muted">Címzett:</span>
+                <span className="dark:text-dark-text-muted text-gray-400">Címzett:</span>
                 <span className="truncate">{email.to || 'Ismeretlen'}</span>
               </div>
               {email.cc && (
-                <div className="flex items-center gap-1 mt-0.5">
-                  <span className="text-gray-400 dark:text-dark-text-muted">Másolat:</span>
+                <div className="mt-0.5 flex items-center gap-1">
+                  <span className="dark:text-dark-text-muted text-gray-400">Másolat:</span>
                   <span className="truncate">{email.cc}</span>
                 </div>
               )}
             </div>
 
             {/* Email body */}
-            <div className="px-3 sm:px-4 py-2.5 sm:py-3">
+            <div className="px-3 py-2.5 sm:px-4 sm:py-3">
               {sanitizedHtml ? (
                 <div
-                  className="email-content prose prose-sm max-w-none text-gray-900 dark:text-gray-300 prose-img:rounded-lg prose-img:shadow-md"
+                  className="email-content prose prose-sm prose-img:rounded-lg prose-img:shadow-md max-w-none text-gray-900 dark:text-gray-300"
                   dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                 />
               ) : email.body ? (
-                <pre className="whitespace-pre-wrap text-xs sm:text-sm text-gray-700 dark:text-dark-text-secondary font-sans leading-relaxed">
+                <pre className="dark:text-dark-text-secondary font-sans text-xs leading-relaxed whitespace-pre-wrap text-gray-700 sm:text-sm">
                   {email.body}
                 </pre>
               ) : (
-                <p className="text-gray-400 dark:text-dark-text-muted italic text-center py-4 text-xs sm:text-sm">
+                <p className="dark:text-dark-text-muted py-4 text-center text-xs text-gray-400 italic sm:text-sm">
                   Nincs megjeleníthető tartalom
                 </p>
               )}
@@ -230,11 +296,11 @@ function MessageBubble({
 
             {/* Mellékletek */}
             {email.attachments && email.attachments.length > 0 && (
-              <div className="border-t border-gray-100 dark:border-dark-border bg-gray-50/50 dark:bg-dark-bg-tertiary/30 px-3 sm:px-4 py-2 sm:py-3">
-                <div className="flex items-center justify-between mb-2">
+              <div className="dark:border-dark-border dark:bg-dark-bg-tertiary/30 border-t border-gray-100 bg-gray-50/50 px-3 py-2 sm:px-4 sm:py-3">
+                <div className="mb-2 flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <Paperclip className="h-3.5 w-3.5 text-gray-400" />
-                    <span className="text-xs font-medium text-gray-600 dark:text-dark-text-secondary">
+                    <span className="dark:text-dark-text-secondary text-xs font-medium text-gray-600">
                       {email.attachments.length} melléklet
                     </span>
                   </div>
@@ -257,14 +323,14 @@ function MessageBubble({
                           downloadTimeoutsRef.current.push(timeoutId);
                         });
                       }}
-                      className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors"
+                      className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-medium text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-500/10"
                     >
                       <Download className="h-3 w-3" />
                       Összes
                     </button>
                   )}
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                   {email.attachments.map((att) => (
                     <AttachmentView key={att.id} attachment={att} />
                   ))}
@@ -273,18 +339,24 @@ function MessageBubble({
             )}
 
             {/* Gyors akciók */}
-            <div className="flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 border-t border-gray-100 dark:border-dark-border">
+            <div className="dark:border-dark-border flex items-center gap-1 border-t border-gray-100 px-2 py-1.5 sm:px-3 sm:py-2">
               <button
-                onClick={(e) => { e.stopPropagation(); onReply(); }}
-                className="flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-gray-600 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary rounded-lg transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReply();
+                }}
+                className="dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-medium text-gray-600 transition-colors hover:bg-gray-100 sm:px-3 sm:py-1.5 sm:text-xs"
               >
                 <Reply className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 <span className="hidden sm:inline">Válasz</span>
               </button>
               {onReplyAll && (
                 <button
-                  onClick={(e) => { e.stopPropagation(); onReplyAll(); }}
-                  className="flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-gray-600 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary rounded-lg transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onReplyAll();
+                  }}
+                  className="dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-medium text-gray-600 transition-colors hover:bg-gray-100 sm:px-3 sm:py-1.5 sm:text-xs"
                 >
                   <ReplyAll className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   <span className="hidden sm:inline">Válasz mind</span>
@@ -292,8 +364,11 @@ function MessageBubble({
               )}
               {onForward && (
                 <button
-                  onClick={(e) => { e.stopPropagation(); onForward(); }}
-                  className="flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium text-gray-600 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary rounded-lg transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onForward();
+                  }}
+                  className="dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-medium text-gray-600 transition-colors hover:bg-gray-100 sm:px-3 sm:py-1.5 sm:text-xs"
                 >
                   <Forward className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   <span className="hidden sm:inline">Továbbítás</span>
@@ -353,7 +428,7 @@ export function ConversationView({
   };
 
   const expandAll = () => {
-    setExpandedIds(new Set(emails.map(e => e.id)));
+    setExpandedIds(new Set(emails.map((e) => e.id)));
   };
 
   const collapseAll = () => {
@@ -379,14 +454,14 @@ export function ConversationView({
   // Statisztikák
   const sentCount = emails.filter(isSentEmail).length;
   const receivedCount = emails.length - sentCount;
-  const unreadCount = emails.filter(e => !e.isRead && !isSentEmail(e)).length;
+  const unreadCount = emails.filter((e) => !e.isRead && !isSentEmail(e)).length;
 
   return (
     <div className="flex flex-col gap-1 sm:gap-2">
       {/* Thread statisztika sáv */}
       {emails.length > 1 && (
-        <div className="flex items-center justify-between px-1 sm:px-2 mb-1">
-          <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs text-gray-500 dark:text-dark-text-secondary">
+        <div className="mb-1 flex items-center justify-between px-1 sm:px-2">
+          <div className="dark:text-dark-text-secondary flex items-center gap-2 text-[10px] text-gray-500 sm:gap-3 sm:text-xs">
             <span className="flex items-center gap-1">
               <Clock className="h-3 w-3" />
               {emails.length} üzenet
@@ -397,11 +472,9 @@ export function ConversationView({
                 {sentCount} küldött
               </span>
             )}
-            {receivedCount > 0 && (
-              <span>{receivedCount} beérkezett</span>
-            )}
+            {receivedCount > 0 && <span>{receivedCount} beérkezett</span>}
             {unreadCount > 0 && (
-              <span className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-full font-medium">
+              <span className="rounded-full bg-blue-100 px-1.5 py-0.5 font-medium text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">
                 {unreadCount} olvasatlan
               </span>
             )}
@@ -409,13 +482,13 @@ export function ConversationView({
           <div className="flex items-center gap-1">
             <button
               onClick={expandAll}
-              className="px-2 py-1 text-[10px] sm:text-xs text-gray-500 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary rounded transition-colors"
+              className="dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary rounded px-2 py-1 text-[10px] text-gray-500 transition-colors hover:bg-gray-100 sm:text-xs"
             >
               Összes kibontása
             </button>
             <button
               onClick={collapseAll}
-              className="px-2 py-1 text-[10px] sm:text-xs text-gray-500 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary rounded transition-colors"
+              className="dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary rounded px-2 py-1 text-[10px] text-gray-500 transition-colors hover:bg-gray-100 sm:text-xs"
             >
               Összecsukás
             </button>

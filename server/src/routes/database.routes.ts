@@ -52,17 +52,28 @@ router.get('/emails', (req: Request, res: Response) => {
   // Validate sortOrder against whitelist to prevent SQL injection
   const validSortOrders = ['asc', 'desc'] as const;
   const sortOrderParam = req.query.sortOrder as string;
-  const sortOrder = validSortOrders.includes(sortOrderParam as 'asc' | 'desc') ? sortOrderParam as 'asc' | 'desc' : 'desc';
+  const sortOrder = validSortOrders.includes(sortOrderParam as 'asc' | 'desc')
+    ? (sortOrderParam as 'asc' | 'desc')
+    : 'desc';
 
   const options = {
     page: Math.max(1, parseInt(req.query.page as string, 10) || 1),
     limit: Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), MAX_LIMIT),
-    sortBy: (['date', 'from', 'subject', 'size'] as const).includes(req.query.sortBy as 'date' | 'from' | 'subject' | 'size') ? (req.query.sortBy as 'date' | 'from' | 'subject' | 'size') : 'date',
+    sortBy: (['date', 'from', 'subject', 'size'] as const).includes(
+      req.query.sortBy as 'date' | 'from' | 'subject' | 'size',
+    )
+      ? (req.query.sortBy as 'date' | 'from' | 'subject' | 'size')
+      : 'date',
     sortOrder,
     search: req.query.search as string | undefined,
     dateFrom: req.query.dateFrom ? parseInt(req.query.dateFrom as string, 10) : undefined,
     dateTo: req.query.dateTo ? parseInt(req.query.dateTo as string, 10) : undefined,
-    hasAttachments: req.query.hasAttachments === 'true' ? true : req.query.hasAttachments === 'false' ? false : undefined,
+    hasAttachments:
+      req.query.hasAttachments === 'true'
+        ? true
+        : req.query.hasAttachments === 'false'
+          ? false
+          : undefined,
     isRead: req.query.isRead === 'true' ? true : req.query.isRead === 'false' ? false : undefined,
   };
 
@@ -170,7 +181,12 @@ router.get('/backups/:filename', (req: Request, res: Response) => {
   }
 
   // Biztonsági ellenőrzés - path traversal védelem
-  if (!filename.endsWith('.db') || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+  if (
+    !filename.endsWith('.db') ||
+    filename.includes('..') ||
+    filename.includes('/') ||
+    filename.includes('\\')
+  ) {
     return res.status(400).json({ error: 'Érvénytelen fájlnév' });
   }
 
@@ -218,7 +234,12 @@ router.delete('/backups/:filename', (req: Request, res: Response) => {
   }
 
   // Biztonsági ellenőrzés - path traversal védelem
-  if (!filename.endsWith('.db') || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+  if (
+    !filename.endsWith('.db') ||
+    filename.includes('..') ||
+    filename.includes('/') ||
+    filename.includes('\\')
+  ) {
     return res.status(400).json({ error: 'Érvénytelen fájlnév' });
   }
 

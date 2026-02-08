@@ -81,9 +81,7 @@ export function EmailAutocomplete({
   // Javaslat kiválasztása
   const selectSuggestion = (contact: Contact) => {
     const parts = value.split(',').map((p) => p.trim());
-    parts[parts.length - 1] = contact.name
-      ? `${contact.name} <${contact.email}>`
-      : contact.email;
+    parts[parts.length - 1] = contact.name ? `${contact.name} <${contact.email}>` : contact.email;
     onChange(parts.join(', '));
     setShowSuggestions(false);
     inputRef.current?.focus();
@@ -121,7 +119,7 @@ export function EmailAutocomplete({
   };
 
   return (
-    <div ref={containerRef} className="relative flex-1 min-w-0">
+    <div ref={containerRef} className="relative min-w-0 flex-1">
       <input
         ref={inputRef}
         type="text"
@@ -135,25 +133,27 @@ export function EmailAutocomplete({
       />
 
       {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-dark-bg-secondary border border-gray-200 dark:border-dark-border rounded-lg shadow-lg max-h-64 overflow-auto">
+        <div className="dark:bg-dark-bg-secondary dark:border-dark-border absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
           {suggestions.map((contact, index) => (
             <button
               key={contact.id}
               type="button"
               onClick={() => selectSuggestion(contact)}
-              className={`w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary flex flex-col ${
+              className={`dark:hover:bg-dark-bg-tertiary flex w-full flex-col px-3 py-2 text-left hover:bg-gray-50 ${
                 index === selectedIndex ? 'bg-blue-50 dark:bg-blue-500/20' : ''
               }`}
             >
               {contact.name ? (
                 <>
-                  <span className="text-sm font-medium text-gray-900 dark:text-dark-text">
+                  <span className="dark:text-dark-text text-sm font-medium text-gray-900">
                     {contact.name}
                   </span>
-                  <span className="text-xs text-gray-500 dark:text-dark-text-muted">{contact.email}</span>
+                  <span className="dark:text-dark-text-muted text-xs text-gray-500">
+                    {contact.email}
+                  </span>
                 </>
               ) : (
-                <span className="text-sm text-gray-900 dark:text-dark-text">{contact.email}</span>
+                <span className="dark:text-dark-text text-sm text-gray-900">{contact.email}</span>
               )}
             </button>
           ))}

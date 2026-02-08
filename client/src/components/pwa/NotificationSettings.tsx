@@ -16,16 +16,16 @@ export function NotificationSettings() {
   // Ha nem támogatott, mutatjuk hogy miért
   if (!isSupported) {
     return (
-      <div className="p-4 bg-yellow-50 dark:bg-yellow-500/10 rounded-xl">
+      <div className="rounded-xl bg-yellow-50 p-4 dark:bg-yellow-500/10">
         <div className="flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-600 dark:text-yellow-400" />
           <div>
             <h4 className="font-medium text-yellow-800 dark:text-yellow-200">
               Push értesítések nem elérhetők
             </h4>
-            <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-              A push értesítések csak telepített PWA alkalmazásban működnek.
-              Telepítsd az alkalmazást a főképernyőre az értesítések használatához.
+            <p className="mt-1 text-sm text-yellow-700 dark:text-yellow-300">
+              A push értesítések csak telepített PWA alkalmazásban működnek. Telepítsd az
+              alkalmazást a főképernyőre az értesítések használatához.
             </p>
           </div>
         </div>
@@ -36,16 +36,14 @@ export function NotificationSettings() {
   // Ha megtagadták az engedélyt
   if (permission === 'denied') {
     return (
-      <div className="p-4 bg-red-50 dark:bg-red-500/10 rounded-xl">
+      <div className="rounded-xl bg-red-50 p-4 dark:bg-red-500/10">
         <div className="flex items-start gap-3">
-          <BellOff className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+          <BellOff className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600 dark:text-red-400" />
           <div>
-            <h4 className="font-medium text-red-800 dark:text-red-200">
-              Értesítések letiltva
-            </h4>
-            <p className="text-sm text-red-700 dark:text-red-300 mt-1">
-              Az értesítések le vannak tiltva a böngésző beállításokban.
-              Engedélyezd őket a böngésző beállításaiban a használathoz.
+            <h4 className="font-medium text-red-800 dark:text-red-200">Értesítések letiltva</h4>
+            <p className="mt-1 text-sm text-red-700 dark:text-red-300">
+              Az értesítések le vannak tiltva a böngésző beállításokban. Engedélyezd őket a böngésző
+              beállításaiban a használathoz.
             </p>
           </div>
         </div>
@@ -56,23 +54,21 @@ export function NotificationSettings() {
   return (
     <div className="space-y-4">
       {/* Státusz */}
-      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-dark-bg-tertiary rounded-xl">
+      <div className="dark:bg-dark-bg-tertiary flex items-center justify-between rounded-xl bg-gray-50 p-4">
         <div className="flex items-center gap-3">
           {isSubscribed ? (
-            <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-500/20 flex items-center justify-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-500/20">
               <Bell className="h-5 w-5 text-green-600 dark:text-green-400" />
             </div>
           ) : (
-            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-dark-bg-secondary flex items-center justify-center">
-              <BellOff className="h-5 w-5 text-gray-500 dark:text-dark-text-secondary" />
+            <div className="dark:bg-dark-bg-secondary flex h-10 w-10 items-center justify-center rounded-full bg-gray-200">
+              <BellOff className="dark:text-dark-text-secondary h-5 w-5 text-gray-500" />
             </div>
           )}
           <div>
-            <h4 className="font-medium dark:text-dark-text">Push értesítések</h4>
-            <p className="text-sm text-gray-500 dark:text-dark-text-secondary">
-              {isSubscribed
-                ? 'Értesítések bekapcsolva'
-                : 'Értesítések kikapcsolva'}
+            <h4 className="dark:text-dark-text font-medium">Push értesítések</h4>
+            <p className="dark:text-dark-text-secondary text-sm text-gray-500">
+              {isSubscribed ? 'Értesítések bekapcsolva' : 'Értesítések kikapcsolva'}
             </p>
           </div>
         </div>
@@ -80,9 +76,9 @@ export function NotificationSettings() {
         <button
           onClick={isSubscribed ? unsubscribe : subscribe}
           disabled={isLoading}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 ${
+          className={`rounded-lg px-4 py-2 font-medium transition-colors disabled:opacity-50 ${
             isSubscribed
-              ? 'bg-gray-200 dark:bg-dark-bg-secondary text-gray-700 dark:text-dark-text hover:bg-gray-300 dark:hover:bg-dark-bg-tertiary'
+              ? 'dark:bg-dark-bg-secondary dark:text-dark-text dark:hover:bg-dark-bg-tertiary bg-gray-200 text-gray-700 hover:bg-gray-300'
               : 'bg-blue-600 text-white hover:bg-blue-700'
           }`}
         >
@@ -98,7 +94,7 @@ export function NotificationSettings() {
 
       {/* Hiba üzenet */}
       {error && (
-        <div className="p-3 bg-red-50 dark:bg-red-500/10 rounded-lg flex items-center gap-2 text-red-700 dark:text-red-300 text-sm">
+        <div className="flex items-center gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
           {error}
         </div>
@@ -106,7 +102,7 @@ export function NotificationSettings() {
 
       {/* Sikeres bekapcsolás */}
       {isSubscribed && !error && (
-        <div className="p-3 bg-green-50 dark:bg-green-500/10 rounded-lg flex items-center gap-2 text-green-700 dark:text-green-300 text-sm">
+        <div className="flex items-center gap-2 rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-500/10 dark:text-green-300">
           <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
           Az értesítések be vannak kapcsolva. Új emailekről értesítést kapsz.
         </div>
@@ -116,7 +112,7 @@ export function NotificationSettings() {
       {isSubscribed && (
         <button
           onClick={sendTest}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors"
+          className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-500/10"
         >
           <Send className="h-4 w-4" />
           Teszt értesítés küldése
@@ -124,9 +120,11 @@ export function NotificationSettings() {
       )}
 
       {/* Információ */}
-      <div className="text-xs text-gray-400 dark:text-dark-text-muted">
-        <p>Az értesítések segítségével azonnal tudomást szerzel az új beérkező levelekről,
-        még akkor is, ha az alkalmazás nincs megnyitva.</p>
+      <div className="dark:text-dark-text-muted text-xs text-gray-400">
+        <p>
+          Az értesítések segítségével azonnal tudomást szerzel az új beérkező levelekről, még akkor
+          is, ha az alkalmazás nincs megnyitva.
+        </p>
       </div>
     </div>
   );

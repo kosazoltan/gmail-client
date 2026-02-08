@@ -3,7 +3,27 @@ import { Router } from 'express';
 const router = Router();
 
 // Valid language codes whitelist
-const VALID_LANGS = new Set(['auto', 'hu', 'en', 'de', 'fr', 'es', 'it', 'pt', 'ru', 'zh', 'ja', 'ko', 'ar', 'pl', 'nl', 'cs', 'ro', 'sk', 'uk']);
+const VALID_LANGS = new Set([
+  'auto',
+  'hu',
+  'en',
+  'de',
+  'fr',
+  'es',
+  'it',
+  'pt',
+  'ru',
+  'zh',
+  'ja',
+  'ko',
+  'ar',
+  'pl',
+  'nl',
+  'cs',
+  'ro',
+  'sk',
+  'uk',
+]);
 const MAX_TEXT_LENGTH = 50000; // 50KB limit
 
 // Simple translation endpoint using LibreTranslate API
@@ -62,13 +82,17 @@ router.post('/', async (req, res) => {
       throw new Error(`Translation API error: ${response.status}`);
     }
 
-    const data = await response.json() as { translatedText?: string; detectedLanguage?: string | { language?: string } };
+    const data = (await response.json()) as {
+      translatedText?: string;
+      detectedLanguage?: string | { language?: string };
+    };
     // BUG #4 Fix: LibreTranslate returns detectedLanguage as a string, not object
     res.json({
       translatedText: data.translatedText,
-      detectedLanguage: typeof data.detectedLanguage === 'string'
-        ? data.detectedLanguage
-        : (data.detectedLanguage?.language || sourceLang),
+      detectedLanguage:
+        typeof data.detectedLanguage === 'string'
+          ? data.detectedLanguage
+          : data.detectedLanguage?.language || sourceLang,
       source: 'libretranslate',
     });
   } catch (error) {
@@ -78,7 +102,12 @@ router.post('/', async (req, res) => {
     try {
       const { text, targetLang = 'hu', sourceLang = 'auto' } = req.body;
       // Validate language codes in fallback path too
-      if (!VALID_LANGS.has(targetLang) || !VALID_LANGS.has(sourceLang) || !text || typeof text !== 'string') {
+      if (
+        !VALID_LANGS.has(targetLang) ||
+        !VALID_LANGS.has(sourceLang) ||
+        !text ||
+        typeof text !== 'string'
+      ) {
         res.status(500).json({ error: 'Translation service unavailable' });
         return;
       }
@@ -132,7 +161,7 @@ router.post('/detect', async (req, res) => {
       return;
     }
 
-    const data = await response.json() as Array<{ language?: string; confidence?: number }>;
+    const data = (await response.json()) as Array<{ language?: string; confidence?: number }>;
     res.json({
       detectedLanguage: data[0]?.language || 'unknown',
       confidence: data[0]?.confidence || 0,
@@ -174,7 +203,11 @@ router.get('/languages', (_req, res) => {
 });
 
 // Fallback translation using Google Translate (unofficial)
-async function translateWithGoogle(text: string, targetLang: string, sourceLang: string): Promise<string | null> {
+async function translateWithGoogle(
+  text: string,
+  targetLang: string,
+  sourceLang: string,
+): Promise<string | null> {
   try {
     const encodedText = encodeURIComponent(text);
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLang}&tl=${targetLang}&dt=t&q=${encodedText}`;

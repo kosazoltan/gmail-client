@@ -29,7 +29,11 @@ function getActionIcon(action: SwipeAction, isRead?: boolean): React.ReactNode {
     case 'archive':
       return <Archive className="h-6 w-6 text-white" />;
     case 'read':
-      return isRead ? <MailOpen className="h-6 w-6 text-white" /> : <Mail className="h-6 w-6 text-white" />;
+      return isRead ? (
+        <MailOpen className="h-6 w-6 text-white" />
+      ) : (
+        <Mail className="h-6 w-6 text-white" />
+      );
     case 'star':
       return <Star className="h-6 w-6 text-white" />;
     case 'snooze':
@@ -69,14 +73,17 @@ export function SwipeableEmailItem({
   // BUG #7 & #8 Fix: Track mounted state and cleanup refs
   const mountedRef = useRef(true);
   const timeoutRefs = useRef<number[]>([]);
-  const mouseListenersRef = useRef<{ move: ((e: MouseEvent) => void) | null; up: (() => void) | null }>({ move: null, up: null });
+  const mouseListenersRef = useRef<{
+    move: ((e: MouseEvent) => void) | null;
+    up: (() => void) | null;
+  }>({ move: null, up: null });
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       // Clear all pending timeouts
-      timeoutRefs.current.forEach(id => clearTimeout(id));
+      timeoutRefs.current.forEach((id) => clearTimeout(id));
       timeoutRefs.current = [];
       // Remove any lingering mouse event listeners
       if (mouseListenersRef.current.move) {
@@ -94,48 +101,57 @@ export function SwipeableEmailItem({
   const rightAction: SwipeAction = settings?.swipeRightAction || defaultSettings.swipeRightAction!;
 
   // Execute the action based on type
-  const executeAction = useCallback((action: SwipeAction) => {
-    switch (action) {
-      case 'delete':
-        onDelete?.(email.id);
-        break;
-      case 'archive':
-        onArchive?.(email.id);
-        break;
-      case 'read':
-        onToggleRead?.(email.id, !email.isRead);
-        break;
-      case 'star':
-        // For star action, we need a synthetic click event
-        const syntheticEvent = { stopPropagation: () => {} } as React.MouseEvent;
-        onToggleStar(syntheticEvent);
-        break;
-      case 'snooze':
-        onSnooze?.(email.id);
-        break;
-      case 'none':
-        // Do nothing
-        break;
-    }
-  }, [email.id, email.isRead, onDelete, onArchive, onToggleRead, onToggleStar, onSnooze]);
+  const executeAction = useCallback(
+    (action: SwipeAction) => {
+      switch (action) {
+        case 'delete':
+          onDelete?.(email.id);
+          break;
+        case 'archive':
+          onArchive?.(email.id);
+          break;
+        case 'read':
+          onToggleRead?.(email.id, !email.isRead);
+          break;
+        case 'star':
+          // For star action, we need a synthetic click event
+          const syntheticEvent = { stopPropagation: () => {} } as React.MouseEvent;
+          onToggleStar(syntheticEvent);
+          break;
+        case 'snooze':
+          onSnooze?.(email.id);
+          break;
+        case 'none':
+          // Do nothing
+          break;
+      }
+    },
+    [email.id, email.isRead, onDelete, onArchive, onToggleRead, onToggleStar, onSnooze],
+  );
 
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (selectionMode) return;
-    startXRef.current = e.touches[0].clientX;
-    currentXRef.current = e.touches[0].clientX;
-    setIsDragging(true);
-  }, [selectionMode]);
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (selectionMode) return;
+      startXRef.current = e.touches[0].clientX;
+      currentXRef.current = e.touches[0].clientX;
+      setIsDragging(true);
+    },
+    [selectionMode],
+  );
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDragging || selectionMode) return;
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isDragging || selectionMode) return;
 
-    currentXRef.current = e.touches[0].clientX;
-    const diff = currentXRef.current - startXRef.current;
+      currentXRef.current = e.touches[0].clientX;
+      const diff = currentXRef.current - startXRef.current;
 
-    // Limit the swipe distance
-    const clampedDiff = Math.max(-MAX_SWIPE, Math.min(MAX_SWIPE, diff));
-    setSwipeX(clampedDiff);
-  }, [isDragging, selectionMode]);
+      // Limit the swipe distance
+      const clampedDiff = Math.max(-MAX_SWIPE, Math.min(MAX_SWIPE, diff));
+      setSwipeX(clampedDiff);
+    },
+    [isDragging, selectionMode],
+  );
 
   const handleTouchEnd = useCallback(() => {
     if (!isDragging || selectionMode) return;
@@ -169,65 +185,65 @@ export function SwipeableEmailItem({
 
   // Mouse events for desktop
   // BUG #7 Fix: Store listener refs and cleanup properly
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (selectionMode || e.button !== 0) return;
-    startXRef.current = e.clientX;
-    currentXRef.current = e.clientX;
-    setIsDragging(true);
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (selectionMode || e.button !== 0) return;
+      startXRef.current = e.clientX;
+      currentXRef.current = e.clientX;
+      setIsDragging(true);
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      if (!mountedRef.current) return;
-      currentXRef.current = moveEvent.clientX;
-      const diff = currentXRef.current - startXRef.current;
-      const clampedDiff = Math.max(-MAX_SWIPE, Math.min(MAX_SWIPE, diff));
-      setSwipeX(clampedDiff);
-    };
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        if (!mountedRef.current) return;
+        currentXRef.current = moveEvent.clientX;
+        const diff = currentXRef.current - startXRef.current;
+        const clampedDiff = Math.max(-MAX_SWIPE, Math.min(MAX_SWIPE, diff));
+        setSwipeX(clampedDiff);
+      };
 
-    const handleMouseUp = () => {
-      // Clean up listeners immediately
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      mouseListenersRef.current = { move: null, up: null };
+      const handleMouseUp = () => {
+        // Clean up listeners immediately
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        mouseListenersRef.current = { move: null, up: null };
 
-      if (!mountedRef.current) return;
-      setIsDragging(false);
+        if (!mountedRef.current) return;
+        setIsDragging(false);
 
-      const diff = currentXRef.current - startXRef.current;
-      if (diff < -SWIPE_THRESHOLD && leftAction !== 'none') {
-        setSwipeX(-MAX_SWIPE);
-        const timeoutId = window.setTimeout(() => {
-          if (!mountedRef.current) return;
-          executeAction(leftAction);
+        const diff = currentXRef.current - startXRef.current;
+        if (diff < -SWIPE_THRESHOLD && leftAction !== 'none') {
+          setSwipeX(-MAX_SWIPE);
+          const timeoutId = window.setTimeout(() => {
+            if (!mountedRef.current) return;
+            executeAction(leftAction);
+            setSwipeX(0);
+          }, 200);
+          timeoutRefs.current.push(timeoutId);
+        } else if (diff > SWIPE_THRESHOLD && rightAction !== 'none') {
+          setSwipeX(MAX_SWIPE);
+          const timeoutId = window.setTimeout(() => {
+            if (!mountedRef.current) return;
+            executeAction(rightAction);
+            setSwipeX(0);
+          }, 200);
+          timeoutRefs.current.push(timeoutId);
+        } else {
           setSwipeX(0);
-        }, 200);
-        timeoutRefs.current.push(timeoutId);
-      } else if (diff > SWIPE_THRESHOLD && rightAction !== 'none') {
-        setSwipeX(MAX_SWIPE);
-        const timeoutId = window.setTimeout(() => {
-          if (!mountedRef.current) return;
-          executeAction(rightAction);
-          setSwipeX(0);
-        }, 200);
-        timeoutRefs.current.push(timeoutId);
-      } else {
-        setSwipeX(0);
-      }
-    };
+        }
+      };
 
-    // Store refs for cleanup
-    mouseListenersRef.current = { move: handleMouseMove, up: handleMouseUp };
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  }, [selectionMode, leftAction, rightAction, executeAction]);
+      // Store refs for cleanup
+      mouseListenersRef.current = { move: handleMouseMove, up: handleMouseUp };
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    },
+    [selectionMode, leftAction, rightAction, executeAction],
+  );
 
   const showLeftAction = swipeX < -20;
   const showRightAction = swipeX > 20;
 
   return (
-    <div
-      ref={containerRef}
-      className="relative overflow-hidden"
-    >
+    <div ref={containerRef} className="relative overflow-hidden">
       {/* Left background - configurable action */}
       <div
         className={`absolute inset-y-0 right-0 flex items-center justify-end px-4 transition-opacity ${showLeftAction ? 'opacity-100' : 'opacity-0'}`}
@@ -245,13 +261,11 @@ export function SwipeableEmailItem({
       </div>
 
       {/* Pin indicator */}
-      {isPinned && (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500" />
-      )}
+      {isPinned && <div className="absolute top-0 bottom-0 left-0 w-1 bg-amber-500" />}
 
       {/* Swipeable content */}
       <div
-        className={`relative bg-white dark:bg-dark-bg-secondary ${isDragging ? '' : 'transition-transform duration-200'}`}
+        className={`dark:bg-dark-bg-secondary relative bg-white ${isDragging ? '' : 'transition-transform duration-200'}`}
         style={{ transform: `translateX(${swipeX}px)` }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}

@@ -43,10 +43,12 @@ export async function syncAccount(accountId: string, fullSync = false) {
 
   // Wrap initial sync_log insert in try-catch to handle DB failures
   try {
-    execute(
-      'INSERT INTO sync_log (id, account_id, started_at, status) VALUES (?, ?, ?, ?)',
-      [logId, accountId, Date.now(), 'running'],
-    );
+    execute('INSERT INTO sync_log (id, account_id, started_at, status) VALUES (?, ?, ?, ?)', [
+      logId,
+      accountId,
+      Date.now(),
+      'running',
+    ]);
   } catch (error) {
     console.error('Failed to create sync log:', error);
     throw new Error('Cannot start sync: database error');
@@ -66,10 +68,11 @@ export async function syncAccount(accountId: string, fullSync = false) {
     }
 
     const profile = await getProfile(gmail);
-    execute(
-      'UPDATE accounts SET history_id = ?, last_sync_at = ? WHERE id = ?',
-      [profile.historyId ? profile.historyId.toString() : null, Date.now(), accountId],
-    );
+    execute('UPDATE accounts SET history_id = ?, last_sync_at = ? WHERE id = ?', [
+      profile.historyId ? profile.historyId.toString() : null,
+      Date.now(),
+      accountId,
+    ]);
 
     execute(
       'UPDATE sync_log SET completed_at = ?, messages_processed = ?, status = ? WHERE id = ?',
@@ -88,10 +91,12 @@ export async function syncAccount(accountId: string, fullSync = false) {
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Ismeretlen hiba';
     try {
-      execute(
-        'UPDATE sync_log SET completed_at = ?, status = ?, error = ? WHERE id = ?',
-        [Date.now(), 'failed', errorMsg, logId],
-      );
+      execute('UPDATE sync_log SET completed_at = ?, status = ?, error = ? WHERE id = ?', [
+        Date.now(),
+        'failed',
+        errorMsg,
+        logId,
+      ]);
     } catch (updateError) {
       console.error('Failed to update sync log on error:', updateError);
     }
@@ -209,9 +214,8 @@ async function incrementalSync(
       }
     }
   } catch (err) {
-    const errorCode = err && typeof err === 'object' && 'code' in err
-      ? (err as { code: number }).code
-      : undefined;
+    const errorCode =
+      err && typeof err === 'object' && 'code' in err ? (err as { code: number }).code : undefined;
     if (errorCode === 404) {
       console.log('HistoryId érvénytelen, teljes szinkronizálás...');
       const daysBack = Math.max(1, parseInt(process.env.SYNC_DAYS_BACK || '30', 10));
@@ -249,10 +253,24 @@ function saveEmail(accountId: string, msg: GmailMessage): boolean {
     `INSERT OR IGNORE INTO emails (id, account_id, thread_id, subject, from_email, from_name, to_email, cc_email, snippet, body, body_html, date, is_read, is_starred, labels, has_attachments, category_id, topic_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      msg.id, accountId, msg.threadId, msg.subject, msg.from, msg.fromName,
-      msg.to, msg.cc, msg.snippet, msg.body, msg.bodyHtml, msg.date,
-      msg.isRead ? 1 : 0, msg.isStarred ? 1 : 0, JSON.stringify(msg.labels),
-      msg.hasAttachments ? 1 : 0, categoryId, topicId,
+      msg.id,
+      accountId,
+      msg.threadId,
+      msg.subject,
+      msg.from,
+      msg.fromName,
+      msg.to,
+      msg.cc,
+      msg.snippet,
+      msg.body,
+      msg.bodyHtml,
+      msg.date,
+      msg.isRead ? 1 : 0,
+      msg.isStarred ? 1 : 0,
+      JSON.stringify(msg.labels),
+      msg.hasAttachments ? 1 : 0,
+      categoryId,
+      topicId,
     ],
   );
 
@@ -358,10 +376,7 @@ function findOrCreateTopic(
   );
 
   if (existing) {
-    execute(
-      'UPDATE topics SET message_count = message_count + 1 WHERE id = ?',
-      [existing.id],
-    );
+    execute('UPDATE topics SET message_count = message_count + 1 WHERE id = ?', [existing.id]);
     return existing.id;
   }
 
@@ -394,7 +409,12 @@ function updateSenderGroup(
   if (!email) return;
 
   const domain = email.split('@')[1] || '';
-  const existing = queryOne<{ id: string; message_count: number; last_message_at: number | null; name: string | null }>(
+  const existing = queryOne<{
+    id: string;
+    message_count: number;
+    last_message_at: number | null;
+    name: string | null;
+  }>(
     'SELECT id, message_count, last_message_at, name FROM sender_groups WHERE account_id = ? AND email = ?',
     [accountId, email],
   );
@@ -465,7 +485,10 @@ export function clearAccountData(accountId: string) {
 
   runInTransaction(() => {
     // Mellékletek törlése (emailekhez kapcsolódik)
-    execute('DELETE FROM attachments WHERE email_id IN (SELECT id FROM emails WHERE account_id = ?)', [accountId]);
+    execute(
+      'DELETE FROM attachments WHERE email_id IN (SELECT id FROM emails WHERE account_id = ?)',
+      [accountId],
+    );
 
     // Emailek törlése
     execute('DELETE FROM emails WHERE account_id = ?', [accountId]);

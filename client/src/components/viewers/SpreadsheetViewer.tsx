@@ -84,22 +84,20 @@ export function SpreadsheetViewer({ url, filename, onClose }: SpreadsheetViewerP
   }, [onClose, activeSheet, sheets.length]);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/90 flex flex-col">
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/90">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 bg-gray-900 text-white flex-shrink-0">
+      <div className="flex flex-shrink-0 items-center justify-between bg-gray-900 p-4 text-white">
         <div className="flex items-center gap-4">
-          <h2 className="text-lg font-medium truncate max-w-md">{filename}</h2>
+          <h2 className="max-w-md truncate text-lg font-medium">{filename}</h2>
           {sheets.length > 1 && (
-            <span className="text-sm text-gray-400">
-              {sheets.length} munkalap
-            </span>
+            <span className="text-sm text-gray-400">{sheets.length} munkalap</span>
           )}
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={handleDownload}
-            className="p-2 rounded hover:bg-gray-800 transition-colors"
+            className="rounded p-2 transition-colors hover:bg-gray-800"
             title="Letöltés"
           >
             <Download className="h-5 w-5" />
@@ -107,7 +105,7 @@ export function SpreadsheetViewer({ url, filename, onClose }: SpreadsheetViewerP
 
           <button
             onClick={onClose}
-            className="p-2 rounded hover:bg-gray-800 transition-colors ml-2"
+            className="ml-2 rounded p-2 transition-colors hover:bg-gray-800"
             title="Bezárás (Esc)"
           >
             <X className="h-5 w-5" />
@@ -117,11 +115,11 @@ export function SpreadsheetViewer({ url, filename, onClose }: SpreadsheetViewerP
 
       {/* Sheet tabs */}
       {sheets.length > 1 && (
-        <div className="flex items-center gap-1 px-4 py-2 bg-gray-800 border-b border-gray-700 overflow-x-auto flex-shrink-0">
+        <div className="flex flex-shrink-0 items-center gap-1 overflow-x-auto border-b border-gray-700 bg-gray-800 px-4 py-2">
           <button
             onClick={() => setActiveSheet((prev) => Math.max(0, prev - 1))}
             disabled={activeSheet === 0}
-            className="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+            className="rounded p-1 hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-30"
           >
             <ChevronLeft className="h-4 w-4 text-gray-400" />
           </button>
@@ -130,7 +128,7 @@ export function SpreadsheetViewer({ url, filename, onClose }: SpreadsheetViewerP
             <button
               key={sheet.name}
               onClick={() => setActiveSheet(index)}
-              className={`px-3 py-1.5 text-sm rounded whitespace-nowrap transition-colors ${
+              className={`rounded px-3 py-1.5 text-sm whitespace-nowrap transition-colors ${
                 index === activeSheet
                   ? 'bg-blue-600 text-white'
                   : 'text-gray-400 hover:bg-gray-700 hover:text-white'
@@ -143,7 +141,7 @@ export function SpreadsheetViewer({ url, filename, onClose }: SpreadsheetViewerP
           <button
             onClick={() => setActiveSheet((prev) => Math.min(sheets.length - 1, prev + 1))}
             disabled={activeSheet === sheets.length - 1}
-            className="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
+            className="rounded p-1 hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-30"
           >
             <ChevronRight className="h-4 w-4 text-gray-400" />
           </button>
@@ -153,22 +151,22 @@ export function SpreadsheetViewer({ url, filename, onClose }: SpreadsheetViewerP
       {/* Content */}
       <div className="flex-1 overflow-auto bg-white dark:bg-gray-900">
         {isLoading && (
-          <div className="flex items-center justify-center h-full">
+          <div className="flex h-full items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
             <span className="ml-3 text-gray-600 dark:text-gray-300">Táblázat betöltése...</span>
           </div>
         )}
 
         {error && (
-          <div className="flex flex-col items-center justify-center h-full text-center p-8">
-            <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+          <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+            <AlertCircle className="mb-4 h-12 w-12 text-red-500" />
+            <h3 className="mb-2 text-lg font-medium text-gray-900 dark:text-white">
               Nem sikerült betölteni a táblázatot
             </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{error}</p>
+            <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">{error}</p>
             <button
               onClick={handleDownload}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
             >
               Letöltés helyett
             </button>
@@ -182,16 +180,16 @@ export function SpreadsheetViewer({ url, filename, onClose }: SpreadsheetViewerP
                 {currentSheet.data.map((row, rowIndex) => (
                   <tr
                     key={rowIndex}
-                    className={rowIndex === 0 ? 'bg-gray-100 dark:bg-gray-800 font-semibold' : ''}
+                    className={rowIndex === 0 ? 'bg-gray-100 font-semibold dark:bg-gray-800' : ''}
                   >
                     {/* Row number */}
-                    <td className="sticky left-0 bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-xs px-2 py-1 border border-gray-200 dark:border-gray-700 text-center min-w-[40px]">
+                    <td className="sticky left-0 min-w-[40px] border border-gray-200 bg-gray-50 px-2 py-1 text-center text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
                       {rowIndex + 1}
                     </td>
                     {row.map((cell, cellIndex) => (
                       <td
                         key={cellIndex}
-                        className="px-3 py-1.5 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 whitespace-nowrap max-w-xs truncate"
+                        className="max-w-xs truncate border border-gray-200 px-3 py-1.5 whitespace-nowrap text-gray-900 dark:border-gray-700 dark:text-gray-100"
                         title={String(cell)}
                       >
                         {String(cell)}
@@ -203,7 +201,7 @@ export function SpreadsheetViewer({ url, filename, onClose }: SpreadsheetViewerP
             </table>
 
             {currentSheet.data.length === 0 && (
-              <div className="flex items-center justify-center h-64 text-gray-500 dark:text-gray-400">
+              <div className="flex h-64 items-center justify-center text-gray-500 dark:text-gray-400">
                 Ez a munkalap üres
               </div>
             )}
@@ -212,11 +210,9 @@ export function SpreadsheetViewer({ url, filename, onClose }: SpreadsheetViewerP
       </div>
 
       {/* Footer info */}
-      <div className="bg-gray-900 text-gray-400 text-xs px-4 py-2 flex items-center justify-between flex-shrink-0">
+      <div className="flex flex-shrink-0 items-center justify-between bg-gray-900 px-4 py-2 text-xs text-gray-400">
         <span>
-          {currentSheet
-            ? `${currentSheet.data.length} sor • ${currentSheet.name}`
-            : 'Betöltés...'}
+          {currentSheet ? `${currentSheet.data.length} sor • ${currentSheet.name}` : 'Betöltés...'}
         </span>
         <span>Nyílbillentyűkkel válthat a munkalapok között • Esc a bezáráshoz</span>
       </div>

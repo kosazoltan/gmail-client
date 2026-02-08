@@ -98,10 +98,11 @@ router.put('/:key', (req, res) => {
   );
 
   if (existing) {
-    execute(
-      'UPDATE user_settings SET value = ?, updated_at = ? WHERE id = ?',
-      [valueStr, Date.now(), existing.id],
-    );
+    execute('UPDATE user_settings SET value = ?, updated_at = ? WHERE id = ?', [
+      valueStr,
+      Date.now(),
+      existing.id,
+    ]);
   } else {
     execute(
       'INSERT INTO user_settings (id, account_id, key, value, updated_at) VALUES (?, ?, ?, ?, ?)',
@@ -119,10 +120,10 @@ router.delete('/:key', (req, res) => {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
   }
 
-  execute(
-    'DELETE FROM user_settings WHERE account_id = ? AND key = ?',
-    [accountId, req.params.key],
-  );
+  execute('DELETE FROM user_settings WHERE account_id = ? AND key = ?', [
+    accountId,
+    req.params.key,
+  ]);
 
   return res.json({ success: true });
 });

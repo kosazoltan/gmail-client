@@ -52,7 +52,10 @@ export function NewslettersView({ onEmailSelect }: NewslettersViewProps) {
   });
 
   const senders = sendersData?.senders || [];
-  const emails = useMemo(() => emailsData?.pages?.flatMap(page => page.emails) || [], [emailsData?.pages]);
+  const emails = useMemo(
+    () => emailsData?.pages?.flatMap((page) => page.emails) || [],
+    [emailsData?.pages],
+  );
   const totalEmails = emailsData?.pages?.[0]?.total || 0;
 
   const handleSync = () => {
@@ -74,57 +77,51 @@ export function NewslettersView({ onEmailSelect }: NewslettersViewProps) {
     });
   };
 
-  const selectedSender = selectedSenderId
-    ? senders.find((s) => s.id === selectedSenderId)
-    : null;
+  const selectedSender = selectedSenderId ? senders.find((s) => s.id === selectedSenderId) : null;
 
   return (
     <div className="flex h-full">
       {/* Oldalsáv - Küldők listája */}
-      <div className="w-72 border-r border-gray-200 dark:border-dark-border flex flex-col bg-gray-50 dark:bg-dark-bg-tertiary">
-        <div className="p-4 border-b border-gray-200 dark:border-dark-border">
-          <div className="flex items-center justify-between mb-3">
+      <div className="dark:border-dark-border dark:bg-dark-bg-tertiary flex w-72 flex-col border-r border-gray-200 bg-gray-50">
+        <div className="dark:border-dark-border border-b border-gray-200 p-4">
+          <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Newspaper className="h-5 w-5 text-blue-500" />
-              <h2 className="font-semibold text-gray-900 dark:text-dark-text">
-                Hírlevelek
-              </h2>
+              <h2 className="dark:text-dark-text font-semibold text-gray-900">Hírlevelek</h2>
             </div>
             <button
               onClick={handleSync}
               disabled={syncNewsletters.isPending}
-              className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-dark-bg text-gray-500 dark:text-dark-text-secondary disabled:opacity-50"
+              className="dark:hover:bg-dark-bg dark:text-dark-text-secondary rounded p-1.5 text-gray-500 hover:bg-gray-200 disabled:opacity-50"
               title="Hírlevél küldők frissítése"
             >
-              <RefreshCw
-                className={`h-4 w-4 ${syncNewsletters.isPending ? 'animate-spin' : ''}`}
-              />
+              <RefreshCw className={`h-4 w-4 ${syncNewsletters.isPending ? 'animate-spin' : ''}`} />
             </button>
           </div>
 
-          <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-dark-text-muted">
+          <label className="dark:text-dark-text-muted flex items-center gap-2 text-xs text-gray-500">
             <input
               type="checkbox"
               checked={includeMuted}
               onChange={(e) => setIncludeMuted(e.target.checked)}
-              className="rounded border-gray-300 dark:border-dark-border text-blue-600"
+              className="dark:border-dark-border rounded border-gray-300 text-blue-600"
             />
             Némított küldők mutatása
           </label>
         </div>
 
         {sendersLoading ? (
-          <div className="flex items-center justify-center h-32">
+          <div className="flex h-32 items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
           </div>
         ) : senders.length === 0 ? (
-          <div className="p-4 text-center text-gray-400 dark:text-dark-text-muted">
-            <Newspaper className="h-10 w-10 mx-auto mb-2 opacity-50" />
+          <div className="dark:text-dark-text-muted p-4 text-center text-gray-400">
+            <Newspaper className="mx-auto mb-2 h-10 w-10 opacity-50" />
             <p className="text-sm">Nincs detektált hírlevél</p>
             <button
               onClick={handleSync}
               disabled={syncNewsletters.isPending}
-              className="mt-2 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              className="mt-2 text-xs text-blue-600 hover:underline dark:text-blue-400"
             >
               Detektálás indítása
             </button>
@@ -136,17 +133,17 @@ export function NewslettersView({ onEmailSelect }: NewslettersViewProps) {
               onClick={() => {
                 setSelectedSenderId(null);
               }}
-              className={`w-full px-4 py-3 text-left flex items-center justify-between border-b border-gray-200 dark:border-dark-border ${
+              className={`dark:border-dark-border flex w-full items-center justify-between border-b border-gray-200 px-4 py-3 text-left ${
                 !selectedSenderId
                   ? 'bg-blue-50 dark:bg-blue-500/10'
-                  : 'hover:bg-gray-100 dark:hover:bg-dark-bg'
+                  : 'dark:hover:bg-dark-bg hover:bg-gray-100'
               }`}
             >
               <div>
-                <div className="text-sm font-medium text-gray-900 dark:text-dark-text">
+                <div className="dark:text-dark-text text-sm font-medium text-gray-900">
                   Összes hírlevél
                 </div>
-                <div className="text-xs text-gray-500 dark:text-dark-text-muted">
+                <div className="dark:text-dark-text-muted text-xs text-gray-500">
                   {senders.length} küldő
                 </div>
               </div>
@@ -157,29 +154,29 @@ export function NewslettersView({ onEmailSelect }: NewslettersViewProps) {
             {senders
               .filter((s) => includeMuted || !s.isMuted)
               .map((sender) => (
-                <div key={sender.id} className="relative group">
+                <div key={sender.id} className="group relative">
                   <button
                     onClick={() => {
                       setSelectedSenderId(sender.id);
                     }}
-                    className={`w-full px-4 py-3 text-left flex items-center gap-3 border-b border-gray-100 dark:border-dark-border ${
+                    className={`dark:border-dark-border flex w-full items-center gap-3 border-b border-gray-100 px-4 py-3 text-left ${
                       selectedSenderId === sender.id
                         ? 'bg-blue-50 dark:bg-blue-500/10'
-                        : 'hover:bg-gray-100 dark:hover:bg-dark-bg'
+                        : 'dark:hover:bg-dark-bg hover:bg-gray-100'
                     } ${sender.isMuted ? 'opacity-50' : ''}`}
                   >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-900 dark:text-dark-text truncate">
+                    <div className="min-w-0 flex-1">
+                      <div className="dark:text-dark-text truncate text-sm font-medium text-gray-900">
                         {sender.name || sender.email.split('@')[0]}
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-dark-text-muted truncate">
+                      <div className="dark:text-dark-text-muted truncate text-xs text-gray-500">
                         {sender.email}
                       </div>
-                      <div className="text-xs text-gray-400 dark:text-dark-text-muted mt-0.5">
+                      <div className="dark:text-dark-text-muted mt-0.5 text-xs text-gray-400">
                         {sender.emailCount} levél
                         {sender.isMuted && (
                           <span className="ml-2 text-orange-500">
-                            <VolumeX className="h-3 w-3 inline" /> Némítva
+                            <VolumeX className="inline h-3 w-3" /> Némítva
                           </span>
                         )}
                       </div>
@@ -187,16 +184,16 @@ export function NewslettersView({ onEmailSelect }: NewslettersViewProps) {
                   </button>
 
                   {/* Akció gombok */}
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute top-1/2 right-2 flex -translate-y-1/2 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleMute(sender);
                       }}
-                      className={`p-1.5 rounded ${
+                      className={`rounded p-1.5 ${
                         sender.isMuted
-                          ? 'bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400'
-                          : 'bg-gray-100 dark:bg-dark-bg hover:bg-orange-100 dark:hover:bg-orange-500/20 text-gray-500 hover:text-orange-600'
+                          ? 'bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400'
+                          : 'dark:bg-dark-bg bg-gray-100 text-gray-500 hover:bg-orange-100 hover:text-orange-600 dark:hover:bg-orange-500/20'
                       }`}
                       title={sender.isMuted ? 'Némítás feloldása' : 'Némítás'}
                     >
@@ -211,7 +208,7 @@ export function NewslettersView({ onEmailSelect }: NewslettersViewProps) {
                         e.stopPropagation();
                         setRemoveConfirmId(sender.id);
                       }}
-                      className="p-1.5 rounded bg-gray-100 dark:bg-dark-bg hover:bg-red-100 dark:hover:bg-red-500/20 text-gray-500 hover:text-red-600"
+                      className="dark:bg-dark-bg rounded bg-gray-100 p-1.5 text-gray-500 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-500/20"
                       title="Eltávolítás a hírlevelek közül"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -220,20 +217,20 @@ export function NewslettersView({ onEmailSelect }: NewslettersViewProps) {
 
                   {/* Eltávolítás megerősítés */}
                   {removeConfirmId === sender.id && (
-                    <div className="absolute left-0 right-0 top-full z-10 p-2 bg-white dark:bg-dark-bg-secondary border border-gray-200 dark:border-dark-border rounded-lg shadow-lg mx-2">
-                      <p className="text-xs text-gray-600 dark:text-dark-text-secondary mb-2">
+                    <div className="dark:bg-dark-bg-secondary dark:border-dark-border absolute top-full right-0 left-0 z-10 mx-2 rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
+                      <p className="dark:text-dark-text-secondary mb-2 text-xs text-gray-600">
                         Eltávolítod a hírlevelek közül?
                       </p>
                       <div className="flex gap-1">
                         <button
                           onClick={() => handleRemove(sender.id)}
-                          className="flex-1 px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
+                          className="flex-1 rounded bg-red-500 px-2 py-1 text-xs text-white hover:bg-red-600"
                         >
                           Igen
                         </button>
                         <button
                           onClick={() => setRemoveConfirmId(null)}
-                          className="flex-1 px-2 py-1 text-xs bg-gray-100 dark:bg-dark-bg-tertiary text-gray-700 dark:text-dark-text rounded"
+                          className="dark:bg-dark-bg-tertiary dark:text-dark-text flex-1 rounded bg-gray-100 px-2 py-1 text-xs text-gray-700"
                         >
                           Nem
                         </button>
@@ -247,27 +244,25 @@ export function NewslettersView({ onEmailSelect }: NewslettersViewProps) {
       </div>
 
       {/* Fő tartalom - Emailek listája */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex flex-1 flex-col">
         {/* Fejléc */}
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-dark-border">
+        <div className="dark:border-dark-border border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               {selectedSender && (
                 <button
                   onClick={() => setSelectedSenderId(null)}
-                  className="p-1 rounded hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500"
+                  className="dark:hover:bg-dark-bg-tertiary rounded p-1 text-gray-500 hover:bg-gray-100"
                 >
                   <X className="h-4 w-4" />
                 </button>
               )}
-              <h1 className="text-lg font-medium text-gray-900 dark:text-dark-text">
-                {selectedSender
-                  ? selectedSender.name || selectedSender.email
-                  : 'Összes hírlevél'}
+              <h1 className="dark:text-dark-text text-lg font-medium text-gray-900">
+                {selectedSender ? selectedSender.name || selectedSender.email : 'Összes hírlevél'}
               </h1>
             </div>
             {totalEmails > 0 && (
-              <span className="text-sm text-gray-500 dark:text-dark-text-muted">
+              <span className="dark:text-dark-text-muted text-sm text-gray-500">
                 {totalEmails} levél
               </span>
             )}
@@ -277,59 +272,59 @@ export function NewslettersView({ onEmailSelect }: NewslettersViewProps) {
         {/* Email lista */}
         <div ref={containerRef} className="flex-1 overflow-auto">
           {emailsLoading ? (
-            <div className="flex items-center justify-center h-32">
+            <div className="flex h-32 items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
             </div>
           ) : emails.length === 0 ? (
-            <div className="flex items-center justify-center h-64 text-gray-400 dark:text-dark-text-muted">
+            <div className="dark:text-dark-text-muted flex h-64 items-center justify-center text-gray-400">
               <div className="text-center">
-                <Mail className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <Mail className="mx-auto mb-2 h-12 w-12 opacity-50" />
                 <p>Nincsenek hírlevél emailek</p>
               </div>
             </div>
           ) : (
             <>
-              <div className="divide-y divide-gray-100 dark:divide-dark-border">
+              <div className="dark:divide-dark-border divide-y divide-gray-100">
                 {emails.map((email) => (
                   <button
                     key={email.id}
                     onClick={() => onEmailSelect(email.id)}
-                    className={`w-full px-6 py-4 text-left hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary transition-colors ${
+                    className={`dark:hover:bg-dark-bg-tertiary w-full px-6 py-4 text-left transition-colors hover:bg-gray-50 ${
                       !email.isRead ? 'bg-blue-50/50 dark:bg-blue-500/5' : ''
                     }`}
                   >
                     <div className="flex items-start gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1 flex items-center gap-2">
                           <span
                             className={`text-sm ${
                               !email.isRead
-                                ? 'font-semibold text-gray-900 dark:text-dark-text'
-                                : 'text-gray-700 dark:text-dark-text-secondary'
+                                ? 'dark:text-dark-text font-semibold text-gray-900'
+                                : 'dark:text-dark-text-secondary text-gray-700'
                             }`}
                           >
                             {displaySender(email.fromName, email.from)}
                           </span>
                           {email.newsletter_name && !selectedSenderId && (
-                            <span className="text-xs px-1.5 py-0.5 bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded">
+                            <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">
                               {email.newsletter_name}
                             </span>
                           )}
                         </div>
                         <div
-                          className={`text-sm truncate ${
+                          className={`truncate text-sm ${
                             !email.isRead
-                              ? 'text-gray-900 dark:text-dark-text'
-                              : 'text-gray-600 dark:text-dark-text-secondary'
+                              ? 'dark:text-dark-text text-gray-900'
+                              : 'dark:text-dark-text-secondary text-gray-600'
                           }`}
                         >
                           {email.subject || '(Nincs tárgy)'}
                         </div>
-                        <div className="text-xs text-gray-400 dark:text-dark-text-muted truncate mt-1">
+                        <div className="dark:text-dark-text-muted mt-1 truncate text-xs text-gray-400">
                           {email.snippet}
                         </div>
                       </div>
-                      <div className="text-xs text-gray-400 dark:text-dark-text-muted whitespace-nowrap">
+                      <div className="dark:text-dark-text-muted text-xs whitespace-nowrap text-gray-400">
                         {formatEmailDate(email.date)}
                       </div>
                     </div>
@@ -341,7 +336,9 @@ export function NewslettersView({ onEmailSelect }: NewslettersViewProps) {
               {isFetchingNextPage && (
                 <div className="flex items-center justify-center py-4">
                   <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-                  <span className="ml-2 text-sm text-gray-500 dark:text-dark-text-secondary">További levelek betöltése...</span>
+                  <span className="dark:text-dark-text-secondary ml-2 text-sm text-gray-500">
+                    További levelek betöltése...
+                  </span>
                 </div>
               )}
             </>

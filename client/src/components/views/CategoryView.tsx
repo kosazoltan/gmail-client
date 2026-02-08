@@ -53,28 +53,28 @@ export function CategoryView() {
 
   if (!selectedCategory) {
     return (
-      <div className="overflow-auto h-full">
-        <div className="px-4 py-3 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border flex items-center gap-2">
-          <Tags className="h-5 w-5 text-gray-500 dark:text-dark-text-secondary" />
-          <h2 className="text-sm font-medium text-gray-600 dark:text-dark-text">Kategóriák</h2>
+      <div className="h-full overflow-auto">
+        <div className="dark:bg-dark-bg-tertiary dark:border-dark-border flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3">
+          <Tags className="dark:text-dark-text-secondary h-5 w-5 text-gray-500" />
+          <h2 className="dark:text-dark-text text-sm font-medium text-gray-600">Kategóriák</h2>
         </div>
 
         {loadingCategories ? (
-          <div className="flex items-center justify-center h-64">
+          <div className="flex h-64 items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
           </div>
         ) : (
-          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
             {(categoryData?.categories || []).map((cat) => {
               const Icon = iconMap[cat.icon] || Folder;
               return (
                 <div
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat)}
-                  className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 dark:border-dark-border cursor-pointer hover:border-blue-300 dark:hover:border-blue-500 hover:shadow-sm transition-all"
+                  className="dark:border-dark-border flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 p-4 transition-all hover:border-blue-300 hover:shadow-sm dark:hover:border-blue-500"
                 >
                   <div
-                    className="p-2.5 rounded-lg"
+                    className="rounded-lg p-2.5"
                     style={{
                       backgroundColor: `${cat.color}15`,
                       color: cat.color,
@@ -83,8 +83,10 @@ export function CategoryView() {
                     <Icon className="h-5 w-5" />
                   </div>
                   <div className="flex-1">
-                    <div className="font-medium text-gray-900 dark:text-dark-text text-sm">{cat.name}</div>
-                    <div className="text-xs text-gray-400 dark:text-dark-text-muted">
+                    <div className="dark:text-dark-text text-sm font-medium text-gray-900">
+                      {cat.name}
+                    </div>
+                    <div className="dark:text-dark-text-muted text-xs text-gray-400">
                       {cat.emailCount || 0} levél
                     </div>
                   </div>
@@ -107,22 +109,19 @@ export function CategoryView() {
 
   const leftPanel = (
     <>
-      <div className="px-4 py-3 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border flex items-center gap-2">
+      <div className="dark:bg-dark-bg-tertiary dark:border-dark-border flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3">
         <button
           onClick={() => {
             setSelectedCategory(null);
             setSelectedEmail(null);
           }}
-          className="p-2.5 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-bg touch-manipulation"
+          className="dark:hover:bg-dark-bg touch-manipulation rounded-lg p-2.5 hover:bg-gray-200"
           aria-label="Vissza"
         >
-          <ArrowLeft className="h-5 w-5 text-gray-500 dark:text-dark-text-secondary" />
+          <ArrowLeft className="dark:text-dark-text-secondary h-5 w-5 text-gray-500" />
         </button>
-        <div
-          className="w-3 h-3 rounded-full"
-          style={{ backgroundColor: selectedCategory.color }}
-        />
-        <span className="text-sm font-medium text-gray-600 dark:text-dark-text">
+        <div className="h-3 w-3 rounded-full" style={{ backgroundColor: selectedCategory.color }} />
+        <span className="dark:text-dark-text text-sm font-medium text-gray-600">
           {selectedCategory.name}
         </span>
       </div>
@@ -138,7 +137,7 @@ export function CategoryView() {
                 const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);
                 setSelectedEmail(nextEmail);
               }
-            }
+            },
           });
         }}
         emptyMessage="Nincsenek levelek ebben a kategóriában"

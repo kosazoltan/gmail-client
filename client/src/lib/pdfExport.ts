@@ -52,7 +52,8 @@ export async function exportEmailToPdf(email: Email, options: ExportOptions = {}
     // Plain text body
     body.innerHTML = `<pre style="white-space: pre-wrap; font-family: Arial, sans-serif; font-size: 14px; margin: 0;">${escapeHtml(email.body)}</pre>`;
   } else {
-    body.innerHTML = '<p style="color: #9ca3af; font-style: italic;">Nincs megjeleníthető tartalom</p>';
+    body.innerHTML =
+      '<p style="color: #9ca3af; font-style: italic;">Nincs megjeleníthető tartalom</p>';
   }
   container.appendChild(body);
 
@@ -63,9 +64,12 @@ export async function exportEmailToPdf(email: Email, options: ExportOptions = {}
     attachmentsSection.style.paddingTop = '15px';
     attachmentsSection.style.borderTop = '1px solid #e5e7eb';
 
-    const attachmentsList = email.attachments.map(att =>
-      `<li style="margin: 5px 0; color: #6b7280; font-size: 12px;">${escapeHtml(att.filename)} (${formatFileSize(att.size)})</li>`
-    ).join('');
+    const attachmentsList = email.attachments
+      .map(
+        (att) =>
+          `<li style="margin: 5px 0; color: #6b7280; font-size: 12px;">${escapeHtml(att.filename)} (${formatFileSize(att.size)})</li>`,
+      )
+      .join('');
 
     attachmentsSection.innerHTML = `
       <h3 style="font-size: 14px; color: #1f2937; margin: 0 0 10px 0;">Mellékletek (${email.attachments.length})</h3>
@@ -90,7 +94,8 @@ export async function exportEmailToPdf(email: Email, options: ExportOptions = {}
     .replace(/[^a-zA-Z0-9áéíóöőúüűÁÉÍÓÖŐÚÜŰ\s-]/g, '')
     .trim()
     .substring(0, 50);
-  const pdfFilename = filename || `${sanitizedSubject}_${new Date().toISOString().split('T')[0]}.pdf`;
+  const pdfFilename =
+    filename || `${sanitizedSubject}_${new Date().toISOString().split('T')[0]}.pdf`;
 
   // PDF generation options
   const opt = {

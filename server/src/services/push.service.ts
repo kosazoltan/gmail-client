@@ -48,16 +48,25 @@ export function saveSubscription(
 
   if (existing) {
     // Frissítjük a meglévőt
-    execute(
-      'UPDATE push_subscriptions SET p256dh = ?, auth = ?, created_at = ? WHERE id = ?',
-      [subscription.keys.p256dh, subscription.keys.auth, Date.now(), existing.id],
-    );
+    execute('UPDATE push_subscriptions SET p256dh = ?, auth = ?, created_at = ? WHERE id = ?', [
+      subscription.keys.p256dh,
+      subscription.keys.auth,
+      Date.now(),
+      existing.id,
+    ]);
   } else {
     // Új subscription
     execute(
       `INSERT INTO push_subscriptions (id, account_id, endpoint, p256dh, auth, created_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [id, accountId, subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth, Date.now()],
+      [
+        id,
+        accountId,
+        subscription.endpoint,
+        subscription.keys.p256dh,
+        subscription.keys.auth,
+        Date.now(),
+      ],
     );
   }
 }
@@ -66,7 +75,10 @@ export function saveSubscription(
 export function deleteSubscription(endpoint: string, accountId?: string): void {
   if (accountId) {
     // Ha accountId is meg van adva, csak azt a subscription-t törli, ami ehhez a fiókhoz tartozik
-    execute('DELETE FROM push_subscriptions WHERE endpoint = ? AND account_id = ?', [endpoint, accountId]);
+    execute('DELETE FROM push_subscriptions WHERE endpoint = ? AND account_id = ?', [
+      endpoint,
+      accountId,
+    ]);
   } else {
     // Visszafelé kompatibilitás - csak endpoint alapján törlés
     execute('DELETE FROM push_subscriptions WHERE endpoint = ?', [endpoint]);
@@ -191,9 +203,10 @@ export async function sendPushToAccount(
       console.error('Push notification failed:', error);
 
       // Ha a subscription érvénytelen, töröljük
-      const statusCode = error && typeof error === 'object' && 'statusCode' in error
-        ? (error as { statusCode: number }).statusCode
-        : undefined;
+      const statusCode =
+        error && typeof error === 'object' && 'statusCode' in error
+          ? (error as { statusCode: number }).statusCode
+          : undefined;
       if (statusCode === 410 || statusCode === 404) {
         execute('DELETE FROM push_subscriptions WHERE id = ?', [sub.id]);
       }
@@ -235,9 +248,10 @@ export async function sendPushToAll(payload: {
       );
       sent++;
     } catch (error: unknown) {
-      const statusCode = error && typeof error === 'object' && 'statusCode' in error
-        ? (error as { statusCode: number }).statusCode
-        : undefined;
+      const statusCode =
+        error && typeof error === 'object' && 'statusCode' in error
+          ? (error as { statusCode: number }).statusCode
+          : undefined;
       if (statusCode === 410 || statusCode === 404) {
         execute('DELETE FROM push_subscriptions WHERE id = ?', [sub.id]);
       }

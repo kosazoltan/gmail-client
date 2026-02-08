@@ -35,9 +35,7 @@ router.delete('/:id', (req, res) => {
   deleteAccount(accountId);
 
   if (req.session.accountIds) {
-    req.session.accountIds = req.session.accountIds.filter(
-      (id) => id !== accountId,
-    );
+    req.session.accountIds = req.session.accountIds.filter((id) => id !== accountId);
     if (req.session.activeAccountId === accountId) {
       req.session.activeAccountId = req.session.accountIds[0] || null;
     }
@@ -66,7 +64,9 @@ router.put('/:id/color', (req, res) => {
 
   // Szín validálás (hex formátum)
   if (!color || !/^#[0-9A-Fa-f]{6}$/.test(color)) {
-    return res.status(400).json({ error: 'Érvénytelen szín formátum (használj #RRGGBB formátumot)' });
+    return res
+      .status(400)
+      .json({ error: 'Érvénytelen szín formátum (használj #RRGGBB formátumot)' });
   }
 
   try {
@@ -118,7 +118,11 @@ router.post('/:id/resync', async (req, res) => {
 
     // Teljes újraszinkronizálás
     const result = await syncAccount(accountId, true);
-    res.json({ success: true, messagesProcessed: result.messagesProcessed, message: 'Adatok újraszinkronizálva' });
+    res.json({
+      success: true,
+      messagesProcessed: result.messagesProcessed,
+      message: 'Adatok újraszinkronizálva',
+    });
   } catch (error) {
     console.error('Újraszinkronizálás hiba:', error);
     res.status(500).json({ error: 'Újraszinkronizálás sikertelen' });

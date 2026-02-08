@@ -53,7 +53,7 @@ router.get('/emails', (req, res) => {
     );
 
     res.json({
-      emails: vipEmails.filter(v => v.email).map((v) => v.email.toLowerCase()),
+      emails: vipEmails.filter((v) => v.email).map((v) => v.email.toLowerCase()),
     });
   } catch (error) {
     console.error('VIP emails fetch error:', error);
@@ -128,10 +128,11 @@ router.put('/:id', (req, res) => {
       return res.status(404).json({ error: 'VIP küldő nem található' });
     }
 
-    execute(
-      'UPDATE vip_senders SET name = ? WHERE id = ? AND account_id = ?',
-      [name || null, id, accountId],
-    );
+    execute('UPDATE vip_senders SET name = ? WHERE id = ? AND account_id = ?', [
+      name || null,
+      id,
+      accountId,
+    ]);
 
     res.json({ success: true });
   } catch (error) {

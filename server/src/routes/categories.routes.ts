@@ -18,7 +18,10 @@ function validateAccountAccess(req: Request): string | null {
 
 router.get('/', (req, res) => {
   const accountId = validateAccountAccess(req);
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
+  if (!accountId) {
+    res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
+    return;
+  }
 
   const cats = queryAll('SELECT * FROM categories WHERE account_id = ?', [accountId]);
   res.json({ categories: cats });
@@ -26,10 +29,16 @@ router.get('/', (req, res) => {
 
 router.post('/', (req, res) => {
   const accountId = validateAccountAccess(req);
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
+  if (!accountId) {
+    res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
+    return;
+  }
 
   const { name, color, icon } = req.body;
-  if (!name) { res.status(400).json({ error: 'Név kötelező' }); return; }
+  if (!name) {
+    res.status(400).json({ error: 'Név kötelező' });
+    return;
+  }
 
   const id = uuidv4();
   execute(
@@ -41,7 +50,10 @@ router.post('/', (req, res) => {
 
 router.put('/:id', (req, res) => {
   const accountId = validateAccountAccess(req);
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
+  if (!accountId) {
+    res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
+    return;
+  }
 
   const categoryId = req.params.id;
   const { name, color, icon } = req.body;
@@ -60,20 +72,35 @@ router.put('/:id', (req, res) => {
   const updates: string[] = [];
   const params: unknown[] = [];
 
-  if (name) { updates.push('name = ?'); params.push(name); }
-  if (color) { updates.push('color = ?'); params.push(color); }
-  if (icon) { updates.push('icon = ?'); params.push(icon); }
+  if (name) {
+    updates.push('name = ?');
+    params.push(name);
+  }
+  if (color) {
+    updates.push('color = ?');
+    params.push(color);
+  }
+  if (icon) {
+    updates.push('icon = ?');
+    params.push(icon);
+  }
 
   if (updates.length > 0) {
     params.push(categoryId, accountId);
-    execute('UPDATE categories SET ' + updates.join(', ') + ' WHERE id = ? AND account_id = ?', params);
+    execute(
+      'UPDATE categories SET ' + updates.join(', ') + ' WHERE id = ? AND account_id = ?',
+      params,
+    );
   }
   res.json({ success: true });
 });
 
 router.delete('/:id', (req, res) => {
   const accountId = validateAccountAccess(req);
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
+  if (!accountId) {
+    res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
+    return;
+  }
 
   const categoryId = req.params.id;
   const cat = queryOne<{ id: string; is_system: number; account_id: string }>(
@@ -97,7 +124,10 @@ router.delete('/:id', (req, res) => {
 router.get('/rules', (req, res) => {
   // FIX: Use standardized validateAccountAccess helper
   const accountId = validateAccountAccess(req);
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
+  if (!accountId) {
+    res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
+    return;
+  }
 
   const rules = queryAll('SELECT * FROM categorization_rules WHERE account_id = ?', [accountId]);
   res.json({ rules });
@@ -105,10 +135,16 @@ router.get('/rules', (req, res) => {
 
 router.post('/rules', (req, res) => {
   const accountId = validateAccountAccess(req);
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
+  if (!accountId) {
+    res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
+    return;
+  }
 
   const { categoryId, type, value, priority } = req.body;
-  if (!categoryId || !type || !value) { res.status(400).json({ error: 'Hiányzó mezők: categoryId, type, value' }); return; }
+  if (!categoryId || !type || !value) {
+    res.status(400).json({ error: 'Hiányzó mezők: categoryId, type, value' });
+    return;
+  }
 
   const id = uuidv4();
   execute(
@@ -120,7 +156,10 @@ router.post('/rules', (req, res) => {
 
 router.delete('/rules/:id', (req, res) => {
   const accountId = validateAccountAccess(req);
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
+  if (!accountId) {
+    res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
+    return;
+  }
 
   // Ellenőrizzük, hogy a szabály a felhasználóé
   const rule = queryOne<{ account_id: string }>(
@@ -132,13 +171,19 @@ router.delete('/rules/:id', (req, res) => {
     return;
   }
 
-  execute('DELETE FROM categorization_rules WHERE id = ? AND account_id = ?', [req.params.id, accountId]);
+  execute('DELETE FROM categorization_rules WHERE id = ? AND account_id = ?', [
+    req.params.id,
+    accountId,
+  ]);
   res.json({ success: true });
 });
 
 router.post('/recategorize', (req, res) => {
   const accountId = validateAccountAccess(req);
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
+  if (!accountId) {
+    res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
+    return;
+  }
   const updated = recategorizeAllEmails(accountId);
   res.json({ success: true, updatedCount: updated });
 });

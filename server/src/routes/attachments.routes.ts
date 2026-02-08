@@ -1,10 +1,17 @@
 import { Router } from 'express';
-import { downloadAttachment, listAttachments, AttachmentFilter, getAttachmentOwner } from '../services/attachment.service.js';
+import {
+  downloadAttachment,
+  listAttachments,
+  AttachmentFilter,
+  getAttachmentOwner,
+} from '../services/attachment.service.js';
 
 const router = Router();
 
 // Jogosultság ellenőrzés helper
-function validateAccountAccess(req: { session: { activeAccountId?: string | null; accountIds?: string[] } }): string | null {
+function validateAccountAccess(req: {
+  session: { activeAccountId?: string | null; accountIds?: string[] };
+}): string | null {
   const accountId = req.session.activeAccountId;
   if (!accountId) return null;
 
@@ -80,7 +87,7 @@ router.get('/:id/download', async (req, res) => {
     // Ha a hiba tartalmazza, hogy nem található, akkor 404, egyébként 500
     const isNotFound = error instanceof Error && error.message.includes('not found');
     res.status(isNotFound ? 404 : 500).json({
-      error: isNotFound ? 'Melléklet nem található' : 'Melléklet letöltése sikertelen'
+      error: isNotFound ? 'Melléklet nem található' : 'Melléklet letöltése sikertelen',
     });
   }
 });

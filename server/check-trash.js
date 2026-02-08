@@ -20,7 +20,7 @@ async function checkTrash() {
   const samples = db.exec('SELECT id, subject, labels FROM emails LIMIT 5');
   console.log('\nPélda emailek labels mezői:');
   if (samples[0]) {
-    samples[0].values.forEach(row => {
+    samples[0].values.forEach((row) => {
       console.log(`ID: ${row[0]}, Subject: ${row[1]}, Labels: ${row[2]}`);
     });
   }

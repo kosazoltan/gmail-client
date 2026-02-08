@@ -1,10 +1,6 @@
 import { Router } from 'express';
 import crypto from 'crypto';
-import {
-  getAuthUrl,
-  handleAuthCallback,
-  getAllAccounts,
-} from '../services/auth.service.js';
+import { getAuthUrl, handleAuthCallback, getAllAccounts } from '../services/auth.service.js';
 import { startBackgroundSync } from '../services/sync.service.js';
 
 const router = Router();
@@ -85,9 +81,7 @@ router.get('/callback', async (req, res) => {
 router.post('/logout', (req, res) => {
   const { accountId } = req.body;
   if (accountId && req.session.accountIds) {
-    req.session.accountIds = req.session.accountIds.filter(
-      (id) => id !== accountId,
-    );
+    req.session.accountIds = req.session.accountIds.filter((id) => id !== accountId);
     if (req.session.activeAccountId === accountId) {
       req.session.activeAccountId = req.session.accountIds[0] || null;
     }
@@ -126,11 +120,7 @@ router.get('/session', (req, res) => {
 // Aktív fiók váltás
 router.post('/switch-account', (req, res) => {
   const { accountId } = req.body;
-  if (
-    accountId &&
-    req.session.accountIds &&
-    req.session.accountIds.includes(accountId)
-  ) {
+  if (accountId && req.session.accountIds && req.session.accountIds.includes(accountId)) {
     req.session.activeAccountId = accountId;
 
     // Session explicit mentése
