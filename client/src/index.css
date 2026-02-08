@@ -2,23 +2,27 @@
 
 /* Tailwind 4 - Custom theme */
 @theme {
-  --color-dark-bg: #1a1b1e;
-  --color-dark-bg-secondary: #25262b;
-  --color-dark-bg-tertiary: #2c2e33;
-  --color-dark-border: #373a40;
-  --color-dark-text: #c1c2c5;
-  --color-dark-text-secondary: #909296;
-  --color-dark-text-muted: #5c5f66;
+  --color-dark-bg: #0f1117;
+  --color-dark-bg-secondary: #1a1d27;
+  --color-dark-bg-tertiary: #242736;
+  --color-dark-border: #2e3348;
+  --color-dark-text: #e1e2e8;
+  --color-dark-text-secondary: #8b8fa3;
+  --color-dark-text-muted: #565b73;
+  --color-accent: #4f6ef7;
+  --color-accent-hover: #3d5ce5;
+  --color-accent-light: rgba(79, 110, 247, 0.12);
 }
 
 /* Alap stílusok */
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-    sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+    "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  font-variant-numeric: tabular-nums;
 }
 
 /* Szemkímélő sötét mód - alacsony kontraszt, meleg tónusok */
@@ -300,6 +304,55 @@ html.dark select:focus {
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
+}
+
+/* Toast slide-in animation */
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.25s ease-out;
+}
+
+/* Better focus styles */
+*:focus-visible {
+  outline: 2px solid var(--color-accent, #4f6ef7);
+  outline-offset: 2px;
+}
+
+/* Smoother scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Selection colors */
+::selection {
+  background-color: rgba(79, 110, 247, 0.25);
+  color: inherit;
+}
+
+/* Context menu scale-in animation */
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.15s ease-out;
 }
 
 /* Standalone mode - elrejtjük a címsort iOS-en */

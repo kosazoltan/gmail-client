@@ -23,3 +23,13 @@ export function useInboxInfinite(params: { accountId?: string } = {}) {
     },
   });
 }
+
+export function useUnreadCount(accountId?: string) {
+  return useQuery({
+    queryKey: ['unread-count', accountId],
+    queryFn: () => api.views.inbox({ accountId, page: 1 }),
+    enabled: !!accountId,
+    select: (data) => data.emails.filter(e => !e.isRead).length,
+    refetchInterval: 60000, // Refresh every 60 seconds
+  });
+}

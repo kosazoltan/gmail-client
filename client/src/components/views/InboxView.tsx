@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
 import { useInboxInfinite } from '../../hooks/useInbox';
-import { useToggleStar, useMarkRead, useDeleteEmail, useBatchDeleteEmails } from '../../hooks/useEmails';
+import { useToggleStar, useMarkRead, useDeleteEmail, useBatchDeleteEmails, useBatchMarkRead } from '../../hooks/useEmails';
 import { useKeyboardShortcuts, useSearchFocus } from '../../hooks/useKeyboardShortcuts';
 import { useInfiniteScroll } from '../../hooks/useInfiniteScroll';
 import { ThreadedEmailList } from '../email/ThreadedEmailList';
@@ -10,7 +10,7 @@ import { EmailDetail } from '../email/EmailDetail';
 import { KeyboardShortcutsHelp } from '../common/KeyboardShortcutsHelp';
 import { ResizablePanels } from '../common/ResizablePanels';
 import { LoginScreen } from '../auth/LoginScreen';
-import { CheckSquare, X, Trash2, Square, CheckCheck, Loader2 } from 'lucide-react';
+import { CheckSquare, X, Trash2, Square, CheckCheck, Loader2, MailOpen, Mail } from 'lucide-react';
 import type { Email } from '../../types';
 import { getNextEmailAfterDelete } from '../../lib/emailNavigation';
 
@@ -44,6 +44,7 @@ export function InboxView() {
   const markRead = useMarkRead();
   const deleteEmail = useDeleteEmail();
   const batchDeleteEmails = useBatchDeleteEmails();
+  const batchMarkRead = useBatchMarkRead();
   const focusSearch = useSearchFocus();
 
   const emails = useMemo(() => data?.pages?.flatMap(page => page.emails) || [], [data?.pages]);
@@ -55,6 +56,8 @@ export function InboxView() {
     return emails.findIndex((e) => e.id === selectedEmail.id);
   }, [emails, selectedEmail]);
 
+  const lastClickedIndexRef = useRef<number>(-1);
+
   // Selection mode handlers
   const toggleSelectionMode = useCallback(() => {
     setSelectionMode((prev) => {
@@ -65,17 +68,33 @@ export function InboxView() {
     });
   }, []);
 
-  const toggleSelectEmail = useCallback((emailId: string) => {
-    setSelectedIds((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(emailId)) {
-        newSet.delete(emailId);
-      } else {
-        newSet.add(emailId);
-      }
-      return newSet;
-    });
-  }, []);
+  const toggleSelectEmail = useCallback((emailId: string, event?: React.MouseEvent) => {
+    const emailIndex = emails.findIndex(e => e.id === emailId);
+
+    if (event?.shiftKey && lastClickedIndexRef.current >= 0 && emailIndex >= 0) {
+      // Shift+click: select range
+      const start = Math.min(lastClickedIndexRef.current, emailIndex);
+      const end = Math.max(lastClickedIndexRef.current, emailIndex);
+      setSelectedIds((prev) => {
+        const newSet = new Set(prev);
+        for (let i = start; i <= end; i++) {
+          newSet.add(emails[i].id);
+        }
+        return newSet;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const newSet = new Set(prev);
+        if (newSet.has(emailId)) {
+          newSet.delete(emailId);
+        } else {
+          newSet.add(emailId);
+        }
+        return newSet;
+      });
+    }
+    lastClickedIndexRef.current = emailIndex;
+  }, [emails]);
 
   const selectAllEmails = useCallback(() => {
     setSelectedIds(new Set(emails.map((e) => e.id)));
@@ -84,6 +103,19 @@ export function InboxView() {
   const deselectAllEmails = useCallback(() => {
     setSelectedIds(new Set());
   }, []);
+
+  const handleBatchMarkRead = useCallback((isRead: boolean) => {
+    if (selectedIds.size === 0) return;
+    batchMarkRead.mutate(
+      { emailIds: Array.from(selectedIds), isRead },
+      {
+        onSuccess: () => {
+          setSelectedIds(new Set());
+          setSelectionMode(false);
+        },
+      },
+    );
+  }, [selectedIds, batchMarkRead]);
 
   const handleBatchDelete = useCallback(() => {
     if (selectedIds.size === 0) return;
@@ -277,6 +309,22 @@ export function InboxView() {
                   title="Kijelöltek törlése"
                 >
                   <Trash2 className="h-5 w-5" />
+                </button>
+
+                <button
+                  onClick={() => handleBatchMarkRead(true)}
+                  className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-border text-gray-600 dark:text-dark-text-secondary"
+                  title="Olvasottnak jelölés"
+                >
+                  <MailOpen className="h-5 w-5" />
+                </button>
+
+                <button
+                  onClick={() => handleBatchMarkRead(false)}
+                  className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-border text-gray-600 dark:text-dark-text-secondary"
+                  title="Olvasatlannak jelölés"
+                >
+                  <Mail className="h-5 w-5" />
                 </button>
               </>
             )}

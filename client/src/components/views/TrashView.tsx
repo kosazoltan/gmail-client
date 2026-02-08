@@ -7,6 +7,8 @@ import { EmailList } from '../email/EmailList';
 import { EmailDetail } from '../email/EmailDetail';
 import { ResizablePanels } from '../common/ResizablePanels';
 import { LoginScreen } from '../auth/LoginScreen';
+import { EmptyState } from '../common/EmptyState';
+import { Trash2 } from 'lucide-react';
 import type { Email } from '../../types';
 import { getNextEmailAfterDelete } from '../../lib/emailNavigation';
 
@@ -46,7 +48,7 @@ export function TrashView() {
         });
       }}
       title={`Kuka (${emails.length})`}
-      emptyMessage="A kuka üres"
+      emptyMessage={<EmptyState icon={Trash2} title="A kuka üres" description="A törölt levelek itt jelennek meg." />}
     />
   );
 

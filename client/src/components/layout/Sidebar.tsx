@@ -2,6 +2,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
 import { useSavedSearches, useDeleteSavedSearch, useIncrementSearchUsage } from '../../hooks/useSavedSearches';
 import { useDueRemindersCount } from '../../hooks/useReminders';
+import { useUnreadCount } from '../../hooks/useInbox';
 import { useLabels } from '../../hooks/useLabels';
 import { ZMailLogo } from '../common/ZMailLogo';
 import { LoginHelp } from '../auth/LoginHelp';
@@ -70,6 +71,7 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
   const currentSearchQuery = location.pathname === '/search' ? new URLSearchParams(location.search).get('q') : null;
   const { data: dueRemindersCount } = useDueRemindersCount();
   const { data: labelsData } = useLabels();
+  const { data: unreadCount } = useUnreadCount(session?.activeAccountId || undefined);
 
   // Gyakran használt címkék (user típusúak, messagesTotal alapján rendezve)
   const frequentLabels = useMemo(() => {
@@ -94,7 +96,7 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'flex flex-col h-full bg-white dark:bg-dark-bg-secondary border-r border-gray-200 dark:border-dark-border transition-all duration-200',
+        'flex flex-col h-full bg-white dark:bg-dark-bg-secondary border-r border-gray-200/80 dark:border-dark-border transition-all duration-200',
         isOpen ? 'w-64' : 'w-16',
       )}
     >
@@ -128,7 +130,7 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
         <button
           onClick={() => navigate('/compose')}
           className={cn(
-            'flex items-center gap-2 rounded-2xl bg-blue-600 dark:bg-blue-500 text-white shadow-md hover:bg-blue-700 dark:hover:bg-blue-600 hover:shadow-lg transition-all',
+            'flex items-center gap-2 rounded-xl bg-[#4f6ef7] text-white shadow-md hover:bg-[#3d5ce5] hover:shadow-lg transition-all duration-200',
             isOpen ? 'px-6 py-3 w-full justify-center' : 'p-3 mx-auto',
           )}
           aria-label="Új levél írása"
@@ -153,7 +155,7 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
                 cn(
                   'flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors touch-manipulation min-h-[44px]',
                   isActive
-                    ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 font-medium'
+                    ? 'bg-[#4f6ef7]/10 dark:bg-[#4f6ef7]/15 text-[#4f6ef7] dark:text-[#6d8cff] font-medium'
                     : 'text-gray-600 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary hover:text-gray-900 dark:hover:text-dark-text',
                   !isOpen && 'justify-center px-2',
                 )
@@ -164,6 +166,9 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
                 {showBadge && !isOpen && (
                   <span className="absolute -top-1 -right-1 h-2 w-2 bg-orange-500 rounded-full" aria-label={`${dueRemindersCount} esedékes emlékeztető`} />
                 )}
+                {item.path === '/' && !isOpen && unreadCount !== undefined && unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 h-2 w-2 bg-[#4f6ef7] rounded-full" />
+                )}
               </div>
               {isOpen && (
                 <div className="flex items-center justify-between flex-1">
@@ -171,6 +176,11 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
                   {showBadge && (
                     <span className="px-1.5 py-0.5 text-xs bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400 rounded-full font-medium">
                       {dueRemindersCount}
+                    </span>
+                  )}
+                  {item.path === '/' && unreadCount !== undefined && unreadCount > 0 && (
+                    <span className="px-1.5 py-0.5 text-xs bg-[#4f6ef7]/10 dark:bg-[#4f6ef7]/20 text-[#4f6ef7] dark:text-[#6d8cff] rounded-full font-medium">
+                      {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
                   )}
                 </div>
@@ -200,7 +210,7 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
                   className={cn(
                     'flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors touch-manipulation min-h-[44px]',
                     isActive
-                      ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 font-medium'
+                      ? 'bg-[#4f6ef7]/10 dark:bg-[#4f6ef7]/15 text-[#4f6ef7] dark:text-[#6d8cff] font-medium'
                       : 'text-gray-600 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary hover:text-gray-900 dark:hover:text-dark-text',
                     !isOpen && 'justify-center px-2',
                   )}
@@ -246,7 +256,7 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
                     className={cn(
                       'flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors w-full text-left touch-manipulation min-h-[44px]',
                       isActive
-                        ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 font-medium'
+                        ? 'bg-[#4f6ef7]/10 dark:bg-[#4f6ef7]/15 text-[#4f6ef7] dark:text-[#6d8cff] font-medium'
                         : 'text-gray-600 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary hover:text-gray-900 dark:hover:text-dark-text',
                       !isOpen && 'justify-center px-2',
                     )}
@@ -314,7 +324,7 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
             cn(
               'flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors touch-manipulation min-h-[44px]',
               isActive
-                ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 font-medium'
+                ? 'bg-[#4f6ef7]/10 dark:bg-[#4f6ef7]/15 text-[#4f6ef7] dark:text-[#6d8cff] font-medium'
                 : 'text-gray-600 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary hover:text-gray-900 dark:hover:text-dark-text',
               !isOpen && 'justify-center px-2',
             )

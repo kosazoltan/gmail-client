@@ -17,7 +17,7 @@ interface UnifiedEmailListProps {
   // Selection mode props
   selectionMode?: boolean;
   selectedIds?: Set<string>;
-  onToggleSelect?: (emailId: string) => void;
+  onToggleSelect?: (emailId: string, event?: React.MouseEvent) => void;
 }
 
 export function UnifiedEmailList({

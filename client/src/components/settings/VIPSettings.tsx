@@ -63,7 +63,7 @@ export function VIPSettings() {
       {!showAddForm && (
         <button
           onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-sm text-[#4f6ef7] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors"
         >
           <Plus className="h-4 w-4" />
           VIP küldő hozzáadása
@@ -102,7 +102,7 @@ export function VIPSettings() {
             <button
               onClick={handleAdd}
               disabled={addVip.isPending || !newEmail.trim()}
-              className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-[#4f6ef7] text-white rounded-lg hover:bg-[#3d5ce5] disabled:opacity-50 transition-colors"
             >
               {addVip.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               Hozzáadás

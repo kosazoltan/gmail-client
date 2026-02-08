@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { KeyboardShortcutsHelp } from '../common/KeyboardShortcutsHelp';
+import { OfflineBanner } from '../common/OfflineBanner';
 
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -34,11 +35,11 @@ export function AppLayout() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-dark-bg overflow-hidden">
+    <div className="flex h-screen bg-gray-50/80 dark:bg-dark-bg overflow-hidden">
       {/* Mobil overlay */}
       {isMobile && sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-20 lg:hidden"
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-20 lg:hidden"
           onClick={handleOverlayClick}
           aria-hidden="true"
         />
@@ -66,6 +67,8 @@ export function AppLayout() {
           onSearchChange={setSearchQuery}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         />
+
+        <OfflineBanner />
 
         <main className="flex-1 overflow-auto">
           <Outlet context={{ searchQuery, showShortcutsHelp, setShowShortcutsHelp }} />

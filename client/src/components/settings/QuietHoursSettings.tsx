@@ -41,7 +41,7 @@ export function QuietHoursSettings() {
       {/* Enable toggle */}
       <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-dark-bg rounded-lg">
         <div className="flex items-center gap-3">
-          <Moon className="h-5 w-5 text-indigo-500" />
+          <Moon className="h-5 w-5 text-[#4f6ef7]" />
           <div>
             <div className="font-medium text-gray-800 dark:text-dark-text">
               Csendes mód
@@ -57,7 +57,7 @@ export function QuietHoursSettings() {
           className={cn(
             'relative w-12 h-6 rounded-full transition-colors',
             enabled
-              ? 'bg-indigo-500'
+              ? 'bg-[#4f6ef7]'
               : 'bg-gray-300 dark:bg-dark-bg-tertiary',
           )}
         >
@@ -72,7 +72,7 @@ export function QuietHoursSettings() {
 
       {/* Time settings */}
       {enabled && (
-        <div className="space-y-4 pl-4 border-l-2 border-indigo-200 dark:border-indigo-800">
+        <div className="space-y-4 pl-4 border-l-2 border-[#4f6ef7]/30 dark:border-[#4f6ef7]/40">
           {/* Time range */}
           <div className="flex items-center gap-4">
             <div className="flex-1">
@@ -117,7 +117,7 @@ export function QuietHoursSettings() {
               className={cn(
                 'relative w-10 h-5 rounded-full transition-colors',
                 weekendOnly
-                  ? 'bg-indigo-500'
+                  ? 'bg-[#4f6ef7]'
                   : 'bg-gray-300 dark:bg-dark-bg-tertiary',
               )}
             >
@@ -131,7 +131,7 @@ export function QuietHoursSettings() {
           </div>
 
           {/* Info */}
-          <div className="p-3 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg text-sm text-indigo-700 dark:text-indigo-300">
+          <div className="p-3 bg-[#4f6ef7]/10 dark:bg-[#4f6ef7]/10 rounded-lg text-sm text-[#4f6ef7] dark:text-[#8b9ff7]">
             <p>
               {weekendOnly ? (
                 <>

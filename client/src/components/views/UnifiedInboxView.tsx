@@ -387,7 +387,7 @@ export function UnifiedInboxView() {
                 filterAccountId === account.accountId ? undefined : account.accountId
               )}
               className={cn(
-                'flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors',
+                'flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-colors',
                 filterAccountId === account.accountId
                   ? 'bg-white dark:bg-dark-bg-secondary shadow-sm'
                   : 'hover:bg-gray-200/50 dark:hover:bg-dark-bg-tertiary'

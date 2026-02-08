@@ -300,9 +300,25 @@ export function getDb(): SqlJsDatabase {
 // DB mentése fájlba
 export function saveDatabase() {
   if (!_db) return;
-  const data = _db.export();
-  const buffer = Buffer.from(data);
-  fs.writeFileSync(dbPath, buffer);
+  try {
+    const data = _db.export();
+    const buffer = Buffer.from(data);
+    // Write to temp file first, then rename for atomicity
+    const tmpPath = dbPath + '.tmp';
+    fs.writeFileSync(tmpPath, buffer);
+    fs.renameSync(tmpPath, dbPath);
+  } catch (err) {
+    console.error('Database save failed:', err);
+    // Clean up temp file if it exists
+    try {
+      const tmpPath = dbPath + '.tmp';
+      if (fs.existsSync(tmpPath)) {
+        fs.unlinkSync(tmpPath);
+      }
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
 }
 
 // Automatikus mentés - 30 másodpercenként
@@ -319,7 +335,11 @@ function debouncedSave() {
   }
   // Beállítunk egy újat
   pendingSave = setTimeout(() => {
-    saveDatabase();
+    try {
+      saveDatabase();
+    } catch (err) {
+      console.error('Debounced save failed:', err);
+    }
     pendingSave = null;
   }, DEBOUNCE_DELAY_MS);
 }
@@ -392,7 +412,11 @@ export function runInTransaction<T>(fn: () => T): T {
     debouncedSave();
     return result;
   } catch (error) {
-    db.run('ROLLBACK');
+    try {
+      db.run('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('Transaction rollback failed:', rollbackError);
+    }
     throw error;
   }
 }
@@ -407,7 +431,11 @@ export async function runInTransactionAsync<T>(fn: () => Promise<T>): Promise<T>
     debouncedSave();
     return result;
   } catch (error) {
-    db.run('ROLLBACK');
+    try {
+      db.run('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('Transaction rollback failed:', rollbackError);
+    }
     throw error;
   }
 }

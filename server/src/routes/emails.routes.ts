@@ -83,38 +83,48 @@ function validateEmailAddresses(addressString: string): boolean {
 }
 
 router.get('/', (req, res) => {
-  const accountId = validateAccountAccess(req);
-  if (!accountId) {
-    res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
-    return;
+  try {
+    const accountId = validateAccountAccess(req);
+    if (!accountId) {
+      res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
+      return;
+    }
+
+    const parsedPage = parseInt(req.query.page as string, 10);
+    const parsedLimit = parseInt(req.query.limit as string, 10);
+    const page = isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
+    const limit = Math.min(isNaN(parsedLimit) || parsedLimit < 1 ? 50 : parsedLimit, MAX_LIMIT);
+    const sort = (req.query.sort as string) || 'date_desc';
+    const offset = (page - 1) * limit;
+
+    // Whitelist sort values to prevent SQL injection
+    const ALLOWED_SORTS: Record<string, string> = {
+      'date_asc': 'date ASC',
+      'date_desc': 'date DESC',
+    };
+    const orderBy = ALLOWED_SORTS[sort] || 'date DESC';
+
+    const results = queryAll<EmailRecord>(
+      'SELECT * FROM emails WHERE account_id = ? ORDER BY ' + orderBy + ' LIMIT ? OFFSET ?',
+      [accountId, limit, offset],
+    );
+
+    const countResult = queryOne<{ total: number }>(
+      'SELECT COUNT(*) as total FROM emails WHERE account_id = ?',
+      [accountId],
+    );
+    const total = countResult?.total || 0;
+
+    res.json({
+      emails: results.map(formatEmail),
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    });
+  } catch (err) {
+    console.error('Email lista lekérés hiba:', err);
+    res.status(500).json({ error: 'Szerver hiba az email lista lekérésekor' });
   }
-
-  const parsedPage = parseInt(req.query.page as string, 10);
-  const parsedLimit = parseInt(req.query.limit as string, 10);
-  const page = isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
-  const limit = Math.min(isNaN(parsedLimit) || parsedLimit < 1 ? 50 : parsedLimit, MAX_LIMIT);
-  const sort = (req.query.sort as string) || 'date_desc';
-  const offset = (page - 1) * limit;
-
-  const orderBy = sort === 'date_asc' ? 'date ASC' : 'date DESC';
-
-  const results = queryAll<EmailRecord>(
-    'SELECT * FROM emails WHERE account_id = ? ORDER BY ' + orderBy + ' LIMIT ? OFFSET ?',
-    [accountId, limit, offset],
-  );
-
-  const countResult = queryOne<{ total: number }>(
-    'SELECT COUNT(*) as total FROM emails WHERE account_id = ?',
-    [accountId],
-  );
-  const total = countResult?.total || 0;
-
-  res.json({
-    emails: results.map(formatEmail),
-    total,
-    page,
-    totalPages: Math.ceil(total / limit),
-  });
 });
 
 // Thread conversation - összes email egy thread-ből (sent + received), body-val együtt
@@ -362,6 +372,10 @@ router.patch('/:id/read', async (req, res) => {
   if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
 
   const { isRead } = req.body;
+  if (typeof isRead !== 'boolean' && isRead !== 0 && isRead !== 1) {
+    res.status(400).json({ error: 'isRead mező kötelező (boolean)' });
+    return;
+  }
 
   try {
     const { oauth2Client } = getOAuth2ClientForAccount(accountId);
@@ -387,6 +401,10 @@ router.patch('/:id/star', async (req, res) => {
   if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
 
   const { isStarred } = req.body;
+  if (typeof isStarred !== 'boolean' && isStarred !== 0 && isStarred !== 1) {
+    res.status(400).json({ error: 'isStarred mező kötelező (boolean)' });
+    return;
+  }
 
   try {
     const { oauth2Client } = getOAuth2ClientForAccount(accountId);
@@ -406,6 +424,44 @@ router.patch('/:id/star', async (req, res) => {
   }
 });
 
+// Batch mark read/unread
+router.patch('/batch-read', async (req, res) => {
+  try {
+    const accountId = validateAccountAccess(req);
+    if (!accountId) {
+      res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
+      return;
+    }
+
+    const { emailIds, isRead } = req.body;
+    if (!Array.isArray(emailIds) || emailIds.length === 0) {
+      res.status(400).json({ error: 'emailIds tömb szükséges' });
+      return;
+    }
+    if (typeof isRead !== 'boolean') {
+      res.status(400).json({ error: 'isRead boolean szükséges' });
+      return;
+    }
+
+    // Validate all elements are strings
+    if (!emailIds.every((id: unknown) => typeof id === 'string' && id.length > 0)) {
+      res.status(400).json({ error: 'Minden emailId-nek szövegnek kell lennie' });
+      return;
+    }
+
+    const placeholders = emailIds.map(() => '?').join(',');
+    execute(
+      `UPDATE emails SET is_read = ? WHERE id IN (${placeholders}) AND account_id = ?`,
+      [isRead ? 1 : 0, ...emailIds, accountId]
+    );
+
+    res.json({ updatedCount: emailIds.length });
+  } catch (error) {
+    console.error('Batch mark read error:', error);
+    res.status(500).json({ error: 'Hiba a batch olvasottság módosítás során' });
+  }
+});
+
 // Batch email törlés (kukába helyezés)
 router.delete('/batch', async (req, res) => {
   const accountId = validateAccountAccess(req);
@@ -417,6 +473,12 @@ router.delete('/batch', async (req, res) => {
   const { emailIds } = req.body;
   if (!emailIds || !Array.isArray(emailIds) || emailIds.length === 0) {
     res.status(400).json({ error: 'Hiányzó vagy érvénytelen emailIds tömb' });
+    return;
+  }
+
+  // Validate all elements are non-empty strings
+  if (!emailIds.every((id: unknown) => typeof id === 'string' && id.length > 0)) {
+    res.status(400).json({ error: 'emailIds must contain only non-empty strings' });
     return;
   }
 

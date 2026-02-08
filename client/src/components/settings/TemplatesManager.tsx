@@ -120,7 +120,7 @@ export function TemplatesManager({ onClose }: TemplatesManagerProps) {
                 </h3>
                 <button
                   onClick={startCreate}
-                  className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                  className="flex items-center gap-1 text-sm text-[#4f6ef7] dark:text-blue-400 hover:underline"
                 >
                   <Plus className="h-4 w-4" />
                   Új sablon
@@ -260,7 +260,7 @@ export function TemplatesManager({ onClose }: TemplatesManagerProps) {
                   <button
                     onClick={handleSave}
                     disabled={!formName.trim() || !formBody.trim() || isSaving}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[#4f6ef7] text-white rounded-lg hover:bg-[#3d5ce5] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
                     {editingTemplate ? 'Mentés' : 'Létrehozás'}

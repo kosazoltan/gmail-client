@@ -10,7 +10,7 @@ export function ThemeToggle() {
         onClick={() => setTheme('light')}
         className={`p-2 rounded-md transition-colors ${
           theme === 'light'
-            ? 'bg-white dark:bg-dark-bg-secondary text-yellow-500 shadow-sm'
+            ? 'bg-white dark:bg-dark-bg-tertiary text-yellow-500 shadow-sm'
             : 'text-gray-500 dark:text-dark-text-secondary hover:text-gray-700 dark:hover:text-dark-text'
         }`}
         title="Világos mód"
@@ -22,7 +22,7 @@ export function ThemeToggle() {
         onClick={() => setTheme('system')}
         className={`p-2 rounded-md transition-colors ${
           theme === 'system'
-            ? 'bg-white dark:bg-dark-bg-secondary text-blue-500 shadow-sm'
+            ? 'bg-white dark:bg-dark-bg-tertiary text-[#4f6ef7] shadow-sm'
             : 'text-gray-500 dark:text-dark-text-secondary hover:text-gray-700 dark:hover:text-dark-text'
         }`}
         title="Rendszer beállítás"
@@ -34,7 +34,7 @@ export function ThemeToggle() {
         onClick={() => setTheme('dark')}
         className={`p-2 rounded-md transition-colors ${
           theme === 'dark'
-            ? 'bg-white dark:bg-dark-bg-secondary text-indigo-500 shadow-sm'
+            ? 'bg-white dark:bg-dark-bg-tertiary text-indigo-500 shadow-sm'
             : 'text-gray-500 dark:text-dark-text-secondary hover:text-gray-700 dark:hover:text-dark-text'
         }`}
         title="Sötét mód"

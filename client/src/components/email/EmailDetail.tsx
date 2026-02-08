@@ -28,6 +28,7 @@ import {
   Languages,
   X,
   MessageSquare,
+  Send,
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { SnoozeMenu } from './SnoozeMenu';
@@ -66,6 +67,9 @@ export function EmailDetail({
   const [showLabelManager, setShowLabelManager] = useState(false);
   const [showConversation, setShowConversation] = useState(true);
   const { translatedContent, isTranslating, translateEmail, clearTranslation } = useEmailTranslation();
+  const [quickReplyText, setQuickReplyText] = useState('');
+  const [showQuickReply, setShowQuickReply] = useState(false);
+  const [sendingQuickReply, setSendingQuickReply] = useState(false);
 
   // Thread adatok
   const hasThread = threadData && threadData.emails && threadData.emails.length > 1;
@@ -177,13 +181,33 @@ export function EmailDetail({
     return date.toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' });
   };
 
+  const handleQuickReply = async () => {
+    if (!quickReplyText.trim() || !email.from) return;
+    setSendingQuickReply(true);
+    try {
+      await api.emails.reply({
+        to: email.from,
+        subject: `Re: ${email.subject || ''}`,
+        body: quickReplyText.trim(),
+        threadId: email.threadId || undefined,
+      });
+      toast.success('Válasz elküldve');
+      setQuickReplyText('');
+      setShowQuickReply(false);
+    } catch {
+      toast.error('Hiba a válasz küldésekor');
+    } finally {
+      setSendingQuickReply(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-dark-bg">
       {/* Kompakt fejléc */}
       <div className="flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-1.5 sm:py-2 bg-white dark:bg-dark-bg-secondary border-b border-gray-100 dark:border-dark-border">
         <button
           onClick={onBack}
-          className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary lg:hidden transition-colors"
+          className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary lg:hidden transition-all duration-200"
           aria-label="Vissza"
         >
           <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -208,7 +232,7 @@ export function EmailDetail({
                 date: email.date,
               })
             }
-            className="p-1.5 sm:p-2.5 rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-colors touch-manipulation"
+            className="p-1.5 sm:p-2.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200 touch-manipulation"
             aria-label="Válasz"
             title="Válasz"
           >
@@ -232,7 +256,7 @@ export function EmailDetail({
               });
             }}
             disabled={!onReplyAll || !email.from}
-            className="p-1.5 sm:p-2.5 rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-colors touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-1.5 sm:p-2.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200 touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Válasz mindenkinek"
             title="Válasz mindenkinek"
           >
@@ -249,7 +273,7 @@ export function EmailDetail({
               });
             }}
             disabled={!onForward}
-            className="p-1.5 sm:p-2.5 rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-colors touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-1.5 sm:p-2.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200 touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Továbbítás"
             title="Továbbítás"
           >
@@ -259,7 +283,7 @@ export function EmailDetail({
           {/* Közvetlen törlés gomb */}
           <button
             onClick={() => setShowDeleteConfirm(true)}
-            className="p-1.5 sm:p-2.5 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-red-600 dark:hover:text-red-400 transition-colors touch-manipulation"
+            className="p-1.5 sm:p-2.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-500 dark:text-dark-text-secondary hover:text-red-600 dark:hover:text-red-400 transition-all duration-200 touch-manipulation"
             aria-label="Törlés"
             title="Törlés"
           >
@@ -270,7 +294,7 @@ export function EmailDetail({
           <div className="relative">
             <button
               onClick={() => setShowLabelManager(!showLabelManager)}
-              className="p-1.5 sm:p-2.5 rounded-full hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary transition-colors touch-manipulation"
+              className="p-1.5 sm:p-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary transition-all duration-200 touch-manipulation"
               aria-label="Címkék"
               title="Címkék"
             >
@@ -295,7 +319,7 @@ export function EmailDetail({
           <div className="relative">
             <button
               onClick={() => setShowMoreActions(!showMoreActions)}
-              className="p-1.5 sm:p-2.5 rounded-full hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary transition-colors touch-manipulation"
+              className="p-1.5 sm:p-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary transition-all duration-200 touch-manipulation"
               aria-label="További műveletek"
             >
               <MoreHorizontal className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -417,7 +441,7 @@ export function EmailDetail({
       <div className="flex-1 overflow-auto">
         <div className="max-w-4xl mx-auto p-2 sm:p-4">
           {/* Küldő kártya */}
-          <div className="bg-white dark:bg-dark-bg-secondary rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-dark-border mb-2 sm:mb-4 overflow-hidden">
+          <div className="bg-white dark:bg-dark-bg-secondary rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-dark-border overflow-hidden">
             <div className="p-2.5 sm:p-4">
               <div className="flex items-start gap-2 sm:gap-3">
                 {/* Avatar */}
@@ -444,7 +468,7 @@ export function EmailDetail({
                       {/* Törlés gomb a küldő kártyában */}
                       <button
                         onClick={() => setShowDeleteConfirm(true)}
-                        className="p-1.5 sm:p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-400 dark:text-dark-text-muted hover:text-red-600 dark:hover:text-red-400 transition-colors touch-manipulation"
+                        className="p-1.5 sm:p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-400 dark:text-dark-text-muted hover:text-red-600 dark:hover:text-red-400 transition-all duration-200 touch-manipulation"
                         aria-label="Törlés"
                         title="Törlés"
                       >
@@ -503,6 +527,11 @@ export function EmailDetail({
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Separator between header and body */}
+          <div className="flex items-center gap-3 my-1 sm:my-2 px-2">
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-200 dark:via-dark-border to-transparent" />
           </div>
 
           {/* Thread conversation nézet vagy egyedi email body */}
@@ -607,6 +636,14 @@ export function EmailDetail({
                     <div
                       className="email-content prose prose-sm max-w-none
                         text-gray-900 dark:text-gray-300
+                        prose-headings:text-gray-900 dark:prose-headings:text-gray-200
+                        prose-a:text-blue-600 dark:prose-a:text-blue-400
+                        prose-strong:text-gray-900 dark:prose-strong:text-gray-200
+                        prose-blockquote:text-gray-600 dark:prose-blockquote:text-gray-400
+                        prose-blockquote:border-gray-300 dark:prose-blockquote:border-gray-600
+                        prose-code:text-gray-800 dark:prose-code:text-gray-300
+                        prose-pre:bg-gray-100 dark:prose-pre:bg-gray-800
+                        prose-hr:border-gray-200 dark:prose-hr:border-gray-700
                         prose-img:rounded-lg prose-img:shadow-md"
                       dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                     />
@@ -670,6 +707,59 @@ export function EmailDetail({
               </div>
             </>
           )}
+
+          {/* Quick Reply */}
+          <div className="mt-3">
+            {showQuickReply ? (
+              <div className="bg-white dark:bg-dark-bg-secondary rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-dark-border overflow-hidden">
+                <div className="p-3 sm:p-4">
+                  <textarea
+                    value={quickReplyText}
+                    onChange={(e) => setQuickReplyText(e.target.value)}
+                    placeholder="Válasz írása..."
+                    rows={4}
+                    autoFocus
+                    className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-dark-bg-tertiary border border-gray-200 dark:border-dark-border rounded-xl text-gray-900 dark:text-dark-text placeholder:text-gray-400 dark:placeholder:text-dark-text-muted focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20 outline-none resize-none transition-colors"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                        e.preventDefault();
+                        handleQuickReply();
+                      }
+                    }}
+                  />
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-xs text-gray-400 dark:text-dark-text-muted">
+                      Ctrl+Enter a küldéshez
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => { setShowQuickReply(false); setQuickReplyText(''); }}
+                        className="px-3 py-1.5 text-sm text-gray-600 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary rounded-lg transition-colors"
+                      >
+                        Mégse
+                      </button>
+                      <button
+                        onClick={handleQuickReply}
+                        disabled={!quickReplyText.trim() || sendingQuickReply}
+                        className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium bg-[#4f6ef7] hover:bg-[#3d5ce5] text-white rounded-lg disabled:opacity-50 transition-colors"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        {sendingQuickReply ? 'Küldés...' : 'Küldés'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowQuickReply(true)}
+                className="w-full flex items-center gap-3 px-4 py-3 bg-white dark:bg-dark-bg-secondary rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-dark-border text-gray-400 dark:text-dark-text-muted hover:text-gray-600 dark:hover:text-dark-text-secondary hover:border-gray-200 dark:hover:border-dark-border transition-all text-sm"
+              >
+                <Reply className="h-4 w-4" />
+                <span>Kattints a gyors válaszhoz...</span>
+              </button>
+            )}
+          </div>
 
         </div>
       </div>

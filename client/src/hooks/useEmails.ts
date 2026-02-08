@@ -166,3 +166,16 @@ export function useBatchDeleteEmails() {
     },
   });
 }
+
+export function useBatchMarkRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ emailIds, isRead }: { emailIds: string[]; isRead: boolean }) =>
+      api.emails.batchMarkRead(emailIds, isRead),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inbox-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['unread-count'] });
+      queryClient.invalidateQueries({ queryKey: ['emails'] });
+    },
+  });
+}

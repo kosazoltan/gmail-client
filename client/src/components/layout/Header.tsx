@@ -93,7 +93,7 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar }: HeaderP
   };
 
   return (
-    <header className="flex items-center gap-2 sm:gap-4 bg-white dark:bg-dark-bg-secondary border-b border-gray-200 dark:border-dark-border px-2 sm:px-4 py-2.5">
+    <header className="flex items-center gap-2 sm:gap-4 bg-white dark:bg-dark-bg-secondary border-b border-gray-200/80 dark:border-dark-border px-3 sm:px-5 py-2.5 backdrop-blur-sm">
       <button
         onClick={onToggleSidebar}
         className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary lg:hidden flex-shrink-0"
@@ -114,7 +114,7 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar }: HeaderP
               onChange={(e) => setLocalQuery(e.target.value)}
               placeholder="Keresés..."
               aria-label="Keresés a levelekben"
-              className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-dark-bg-tertiary border border-transparent dark:border-dark-border rounded-lg text-sm text-gray-900 dark:text-dark-text focus:bg-white dark:focus:bg-dark-bg focus:border-blue-300 dark:focus:border-blue-500 focus:ring-1 focus:ring-blue-300 dark:focus:ring-blue-500 outline-none transition-colors"
+              className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-dark-bg-tertiary border border-transparent dark:border-dark-border rounded-xl text-sm text-gray-900 dark:text-dark-text placeholder:text-gray-400 dark:placeholder:text-dark-text-muted focus:bg-white dark:focus:bg-dark-bg focus:border-[#4f6ef7]/50 dark:focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20 outline-none transition-all duration-200"
             />
           </div>
 

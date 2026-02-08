@@ -125,6 +125,11 @@ export const api = {
         method: 'DELETE',
         body: JSON.stringify({ emailIds }),
       }),
+    batchMarkRead: (emailIds: string[], isRead: boolean) =>
+      request<{ updatedCount: number }>('/emails/batch-read', {
+        method: 'PATCH',
+        body: JSON.stringify({ emailIds, isRead }),
+      }),
   },
 
   views: {

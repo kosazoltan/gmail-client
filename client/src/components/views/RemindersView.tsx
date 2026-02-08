@@ -15,6 +15,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { formatRelativeTime } from '../../lib/utils';
+import { EmptyState } from '../common/EmptyState';
 
 interface RemindersViewProps {
   onEmailSelect: (emailId: string) => void;
@@ -231,15 +232,11 @@ export function RemindersView({ onEmailSelect }: RemindersViewProps) {
       </div>
 
       {reminders.length === 0 ? (
-        <div className="text-center py-12">
-          <Bell className="h-12 w-12 mx-auto text-gray-300 dark:text-dark-text-muted mb-4" />
-          <p className="text-gray-500 dark:text-dark-text-secondary">
-            Nincsenek emlékeztetők
-          </p>
-          <p className="text-sm text-gray-400 dark:text-dark-text-muted mt-1">
-            Állíts be emlékeztetőket az emaileknél a harang ikonnal
-          </p>
-        </div>
+        <EmptyState
+          icon={Bell}
+          title="Nincsenek emlékeztetők"
+          description="Állíts be emlékeztetőt, hogy ne felejts el válaszolni fontos levelekre."
+        />
       ) : (
         <div className="space-y-6">
           {/* Esedékes emlékeztetők */}

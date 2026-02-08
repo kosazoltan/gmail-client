@@ -1,4 +1,4 @@
-import { queryOne, execute } from '../db/index.js';
+import { queryOne, execute, runInTransaction } from '../db/index.js';
 import { v4 as uuidv4 } from 'uuid';
 import { getOAuth2ClientForAccount } from './auth.service.js';
 import {
@@ -417,16 +417,25 @@ function sleep(ms: number) {
 }
 
 const syncIntervals = new Map<string, NodeJS.Timeout>();
+const syncInProgress = new Set<string>();
 
 export function startBackgroundSync(accountId: string) {
   if (syncIntervals.has(accountId)) return;
 
   const intervalMs = Math.max(30000, parseInt(process.env.SYNC_INTERVAL_MS || '120000', 10));
   const interval = setInterval(async () => {
+    // Guard against overlapping syncs for the same account
+    if (syncInProgress.has(accountId)) {
+      console.log(`Sync already in progress for ${accountId}, skipping`);
+      return;
+    }
+    syncInProgress.add(accountId);
     try {
       await syncAccount(accountId);
     } catch (err) {
       console.error(`Háttér szinkronizálás hiba (${accountId}):`, err);
+    } finally {
+      syncInProgress.delete(accountId);
     }
   }, intervalMs);
 
@@ -439,29 +448,40 @@ export function stopBackgroundSync(accountId: string) {
     clearInterval(interval);
     syncIntervals.delete(accountId);
   }
+  syncInProgress.delete(accountId);
+}
+
+export function stopAllBackgroundSyncs() {
+  for (const [accountId, interval] of syncIntervals) {
+    clearInterval(interval);
+    syncInProgress.delete(accountId);
+  }
+  syncIntervals.clear();
 }
 
 // Fiók adatainak törlése (emailek, kontaktok, stb.) - újraszinkronizálás előtt
 export function clearAccountData(accountId: string) {
   console.log(`Adatok törlése a(z) ${accountId} fiókhoz...`);
 
-  // Mellékletek törlése (emailekhez kapcsolódik)
-  execute('DELETE FROM attachments WHERE email_id IN (SELECT id FROM emails WHERE account_id = ?)', [accountId]);
+  runInTransaction(() => {
+    // Mellékletek törlése (emailekhez kapcsolódik)
+    execute('DELETE FROM attachments WHERE email_id IN (SELECT id FROM emails WHERE account_id = ?)', [accountId]);
 
-  // Emailek törlése
-  execute('DELETE FROM emails WHERE account_id = ?', [accountId]);
+    // Emailek törlése
+    execute('DELETE FROM emails WHERE account_id = ?', [accountId]);
 
-  // Kontaktok törlése
-  execute('DELETE FROM contacts WHERE account_id = ?', [accountId]);
+    // Kontaktok törlése
+    execute('DELETE FROM contacts WHERE account_id = ?', [accountId]);
 
-  // Feladói csoportok törlése
-  execute('DELETE FROM sender_groups WHERE account_id = ?', [accountId]);
+    // Feladói csoportok törlése
+    execute('DELETE FROM sender_groups WHERE account_id = ?', [accountId]);
 
-  // Témák törlése
-  execute('DELETE FROM topics WHERE account_id = ?', [accountId]);
+    // Témák törlése
+    execute('DELETE FROM topics WHERE account_id = ?', [accountId]);
 
-  // History ID törlése, hogy teljes szinkronizálás történjen
-  execute('UPDATE accounts SET history_id = NULL WHERE id = ?', [accountId]);
+    // History ID törlése, hogy teljes szinkronizálás történjen
+    execute('UPDATE accounts SET history_id = NULL WHERE id = ?', [accountId]);
+  });
 
   console.log(`Adatok törölve a(z) ${accountId} fiókhoz.`);
 }

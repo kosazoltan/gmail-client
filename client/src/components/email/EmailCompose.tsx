@@ -69,6 +69,7 @@ export function EmailCompose() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bodyEditorRef = useRef<HTMLDivElement>(null);
   const sendTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const undoToastIdRef = useRef<string | null>(null);
   const { data: settings } = useSettings();
 
   const isReply = searchParams.get('reply') === 'true';
@@ -100,12 +101,18 @@ export function EmailCompose() {
   // Undo send késleltetés beállításból vagy alapértelmezett
   const undoSendDelay = settings?.undoSendDelay ?? defaultSettings.undoSendDelay ?? DEFAULT_UNDO_DELAY;
 
-  // Cleanup timeout on unmount
+  // Cleanup timeout, toast, and snapshot on unmount
   useEffect(() => {
     return () => {
       if (sendTimeoutRef.current) {
         clearTimeout(sendTimeoutRef.current);
+        sendTimeoutRef.current = null;
       }
+      if (undoToastIdRef.current) {
+        toast.dismiss(undoToastIdRef.current);
+        undoToastIdRef.current = null;
+      }
+      sendSnapshotRef.current = null;
     };
   }, []);
 
@@ -205,7 +212,11 @@ export function EmailCompose() {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
-        const result = reader.result as string;
+        const result = reader.result;
+        if (typeof result !== 'string') {
+          reject(new Error('FileReader result is not a string'));
+          return;
+        }
         // Data URL-ből csak a base64 rész kell
         const base64 = result.split(',')[1];
         resolve(base64);
@@ -268,6 +279,10 @@ export function EmailCompose() {
       clearTimeout(sendTimeoutRef.current);
       sendTimeoutRef.current = null;
     }
+    if (undoToastIdRef.current) {
+      toast.dismiss(undoToastIdRef.current);
+      undoToastIdRef.current = null;
+    }
     sendSnapshotRef.current = null; // FIX: Clear snapshot on cancel
     setIsSendPending(false);
     toast.info('Küldés visszavonva');
@@ -299,7 +314,7 @@ export function EmailCompose() {
     setIsSendPending(true);
 
     // Toast megjelenítése visszavonás lehetőséggel
-    toast.undoable(
+    undoToastIdRef.current = toast.undoable(
       `Email küldése ${undoSendDelay} másodperc múlva...`,
       cancelSend,
       undoSendDelay * 1000
@@ -308,6 +323,7 @@ export function EmailCompose() {
     // Időzítő beállítása a tényleges küldéshez
     sendTimeoutRef.current = setTimeout(() => {
       sendTimeoutRef.current = null;
+      undoToastIdRef.current = null;
       actualSend();
     }, undoSendDelay * 1000);
   };
@@ -366,7 +382,7 @@ export function EmailCompose() {
             )}
             <button
               onClick={() => navigate(-1)}
-              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-400 dark:text-dark-text-muted"
+              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-400 dark:text-dark-text-muted transition-colors"
               aria-label="Bezárás"
             >
               <X className="h-5 w-5" />
@@ -382,12 +398,12 @@ export function EmailCompose() {
               value={to}
               onChange={setTo}
               placeholder="pelda@gmail.com"
-              className="flex-1 min-w-0 w-full px-3 py-1.5 text-sm border-b border-gray-200 dark:border-dark-border focus:border-blue-400 outline-none bg-transparent dark:text-dark-text"
+              className="flex-1 min-w-0 w-full px-3 py-1.5 text-sm border border-gray-200 dark:border-dark-border rounded-xl focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20 outline-none bg-transparent dark:text-dark-text transition-colors"
             />
             {!showCc && (
               <button
                 onClick={() => setShowCc(true)}
-                className="text-xs text-blue-500 hover:text-blue-600 shrink-0"
+                className="text-xs text-[#4f6ef7] hover:text-[#3d5ce5] shrink-0 transition-colors"
               >
                 Másolat
               </button>
@@ -401,7 +417,7 @@ export function EmailCompose() {
                 value={cc}
                 onChange={setCc}
                 placeholder="masik@gmail.com"
-                className="flex-1 min-w-0 w-full px-3 py-1.5 text-sm border-b border-gray-200 dark:border-dark-border focus:border-blue-400 outline-none bg-transparent dark:text-dark-text"
+                className="flex-1 min-w-0 w-full px-3 py-1.5 text-sm border border-gray-200 dark:border-dark-border rounded-xl focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20 outline-none bg-transparent dark:text-dark-text transition-colors"
               />
             </div>
           )}
@@ -413,7 +429,7 @@ export function EmailCompose() {
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Levél tárgya"
-              className="flex-1 min-w-0 px-3 py-1.5 text-sm border-b border-gray-200 dark:border-dark-border focus:border-blue-400 outline-none bg-transparent dark:text-dark-text"
+              className="flex-1 min-w-0 px-3 py-1.5 text-sm border border-gray-200 dark:border-dark-border rounded-xl focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20 outline-none bg-transparent dark:text-dark-text transition-colors"
             />
           </div>
 
@@ -422,7 +438,7 @@ export function EmailCompose() {
             contentEditable
             onInput={handleBodyInput}
             onKeyDown={handleKeyDown}
-            className="w-full px-3 py-2 text-sm outline-none bg-transparent text-gray-900 dark:text-gray-300 min-h-[240px] max-h-[500px] overflow-y-auto border border-gray-200 dark:border-dark-border rounded-lg focus:border-blue-400 focus:ring-1 focus:ring-blue-400 [&_div]:!text-[inherit] [&_*]:!text-[inherit]"
+            className="w-full px-3 py-2 text-sm outline-none bg-transparent text-gray-900 dark:text-gray-300 min-h-[240px] max-h-[500px] overflow-y-auto border border-gray-200 dark:border-dark-border rounded-xl focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20 transition-colors [&_div]:!text-[inherit] [&_*]:!text-[inherit]"
             style={{
               whiteSpace: 'pre-wrap',
               wordWrap: 'break-word',
@@ -452,7 +468,7 @@ export function EmailCompose() {
                     <span className="text-xs text-gray-400">{formatFileSize(att.size)}</span>
                     <button
                       onClick={() => removeAttachment(att.id)}
-                      className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-500/20 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-500/20 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
                       aria-label="Melléklet eltávolítása"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -496,7 +512,7 @@ export function EmailCompose() {
               <button
                 onClick={handleSend}
                 disabled={!to || !body || isPending}
-                className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-2 px-6 py-2 bg-[#4f6ef7] text-white rounded-lg hover:bg-[#3d5ce5] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -541,7 +557,7 @@ export function EmailCompose() {
 
           <button
             onClick={() => navigate(-1)}
-            className="text-sm text-gray-500 dark:text-dark-text-secondary hover:text-gray-700 dark:hover:text-dark-text"
+            className="text-sm text-gray-500 dark:text-dark-text-secondary hover:text-gray-700 dark:hover:text-dark-text transition-colors"
           >
             Elvetés
           </button>

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { Star, Paperclip, Trash2, Check, Pin, Mail, MailOpen, Crown } from 'lucide-react';
 import { cn, formatEmailDate, displaySender, getInitials, emailToColor } from '../../lib/utils';
 import type { Email } from '../../types';
@@ -16,13 +16,7 @@ interface EmailItemProps {
   // Selection mode props
   selectionMode?: boolean;
   isChecked?: boolean;
-  onToggleCheck?: (emailId: string) => void;
-}
-
-interface ContextMenuState {
-  visible: boolean;
-  x: number;
-  y: number;
+  onToggleCheck?: (emailId: string, event?: React.MouseEvent) => void;
 }
 
 export function EmailItem({
@@ -43,57 +37,22 @@ export function EmailItem({
   const initials = getInitials(sender);
   const avatarColor = emailToColor(email.from || '');
 
-  const [contextMenu, setContextMenu] = useState<ContextMenuState>({ visible: false, x: 0, y: 0 });
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // Close context menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setContextMenu({ visible: false, x: 0, y: 0 });
-      }
-    };
-
-    if (contextMenu.visible) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [contextMenu.visible]);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-
-    // Calculate position, keep menu within viewport
-    const x = Math.min(e.clientX, window.innerWidth - 160);
-    const y = Math.min(e.clientY, window.innerHeight - 100);
-
-    setContextMenu({ visible: true, x, y });
-  };
-
-  const handleDelete = () => {
-    setContextMenu({ visible: false, x: 0, y: 0 });
-    onDelete?.(email.id);
-  };
-
-  const handleTogglePin = () => {
-    setContextMenu({ visible: false, x: 0, y: 0 });
-    onTogglePin?.(email.id);
-  };
-
-  const handleToggleRead = () => {
-    setContextMenu({ visible: false, x: 0, y: 0 });
-    onToggleRead?.(email.id, !email.isRead);
+    setContextMenu({ x: e.clientX, y: e.clientY });
   };
 
   const handleCheckboxClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onToggleCheck?.(email.id);
+    onToggleCheck?.(email.id, e);
   };
 
-  const handleItemClick = () => {
+  const handleItemClick = (e: React.MouseEvent) => {
     if (selectionMode) {
-      onToggleCheck?.(email.id);
+      onToggleCheck?.(email.id, e);
     } else {
       onClick();
     }
@@ -197,43 +156,42 @@ export function EmailItem({
     </div>
 
     {/* Context menu */}
-    {contextMenu.visible && (
-      <div
-        ref={menuRef}
-        className="fixed z-50 bg-white dark:bg-dark-bg-secondary rounded-xl shadow-lg border border-gray-100 dark:border-dark-border py-1 min-w-[180px]"
-        style={{ left: contextMenu.x, top: contextMenu.y }}
-      >
-        <button
-          onClick={handleTogglePin}
-          className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary transition-colors touch-manipulation"
+    {contextMenu && (
+      <div className="fixed inset-0 z-50" onClick={() => setContextMenu(null)}>
+        <div
+          className="absolute bg-white dark:bg-dark-bg-secondary border border-gray-200 dark:border-dark-border rounded-xl shadow-xl py-1.5 min-w-[200px] animate-scale-in"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
         >
-          <Pin className={cn('h-5 w-5', isPinned && 'fill-amber-500 text-amber-500')} />
-          <span>{isPinned ? 'Rögzítés feloldása' : 'Rögzítés'}</span>
-        </button>
-        <button
-          onClick={handleToggleRead}
-          className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary transition-colors touch-manipulation"
-        >
-          {email.isRead ? (
-            <>
-              <MailOpen className="h-5 w-5" />
-              <span>Olvasatlannak jelölés</span>
-            </>
-          ) : (
-            <>
-              <Mail className="h-5 w-5" />
-              <span>Olvasottnak jelölés</span>
-            </>
-          )}
-        </button>
-        <div className="border-t border-gray-100 dark:border-dark-border my-1" />
-        <button
-          onClick={handleDelete}
-          className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors touch-manipulation"
-        >
-          <Trash2 className="h-5 w-5" />
-          <span>Törlés</span>
-        </button>
+          <button
+            onClick={() => { onToggleRead?.(email.id, !email.isRead); setContextMenu(null); }}
+            className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary flex items-center gap-3"
+          >
+            {email.isRead ? <MailOpen className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
+            {email.isRead ? 'Megjelölés olvasatlanként' : 'Megjelölés olvasottként'}
+          </button>
+          <button
+            onClick={(e) => { onToggleStar(e); setContextMenu(null); }}
+            className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary flex items-center gap-3"
+          >
+            <Star className={cn('h-4 w-4', email.isStarred && 'fill-yellow-400 text-yellow-400')} />
+            {email.isStarred ? 'Csillag eltávolítása' : 'Csillag hozzáadása'}
+          </button>
+          <button
+            onClick={() => { onTogglePin?.(email.id); setContextMenu(null); }}
+            className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary flex items-center gap-3"
+          >
+            <Pin className={cn('h-4 w-4', isPinned && 'fill-amber-500 text-amber-500')} />
+            {isPinned ? 'Kitűzés feloldása' : 'Kitűzés'}
+          </button>
+          <div className="my-1 border-t border-gray-100 dark:border-dark-border" />
+          <button
+            onClick={() => { onDelete?.(email.id); setContextMenu(null); }}
+            className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-3"
+          >
+            <Trash2 className="h-4 w-4" />
+            Törlés
+          </button>
+        </div>
       </div>
     )}
     </>

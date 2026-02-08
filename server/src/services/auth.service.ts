@@ -196,9 +196,18 @@ export function getOAuth2ClientForAccount(accountId: string) {
   }
 
   const oauth2Client = createOAuth2Client();
+  let decryptedAccessToken: string;
+  let decryptedRefreshToken: string;
+  try {
+    decryptedAccessToken = decrypt(account.access_token);
+    decryptedRefreshToken = decrypt(account.refresh_token);
+  } catch (err) {
+    console.error(`Token decryption failed for account ${accountId}. The encryption key may have changed.`);
+    throw new Error('Token decryption failed. Please re-authenticate the account.');
+  }
   oauth2Client.setCredentials({
-    access_token: decrypt(account.access_token),
-    refresh_token: decrypt(account.refresh_token),
+    access_token: decryptedAccessToken,
+    refresh_token: decryptedRefreshToken,
     expiry_date: account.token_expiry,
   });
 

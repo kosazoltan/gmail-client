@@ -22,6 +22,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import type { AttachmentWithEmail } from '../../types';
+import { EmptyState } from '../common/EmptyState';
 
 const typeFilters = [
   { id: 'all', label: 'Összes', icon: Paperclip },
@@ -187,7 +188,7 @@ export function AttachmentsView() {
               }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-colors ${
                 isActive
-                  ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium'
+                  ? 'bg-blue-50 dark:bg-blue-500/10 text-[#4f6ef7] dark:text-blue-400 font-medium'
                   : 'text-gray-600 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary'
               }`}
             >
@@ -197,7 +198,7 @@ export function AttachmentsView() {
                 <span
                   className={`text-xs ${
                     isActive
-                      ? 'text-blue-500 dark:text-blue-400'
+                      ? 'text-[#4f6ef7] dark:text-blue-400'
                       : 'text-gray-400 dark:text-dark-text-muted'
                   }`}
                 >
@@ -216,10 +217,11 @@ export function AttachmentsView() {
             <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
           </div>
         ) : !data?.attachments.length ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-400 dark:text-dark-text-muted">
-            <Paperclip className="h-12 w-12 mb-3" />
-            <p>Nincs melléklet</p>
-          </div>
+          <EmptyState
+            icon={Paperclip}
+            title="Nincsenek mellékletek"
+            description="A levélmellékletek itt jelennek meg."
+          />
         ) : (
           <div className="divide-y divide-gray-100 dark:divide-dark-border">
             {data.attachments.map((attachment) => {
@@ -264,7 +266,7 @@ export function AttachmentsView() {
                     </button>
                     <button
                       onClick={() => handleDownload(attachment)}
-                      className="p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                      className="p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10 text-[#4f6ef7] dark:text-blue-400"
                       title="Letöltés"
                     >
                       <Download className="h-4 w-4" />

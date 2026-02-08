@@ -16,7 +16,7 @@ interface SwipeableEmailItemProps {
   onSnooze?: (emailId: string) => void;
   selectionMode?: boolean;
   isChecked?: boolean;
-  onToggleCheck?: (emailId: string) => void;
+  onToggleCheck?: (emailId: string, event?: React.MouseEvent) => void;
   isPinned?: boolean;
   isVip?: boolean;
 }

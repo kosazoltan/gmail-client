@@ -5,7 +5,7 @@ import helmet from 'helmet';
 import { createSessionMiddleware } from './middleware/session.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { initializeDatabase, stopAutoSave, startAutoSave } from './db/index.js';
-import { startBackgroundSync } from './services/sync.service.js';
+import { startBackgroundSync, stopAllBackgroundSyncs } from './services/sync.service.js';
 import { getAllAccounts } from './services/auth.service.js';
 import logger from './utils/logger.js';
 
@@ -33,6 +33,11 @@ import vipRoutes from './routes/vip.routes.js';
 import translateRoutes from './routes/translate.routes.js';
 
 const PORT = parseInt(process.env.PORT || '5000', 10);
+
+// Track intervals and server handle for graceful shutdown
+let snoozeInterval: NodeJS.Timeout | null = null;
+let scheduledInterval: NodeJS.Timeout | null = null;
+let httpServer: ReturnType<typeof import('http').createServer> | null = null;
 
 // Szerver indítás
 async function start() {
@@ -115,8 +120,9 @@ async function start() {
   }
 
   // Lejárt szundik feldolgozása percenként
-  // FIX: Add try-catch to prevent interval from breaking on errors
-  setInterval(async () => {
+  // Clear any previous interval to prevent accumulation
+  if (snoozeInterval) clearInterval(snoozeInterval);
+  snoozeInterval = setInterval(async () => {
     try {
       await processExpiredSnoozes();
     } catch (error) {
@@ -125,7 +131,8 @@ async function start() {
   }, 60000);
 
   // Ütemezett emailek feldolgozása percenként
-  setInterval(async () => {
+  if (scheduledInterval) clearInterval(scheduledInterval);
+  scheduledInterval = setInterval(async () => {
     try {
       await processScheduledEmails();
     } catch (error) {
@@ -151,7 +158,7 @@ async function start() {
   // Automatikus mentés indítása
   startAutoSave();
 
-  app.listen(PORT, () => {
+  httpServer = app.listen(PORT, () => {
     logger.info(`Gmail client server running on port ${PORT}`);
     logger.info(`${existingAccounts.length} accounts loaded`);
   });
@@ -159,10 +166,33 @@ async function start() {
 
 // Graceful shutdown - adatbázis mentése kilépés előtt
 function gracefulShutdown(signal: string) {
-  logger.info(`${signal} signal received. Saving database and shutting down...`);
+  logger.info(`${signal} signal received. Shutting down gracefully...`);
+
+  // Stop all background syncs
+  stopAllBackgroundSyncs();
+
+  // Clear periodic intervals
+  if (snoozeInterval) { clearInterval(snoozeInterval); snoozeInterval = null; }
+  if (scheduledInterval) { clearInterval(scheduledInterval); scheduledInterval = null; }
+
+  // Save database
   stopAutoSave();
-  logger.info('Database saved. Exiting.');
-  process.exit(0);
+  logger.info('Database saved.');
+
+  // Close HTTP server to stop accepting new connections, then exit
+  if (httpServer) {
+    httpServer.close(() => {
+      logger.info('HTTP server closed. Exiting.');
+      process.exit(0);
+    });
+    // Force exit after 10 seconds if connections don't close
+    setTimeout(() => {
+      logger.warn('Forced shutdown after timeout.');
+      process.exit(0);
+    }, 10000).unref();
+  } else {
+    process.exit(0);
+  }
 }
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

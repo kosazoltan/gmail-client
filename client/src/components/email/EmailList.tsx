@@ -14,11 +14,11 @@ interface EmailListProps {
   onDeleteEmail?: (emailId: string) => void;
   onArchiveEmail?: (emailId: string) => void;
   title?: string;
-  emptyMessage?: string;
+  emptyMessage?: React.ReactNode;
   // Selection mode props
   selectionMode?: boolean;
   selectedIds?: Set<string>;
-  onToggleSelect?: (emailId: string) => void;
+  onToggleSelect?: (emailId: string, event?: React.MouseEvent) => void;
   // Pinned emails
   pinnedEmailIds?: Set<string>;
 }
@@ -72,6 +72,9 @@ export function EmailList({
   }
 
   if (emails.length === 0) {
+    if (typeof emptyMessage !== 'string') {
+      return <>{emptyMessage}</>;
+    }
     return (
       <div className="flex flex-col items-center justify-center h-64 text-gray-400 dark:text-dark-text-muted">
         <MailX className="h-12 w-12 mb-3" />

@@ -76,7 +76,7 @@ export function BySenderView() {
                       <div className="text-xs text-gray-400 dark:text-dark-text-muted">{sender.email}</div>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <div className="text-sm font-medium text-blue-600">
+                      <div className="text-sm font-medium text-[#4f6ef7]">
                         {sender.messageCount} levél
                       </div>
                       {sender.lastMessageAt && (
