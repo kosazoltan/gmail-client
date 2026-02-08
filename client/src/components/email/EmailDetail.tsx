@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import DOMPurify from 'dompurify';
-import { useEmailDetail, useMarkRead, useDeleteEmail } from '../../hooks/useEmails';
+import { useEmailDetail, useMarkRead, useDeleteEmail, useThreadConversation } from '../../hooks/useEmails';
 import { AttachmentView } from './AttachmentView';
+import { ConversationView } from './ConversationView';
 import {
   formatFullDate,
   displaySender,
@@ -26,6 +27,7 @@ import {
   FileText,
   Languages,
   X,
+  MessageSquare,
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { SnoozeMenu } from './SnoozeMenu';
@@ -34,6 +36,7 @@ import { LabelManager } from './LabelManager';
 import { exportEmailToPdf } from '../../lib/pdfExport';
 import { toast } from '../../lib/toast';
 import { useEmailTranslation } from '../../hooks/useTranslate';
+import type { ThreadEmail } from '../../types';
 
 interface EmailDetailProps {
   emailId: string | null;
@@ -53,6 +56,7 @@ export function EmailDetail({
   onForward,
 }: EmailDetailProps) {
   const { data: email, isLoading } = useEmailDetail(emailId, accountId);
+  const { data: threadData, isLoading: isThreadLoading } = useThreadConversation(emailId, accountId);
   const markRead = useMarkRead();
   const deleteEmail = useDeleteEmail();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -60,7 +64,13 @@ export function EmailDetail({
   const [showMoreActions, setShowMoreActions] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [showLabelManager, setShowLabelManager] = useState(false);
+  const [showConversation, setShowConversation] = useState(true);
   const { translatedContent, isTranslating, translateEmail, clearTranslation } = useEmailTranslation();
+
+  // Thread adatok
+  const hasThread = threadData && threadData.emails && threadData.emails.length > 1;
+  const threadEmails = threadData?.emails || [];
+  const threadAccountEmail = threadData?.accountEmail || null;
 
   // FIX: Track download timeouts for cleanup on unmount
   const downloadTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -495,99 +505,171 @@ export function EmailDetail({
             </div>
           </div>
 
-          {/* Email body kártya */}
-          <div className="bg-white dark:bg-dark-bg-secondary rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-dark-border overflow-hidden">
-            {/* Translation banner */}
-            {translatedContent && (
-              <div className="flex items-center justify-between px-3 sm:px-5 py-2 bg-blue-50 dark:bg-blue-500/10 border-b border-blue-100 dark:border-blue-500/20">
-                <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
-                  <Languages className="h-4 w-4" />
-                  <span>Lefordítva magyarra</span>
-                  {translatedContent.detectedLang && (
-                    <span className="text-xs text-blue-500 dark:text-blue-400">
-                      (eredeti: {translatedContent.detectedLang})
-                    </span>
-                  )}
+          {/* Thread conversation nézet vagy egyedi email body */}
+          {hasThread && showConversation ? (
+            <div className="bg-gray-50/50 dark:bg-dark-bg/30 rounded-xl sm:rounded-2xl p-2 sm:p-3 border border-gray-100 dark:border-dark-border">
+              {/* Thread fejléc */}
+              <div className="flex items-center justify-between mb-2 sm:mb-3 px-1 sm:px-2">
+                <div className="flex items-center gap-2 text-xs sm:text-sm font-medium text-gray-700 dark:text-dark-text">
+                  <MessageSquare className="h-4 w-4 text-blue-500" />
+                  Beszélgetés ({threadEmails.length} üzenet)
                 </div>
                 <button
-                  onClick={clearTranslation}
-                  className="p-1 hover:bg-blue-100 dark:hover:bg-blue-500/20 rounded text-blue-600 dark:text-blue-400"
-                  title="Eredeti mutatása"
+                  onClick={() => setShowConversation(false)}
+                  className="text-[10px] sm:text-xs text-gray-500 dark:text-dark-text-secondary hover:text-gray-700 dark:hover:text-dark-text transition-colors px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary"
                 >
-                  <X className="h-4 w-4" />
+                  Csak ez az email
                 </button>
               </div>
-            )}
-            <div className="p-3 sm:p-5 md:p-6">
-              {translatedContent?.body ? (
-                <pre className="whitespace-pre-wrap text-xs sm:text-sm text-gray-700 dark:text-dark-text-secondary font-sans leading-relaxed">
-                  {translatedContent.body}
-                </pre>
-              ) : sanitizedHtml ? (
-                <div
-                  className="email-content prose prose-sm max-w-none
-                    text-gray-900 dark:text-gray-300
-                    prose-img:rounded-lg prose-img:shadow-md"
-                  dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-                />
-              ) : email.body ? (
-                <pre className="whitespace-pre-wrap text-xs sm:text-sm text-gray-700 dark:text-dark-text-secondary font-sans leading-relaxed">
-                  {email.body}
-                </pre>
+
+              {isThreadLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                  <span className="ml-2 text-sm text-gray-500 dark:text-dark-text-secondary">Beszélgetés betöltése...</span>
+                </div>
               ) : (
-                <p className="text-gray-400 dark:text-dark-text-muted italic text-center py-4 sm:py-8 text-sm">
-                  Nincs megjeleníthető tartalom
-                </p>
+                <ConversationView
+                  emails={threadEmails}
+                  accountEmail={threadAccountEmail}
+                  onReply={(threadEmail: ThreadEmail) => {
+                    onReply({
+                      to: threadEmail.from || '',
+                      subject: `Re: ${threadEmail.subject || ''}`,
+                      threadId: threadEmail.threadId || undefined,
+                      body: threadEmail.body || threadEmail.snippet || '',
+                      fromName: threadEmail.fromName || threadEmail.from || '',
+                      date: threadEmail.date,
+                    });
+                  }}
+                  onReplyAll={onReplyAll ? (threadEmail: ThreadEmail) => {
+                    const allRecipients = [threadEmail.to, threadEmail.cc].filter(Boolean).join(', ');
+                    onReplyAll!({
+                      to: threadEmail.from || '',
+                      cc: allRecipients || undefined,
+                      subject: `Re: ${threadEmail.subject || ''}`,
+                      threadId: threadEmail.threadId || undefined,
+                      body: threadEmail.body || threadEmail.snippet || '',
+                      fromName: threadEmail.fromName || threadEmail.from || '',
+                      date: threadEmail.date,
+                    });
+                  } : undefined}
+                  onForward={onForward ? (threadEmail: ThreadEmail) => {
+                    onForward!({
+                      subject: `Fwd: ${threadEmail.subject || ''}`,
+                      body: `\n\n---------- Továbbított üzenet ----------\nKüldő: ${threadEmail.fromName || ''} <${threadEmail.from || ''}>\nDátum: ${formatFullDate(threadEmail.date)}\nTárgy: ${threadEmail.subject || ''}\nCímzett: ${threadEmail.to || ''}\n\n${threadEmail.body || ''}`,
+                    });
+                  } : undefined}
+                />
               )}
             </div>
+          ) : (
+            <>
+              {/* Single email view toggle - ha van thread, de az egyedi nézet van kiválasztva */}
+              {hasThread && !showConversation && (
+                <button
+                  onClick={() => setShowConversation(true)}
+                  className="flex items-center gap-2 w-full px-4 py-2.5 mb-2 sm:mb-3 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-medium rounded-xl border border-blue-200 dark:border-blue-500/30 hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  Teljes beszélgetés mutatása ({threadEmails.length} üzenet)
+                </button>
+              )}
 
-            {/* Mellékletek */}
-            {email.attachments && email.attachments.length > 0 && (
-              <div className="border-t border-gray-100 dark:border-dark-border bg-gray-50 dark:bg-dark-bg-tertiary/50 p-2.5 sm:p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-500/20">
-                      <Paperclip className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              {/* Email body kártya */}
+              <div className="bg-white dark:bg-dark-bg-secondary rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 dark:border-dark-border overflow-hidden">
+                {/* Translation banner */}
+                {translatedContent && (
+                  <div className="flex items-center justify-between px-3 sm:px-5 py-2 bg-blue-50 dark:bg-blue-500/10 border-b border-blue-100 dark:border-blue-500/20">
+                    <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
+                      <Languages className="h-4 w-4" />
+                      <span>Lefordítva magyarra</span>
+                      {translatedContent.detectedLang && (
+                        <span className="text-xs text-blue-500 dark:text-blue-400">
+                          (eredeti: {translatedContent.detectedLang})
+                        </span>
+                      )}
                     </div>
-                    <span className="text-sm font-medium text-gray-700 dark:text-dark-text">
-                      {email.attachments.length} melléklet
-                    </span>
-                  </div>
-                  {email.attachments.length > 1 && (
                     <button
-                      onClick={() => {
-                        // Clear any existing timeouts first
-                        downloadTimeoutsRef.current.forEach(clearTimeout);
-                        downloadTimeoutsRef.current = [];
-                        // Download all attachments one by one
-                        email.attachments?.forEach((att, index) => {
-                          const timeoutId = setTimeout(() => {
-                            const url = api.attachments.downloadUrl(att.id);
-                            const link = document.createElement('a');
-                            link.href = url;
-                            link.download = att.filename;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                          }, index * 500); // Stagger downloads to avoid browser blocking
-                          downloadTimeoutsRef.current.push(timeoutId);
-                        });
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/20 rounded-lg transition-colors"
+                      onClick={clearTranslation}
+                      className="p-1 hover:bg-blue-100 dark:hover:bg-blue-500/20 rounded text-blue-600 dark:text-blue-400"
+                      title="Eredeti mutatása"
                     >
-                      <Download className="h-3.5 w-3.5" />
-                      Összes letöltése
+                      <X className="h-4 w-4" />
                     </button>
+                  </div>
+                )}
+                <div className="p-3 sm:p-5 md:p-6">
+                  {translatedContent?.body ? (
+                    <pre className="whitespace-pre-wrap text-xs sm:text-sm text-gray-700 dark:text-dark-text-secondary font-sans leading-relaxed">
+                      {translatedContent.body}
+                    </pre>
+                  ) : sanitizedHtml ? (
+                    <div
+                      className="email-content prose prose-sm max-w-none
+                        text-gray-900 dark:text-gray-300
+                        prose-img:rounded-lg prose-img:shadow-md"
+                      dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+                    />
+                  ) : email.body ? (
+                    <pre className="whitespace-pre-wrap text-xs sm:text-sm text-gray-700 dark:text-dark-text-secondary font-sans leading-relaxed">
+                      {email.body}
+                    </pre>
+                  ) : (
+                    <p className="text-gray-400 dark:text-dark-text-muted italic text-center py-4 sm:py-8 text-sm">
+                      Nincs megjeleníthető tartalom
+                    </p>
                   )}
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {email.attachments.map((att) => (
-                    <AttachmentView key={att.id} attachment={att} />
-                  ))}
-                </div>
+
+                {/* Mellékletek */}
+                {email.attachments && email.attachments.length > 0 && (
+                  <div className="border-t border-gray-100 dark:border-dark-border bg-gray-50 dark:bg-dark-bg-tertiary/50 p-2.5 sm:p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-500/20">
+                          <Paperclip className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <span className="text-sm font-medium text-gray-700 dark:text-dark-text">
+                          {email.attachments.length} melléklet
+                        </span>
+                      </div>
+                      {email.attachments.length > 1 && (
+                        <button
+                          onClick={() => {
+                            // Clear any existing timeouts first
+                            downloadTimeoutsRef.current.forEach(clearTimeout);
+                            downloadTimeoutsRef.current = [];
+                            // Download all attachments one by one
+                            email.attachments?.forEach((att, index) => {
+                              const timeoutId = setTimeout(() => {
+                                const url = api.attachments.downloadUrl(att.id);
+                                const link = document.createElement('a');
+                                link.href = url;
+                                link.download = att.filename;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                              }, index * 500); // Stagger downloads to avoid browser blocking
+                              downloadTimeoutsRef.current.push(timeoutId);
+                            });
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-100 dark:hover:bg-blue-500/20 rounded-lg transition-colors"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          Összes letöltése
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {email.attachments.map((att) => (
+                        <AttachmentView key={att.id} attachment={att} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </>
+          )}
 
         </div>
       </div>

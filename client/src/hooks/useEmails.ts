@@ -41,6 +41,14 @@ export function useEmailDetail(emailId: string | null, accountId?: string) {
   });
 }
 
+export function useThreadConversation(emailId: string | null, accountId?: string) {
+  return useQuery({
+    queryKey: ['thread', emailId],
+    queryFn: () => api.emails.getThread(emailId!, accountId),
+    enabled: !!emailId,
+  });
+}
+
 export interface EmailAttachment {
   filename: string;
   mimeType: string;
@@ -65,6 +73,7 @@ export function useSendEmail() {
       queryClient.invalidateQueries({ queryKey: ['inbox-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['unified-inbox'] });
       queryClient.invalidateQueries({ queryKey: ['unified-inbox-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['thread'] });
     },
   });
 }
@@ -86,6 +95,7 @@ export function useReplyEmail() {
       queryClient.invalidateQueries({ queryKey: ['emails'] });
       queryClient.invalidateQueries({ queryKey: ['emails-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['email'] }); // Email detail for thread
+      queryClient.invalidateQueries({ queryKey: ['thread'] }); // Thread conversation view
       queryClient.invalidateQueries({ queryKey: ['inbox'] });
       queryClient.invalidateQueries({ queryKey: ['inbox-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['unified-inbox'] });

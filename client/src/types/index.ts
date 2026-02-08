@@ -259,3 +259,15 @@ export interface VipSender {
   name: string | null;
   createdAt: number;
 }
+
+// Thread conversation - teljes beszélgetés egy thread-ben
+export interface ThreadEmail extends Email {
+  isSent?: boolean;
+  isDraft?: boolean;
+}
+
+export interface ThreadConversation {
+  threadId: string | null;
+  accountEmail: string | null;
+  emails: ThreadEmail[];
+}

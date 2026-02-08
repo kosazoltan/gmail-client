@@ -117,6 +117,117 @@ router.get('/', (req, res) => {
   });
 });
 
+// Thread conversation - összes email egy thread-ből (sent + received), body-val együtt
+router.get('/:id/thread', async (req, res) => {
+  try {
+    const emailId = req.params.id;
+    const accountId = validateAccountAccess(req);
+
+    if (!accountId) {
+      res.status(403).json({ error: 'Nincs jogosultság' });
+      return;
+    }
+
+    // Először keressük meg az email thread_id-ját
+    const email = queryOne<EmailRecord>(
+      'SELECT * FROM emails WHERE id = ? AND account_id = ?',
+      [emailId, accountId],
+    );
+
+    if (!email) {
+      res.status(404).json({ error: 'Email nem található' });
+      return;
+    }
+
+    // Ha nincs threadId, csak ezt az egy emailt adjuk vissza
+    if (!email.thread_id) {
+      const emailAttachments = getEmailAttachments(emailId);
+      const accountInfo = queryOne<{ email: string }>(
+        'SELECT email FROM accounts WHERE id = ?',
+        [accountId],
+      );
+      res.json({
+        threadId: null,
+        accountEmail: accountInfo?.email || null,
+        emails: [{
+          ...formatEmail(email),
+          body: email.body,
+          bodyHtml: email.body_html,
+          attachments: emailAttachments,
+        }],
+      });
+      return;
+    }
+
+    // Lekérjük az összes emailt ebből a thread-ből (időrendben)
+    const threadEmails = queryAll<EmailRecord>(
+      `SELECT * FROM emails
+       WHERE account_id = ? AND thread_id = ?
+       ORDER BY date ASC`,
+      [accountId, email.thread_id],
+    );
+
+    // Lekérjük az account email-jét, hogy tudjuk melyik a "saját" küldés
+    const accountInfo = queryOne<{ email: string }>(
+      'SELECT email FROM accounts WHERE id = ?',
+      [accountId],
+    );
+
+    // Ha hiányoznak body-k, megpróbáljuk letölteni a Gmail-ből
+    let oauth2Client: ReturnType<typeof getOAuth2ClientForAccount>['oauth2Client'] | null = null;
+    let gmail: ReturnType<typeof getGmailClient> | null = null;
+
+    const formattedEmails = [];
+    for (const threadEmail of threadEmails) {
+      let emailBody = threadEmail.body;
+      let emailBodyHtml = threadEmail.body_html;
+
+      // Body letöltése ha hiányzik
+      if (!emailBody && !emailBodyHtml) {
+        try {
+          if (!oauth2Client) {
+            const auth = getOAuth2ClientForAccount(accountId);
+            oauth2Client = auth.oauth2Client;
+            gmail = getGmailClient(oauth2Client);
+          }
+          const fullMsg = await getMessage(gmail!, threadEmail.id);
+          emailBody = fullMsg.body;
+          emailBodyHtml = fullMsg.bodyHtml;
+
+          execute(
+            'UPDATE emails SET body = ?, body_html = ? WHERE id = ?',
+            [fullMsg.body, fullMsg.bodyHtml, threadEmail.id],
+          );
+        } catch (err) {
+          logger.warn('Thread email body letöltés hiba', { emailId: threadEmail.id, error: err });
+          // Ne akadjon el a teljes thread
+        }
+      }
+
+      const emailAttachments = getEmailAttachments(threadEmail.id);
+      const labels = parseLabelsJson(threadEmail.labels, { emailId: threadEmail.id });
+
+      formattedEmails.push({
+        ...formatEmail(threadEmail),
+        body: emailBody,
+        bodyHtml: emailBodyHtml,
+        attachments: emailAttachments,
+        isSent: labels.includes('SENT'),
+        isDraft: labels.includes('DRAFT'),
+      });
+    }
+
+    res.json({
+      threadId: email.thread_id,
+      accountEmail: accountInfo?.email || null,
+      emails: formattedEmails,
+    });
+  } catch (err) {
+    logger.error('Thread conversation lekérés hiba:', err);
+    res.status(500).json({ error: 'Szerver hiba a thread lekérésekor' });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const emailId = req.params.id;

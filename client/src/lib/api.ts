@@ -87,6 +87,10 @@ export const api = {
       const query = accountId ? `?accountId=${accountId}` : '';
       return request<import('../types').Email>(`/emails/${id}${query}`);
     },
+    getThread: (emailId: string, accountId?: string) => {
+      const query = accountId ? `?accountId=${accountId}` : '';
+      return request<import('../types').ThreadConversation>(`/emails/${emailId}/thread${query}`);
+    },
     send: (data: {
       to: string;
       subject: string;
