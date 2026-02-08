@@ -62,10 +62,11 @@ export function useSwitchAccount() {
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
       queryClient.invalidateQueries({ queryKey: ['labels'] });
       queryClient.invalidateQueries({ queryKey: ['views'] });
-      queryClient.invalidateQueries({ queryKey: ['snoozed'] });
+      queryClient.invalidateQueries({ queryKey: ['snoozedEmails'] });
       queryClient.invalidateQueries({ queryKey: ['reminders'] });
-      queryClient.invalidateQueries({ queryKey: ['scheduled'] });
-      queryClient.invalidateQueries({ queryKey: ['vip'] });
+      queryClient.invalidateQueries({ queryKey: ['scheduledEmails'] });
+      queryClient.invalidateQueries({ queryKey: ['vipSenders'] });
+      queryClient.invalidateQueries({ queryKey: ['vipEmails'] });
     },
   });
 }

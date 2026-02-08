@@ -189,18 +189,19 @@ export function listAttachments(filter: AttachmentFilter): AttachmentListResult 
     searchParams.push(`%${search}%`, `%${search}%`);
   }
 
-  // Rendezés
+  // Rendezés - validate order to prevent SQL injection
+  const safeOrder = order === 'asc' ? 'ASC' : 'DESC';
   let orderBy: string;
   switch (sort) {
     case 'size':
-      orderBy = `a.size ${order}`;
+      orderBy = `a.size ${safeOrder}`;
       break;
     case 'name':
-      orderBy = `a.filename ${order}`;
+      orderBy = `a.filename ${safeOrder}`;
       break;
     case 'date':
     default:
-      orderBy = `e.date ${order}`;
+      orderBy = `e.date ${safeOrder}`;
       break;
   }
 

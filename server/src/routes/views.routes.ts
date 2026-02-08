@@ -109,10 +109,16 @@ router.get('/by-topic/:id', (req, res) => {
     if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
 
     const topicId = req.params.id;
-    const results = queryAll<EmailRecord>('SELECT * FROM emails WHERE account_id = ? AND topic_id = ? ORDER BY date DESC', [accountId, topicId]);
-    // FIX: Add account_id filter to prevent unauthorized access to other accounts' topics
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), 200);
+    const offset = (page - 1) * limit;
+
+    const countResult = queryOne<{ count: number }>('SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND topic_id = ?', [accountId, topicId]);
+    const total = countResult?.count || 0;
+
+    const results = queryAll<EmailRecord>('SELECT * FROM emails WHERE account_id = ? AND topic_id = ? ORDER BY date DESC LIMIT ? OFFSET ?', [accountId, topicId, limit, offset]);
     const topic = queryOne('SELECT * FROM topics WHERE id = ? AND account_id = ?', [topicId, accountId]);
-    res.json({ emails: results.map(formatEmail), topic });
+    res.json({ emails: results.map(formatEmail), topic, total, page, totalPages: Math.ceil(total / limit) });
   } catch (error) {
     console.error('By-topic ID view error:', error);
     res.status(500).json({ error: 'Adatbázis hiba történt' });

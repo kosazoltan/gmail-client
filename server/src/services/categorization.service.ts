@@ -33,13 +33,13 @@ export function categorizeEmail(
 
     switch (rule.type) {
       case 'sender_domain':
-        if (fromDomain.includes(value)) {
+        if (fromDomain === value || fromDomain.endsWith('.' + value)) {
           return rule.category_id;
         }
         break;
 
       case 'sender_email':
-        if (fromEmail.includes(value)) {
+        if (fromEmail === value || fromEmail.startsWith(value)) {
           return rule.category_id;
         }
         break;

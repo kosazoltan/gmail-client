@@ -23,7 +23,7 @@ function sanitizeFtsQuery(query: string): string {
   // Eltávolítjuk: " * - ( ) { } [ ] ^ ~ : az FTS operátorok ellen
   // Valamint az SQL injection ellen is védekezünk
   return query
-    .replace(/[^\w\sáéíóöőúüű@.]/gi, ' ')  // Csak alfanumerikus, magyar ékezetek, @, . marad
+    .replace(/[^\w\sáéíóöőúüű@.\-]/gi, ' ')  // Csak alfanumerikus, magyar ékezetek, @, ., - marad
     .replace(/\b(AND|OR|NOT|NEAR)\b/gi, ' ')  // FTS5 operátorok eltávolítása
     .replace(/\s+/g, ' ')  // Többszörös szóközök egy szóközre
     .trim()

@@ -77,6 +77,11 @@ router.post('/', async (req, res) => {
     // Last resort fallback - try Google Translate
     try {
       const { text, targetLang = 'hu', sourceLang = 'auto' } = req.body;
+      // Validate language codes in fallback path too
+      if (!VALID_LANGS.has(targetLang) || !VALID_LANGS.has(sourceLang) || !text || typeof text !== 'string') {
+        res.status(500).json({ error: 'Translation service unavailable' });
+        return;
+      }
       const googleResult = await translateWithGoogle(text, targetLang, sourceLang);
       if (googleResult) {
         res.json({
@@ -104,10 +109,12 @@ router.post('/detect', async (req, res) => {
       return;
     }
 
-    const apiUrl = process.env.LIBRETRANSLATE_URL || 'https://libretranslate.com/detect';
+    const baseUrl = process.env.LIBRETRANSLATE_URL || 'https://libretranslate.com/translate';
+    // Safely replace only the last path segment to build detect URL
+    const detectUrl = baseUrl.replace(/\/translate\/?$/, '/detect');
     const apiKey = process.env.LIBRETRANSLATE_API_KEY || '';
 
-    const response = await fetch(apiUrl.replace('/translate', '/detect'), {
+    const response = await fetch(detectUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

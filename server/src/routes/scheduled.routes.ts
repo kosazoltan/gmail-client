@@ -147,6 +147,20 @@ router.put('/:id', (req, res) => {
     const { id } = req.params;
     const { to, cc, subject, body, scheduledAt } = req.body;
 
+    // Validate email addresses if provided
+    if (to) {
+      const invalidEmails = validateEmailAddresses(to);
+      if (invalidEmails.length > 0) {
+        return res.status(400).json({ error: `Érvénytelen email cím(ek): ${invalidEmails.join(', ')}` });
+      }
+    }
+    if (cc) {
+      const invalidCc = validateEmailAddresses(cc);
+      if (invalidCc.length > 0) {
+        return res.status(400).json({ error: `Érvénytelen CC email cím(ek): ${invalidCc.join(', ')}` });
+      }
+    }
+
     const existing = queryOne<ScheduledEmailRow>(
       'SELECT * FROM scheduled_emails WHERE id = ? AND account_id = ? AND status = ?',
       [id, accountId, 'pending'],
@@ -246,8 +260,8 @@ router.post('/:id/send-now', async (req, res) => {
 
     // Mark as processing first to prevent race conditions
     execute(
-      "UPDATE scheduled_emails SET status = 'processing' WHERE id = ?",
-      [id],
+      "UPDATE scheduled_emails SET status = 'processing' WHERE id = ? AND account_id = ?",
+      [id, accountId],
     );
 
     const gmail = getGmailClient(oauth2Client);
@@ -261,8 +275,8 @@ router.post('/:id/send-now', async (req, res) => {
 
     // Mark as sent only after successful send
     execute(
-      "UPDATE scheduled_emails SET status = 'sent' WHERE id = ?",
-      [id],
+      "UPDATE scheduled_emails SET status = 'sent' WHERE id = ? AND account_id = ?",
+      [id, accountId],
     );
 
     res.json({ success: true });

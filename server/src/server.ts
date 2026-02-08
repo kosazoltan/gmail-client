@@ -140,13 +140,9 @@ async function start() {
     logger.error('Initial snooze processing failed:', err);
   }
 
-  (async () => {
-    try {
-      await processScheduledEmails();
-    } catch (err) {
-      logger.error('Initial scheduled processing failed:', err);
-    }
-  })();
+  processScheduledEmails().catch((err: unknown) => {
+    logger.error('Initial scheduled processing failed:', err);
+  });
 
   // Automatikus mentés indítása
   startAutoSave();
