@@ -87,6 +87,9 @@ router.put('/:key', (req, res) => {
     return res.status(400).json({ error: `Érvénytelen beállítás kulcs: ${key}` });
   }
 
+  if (value === undefined || value === null) {
+    return res.status(400).json({ error: 'Érték megadása kötelező' });
+  }
   const valueStr = typeof value === 'string' ? value : JSON.stringify(value);
 
   const existing = queryOne<{ id: string }>(

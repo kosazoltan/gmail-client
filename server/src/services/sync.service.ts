@@ -359,8 +359,8 @@ function findOrCreateTopic(
 
   if (existing) {
     execute(
-      'UPDATE topics SET message_count = ? WHERE id = ?',
-      [existing.message_count + 1, existing.id],
+      'UPDATE topics SET message_count = message_count + 1 WHERE id = ?',
+      [existing.id],
     );
     return existing.id;
   }
@@ -401,8 +401,8 @@ function updateSenderGroup(
 
   if (existing) {
     execute(
-      'UPDATE sender_groups SET message_count = ?, last_message_at = ?, name = ? WHERE id = ?',
-      [existing.message_count + 1, Math.max(existing.last_message_at || 0, date), name || existing.name, existing.id],
+      'UPDATE sender_groups SET message_count = message_count + 1, last_message_at = MAX(COALESCE(last_message_at, 0), ?), name = COALESCE(?, name) WHERE id = ?',
+      [date, name || null, existing.id],
     );
   } else {
     execute(

@@ -176,12 +176,13 @@ export function listEmailsForManager(
   const whereClause = conditions.join(' AND ');
 
   // Sortolás
-  const sortColumn = {
+  const sortColumnMap: Record<string, string> = {
     date: 'date',
     from: 'from_email',
     subject: 'subject',
     size: 'LENGTH(COALESCE(body, \'\')) + LENGTH(COALESCE(body_html, \'\'))',
-  }[sortBy];
+  };
+  const sortColumn = sortColumnMap[sortBy] || 'date';
 
   const orderDirection = sortOrder === 'asc' ? 'ASC' : 'DESC';
 

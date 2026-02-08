@@ -73,7 +73,7 @@ export function isNewsletterEmail(
   const domain = emailLower.split('@')[1] || '';
 
   // Ismert hírlevél domain
-  if (NEWSLETTER_PATTERNS.knownDomains.some((d) => domain.includes(d))) {
+  if (NEWSLETTER_PATTERNS.knownDomains.some((d) => domain === d || domain.endsWith('.' + d))) {
     return true;
   }
 

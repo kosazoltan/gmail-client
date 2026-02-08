@@ -2,6 +2,7 @@ import { google } from 'googleapis';
 import crypto from 'crypto';
 import { queryOne, queryAll, execute } from '../db/index.js';
 import { v4 as uuidv4 } from 'uuid';
+import { stopBackgroundSync } from './sync.service.js';
 
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
@@ -259,5 +260,7 @@ export function updateAccountColor(accountId: string, color: string) {
 }
 
 export function deleteAccount(accountId: string) {
+  // Stop background sync before deleting to prevent orphaned intervals
+  stopBackgroundSync(accountId);
   execute('DELETE FROM accounts WHERE id = ?', [accountId]);
 }

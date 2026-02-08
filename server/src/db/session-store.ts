@@ -118,7 +118,7 @@ export class SqliteSessionStore extends session.Store {
           sessions[row.sid] = JSON.parse(row.sess);
         } catch {
           // Skip corrupted session data
-          logger.warn('Corrupted session data for sid:', row.sid);
+          logger.warn('Corrupted session data for sid: ' + row.sid);
         }
       }
 

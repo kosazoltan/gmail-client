@@ -111,6 +111,13 @@ export function useMarkRead() {
       api.emails.markRead(emailId, isRead),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['emails-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['email'] });
+      queryClient.invalidateQueries({ queryKey: ['inbox'] });
+      queryClient.invalidateQueries({ queryKey: ['inbox-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-inbox'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-inbox-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['thread'] });
     },
   });
 }
@@ -122,6 +129,13 @@ export function useToggleStar() {
       api.emails.toggleStar(emailId, isStarred),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['emails-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['email'] });
+      queryClient.invalidateQueries({ queryKey: ['inbox'] });
+      queryClient.invalidateQueries({ queryKey: ['inbox-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-inbox'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-inbox-infinite'] });
+      queryClient.invalidateQueries({ queryKey: ['thread'] });
     },
   });
 }
