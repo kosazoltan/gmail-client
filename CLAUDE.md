@@ -1,5 +1,9 @@
 # CLAUDE.md - Kötelező fejlesztési szabályok
 
+## Kommunikáció nyelve
+
+**KÖTELEZŐ ÉRVÉNYŰ UTASÍTÁS:** A fejlesztés során mindig magyarul kell kommunikálni. Minden válasz, magyarázat, commit üzenet és dokumentáció magyar nyelven készüljön.
+
 ## Push előtti kötelező build és teszt
 
 **KÖTELEZŐ ÉRVÉNYŰ UTASÍTÁS:** Minden `git push` előtt végezz próba buildet és futtasd a teszteket.
