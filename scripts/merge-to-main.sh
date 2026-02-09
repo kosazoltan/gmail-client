@@ -1,15 +1,14 @@
 #!/bin/bash
-# merge-to-main.sh - Automatikus merge feature branch → main és push
+# merge-to-main.sh - Automatikus merge feature branch → main és push/PR
 # Használat: bash scripts/merge-to-main.sh [feature-branch-neve]
+#            bash scripts/merge-to-main.sh --pr [feature-branch-neve]
 #
-# Ha nem adsz meg branch nevet, az aktuális branchet használja.
-# A script a teljes pipeline-t végrehajtja:
-#   1. Ellenőrzi, hogy van-e commitolatlan változás
-#   2. Megjegyzi az aktuális feature branch nevet
-#   3. Checkout main + pull latest
-#   4. Merge feature branch → main
-#   5. Push main → origin (ez triggereli a GitHub Actions deploy-t)
-#   6. Visszavált a feature branchre
+# Módok:
+#   Direkt merge (alapértelmezett):
+#     Checkout main → merge → push main → GitHub Actions deploy
+#   PR mód (--pr flag):
+#     Létrehoz egy Pull Request-et a feature branch-ből a main-be
+#     Használd ha branch protection van beállítva
 
 set -e
 
@@ -22,22 +21,42 @@ NC='\033[0m'
 ROOT_DIR="$(git rev-parse --show-toplevel)"
 cd "$ROOT_DIR"
 
-# Feature branch meghatározása
-FEATURE_BRANCH="${1:-$(git branch --show-current)}"
+# Paraméterek feldolgozása
+PR_MODE=false
+FEATURE_BRANCH=""
+
+for arg in "$@"; do
+    if [ "$arg" = "--pr" ]; then
+        PR_MODE=true
+    else
+        FEATURE_BRANCH="$arg"
+    fi
+done
+
+# Ha nincs megadva branch, az aktuálist használjuk
+FEATURE_BRANCH="${FEATURE_BRANCH:-$(git branch --show-current)}"
 
 if [ "$FEATURE_BRANCH" = "main" ] || [ "$FEATURE_BRANCH" = "master" ]; then
     echo -e "${RED}HIBA: Már a main/master branchen vagy. Válts feature branchre először.${NC}"
     exit 1
 fi
 
-echo "============================================"
-echo -e "${YELLOW}  MERGE TO MAIN PIPELINE${NC}"
-echo "  Feature branch: $FEATURE_BRANCH"
-echo "============================================"
+if [ "$PR_MODE" = true ]; then
+    echo "============================================"
+    echo -e "${YELLOW}  PR LÉTREHOZÁS → MAIN${NC}"
+    echo "  Feature branch: $FEATURE_BRANCH"
+    echo "============================================"
+else
+    echo "============================================"
+    echo -e "${YELLOW}  DIREKT MERGE → MAIN${NC}"
+    echo "  Feature branch: $FEATURE_BRANCH"
+    echo "  (Használd --pr flaget ha branch protection van)"
+    echo "============================================"
+fi
 
 # 1. Ellenőrzés: nincs-e commitolatlan változás
 echo ""
-echo "[1/5] Commitolatlan változások ellenőrzése..."
+echo "[1/3] Commitolatlan változások ellenőrzése..."
 if [ -n "$(git status --porcelain)" ]; then
     echo -e "${RED}HIBA: Commitolatlan változások vannak! Commitold először.${NC}"
     git status --short
@@ -47,7 +66,7 @@ echo -e "  ${GREEN}✓ Tiszta working directory${NC}"
 
 # 2. Ellenőrzés: feature branch pusholva van-e
 echo ""
-echo "[2/5] Feature branch push állapot ellenőrzése..."
+echo "[2/3] Feature branch push állapot ellenőrzése..."
 LOCAL_HASH=$(git rev-parse "$FEATURE_BRANCH")
 REMOTE_HASH=$(git rev-parse "origin/$FEATURE_BRANCH" 2>/dev/null || echo "none")
 if [ "$LOCAL_HASH" != "$REMOTE_HASH" ]; then
@@ -57,14 +76,75 @@ if [ "$LOCAL_HASH" != "$REMOTE_HASH" ]; then
 fi
 echo -e "  ${GREEN}✓ Feature branch naprakész a remote-tal${NC}"
 
-# 3. Checkout main és pull
+# ==========================================
+# PR MÓD: Pull Request létrehozása
+# ==========================================
+if [ "$PR_MODE" = true ]; then
+    echo ""
+    echo "[3/3] Pull Request létrehozása..."
+
+    # gh CLI ellenőrzése
+    if ! command -v gh &> /dev/null; then
+        echo -e "${RED}HIBA: gh CLI nincs telepítve!${NC}"
+        echo "  Telepítés: https://cli.github.com/"
+        exit 1
+    fi
+
+    # gh auth ellenőrzése
+    if ! gh auth status &> /dev/null 2>&1; then
+        echo -e "${RED}HIBA: gh CLI nincs bejelentkezve!${NC}"
+        echo "  Futtasd: gh auth login"
+        exit 1
+    fi
+
+    # PR létrehozása
+    PR_URL=$(gh pr create \
+        --base main \
+        --head "$FEATURE_BRANCH" \
+        --title "Merge: $FEATURE_BRANCH → main" \
+        --body "Automatikus merge request a \`$FEATURE_BRANCH\` branch-ből.
+
+## Tartalom
+A feature branch összes változtatása.
+
+## Ellenőrzések
+- Pre-push hook: build + teszt + formázás ✓
+- Deploy: a merge után GitHub Actions automatikusan deployol" 2>&1)
+
+    if [ $? -eq 0 ]; then
+        echo -e "  ${GREEN}✓ PR létrehozva:${NC}"
+        echo "    $PR_URL"
+        echo ""
+        echo "============================================"
+        echo -e "${GREEN}  PR LÉTREHOZVA!${NC}"
+        echo "============================================"
+        echo ""
+        echo "  Következő lépések:"
+        echo "    1. Nézd át a PR-t a GitHub-on"
+        echo "    2. Merge-öld a PR-t (Merge pull request gomb)"
+        echo "    3. GitHub Actions automatikusan deployol"
+        echo ""
+        echo "  Vagy CLI-ből:"
+        echo "    gh pr merge --merge"
+        echo "============================================"
+    else
+        echo -e "${RED}HIBA: PR létrehozása sikertelen:${NC}"
+        echo "  $PR_URL"
+        exit 1
+    fi
+
+    exit 0
+fi
+
+# ==========================================
+# DIREKT MÓD: Lokális merge + push
+# ==========================================
 echo ""
 echo "[3/5] Main branch frissítése..."
 git checkout main
 git pull origin main
 echo -e "  ${GREEN}✓ Main branch naprakész${NC}"
 
-# 4. Merge
 echo ""
 echo "[4/5] Feature branch mergelése a main-be..."
 if git merge "$FEATURE_BRANCH" --no-edit; then
@@ -79,7 +159,6 @@ else
     exit 1
 fi
 
-# 5. Push main (pre-push hook automatikusan fut: build + teszt + formázás)
 echo ""
 echo "[5/5] Push main → origin (pre-push hook ellenőriz)..."
 MAX_RETRIES=4
@@ -96,7 +175,10 @@ for i in $(seq 1 $MAX_RETRIES); do
             RETRY_DELAY=$((RETRY_DELAY * 2))
         else
             echo -e "${RED}HIBA: Push sikertelen $MAX_RETRIES próbálkozás után.${NC}"
-            echo "Próbáld manuálisan: git push origin main"
+            echo ""
+            echo -e "${YELLOW}  Lehetséges ok: branch protection van a main-en.${NC}"
+            echo "  Próbáld PR módban:"
+            echo "    bash scripts/merge-to-main.sh --pr $FEATURE_BRANCH"
             # Visszaváltás feature branchre
             git checkout "$FEATURE_BRANCH"
             exit 1
