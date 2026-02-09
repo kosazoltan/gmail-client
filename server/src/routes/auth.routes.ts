@@ -2,6 +2,7 @@ import { Router } from 'express';
 import crypto from 'crypto';
 import { getAuthUrl, handleAuthCallback, getAllAccounts } from '../services/auth.service.js';
 import { startBackgroundSync } from '../services/sync.service.js';
+import { deleteSubscriptionsByAccount } from '../services/push.service.js';
 
 const router = Router();
 const frontendUrl = process.env.FRONTEND_URL || 'https://mail.mindenes.org';
@@ -85,6 +86,8 @@ router.post('/logout', (req, res) => {
     if (req.session.activeAccountId === accountId) {
       req.session.activeAccountId = req.session.accountIds[0] || null;
     }
+    // Push subscription-ök törlése a kijelentkezett fiókhoz
+    deleteSubscriptionsByAccount(accountId);
   }
 
   // Session explicit mentése

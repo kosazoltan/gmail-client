@@ -41,7 +41,11 @@ export class SqliteSessionStore extends session.Store {
 
       // Ellenőrizzük, hogy lejárt-e
       if (row.expire < Date.now()) {
-        this.destroy(sid, () => {});
+        this.destroy(sid, (err) => {
+          if (err) {
+            logger.warn('Failed to destroy expired session', { sid, error: err });
+          }
+        });
         return callback(null, null);
       }
 
@@ -95,11 +99,11 @@ export class SqliteSessionStore extends session.Store {
 
   length(callback: (err: Error | null, length?: number) => void) {
     try {
-      const rows = queryAll<{ count: number }>(
+      const result = queryOne<{ count: number }>(
         'SELECT COUNT(*) as count FROM sessions WHERE expire >= ?',
         [Date.now()],
       );
-      callback(null, rows[0]?.count || 0);
+      callback(null, result?.count || 0);
     } catch (err) {
       callback(err as Error);
     }

@@ -134,7 +134,7 @@ router.get('/by-topic/:id', (req, res) => {
 
     const topicId = req.params.id;
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
-    const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), 200);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), MAX_LIMIT);
     const offset = (page - 1) * limit;
 
     const countResult = queryOne<{ count: number }>(

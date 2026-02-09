@@ -30,7 +30,7 @@ interface PushSubscription {
   created_at: number;
 }
 
-// Subscription mentése
+// Subscription mentése - atomi UPSERT a race condition elkerülésére
 export function saveSubscription(
   accountId: string,
   subscription: {
@@ -40,35 +40,22 @@ export function saveSubscription(
 ): void {
   const id = crypto.randomUUID();
 
-  // Ellenőrizzük, hogy már létezik-e ez az endpoint
-  const existing = queryOne<{ id: string }>(
-    'SELECT id FROM push_subscriptions WHERE endpoint = ? AND account_id = ?',
-    [subscription.endpoint, accountId],
-  );
-
-  if (existing) {
-    // Frissítjük a meglévőt
-    execute('UPDATE push_subscriptions SET p256dh = ?, auth = ?, created_at = ? WHERE id = ?', [
+  execute(
+    `INSERT INTO push_subscriptions (id, account_id, endpoint, p256dh, auth, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(endpoint, account_id) DO UPDATE SET
+       p256dh = excluded.p256dh,
+       auth = excluded.auth,
+       created_at = excluded.created_at`,
+    [
+      id,
+      accountId,
+      subscription.endpoint,
       subscription.keys.p256dh,
       subscription.keys.auth,
       Date.now(),
-      existing.id,
-    ]);
-  } else {
-    // Új subscription
-    execute(
-      `INSERT INTO push_subscriptions (id, account_id, endpoint, p256dh, auth, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        accountId,
-        subscription.endpoint,
-        subscription.keys.p256dh,
-        subscription.keys.auth,
-        Date.now(),
-      ],
-    );
-  }
+    ],
+  );
 }
 
 // Subscription törlése (opcionális accountId-val a biztonság érdekében)
