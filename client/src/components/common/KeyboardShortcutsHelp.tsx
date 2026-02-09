@@ -50,47 +50,44 @@ export function KeyboardShortcutsHelp({ isOpen, onClose }: KeyboardShortcutsHelp
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-dark-bg-secondary rounded-xl shadow-xl max-w-lg w-full mx-4 overflow-hidden"
+        className="dark:bg-dark-bg-secondary mx-4 w-full max-w-lg overflow-hidden rounded-xl bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Fejléc */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-dark-border">
+        <div className="dark:border-dark-border flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <div className="flex items-center gap-3">
             <Keyboard className="h-5 w-5 text-blue-500" />
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-dark-text">
+            <h2 className="dark:text-dark-text text-lg font-semibold text-gray-900">
               Billentyűparancsok
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500 dark:text-dark-text-secondary"
+            className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary rounded-lg p-1.5 text-gray-500 hover:bg-gray-100"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Tartalom */}
-        <div className="px-6 py-4 max-h-[60vh] overflow-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div className="max-h-[60vh] overflow-auto px-6 py-4">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
             {shortcuts.map((section) => (
               <div key={section.category}>
-                <h3 className="text-sm font-medium text-gray-500 dark:text-dark-text-muted mb-3">
+                <h3 className="dark:text-dark-text-muted mb-3 text-sm font-medium text-gray-500">
                   {section.category}
                 </h3>
                 <div className="space-y-2">
                   {section.items.map((shortcut) => (
-                    <div
-                      key={shortcut.key}
-                      className="flex items-center justify-between"
-                    >
-                      <span className="text-sm text-gray-700 dark:text-dark-text">
+                    <div key={shortcut.key} className="flex items-center justify-between">
+                      <span className="dark:text-dark-text text-sm text-gray-700">
                         {shortcut.description}
                       </span>
-                      <kbd className="px-2 py-1 text-xs font-mono bg-gray-100 dark:bg-dark-bg-tertiary text-gray-600 dark:text-dark-text-secondary rounded border border-gray-200 dark:border-dark-border">
+                      <kbd className="dark:bg-dark-bg-tertiary dark:text-dark-text-secondary dark:border-dark-border rounded border border-gray-200 bg-gray-100 px-2 py-1 font-mono text-xs text-gray-600">
                         {shortcut.key}
                       </kbd>
                     </div>
@@ -102,9 +99,11 @@ export function KeyboardShortcutsHelp({ isOpen, onClose }: KeyboardShortcutsHelp
         </div>
 
         {/* Lábléc */}
-        <div className="px-6 py-3 bg-gray-50 dark:bg-dark-bg-tertiary border-t border-gray-200 dark:border-dark-border">
-          <p className="text-xs text-gray-400 dark:text-dark-text-muted text-center">
-            Nyomd meg az <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-dark-bg rounded text-xs">Esc</kbd> gombot a bezáráshoz
+        <div className="dark:bg-dark-bg-tertiary dark:border-dark-border border-t border-gray-200 bg-gray-50 px-6 py-3">
+          <p className="dark:text-dark-text-muted text-center text-xs text-gray-400">
+            Nyomd meg az{' '}
+            <kbd className="dark:bg-dark-bg rounded bg-gray-200 px-1 py-0.5 text-xs">Esc</kbd>{' '}
+            gombot a bezáráshoz
           </p>
         </div>
       </div>

@@ -16,10 +16,10 @@ export function upsertContact(accountId: string, email: string, name?: string | 
   const normalizedEmail = email.toLowerCase().trim();
 
   // Ellenőrizzük, hogy létezik-e már
-  const existing = queryOne<Contact>(
-    'SELECT * FROM contacts WHERE email = ? AND account_id = ?',
-    [normalizedEmail, accountId]
-  );
+  const existing = queryOne<Contact>('SELECT * FROM contacts WHERE email = ? AND account_id = ?', [
+    normalizedEmail,
+    accountId,
+  ]);
 
   if (existing) {
     // Frissítjük a gyakoriságot és az utolsó használat idejét
@@ -27,9 +27,14 @@ export function upsertContact(accountId: string, email: string, name?: string | 
     const newName = name && !existing.name ? name : existing.name;
     execute(
       'UPDATE contacts SET frequency = frequency + 1, last_used_at = ?, name = ? WHERE id = ?',
-      [Date.now(), newName, existing.id]
+      [Date.now(), newName, existing.id],
     );
-    return { ...existing, frequency: existing.frequency + 1, last_used_at: Date.now(), name: newName };
+    return {
+      ...existing,
+      frequency: existing.frequency + 1,
+      last_used_at: Date.now(),
+      name: newName,
+    };
   }
 
   // Új kontakt létrehozása
@@ -37,10 +42,17 @@ export function upsertContact(accountId: string, email: string, name?: string | 
   const now = Date.now();
   execute(
     'INSERT INTO contacts (id, email, name, frequency, last_used_at, account_id) VALUES (?, ?, ?, ?, ?, ?)',
-    [id, normalizedEmail, name || null, 1, now, accountId]
+    [id, normalizedEmail, name || null, 1, now, accountId],
   );
 
-  return { id, email: normalizedEmail, name: name || null, frequency: 1, last_used_at: now, account_id: accountId };
+  return {
+    id,
+    email: normalizedEmail,
+    name: name || null,
+    frequency: 1,
+    last_used_at: now,
+    account_id: accountId,
+  };
 }
 
 // Kontaktok keresése autocomplete-hez
@@ -52,7 +64,7 @@ export function searchContacts(accountId: string, query: string, limit = 10): Co
      WHERE account_id = ? AND (LOWER(email) LIKE ? OR LOWER(name) LIKE ?)
      ORDER BY frequency DESC, last_used_at DESC
      LIMIT ?`,
-    [accountId, searchQuery, searchQuery, limit]
+    [accountId, searchQuery, searchQuery, limit],
   );
 }
 
@@ -60,7 +72,7 @@ export function searchContacts(accountId: string, query: string, limit = 10): Co
 export function getAllContacts(accountId: string): Contact[] {
   return queryAll<Contact>(
     'SELECT * FROM contacts WHERE account_id = ? ORDER BY frequency DESC, last_used_at DESC',
-    [accountId]
+    [accountId],
   );
 }
 
@@ -70,7 +82,7 @@ export function extractContactsFromEmail(
   fromEmail: string | null,
   fromName: string | null,
   toEmail: string | null,
-  ccEmail: string | null
+  ccEmail: string | null,
 ): void {
   // From cím feldolgozása
   if (fromEmail) {
@@ -110,13 +122,13 @@ function parseEmailAddresses(addressString: string): Array<{ email: string; name
     if (match) {
       results.push({
         name: match[1].trim().replace(/^["']|["']$/g, ''), // Idézőjelek eltávolítása
-        email: match[2].trim()
+        email: match[2].trim(),
       });
     } else if (trimmed.includes('@')) {
       // Csak email cím
       results.push({
         name: null,
-        email: trimmed
+        email: trimmed,
       });
     }
   }
@@ -126,10 +138,10 @@ function parseEmailAddresses(addressString: string): Array<{ email: string; name
 
 // Kontakt törlése
 export function deleteContact(accountId: string, contactId: string): boolean {
-  const existing = queryOne<Contact>(
-    'SELECT * FROM contacts WHERE id = ? AND account_id = ?',
-    [contactId, accountId]
-  );
+  const existing = queryOne<Contact>('SELECT * FROM contacts WHERE id = ? AND account_id = ?', [
+    contactId,
+    accountId,
+  ]);
 
   if (!existing) return false;
 
@@ -138,11 +150,15 @@ export function deleteContact(accountId: string, contactId: string): boolean {
 }
 
 // Kontakt frissítése (név módosítása)
-export function updateContactName(accountId: string, contactId: string, name: string): Contact | null {
-  const existing = queryOne<Contact>(
-    'SELECT * FROM contacts WHERE id = ? AND account_id = ?',
-    [contactId, accountId]
-  );
+export function updateContactName(
+  accountId: string,
+  contactId: string,
+  name: string,
+): Contact | null {
+  const existing = queryOne<Contact>('SELECT * FROM contacts WHERE id = ? AND account_id = ?', [
+    contactId,
+    accountId,
+  ]);
 
   if (!existing) return null;
 
@@ -154,7 +170,7 @@ export function updateContactName(accountId: string, contactId: string, name: st
 export function hasExtractedContacts(accountId: string): boolean {
   const result = queryOne<{ count: number }>(
     'SELECT COUNT(*) as count FROM contacts WHERE account_id = ?',
-    [accountId]
+    [accountId],
   );
   return (result?.count || 0) > 0;
 }
@@ -170,7 +186,7 @@ export function extractContactsFromExistingEmails(accountId: string): number {
 
   const emails = queryAll<EmailRow>(
     'SELECT from_email, from_name, to_email, cc_email FROM emails WHERE account_id = ?',
-    [accountId]
+    [accountId],
   );
 
   let count = 0;
@@ -208,7 +224,7 @@ export function autoExtractContactsIfNeeded(accountId: string): void {
   const oneDayMs = 24 * 60 * 60 * 1000;
 
   // Ha még soha nem volt kinyerés VAGY több mint 1 napja volt
-  if (!hasExtractedContacts(accountId) || !lastExtraction || (now - lastExtraction) > oneDayMs) {
+  if (!hasExtractedContacts(accountId) || !lastExtraction || now - lastExtraction > oneDayMs) {
     console.log(`Kontaktok automatikus kinyerése: ${accountId}`);
     const count = extractContactsFromExistingEmails(accountId);
     console.log(`${count} email címből kontaktok kinyerve.`);
@@ -249,7 +265,7 @@ function fixMojibake(text: string): string {
 export function fixContactNamesEncoding(accountId: string): number {
   const contacts = queryAll<Contact>(
     'SELECT * FROM contacts WHERE account_id = ? AND name IS NOT NULL',
-    [accountId]
+    [accountId],
   );
 
   let fixedCount = 0;
@@ -278,7 +294,7 @@ export function fixSenderGroupNamesEncoding(accountId: string): number {
 
   const groups = queryAll<SenderGroup>(
     'SELECT id, name FROM sender_groups WHERE account_id = ? AND name IS NOT NULL',
-    [accountId]
+    [accountId],
   );
 
   let fixedCount = 0;
@@ -307,7 +323,7 @@ export function fixEmailNamesEncoding(accountId: string): number {
 
   const emails = queryAll<EmailName>(
     'SELECT id, from_name FROM emails WHERE account_id = ? AND from_name IS NOT NULL',
-    [accountId]
+    [accountId],
   );
 
   let fixedCount = 0;
@@ -327,18 +343,24 @@ export function fixEmailNamesEncoding(accountId: string): number {
 }
 
 // Minden név javítása egyszerre
-export function fixAllNamesEncoding(accountId: string): { contacts: number; senderGroups: number; emails: number } {
+export function fixAllNamesEncoding(accountId: string): {
+  contacts: number;
+  senderGroups: number;
+  emails: number;
+} {
   console.log(`Karakterkódolás javítása a(z) ${accountId} fiókhoz...`);
 
   const contactsFixed = fixContactNamesEncoding(accountId);
   const senderGroupsFixed = fixSenderGroupNamesEncoding(accountId);
   const emailsFixed = fixEmailNamesEncoding(accountId);
 
-  console.log(`Javítva: ${contactsFixed} kontakt, ${senderGroupsFixed} feladó csoport, ${emailsFixed} email`);
+  console.log(
+    `Javítva: ${contactsFixed} kontakt, ${senderGroupsFixed} feladó csoport, ${emailsFixed} email`,
+  );
 
   return {
     contacts: contactsFixed,
     senderGroups: senderGroupsFixed,
-    emails: emailsFixed
+    emails: emailsFixed,
   };
 }

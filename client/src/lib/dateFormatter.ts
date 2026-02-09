@@ -23,7 +23,7 @@ export function formatEmailDate(date: Date | number): string {
   if (diffDays === 0) {
     return emailDate.toLocaleTimeString('hu-HU', {
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   }
 
@@ -41,7 +41,7 @@ export function formatEmailDate(date: Date | number): string {
   if (emailDate.getFullYear() === now.getFullYear()) {
     return emailDate.toLocaleDateString('hu-HU', {
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
     });
   }
 
@@ -49,7 +49,7 @@ export function formatEmailDate(date: Date | number): string {
   return emailDate.toLocaleDateString('hu-HU', {
     year: 'numeric',
     month: 'short',
-    day: 'numeric'
+    day: 'numeric',
   });
 }
 
@@ -65,7 +65,7 @@ export function formatEmailDateTooltip(date: Date | number): string {
     day: 'numeric',
     weekday: 'long',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   });
 }
 

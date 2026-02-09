@@ -29,7 +29,7 @@ export function useUnreadCount(accountId?: string) {
     queryKey: ['unread-count', accountId],
     queryFn: () => api.views.inbox({ accountId, page: 1 }),
     enabled: !!accountId,
-    select: (data) => data.emails.filter(e => !e.isRead).length,
+    select: (data) => data.emails.filter((e) => !e.isRead).length,
     refetchInterval: 60000, // Refresh every 60 seconds
   });
 }

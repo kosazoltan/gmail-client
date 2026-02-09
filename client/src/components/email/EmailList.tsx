@@ -64,9 +64,11 @@ export function EmailList({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex h-64 items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-blue-500 dark:text-blue-400" />
-        <span className="ml-3 text-gray-500 dark:text-dark-text-secondary">Levelek betöltése...</span>
+        <span className="dark:text-dark-text-secondary ml-3 text-gray-500">
+          Levelek betöltése...
+        </span>
       </div>
     );
   }
@@ -76,8 +78,8 @@ export function EmailList({
       return <>{emptyMessage}</>;
     }
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-gray-400 dark:text-dark-text-muted">
-        <MailX className="h-12 w-12 mb-3" />
+      <div className="dark:text-dark-text-muted flex h-64 flex-col items-center justify-center text-gray-400">
+        <MailX className="mb-3 h-12 w-12" />
         <p>{emptyMessage}</p>
       </div>
     );
@@ -86,8 +88,10 @@ export function EmailList({
   return (
     <div className="flex flex-col">
       {title && (
-        <div className="px-4 py-2 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border">
-          <h2 className="text-sm font-medium text-gray-600 dark:text-dark-text-secondary">{title}</h2>
+        <div className="dark:bg-dark-bg-tertiary dark:border-dark-border border-b border-gray-200 bg-gray-50 px-4 py-2">
+          <h2 className="dark:text-dark-text-secondary text-sm font-medium text-gray-600">
+            {title}
+          </h2>
         </div>
       )}
       {emails.map((email) => (

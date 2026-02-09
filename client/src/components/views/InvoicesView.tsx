@@ -14,13 +14,34 @@ import { getNextEmailAfterDelete } from '../../lib/emailNavigation';
 // Számla kulcsszavak keresése a tárgyban, törzsben vagy melléklet nevében
 const INVOICE_KEYWORDS = [
   // Magyar
-  'számla', 'díjbekérő', 'proforma', 'fizetési felszólítás', 'befizetés',
-  'pénzügyi', 'tartozás', 'egyenleg', 'fizetendő', 'esedékesség',
+  'számla',
+  'díjbekérő',
+  'proforma',
+  'fizetési felszólítás',
+  'befizetés',
+  'pénzügyi',
+  'tartozás',
+  'egyenleg',
+  'fizetendő',
+  'esedékesség',
   // Angol
-  'invoice', 'bill', 'receipt', 'payment', 'billing',
-  'statement', 'due', 'amount due', 'pay now', 'payment confirmation',
+  'invoice',
+  'bill',
+  'receipt',
+  'payment',
+  'billing',
+  'statement',
+  'due',
+  'amount due',
+  'pay now',
+  'payment confirmation',
   // Általános
-  'pdf', 'e-számla', 'e-bill', 'számlázz.hu', 'billingo', 'szamlazz',
+  'pdf',
+  'e-számla',
+  'e-bill',
+  'számlázz.hu',
+  'billingo',
+  'szamlazz',
 ];
 
 function isInvoiceEmail(email: Email): boolean {
@@ -47,8 +68,15 @@ function isInvoiceEmail(email: Email): boolean {
 
   // Számla szolgáltatók email címei
   const invoiceSenders = [
-    'szamlazz.hu', 'billingo', 'számla', 'billing', 'invoice',
-    'payment', 'accounts', 'penzugy', 'fizetes',
+    'szamlazz.hu',
+    'billingo',
+    'számla',
+    'billing',
+    'invoice',
+    'payment',
+    'accounts',
+    'penzugy',
+    'fizetes',
   ];
   for (const sender of invoiceSenders) {
     if (from.includes(sender)) return true;
@@ -59,8 +87,12 @@ function isInvoiceEmail(email: Email): boolean {
     for (const att of email.attachments) {
       const filename = (att.filename || '').toLowerCase();
       // PDF mellékletek számla névvel
-      if (filename.includes('számla') || filename.includes('invoice') ||
-          filename.includes('bill') || filename.includes('receipt')) {
+      if (
+        filename.includes('számla') ||
+        filename.includes('invoice') ||
+        filename.includes('bill') ||
+        filename.includes('receipt')
+      ) {
         return true;
       }
     }
@@ -75,13 +107,10 @@ export function InvoicesView() {
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
 
   const accountId = session?.activeAccountId || undefined;
-  const {
-    data,
-    isLoading,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
-  } = useEmailsInfinite({ accountId, limit: 100 });
+  const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useEmailsInfinite({
+    accountId,
+    limit: 100,
+  });
   const deleteEmail = useDeleteEmail();
 
   const { containerRef } = useInfiniteScroll({
@@ -92,7 +121,7 @@ export function InvoicesView() {
 
   // Számlák szűrése
   const invoiceEmails = useMemo(() => {
-    const emails = data?.pages?.flatMap(page => page.emails) || [];
+    const emails = data?.pages?.flatMap((page) => page.emails) || [];
     return emails.filter(isInvoiceEmail);
   }, [data?.pages]);
 
@@ -106,7 +135,7 @@ export function InvoicesView() {
   }
 
   const leftPanel = (
-    <div ref={containerRef} className="flex flex-col h-full overflow-auto">
+    <div ref={containerRef} className="flex h-full flex-col overflow-auto">
       <ThreadedEmailList
         emails={invoiceEmails}
         isLoading={isLoading}
@@ -119,7 +148,7 @@ export function InvoicesView() {
                 const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);
                 setSelectedEmail(nextEmail);
               }
-            }
+            },
           });
         }}
         title={`Számlák (${invoiceEmails.length})`}
@@ -128,7 +157,9 @@ export function InvoicesView() {
       {isFetchingNextPage && (
         <div className="flex items-center justify-center py-4">
           <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-          <span className="ml-2 text-sm text-gray-500 dark:text-dark-text-secondary">További levelek betöltése...</span>
+          <span className="dark:text-dark-text-secondary ml-2 text-sm text-gray-500">
+            További levelek betöltése...
+          </span>
         </div>
       )}
     </div>

@@ -15,7 +15,10 @@ function isValidEmail(email: string): boolean {
 
 function validateEmailAddresses(addresses: string): string[] {
   const invalid: string[] = [];
-  const emails = addresses.split(',').map(e => e.trim()).filter(e => e);
+  const emails = addresses
+    .split(',')
+    .map((e) => e.trim())
+    .filter((e) => e);
   for (const email of emails) {
     if (!isValidEmail(email)) {
       invalid.push(email);
@@ -87,14 +90,14 @@ router.post('/', (req, res) => {
     const invalidEmails = validateEmailAddresses(to);
     if (invalidEmails.length > 0) {
       return res.status(400).json({
-        error: `Érvénytelen email cím(ek): ${invalidEmails.join(', ')}`
+        error: `Érvénytelen email cím(ek): ${invalidEmails.join(', ')}`,
       });
     }
     if (cc) {
       const invalidCc = validateEmailAddresses(cc);
       if (invalidCc.length > 0) {
         return res.status(400).json({
-          error: `Érvénytelen CC email cím(ek): ${invalidCc.join(', ')}`
+          error: `Érvénytelen CC email cím(ek): ${invalidCc.join(', ')}`,
         });
       }
     }
@@ -151,13 +154,17 @@ router.put('/:id', (req, res) => {
     if (to) {
       const invalidEmails = validateEmailAddresses(to);
       if (invalidEmails.length > 0) {
-        return res.status(400).json({ error: `Érvénytelen email cím(ek): ${invalidEmails.join(', ')}` });
+        return res
+          .status(400)
+          .json({ error: `Érvénytelen email cím(ek): ${invalidEmails.join(', ')}` });
       }
     }
     if (cc) {
       const invalidCc = validateEmailAddresses(cc);
       if (invalidCc.length > 0) {
-        return res.status(400).json({ error: `Érvénytelen CC email cím(ek): ${invalidCc.join(', ')}` });
+        return res
+          .status(400)
+          .json({ error: `Érvénytelen CC email cím(ek): ${invalidCc.join(', ')}` });
       }
     }
 
@@ -259,10 +266,10 @@ router.post('/:id/send-now', async (req, res) => {
     }
 
     // Mark as processing first to prevent race conditions
-    execute(
-      "UPDATE scheduled_emails SET status = 'processing' WHERE id = ? AND account_id = ?",
-      [id, accountId],
-    );
+    execute("UPDATE scheduled_emails SET status = 'processing' WHERE id = ? AND account_id = ?", [
+      id,
+      accountId,
+    ]);
 
     const gmail = getGmailClient(oauth2Client);
 
@@ -274,10 +281,10 @@ router.post('/:id/send-now', async (req, res) => {
     });
 
     // Mark as sent only after successful send
-    execute(
-      "UPDATE scheduled_emails SET status = 'sent' WHERE id = ? AND account_id = ?",
-      [id, accountId],
-    );
+    execute("UPDATE scheduled_emails SET status = 'sent' WHERE id = ? AND account_id = ?", [
+      id,
+      accountId,
+    ]);
 
     res.json({ success: true });
   } catch (error) {
@@ -317,10 +324,7 @@ export async function processScheduledEmails(): Promise<number> {
           oauth2Client = authResult.oauth2Client;
         } catch (authError) {
           console.error(`Auth error for scheduled email ${email.id}:`, authError);
-          execute(
-            "UPDATE scheduled_emails SET status = 'failed' WHERE id = ?",
-            [email.id],
-          );
+          execute("UPDATE scheduled_emails SET status = 'failed' WHERE id = ?", [email.id]);
           continue;
         }
 
@@ -334,20 +338,14 @@ export async function processScheduledEmails(): Promise<number> {
         });
 
         // Mark as sent only after successful send
-        execute(
-          "UPDATE scheduled_emails SET status = 'sent' WHERE id = ?",
-          [email.id],
-        );
+        execute("UPDATE scheduled_emails SET status = 'sent' WHERE id = ?", [email.id]);
 
         sentCount++;
         console.log(`Scheduled email ${email.id} sent successfully.`);
       } catch (error) {
         console.error(`Failed to send scheduled email ${email.id}:`, error);
         // Mark as failed
-        execute(
-          "UPDATE scheduled_emails SET status = 'failed' WHERE id = ?",
-          [email.id],
-        );
+        execute("UPDATE scheduled_emails SET status = 'failed' WHERE id = ?", [email.id]);
       }
     }
 

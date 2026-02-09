@@ -15,8 +15,8 @@ const SCOPES = [
 const ALGORITHM = 'aes-256-gcm';
 
 function getEncryptionKey(): Buffer {
-  const isProduction = process.env.NODE_ENV === 'production' ||
-                       process.env.FRONTEND_URL?.startsWith('https://');
+  const isProduction =
+    process.env.NODE_ENV === 'production' || process.env.FRONTEND_URL?.startsWith('https://');
 
   if (isProduction && !process.env.ENCRYPTION_KEY) {
     throw new Error('ENCRYPTION_KEY környezeti változó kötelező production módban!');
@@ -102,10 +102,9 @@ export async function handleAuthCallback(code: string) {
   const email = userInfo.data.email;
   const name = userInfo.data.name || email;
 
-  const existingAccount = queryOne<{ id: string }>(
-    'SELECT id FROM accounts WHERE email = ?',
-    [email],
-  );
+  const existingAccount = queryOne<{ id: string }>('SELECT id FROM accounts WHERE email = ?', [
+    email,
+  ]);
 
   const accountId = existingAccount?.id || uuidv4();
   const encryptedAccess = encrypt(tokens.access_token);
@@ -120,7 +119,15 @@ export async function handleAuthCallback(code: string) {
     execute(
       `INSERT INTO accounts (id, email, name, access_token, refresh_token, token_expiry, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [accountId, email, name, encryptedAccess, encryptedRefresh, tokens.expiry_date || 0, Date.now()],
+      [
+        accountId,
+        email,
+        name,
+        encryptedAccess,
+        encryptedRefresh,
+        tokens.expiry_date || 0,
+        Date.now(),
+      ],
     );
 
     createDefaultCategories(accountId);
@@ -157,7 +164,12 @@ function createDefaultCategories(accountId: string) {
   const defaultRules = [
     { categoryId: catMap['Hírlevél'], type: 'label', value: 'CATEGORY_PROMOTIONS', priority: 10 },
     { categoryId: catMap['Hírlevél'], type: 'sender_domain', value: 'newsletter', priority: 9 },
-    { categoryId: catMap['Hírlevél'], type: 'sender_email', value: 'noreply@medium.com', priority: 9 },
+    {
+      categoryId: catMap['Hírlevél'],
+      type: 'sender_email',
+      value: 'noreply@medium.com',
+      priority: 9,
+    },
     { categoryId: catMap['Értesítés'], type: 'sender_email', value: 'noreply@', priority: 8 },
     { categoryId: catMap['Értesítés'], type: 'sender_email', value: 'notification@', priority: 8 },
     { categoryId: catMap['Értesítés'], type: 'sender_email', value: 'no-reply@', priority: 8 },
@@ -203,7 +215,9 @@ export function getOAuth2ClientForAccount(accountId: string) {
     decryptedAccessToken = decrypt(account.access_token);
     decryptedRefreshToken = decrypt(account.refresh_token);
   } catch (err) {
-    console.error(`Token decryption failed for account ${accountId}. The encryption key may have changed.`);
+    console.error(
+      `Token decryption failed for account ${accountId}. The encryption key may have changed.`,
+    );
     throw new Error('Token decryption failed. Please re-authenticate the account.');
   }
   oauth2Client.setCredentials({
@@ -243,16 +257,23 @@ export function getOAuth2ClientForAccount(accountId: string) {
 }
 
 export function getAccountById(accountId: string) {
-  return queryOne<{ id: string; email: string; name: string; last_sync_at: number | null; color: string | null }>(
-    'SELECT id, email, name, last_sync_at, color FROM accounts WHERE id = ?',
-    [accountId],
-  );
+  return queryOne<{
+    id: string;
+    email: string;
+    name: string;
+    last_sync_at: number | null;
+    color: string | null;
+  }>('SELECT id, email, name, last_sync_at, color FROM accounts WHERE id = ?', [accountId]);
 }
 
 export function getAllAccounts() {
-  return queryAll<{ id: string; email: string; name: string; last_sync_at: number | null; color: string | null }>(
-    'SELECT id, email, name, last_sync_at, color FROM accounts',
-  );
+  return queryAll<{
+    id: string;
+    email: string;
+    name: string;
+    last_sync_at: number | null;
+    color: string | null;
+  }>('SELECT id, email, name, last_sync_at, color FROM accounts');
 }
 
 export function updateAccountColor(accountId: string, color: string) {

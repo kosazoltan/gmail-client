@@ -53,7 +53,10 @@ function parseLabelsJson(labels: string | null, context?: { emailId?: string }):
 }
 
 // Jogosultság ellenőrzés helper
-function validateAccountAccess(req: { query: { accountId?: string }; session: { activeAccountId?: string | null; accountIds?: string[] } }): string | null {
+function validateAccountAccess(req: {
+  query: { accountId?: string };
+  session: { activeAccountId?: string | null; accountIds?: string[] };
+}): string | null {
   const accountId = (req.query.accountId as string) || req.session.activeAccountId;
   if (!accountId) return null;
 
@@ -72,7 +75,10 @@ function isValidEmail(email: string): boolean {
 function validateEmailAddresses(addressString: string): boolean {
   if (!addressString) return true; // Üres CC megengedett
 
-  const addresses = addressString.split(',').map(a => a.trim()).filter(a => a);
+  const addresses = addressString
+    .split(',')
+    .map((a) => a.trim())
+    .filter((a) => a);
   for (const addr of addresses) {
     // "Name <email>" formátum
     const match = addr.match(/<([^>]+)>$/);
@@ -99,8 +105,8 @@ router.get('/', (req, res) => {
 
     // Whitelist sort values to prevent SQL injection
     const ALLOWED_SORTS: Record<string, string> = {
-      'date_asc': 'date ASC',
-      'date_desc': 'date DESC',
+      date_asc: 'date ASC',
+      date_desc: 'date DESC',
     };
     const orderBy = ALLOWED_SORTS[sort] || 'date DESC';
 
@@ -139,10 +145,10 @@ router.get('/:id/thread', async (req, res) => {
     }
 
     // Először keressük meg az email thread_id-ját
-    const email = queryOne<EmailRecord>(
-      'SELECT * FROM emails WHERE id = ? AND account_id = ?',
-      [emailId, accountId],
-    );
+    const email = queryOne<EmailRecord>('SELECT * FROM emails WHERE id = ? AND account_id = ?', [
+      emailId,
+      accountId,
+    ]);
 
     if (!email) {
       res.status(404).json({ error: 'Email nem található' });
@@ -152,19 +158,20 @@ router.get('/:id/thread', async (req, res) => {
     // Ha nincs threadId, csak ezt az egy emailt adjuk vissza
     if (!email.thread_id) {
       const emailAttachments = getEmailAttachments(emailId);
-      const accountInfo = queryOne<{ email: string }>(
-        'SELECT email FROM accounts WHERE id = ?',
-        [accountId],
-      );
+      const accountInfo = queryOne<{ email: string }>('SELECT email FROM accounts WHERE id = ?', [
+        accountId,
+      ]);
       res.json({
         threadId: null,
         accountEmail: accountInfo?.email || null,
-        emails: [{
-          ...formatEmail(email),
-          body: email.body,
-          bodyHtml: email.body_html,
-          attachments: emailAttachments,
-        }],
+        emails: [
+          {
+            ...formatEmail(email),
+            body: email.body,
+            bodyHtml: email.body_html,
+            attachments: emailAttachments,
+          },
+        ],
       });
       return;
     }
@@ -178,10 +185,9 @@ router.get('/:id/thread', async (req, res) => {
     );
 
     // Lekérjük az account email-jét, hogy tudjuk melyik a "saját" küldés
-    const accountInfo = queryOne<{ email: string }>(
-      'SELECT email FROM accounts WHERE id = ?',
-      [accountId],
-    );
+    const accountInfo = queryOne<{ email: string }>('SELECT email FROM accounts WHERE id = ?', [
+      accountId,
+    ]);
 
     // Ha hiányoznak body-k, megpróbáljuk letölteni a Gmail-ből
     let oauth2Client: ReturnType<typeof getOAuth2ClientForAccount>['oauth2Client'] | null = null;
@@ -204,10 +210,11 @@ router.get('/:id/thread', async (req, res) => {
           emailBody = fullMsg.body;
           emailBodyHtml = fullMsg.bodyHtml;
 
-          execute(
-            'UPDATE emails SET body = ?, body_html = ? WHERE id = ?',
-            [fullMsg.body, fullMsg.bodyHtml, threadEmail.id],
-          );
+          execute('UPDATE emails SET body = ?, body_html = ? WHERE id = ?', [
+            fullMsg.body,
+            fullMsg.bodyHtml,
+            threadEmail.id,
+          ]);
         } catch (err) {
           logger.warn('Thread email body letöltés hiba', { emailId: threadEmail.id, error: err });
           // Ne akadjon el a teljes thread
@@ -248,10 +255,10 @@ router.get('/:id', async (req, res) => {
       return;
     }
 
-    let email = queryOne<EmailRecord>(
-      'SELECT * FROM emails WHERE id = ? AND account_id = ?',
-      [emailId, accountId],
-    );
+    let email = queryOne<EmailRecord>('SELECT * FROM emails WHERE id = ? AND account_id = ?', [
+      emailId,
+      accountId,
+    ]);
 
     if (email && !email.body && !email.body_html) {
       try {
@@ -259,10 +266,11 @@ router.get('/:id', async (req, res) => {
         const gmail = getGmailClient(oauth2Client);
         const fullMsg = await getMessage(gmail, emailId);
 
-        execute(
-          'UPDATE emails SET body = ?, body_html = ? WHERE id = ?',
-          [fullMsg.body, fullMsg.bodyHtml, emailId],
-        );
+        execute('UPDATE emails SET body = ?, body_html = ? WHERE id = ?', [
+          fullMsg.body,
+          fullMsg.bodyHtml,
+          emailId,
+        ]);
 
         email = { ...email, body: fullMsg.body, body_html: fullMsg.bodyHtml };
       } catch (err) {
@@ -292,10 +300,16 @@ router.get('/:id', async (req, res) => {
 
 router.post('/send', async (req, res) => {
   const accountId = validateAccountAccess(req);
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
+  if (!accountId) {
+    res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
+    return;
+  }
 
   const { to, subject, body, cc, attachments } = req.body;
-  if (!to || !subject || !body) { res.status(400).json({ error: 'Hiányzó mezők: to, subject, body' }); return; }
+  if (!to || !subject || !body) {
+    res.status(400).json({ error: 'Hiányzó mezők: to, subject, body' });
+    return;
+  }
 
   // Email cím validáció
   if (!validateEmailAddresses(to)) {
@@ -330,10 +344,16 @@ router.post('/send', async (req, res) => {
 
 router.post('/reply', async (req, res) => {
   const accountId = validateAccountAccess(req);
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
+  if (!accountId) {
+    res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
+    return;
+  }
 
   const { to, subject, body, cc, inReplyTo, threadId, attachments } = req.body;
-  if (!to || !body) { res.status(400).json({ error: 'Hiányzó mezők: to, body' }); return; }
+  if (!to || !body) {
+    res.status(400).json({ error: 'Hiányzó mezők: to, body' });
+    return;
+  }
 
   // Email cím validáció
   if (!validateEmailAddresses(to)) {
@@ -354,7 +374,15 @@ router.post('/reply', async (req, res) => {
   try {
     const { oauth2Client } = getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
-    const result = await sendEmail(gmail, { to, subject: subject || '', body, cc, inReplyTo, threadId, attachments });
+    const result = await sendEmail(gmail, {
+      to,
+      subject: subject || '',
+      body,
+      cc,
+      inReplyTo,
+      threadId,
+      attachments,
+    });
 
     // Címzettek mentése a kontaktokba
     saveRecipientsToContacts(accountId, to, cc);
@@ -369,7 +397,10 @@ router.post('/reply', async (req, res) => {
 router.patch('/:id/read', async (req, res) => {
   const emailId = req.params.id;
   const accountId = validateAccountAccess(req);
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
+  if (!accountId) {
+    res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
+    return;
+  }
 
   const { isRead } = req.body;
   if (typeof isRead !== 'boolean' && isRead !== 0 && isRead !== 1) {
@@ -387,7 +418,11 @@ router.patch('/:id/read', async (req, res) => {
       await modifyMessage(gmail, emailId, { addLabels: ['UNREAD'] });
     }
 
-    execute('UPDATE emails SET is_read = ? WHERE id = ? AND account_id = ?', [isRead ? 1 : 0, emailId, accountId]);
+    execute('UPDATE emails SET is_read = ? WHERE id = ? AND account_id = ?', [
+      isRead ? 1 : 0,
+      emailId,
+      accountId,
+    ]);
     res.json({ success: true });
   } catch (error) {
     console.error('Olvasott jelölés hiba:', error);
@@ -398,7 +433,10 @@ router.patch('/:id/read', async (req, res) => {
 router.patch('/:id/star', async (req, res) => {
   const emailId = req.params.id;
   const accountId = validateAccountAccess(req);
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
+  if (!accountId) {
+    res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
+    return;
+  }
 
   const { isStarred } = req.body;
   if (typeof isStarred !== 'boolean' && isStarred !== 0 && isStarred !== 1) {
@@ -416,7 +454,11 @@ router.patch('/:id/star', async (req, res) => {
       await modifyMessage(gmail, emailId, { removeLabels: ['STARRED'] });
     }
 
-    execute('UPDATE emails SET is_starred = ? WHERE id = ? AND account_id = ?', [isStarred ? 1 : 0, emailId, accountId]);
+    execute('UPDATE emails SET is_starred = ? WHERE id = ? AND account_id = ?', [
+      isStarred ? 1 : 0,
+      emailId,
+      accountId,
+    ]);
     res.json({ success: true });
   } catch (error) {
     console.error('Csillagozás hiba:', error);
@@ -450,10 +492,11 @@ router.patch('/batch-read', async (req, res) => {
     }
 
     const placeholders = emailIds.map(() => '?').join(',');
-    execute(
-      `UPDATE emails SET is_read = ? WHERE id IN (${placeholders}) AND account_id = ?`,
-      [isRead ? 1 : 0, ...emailIds, accountId]
-    );
+    execute(`UPDATE emails SET is_read = ? WHERE id IN (${placeholders}) AND account_id = ?`, [
+      isRead ? 1 : 0,
+      ...emailIds,
+      accountId,
+    ]);
 
     res.json({ updatedCount: emailIds.length });
   } catch (error) {
@@ -502,7 +545,7 @@ router.delete('/batch', async (req, res) => {
         // Frissítsük az adatbázisban is
         const email = queryOne<{ labels: string | null }>(
           'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
-          [emailId, accountId]
+          [emailId, accountId],
         );
 
         if (email) {
@@ -512,7 +555,7 @@ router.delete('/batch', async (req, res) => {
           execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
             JSON.stringify(newLabels),
             emailId,
-            accountId
+            accountId,
           ]);
         }
 
@@ -534,7 +577,10 @@ router.delete('/batch', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   const emailId = req.params.id;
   const accountId = validateAccountAccess(req);
-  if (!accountId) { res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' }); return; }
+  if (!accountId) {
+    res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
+    return;
+  }
 
   try {
     const { oauth2Client } = getOAuth2ClientForAccount(accountId);
@@ -545,7 +591,7 @@ router.delete('/:id', async (req, res) => {
     // Frissítsük az adatbázisban is - hozzáadjuk a TRASH labelt
     const email = queryOne<{ labels: string | null }>(
       'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
-      [emailId, accountId]
+      [emailId, accountId],
     );
 
     if (email) {
@@ -556,7 +602,7 @@ router.delete('/:id', async (req, res) => {
       execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
         JSON.stringify(newLabels),
         emailId,
-        accountId
+        accountId,
       ]);
     }
 
@@ -620,12 +666,12 @@ function parseEmailAddresses(addressString: string): Array<{ email: string; name
     if (match) {
       results.push({
         name: match[1].trim().replace(/^["']|["']$/g, ''),
-        email: match[2].trim()
+        email: match[2].trim(),
       });
     } else if (trimmed.includes('@')) {
       results.push({
         name: null,
-        email: trimmed
+        email: trimmed,
       });
     }
   }

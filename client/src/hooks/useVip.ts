@@ -30,8 +30,7 @@ export function useVipEmails() {
 export function useAddVip() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ email, name }: { email: string; name?: string }) =>
-      api.vip.add(email, name),
+    mutationFn: ({ email, name }: { email: string; name?: string }) => api.vip.add(email, name),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vipSenders'] });
       queryClient.invalidateQueries({ queryKey: ['vipEmails'] });
@@ -43,8 +42,7 @@ export function useAddVip() {
 export function useUpdateVip() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) =>
-      api.vip.update(id, name),
+    mutationFn: ({ id, name }: { id: string; name: string }) => api.vip.update(id, name),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vipSenders'] });
     },
@@ -67,8 +65,7 @@ export function useDeleteVip() {
 export function useToggleVip() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ email, name }: { email: string; name?: string }) =>
-      api.vip.toggle(email, name),
+    mutationFn: ({ email, name }: { email: string; name?: string }) => api.vip.toggle(email, name),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vipSenders'] });
       queryClient.invalidateQueries({ queryKey: ['vipEmails'] });
@@ -77,7 +74,10 @@ export function useToggleVip() {
 }
 
 // Helper to check if an email is VIP
-export function isVipEmail(email: string | null | undefined, vipEmails: Set<string> | undefined): boolean {
+export function isVipEmail(
+  email: string | null | undefined,
+  vipEmails: Set<string> | undefined,
+): boolean {
   if (!email || !vipEmails) return false;
   return vipEmails.has(email.toLowerCase());
 }

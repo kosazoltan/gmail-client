@@ -22,8 +22,9 @@ export function usePushNotifications() {
   useEffect(() => {
     const checkSupport = async () => {
       // PWA-ban vagyunk-e?
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-        || (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+      const isStandalone =
+        window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
 
       // Service Worker és Push API támogatás
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) {

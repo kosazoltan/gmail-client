@@ -8,10 +8,7 @@ interface EmailForCategorization {
 }
 
 // Levél kategorizalasa a szabalyok alapjan
-export function categorizeEmail(
-  accountId: string,
-  email: EmailForCategorization,
-): string | null {
+export function categorizeEmail(accountId: string, email: EmailForCategorization): string | null {
   const rules = queryAll<{
     id: string;
     category_id: string;
@@ -19,10 +16,7 @@ export function categorizeEmail(
     value: string;
     priority: number;
     account_id: string;
-  }>(
-    'SELECT * FROM categorization_rules WHERE account_id = ? ORDER BY priority DESC',
-    [accountId],
-  );
+  }>('SELECT * FROM categorization_rules WHERE account_id = ? ORDER BY priority DESC', [accountId]);
 
   const fromEmail = (email.from || '').toLowerCase();
   const fromDomain = fromEmail.split('@')[1] || '';
@@ -74,10 +68,7 @@ export function recategorizeAllEmails(accountId: string) {
     from_email: string;
     subject: string;
     labels: string;
-  }>(
-    'SELECT id, from_email, subject, labels FROM emails WHERE account_id = ?',
-    [accountId],
-  );
+  }>('SELECT id, from_email, subject, labels FROM emails WHERE account_id = ?', [accountId]);
 
   let updated = 0;
   for (const email of allEmails) {
@@ -94,10 +85,7 @@ export function recategorizeAllEmails(accountId: string) {
     });
 
     if (categoryId) {
-      execute(
-        'UPDATE emails SET category_id = ? WHERE id = ?',
-        [categoryId, email.id],
-      );
+      execute('UPDATE emails SET category_id = ? WHERE id = ?', [categoryId, email.id]);
       updated++;
     }
   }

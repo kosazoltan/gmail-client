@@ -24,11 +24,15 @@ export function SearchResults() {
 
   const leftPanel = (
     <>
-      <div className="px-4 py-3 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border flex items-center gap-2">
-        <Search className="h-5 w-5 text-gray-500 dark:text-dark-text-secondary" />
-        <h2 className="text-sm font-medium text-gray-600 dark:text-dark-text">
+      <div className="dark:bg-dark-bg-tertiary dark:border-dark-border flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3">
+        <Search className="dark:text-dark-text-secondary h-5 w-5 text-gray-500" />
+        <h2 className="dark:text-dark-text text-sm font-medium text-gray-600">
           Keresés: "{query}"
-          {data && <span className="text-gray-400 dark:text-dark-text-muted ml-1">({data.total} találat)</span>}
+          {data && (
+            <span className="dark:text-dark-text-muted ml-1 text-gray-400">
+              ({data.total} találat)
+            </span>
+          )}
         </h2>
       </div>
       <EmailList
@@ -37,7 +41,7 @@ export function SearchResults() {
         selectedEmailId={selectedEmail?.id || null}
         onSelectEmail={setSelectedEmail}
         onDeleteEmail={(emailId) => {
-          const emailIndex = emails.findIndex(e => e.id === emailId);
+          const emailIndex = emails.findIndex((e) => e.id === emailId);
           deleteEmail.mutate(emailId, {
             onSuccess: () => {
               if (selectedEmail?.id === emailId) {
@@ -51,7 +55,7 @@ export function SearchResults() {
                   setSelectedEmail(null);
                 }
               }
-            }
+            },
           });
         }}
         emptyMessage={`Nincs találat: "${query}"`}

@@ -241,7 +241,6 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
     );
   `);
 
-
   // Indexek
   _db.run(`
     CREATE INDEX IF NOT EXISTS idx_emails_account ON emails(account_id);
@@ -293,7 +292,10 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
 
 // Szinkron DB hozzáférés (az initializeDatabase után)
 export function getDb(): SqlJsDatabase {
-  if (!_db) throw new Error('Az adatbázis még nincs inicializálva! Hívd meg az initializeDatabase()-t először.');
+  if (!_db)
+    throw new Error(
+      'Az adatbázis még nincs inicializálva! Hívd meg az initializeDatabase()-t először.',
+    );
   return _db;
 }
 
@@ -365,7 +367,10 @@ export function stopAutoSave() {
 }
 
 // Segéd: egy sor lekérése
-export function queryOne<T = Record<string, unknown>>(sql: string, params: unknown[] = []): T | undefined {
+export function queryOne<T = Record<string, unknown>>(
+  sql: string,
+  params: unknown[] = [],
+): T | undefined {
   const db = getDb();
   const stmt = db.prepare(sql);
   try {

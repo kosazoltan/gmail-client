@@ -29,11 +29,13 @@ router.get('/', (req, res) => {
       return res.status(401).json({ error: 'Nincs bejelentkezve' });
     }
 
-    const snoozed = queryAll<SnoozedEmail & {
-      subject: string | null;
-      from_email: string | null;
-      from_name: string | null;
-    }>(
+    const snoozed = queryAll<
+      SnoozedEmail & {
+        subject: string | null;
+        from_email: string | null;
+        from_name: string | null;
+      }
+    >(
       `SELECT s.*, e.subject, e.from_email, e.from_name
        FROM snoozed_emails s
        JOIN emails e ON s.email_id = e.id
@@ -79,7 +81,9 @@ router.post('/', (req, res) => {
     const maxSnoozeTime = now + 365 * 24 * 60 * 60 * 1000; // Max 1 év
 
     if (isNaN(snoozeTimestamp) || snoozeTimestamp <= now) {
-      return res.status(400).json({ error: 'Érvénytelen szundi időpont - jövőbeli időpontot adj meg' });
+      return res
+        .status(400)
+        .json({ error: 'Érvénytelen szundi időpont - jövőbeli időpontot adj meg' });
     }
     if (snoozeTimestamp > maxSnoozeTime) {
       return res.status(400).json({ error: 'Túl távoli időpont - maximum 1 évre szundizható' });
@@ -105,10 +109,11 @@ router.post('/', (req, res) => {
 
       if (existing) {
         // Frissítsük a meglévő szundit
-        execute(
-          'UPDATE snoozed_emails SET snooze_until = ? WHERE id = ? AND account_id = ?',
-          [snoozeTimestamp, existing.id, accountId],
-        );
+        execute('UPDATE snoozed_emails SET snooze_until = ? WHERE id = ? AND account_id = ?', [
+          snoozeTimestamp,
+          existing.id,
+          accountId,
+        ]);
 
         return {
           id: existing.id,
@@ -193,7 +198,7 @@ export function processExpiredSnoozes(): number {
 
     if (expired.length > 0) {
       // Batch delete the claimed snoozes
-      const ids = expired.map(s => s.id);
+      const ids = expired.map((s) => s.id);
       const placeholders = ids.map(() => '?').join(',');
       execute(`DELETE FROM snoozed_emails WHERE id IN (${placeholders})`, ids);
       console.log(`${expired.length} lejárt szundi törölve.`);

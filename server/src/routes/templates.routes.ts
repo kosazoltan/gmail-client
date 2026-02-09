@@ -106,10 +106,10 @@ router.put('/:id', (req, res) => {
     const { id } = req.params;
     const { name, subject, body, shortcut } = req.body;
 
-    const existing = queryOne<Template>(
-      'SELECT * FROM templates WHERE id = ? AND account_id = ?',
-      [id, accountId],
-    );
+    const existing = queryOne<Template>('SELECT * FROM templates WHERE id = ? AND account_id = ?', [
+      id,
+      accountId,
+    ]);
 
     if (!existing) {
       return res.status(404).json({ error: 'Sablon nem található' });

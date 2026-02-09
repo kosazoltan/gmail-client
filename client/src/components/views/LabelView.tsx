@@ -44,19 +44,14 @@ export function LabelView() {
   const labelColor = label?.color?.backgroundColor || '#6b7280';
 
   const leftPanel = (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {/* Címke fejléc */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border">
-        <span
-          className="w-4 h-4 rounded-full"
-          style={{ backgroundColor: labelColor }}
-        />
-        <h2 className="text-sm font-medium text-gray-700 dark:text-dark-text">
+      <div className="dark:bg-dark-bg-tertiary dark:border-dark-border flex items-center gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3">
+        <span className="h-4 w-4 rounded-full" style={{ backgroundColor: labelColor }} />
+        <h2 className="dark:text-dark-text text-sm font-medium text-gray-700">
           {label?.name || 'Címke'}
           {data?.total !== undefined && (
-            <span className="ml-2 text-gray-400 dark:text-dark-text-muted">
-              ({data.total})
-            </span>
+            <span className="dark:text-dark-text-muted ml-2 text-gray-400">({data.total})</span>
           )}
         </h2>
       </div>
@@ -74,7 +69,7 @@ export function LabelView() {
                   const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);
                   setSelectedEmail(nextEmail);
                 }
-              }
+              },
             });
           }}
           emptyMessage="Nincs email ezzel a címkével"

@@ -86,14 +86,16 @@ router.post('/', (req, res) => {
   // Validáljuk a remindAt timestamp-et
   const remindTimestamp = parseInt(remindAt, 10);
   if (isNaN(remindTimestamp) || remindTimestamp <= Date.now()) {
-    return res.status(400).json({ error: 'Érvénytelen emlékeztető időpont - jövőbeli időpontot adj meg' });
+    return res
+      .status(400)
+      .json({ error: 'Érvénytelen emlékeztető időpont - jövőbeli időpontot adj meg' });
   }
 
   // Ellenőrizzük, hogy az email létezik és ehhez a fiókhoz tartozik
-  const email = queryOne(
-    'SELECT id FROM emails WHERE id = ? AND account_id = ?',
-    [emailId, accountId],
-  );
+  const email = queryOne('SELECT id FROM emails WHERE id = ? AND account_id = ?', [
+    emailId,
+    accountId,
+  ]);
 
   if (!email) {
     return res.status(404).json({ error: 'Email nem található' });
@@ -148,10 +150,10 @@ router.patch('/:id', (req, res) => {
   const { id } = req.params;
   const { remindAt, note, isCompleted } = req.body;
 
-  const reminder = queryOne(
-    'SELECT * FROM reminders WHERE id = ? AND account_id = ?',
-    [id, accountId],
-  );
+  const reminder = queryOne('SELECT * FROM reminders WHERE id = ? AND account_id = ?', [
+    id,
+    accountId,
+  ]);
 
   if (!reminder) {
     return res.status(404).json({ error: 'Emlékeztető nem található' });
@@ -198,10 +200,10 @@ router.delete('/:id', (req, res) => {
 
   const { id } = req.params;
 
-  const reminder = queryOne(
-    'SELECT * FROM reminders WHERE id = ? AND account_id = ?',
-    [id, accountId],
-  );
+  const reminder = queryOne('SELECT * FROM reminders WHERE id = ? AND account_id = ?', [
+    id,
+    accountId,
+  ]);
 
   if (!reminder) {
     return res.status(404).json({ error: 'Emlékeztető nem található' });
@@ -221,10 +223,10 @@ router.post('/:id/complete', (req, res) => {
 
   const { id } = req.params;
 
-  const reminder = queryOne(
-    'SELECT * FROM reminders WHERE id = ? AND account_id = ?',
-    [id, accountId],
-  );
+  const reminder = queryOne('SELECT * FROM reminders WHERE id = ? AND account_id = ?', [
+    id,
+    accountId,
+  ]);
 
   if (!reminder) {
     return res.status(404).json({ error: 'Emlékeztető nem található' });

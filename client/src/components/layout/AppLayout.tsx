@@ -35,11 +35,11 @@ export function AppLayout() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50/80 dark:bg-dark-bg overflow-hidden">
+    <div className="dark:bg-dark-bg flex h-screen overflow-hidden bg-gray-50/80">
       {/* Mobil overlay */}
       {isMobile && sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-20 lg:hidden"
+          className="fixed inset-0 z-20 bg-black/40 backdrop-blur-sm lg:hidden"
           onClick={handleOverlayClick}
           aria-hidden="true"
         />
@@ -47,11 +47,7 @@ export function AppLayout() {
 
       {/* Sidebar */}
       <div
-        className={`
-          ${isMobile ? 'fixed inset-y-0 left-0 z-30' : 'relative'}
-          ${isMobile && !sidebarOpen ? '-translate-x-full' : 'translate-x-0'}
-          transition-transform duration-200
-        `}
+        className={` ${isMobile ? 'fixed inset-y-0 left-0 z-30' : 'relative'} ${isMobile && !sidebarOpen ? '-translate-x-full' : 'translate-x-0'} transition-transform duration-200`}
       >
         <Sidebar
           isOpen={sidebarOpen || isMobile}
@@ -61,7 +57,7 @@ export function AppLayout() {
       </div>
 
       {/* Main content */}
-      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}

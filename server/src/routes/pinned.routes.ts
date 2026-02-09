@@ -17,7 +17,7 @@ router.get('/', (req, res) => {
       [accountId],
     );
 
-    return res.json({ pinnedEmailIds: pinnedEmails.map(p => p.email_id) });
+    return res.json({ pinnedEmailIds: pinnedEmails.map((p) => p.email_id) });
   } catch (error) {
     console.error('Pinned emails list error:', error);
     return res.status(500).json({ error: 'Nem sikerült lekérni a rögzített emaileket' });
@@ -57,10 +57,12 @@ router.post('/:emailId', (req, res) => {
     const id = uuidv4();
     const now = Date.now();
 
-    execute(
-      'INSERT INTO pinned_emails (id, email_id, account_id, pinned_at) VALUES (?, ?, ?, ?)',
-      [id, emailId, accountId, now],
-    );
+    execute('INSERT INTO pinned_emails (id, email_id, account_id, pinned_at) VALUES (?, ?, ?, ?)', [
+      id,
+      emailId,
+      accountId,
+      now,
+    ]);
 
     return res.json({ success: true, pinnedAt: now });
   } catch (error) {
@@ -79,10 +81,10 @@ router.delete('/:emailId', (req, res) => {
 
     const { emailId } = req.params;
 
-    execute(
-      'DELETE FROM pinned_emails WHERE email_id = ? AND account_id = ?',
-      [emailId, accountId],
-    );
+    execute('DELETE FROM pinned_emails WHERE email_id = ? AND account_id = ?', [
+      emailId,
+      accountId,
+    ]);
 
     return res.json({ success: true });
   } catch (error) {
@@ -118,7 +120,10 @@ router.post('/:emailId/toggle', (req, res) => {
 
     if (existing) {
       // Unpin
-      execute('DELETE FROM pinned_emails WHERE id = ? AND account_id = ?', [existing.id, accountId]);
+      execute('DELETE FROM pinned_emails WHERE id = ? AND account_id = ?', [
+        existing.id,
+        accountId,
+      ]);
       return res.json({ isPinned: false });
     } else {
       // Pin

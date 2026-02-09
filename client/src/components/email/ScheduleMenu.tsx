@@ -52,10 +52,10 @@ export function ScheduleMenu({ onSchedule, disabled }: ScheduleMenuProps) {
         onClick={() => setIsOpen(!isOpen)}
         disabled={disabled}
         className={cn(
-          'flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-200 dark:border-dark-border',
-          'text-sm text-gray-600 dark:text-dark-text-secondary',
-          'hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary transition-colors',
-          'disabled:opacity-50 disabled:cursor-not-allowed',
+          'dark:border-dark-border flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2',
+          'dark:text-dark-text-secondary text-sm text-gray-600',
+          'dark:hover:bg-dark-bg-tertiary transition-colors hover:bg-gray-50',
+          'disabled:cursor-not-allowed disabled:opacity-50',
         )}
       >
         <Clock className="h-4 w-4" />
@@ -69,9 +69,9 @@ export function ScheduleMenu({ onSchedule, disabled }: ScheduleMenuProps) {
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
 
           {/* Menu */}
-          <div className="absolute bottom-full mb-2 right-0 z-50 bg-white dark:bg-dark-bg-secondary rounded-lg shadow-lg border border-gray-200 dark:border-dark-border py-1 min-w-[240px]">
-            <div className="px-3 py-2 border-b border-gray-100 dark:border-dark-border">
-              <h3 className="text-sm font-medium text-gray-800 dark:text-dark-text">
+          <div className="dark:bg-dark-bg-secondary dark:border-dark-border absolute right-0 bottom-full z-50 mb-2 min-w-[240px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+            <div className="dark:border-dark-border border-b border-gray-100 px-3 py-2">
+              <h3 className="dark:text-dark-text text-sm font-medium text-gray-800">
                 Küldés ütemezése
               </h3>
             </div>
@@ -82,34 +82,34 @@ export function ScheduleMenu({ onSchedule, disabled }: ScheduleMenuProps) {
                 <button
                   key={option.id}
                   onClick={() => handleQuickSchedule(option.time)}
-                  className="flex items-center justify-between w-full px-3 py-2 text-sm text-gray-700 dark:text-dark-text-secondary hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary"
+                  className="dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary flex w-full items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                 >
                   <span>{option.label}</span>
-                  <span className="text-xs text-gray-400 dark:text-dark-text-muted">
+                  <span className="dark:text-dark-text-muted text-xs text-gray-400">
                     {formatScheduledTime(option.time)}
                   </span>
                 </button>
               ))}
             </div>
 
-            <div className="border-t border-gray-100 dark:border-dark-border py-1">
+            <div className="dark:border-dark-border border-t border-gray-100 py-1">
               {!showCustomPicker ? (
                 <button
                   onClick={() => setShowCustomPicker(true)}
-                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-700 dark:text-dark-text-secondary hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary"
+                  className="dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                 >
                   <Calendar className="h-4 w-4" />
                   Egyéni időpont...
                 </button>
               ) : (
-                <div className="px-3 py-2 space-y-2">
+                <div className="space-y-2 px-3 py-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-gray-500 dark:text-dark-text-muted">
+                    <span className="dark:text-dark-text-muted text-xs font-medium text-gray-500">
                       Egyéni időpont
                     </span>
                     <button
                       onClick={() => setShowCustomPicker(false)}
-                      className="p-1 rounded hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary"
+                      className="dark:hover:bg-dark-bg-tertiary rounded p-1 hover:bg-gray-100"
                     >
                       <X className="h-3 w-3 text-gray-400" />
                     </button>
@@ -121,20 +121,20 @@ export function ScheduleMenu({ onSchedule, disabled }: ScheduleMenuProps) {
                       value={customDate}
                       onChange={(e) => setCustomDate(e.target.value)}
                       min={minDate}
-                      className="flex-1 px-2 py-1 text-sm border border-gray-200 dark:border-dark-border rounded bg-white dark:bg-dark-bg text-gray-700 dark:text-dark-text"
+                      className="dark:border-dark-border dark:bg-dark-bg dark:text-dark-text flex-1 rounded border border-gray-200 bg-white px-2 py-1 text-sm text-gray-700"
                     />
                     <input
                       type="time"
                       value={customTime}
                       onChange={(e) => setCustomTime(e.target.value)}
-                      className="w-24 px-2 py-1 text-sm border border-gray-200 dark:border-dark-border rounded bg-white dark:bg-dark-bg text-gray-700 dark:text-dark-text"
+                      className="dark:border-dark-border dark:bg-dark-bg dark:text-dark-text w-24 rounded border border-gray-200 bg-white px-2 py-1 text-sm text-gray-700"
                     />
                   </div>
 
                   <button
                     onClick={handleCustomSchedule}
                     disabled={!customDate || !customTime}
-                    className="w-full px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="w-full rounded bg-blue-600 px-3 py-1.5 text-sm text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Ütemezés
                   </button>
@@ -155,14 +155,14 @@ interface ScheduledBadgeProps {
 
 export function ScheduledBadge({ scheduledAt, onCancel }: ScheduledBadgeProps) {
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-800 rounded-lg text-sm">
+    <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm dark:border-blue-800 dark:bg-blue-500/10">
       <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
       <span className="text-blue-800 dark:text-blue-200">
         Ütemezve: {formatScheduledTime(scheduledAt)}
       </span>
       <button
         onClick={onCancel}
-        className="p-0.5 rounded hover:bg-blue-100 dark:hover:bg-blue-500/20 text-blue-600 dark:text-blue-400"
+        className="rounded p-0.5 text-blue-600 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-500/20"
         title="Ütemezés törlése"
       >
         <X className="h-3 w-3" />

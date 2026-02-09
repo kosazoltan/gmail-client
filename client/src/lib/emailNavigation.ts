@@ -4,7 +4,7 @@
  */
 export function getNextEmailAfterDelete<T extends { id: string }>(
   emails: T[],
-  deletedEmailId: string | undefined
+  deletedEmailId: string | undefined,
 ): T | null {
   if (!deletedEmailId || emails.length === 0) return null;
 

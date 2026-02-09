@@ -59,17 +59,19 @@ export function UnifiedEmailList({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex h-64 items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-blue-500 dark:text-blue-400" />
-        <span className="ml-3 text-gray-500 dark:text-dark-text-secondary">Levelek betöltése...</span>
+        <span className="dark:text-dark-text-secondary ml-3 text-gray-500">
+          Levelek betöltése...
+        </span>
       </div>
     );
   }
 
   if (emails.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-gray-400 dark:text-dark-text-muted">
-        <MailX className="h-12 w-12 mb-3" />
+      <div className="dark:text-dark-text-muted flex h-64 flex-col items-center justify-center text-gray-400">
+        <MailX className="mb-3 h-12 w-12" />
         <p>{emptyMessage}</p>
       </div>
     );
@@ -82,7 +84,7 @@ export function UnifiedEmailList({
           {/* Account color indicator */}
           {email.accountColor && (
             <div
-              className="absolute left-0 top-0 bottom-0 w-1"
+              className="absolute top-0 bottom-0 left-0 w-1"
               style={{ backgroundColor: email.accountColor }}
               title={email.accountEmail || 'Account'}
             />

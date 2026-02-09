@@ -1,5 +1,10 @@
 import { useState, useCallback, useMemo } from 'react';
-import { useLabels, useAddLabelToEmail, useRemoveLabelFromEmail, useCreateLabel } from '../../hooks/useLabels';
+import {
+  useLabels,
+  useAddLabelToEmail,
+  useRemoveLabelFromEmail,
+  useCreateLabel,
+} from '../../hooks/useLabels';
 import { Tag, Plus, Check, X, Loader2 } from 'lucide-react';
 import type { GmailLabel } from '../../types';
 
@@ -10,7 +15,16 @@ interface LabelManagerProps {
 }
 
 // Konstansok - kiemelve a komponensből a teljesítmény és újrahasználhatóság érdekében
-const SYSTEM_LABEL_IDS = ['INBOX', 'SENT', 'DRAFT', 'TRASH', 'SPAM', 'STARRED', 'IMPORTANT', 'UNREAD'] as const;
+const SYSTEM_LABEL_IDS = [
+  'INBOX',
+  'SENT',
+  'DRAFT',
+  'TRASH',
+  'SPAM',
+  'STARRED',
+  'IMPORTANT',
+  'UNREAD',
+] as const;
 const SHOWN_SYSTEM_LABELS = ['INBOX', 'STARRED', 'IMPORTANT'] as const;
 
 const SYSTEM_LABEL_NAMES: Readonly<Record<string, string>> = {
@@ -66,22 +80,28 @@ export function LabelManager({ emailId, currentLabels, onClose }: LabelManagerPr
   const labels = data?.labels ?? [];
 
   // Memoizált szűrés a teljesítmény érdekében
-  const { userLabels, systemLabels } = useMemo(() => ({
-    userLabels: labels.filter((l) => l.type === 'user'),
-    systemLabels: labels.filter(
-      (l) => l.type === 'system' && (SHOWN_SYSTEM_LABELS as readonly string[]).includes(l.id)
-    ),
-  }), [labels]);
+  const { userLabels, systemLabels } = useMemo(
+    () => ({
+      userLabels: labels.filter((l) => l.type === 'user'),
+      systemLabels: labels.filter(
+        (l) => l.type === 'system' && (SHOWN_SYSTEM_LABELS as readonly string[]).includes(l.id),
+      ),
+    }),
+    [labels],
+  );
 
-  const handleToggleLabel = useCallback((label: GmailLabel) => {
-    const isActive = currentLabels.includes(label.id);
+  const handleToggleLabel = useCallback(
+    (label: GmailLabel) => {
+      const isActive = currentLabels.includes(label.id);
 
-    if (isActive) {
-      removeLabel.mutate({ emailId, labelIds: [label.id] });
-    } else {
-      addLabel.mutate({ emailId, labelIds: [label.id] });
-    }
-  }, [emailId, currentLabels, addLabel, removeLabel]);
+      if (isActive) {
+        removeLabel.mutate({ emailId, labelIds: [label.id] });
+      } else {
+        addLabel.mutate({ emailId, labelIds: [label.id] });
+      }
+    },
+    [emailId, currentLabels, addLabel, removeLabel],
+  );
 
   const handleCreateLabel = useCallback(() => {
     const trimmedName = newLabelName.trim();
@@ -98,27 +118,30 @@ export function LabelManager({ emailId, currentLabels, onClose }: LabelManagerPr
     );
   }, [newLabelName, createLabel]);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleCreateLabel();
-    } else if (e.key === 'Escape') {
-      setShowNewLabel(false);
-    }
-  }, [handleCreateLabel]);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleCreateLabel();
+      } else if (e.key === 'Escape') {
+        setShowNewLabel(false);
+      }
+    },
+    [handleCreateLabel],
+  );
 
   const isPending = addLabel.isPending || removeLabel.isPending;
 
   return (
-    <div className="absolute right-0 top-full mt-1 w-64 bg-white dark:bg-dark-bg-secondary rounded-lg shadow-lg border border-gray-200 dark:border-dark-border z-50">
-      <div className="p-3 border-b border-gray-200 dark:border-dark-border flex items-center justify-between">
+    <div className="dark:bg-dark-bg-secondary dark:border-dark-border absolute top-full right-0 z-50 mt-1 w-64 rounded-lg border border-gray-200 bg-white shadow-lg">
+      <div className="dark:border-dark-border flex items-center justify-between border-b border-gray-200 p-3">
         <div className="flex items-center gap-2">
           <Tag className="h-4 w-4 text-gray-500" />
-          <span className="text-sm font-medium dark:text-dark-text">Címkék</span>
+          <span className="dark:text-dark-text text-sm font-medium">Címkék</span>
         </div>
         <button
           onClick={onClose}
-          className="p-1 hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary rounded"
+          className="dark:hover:bg-dark-bg-tertiary rounded p-1 hover:bg-gray-100"
           type="button"
           aria-label="Bezárás"
         >
@@ -127,19 +150,17 @@ export function LabelManager({ emailId, currentLabels, onClose }: LabelManagerPr
       </div>
 
       {isLoading ? (
-        <div className="p-4 flex items-center justify-center">
+        <div className="flex items-center justify-center p-4">
           <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
         </div>
       ) : labelsError ? (
-        <div className="p-4 text-sm text-red-500 text-center">
-          Hiba a címkék betöltésekor
-        </div>
+        <div className="p-4 text-center text-sm text-red-500">Hiba a címkék betöltésekor</div>
       ) : (
         <div className="max-h-[60vh] overflow-y-auto">
           {/* Rendszer címkék */}
           {systemLabels.length > 0 && (
-            <div className="p-2 border-b border-gray-100 dark:border-dark-border">
-              <div className="text-xs text-gray-400 uppercase mb-1 px-2">Rendszer</div>
+            <div className="dark:border-dark-border border-b border-gray-100 p-2">
+              <div className="mb-1 px-2 text-xs text-gray-400 uppercase">Rendszer</div>
               {systemLabels.map((label) => {
                 const isActive = currentLabels.includes(label.id);
                 return (
@@ -148,16 +169,16 @@ export function LabelManager({ emailId, currentLabels, onClose }: LabelManagerPr
                     onClick={() => handleToggleLabel(label)}
                     disabled={isPending}
                     type="button"
-                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary disabled:opacity-50"
+                    className="dark:hover:bg-dark-bg-tertiary flex w-full items-center gap-2 rounded px-2 py-1.5 hover:bg-gray-100 disabled:opacity-50"
                   >
                     <div
-                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      className="h-3 w-3 flex-shrink-0 rounded-full"
                       style={{ backgroundColor: getLabelColor(label) }}
                     />
-                    <span className="flex-1 text-left text-sm dark:text-dark-text">
+                    <span className="dark:text-dark-text flex-1 text-left text-sm">
                       {getLabelDisplayName(label)}
                     </span>
-                    {isActive && <Check className="h-4 w-4 text-green-500 flex-shrink-0" />}
+                    {isActive && <Check className="h-4 w-4 flex-shrink-0 text-green-500" />}
                   </button>
                 );
               })}
@@ -168,7 +189,7 @@ export function LabelManager({ emailId, currentLabels, onClose }: LabelManagerPr
           <div className="p-2">
             {userLabels.length > 0 ? (
               <>
-                <div className="text-xs text-gray-400 uppercase mb-1 px-2">Saját címkék</div>
+                <div className="mb-1 px-2 text-xs text-gray-400 uppercase">Saját címkék</div>
                 {userLabels.map((label) => {
                   const isActive = currentLabels.includes(label.id);
                   return (
@@ -177,29 +198,29 @@ export function LabelManager({ emailId, currentLabels, onClose }: LabelManagerPr
                       onClick={() => handleToggleLabel(label)}
                       disabled={isPending}
                       type="button"
-                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary disabled:opacity-50"
+                      className="dark:hover:bg-dark-bg-tertiary flex w-full items-center gap-2 rounded px-2 py-1.5 hover:bg-gray-100 disabled:opacity-50"
                     >
                       <div
-                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        className="h-3 w-3 flex-shrink-0 rounded-full"
                         style={{ backgroundColor: getLabelColor(label) }}
                       />
-                      <span className="flex-1 text-left text-sm dark:text-dark-text truncate">
+                      <span className="dark:text-dark-text flex-1 truncate text-left text-sm">
                         {label.name}
                       </span>
-                      {isActive && <Check className="h-4 w-4 text-green-500 flex-shrink-0" />}
+                      {isActive && <Check className="h-4 w-4 flex-shrink-0 text-green-500" />}
                     </button>
                   );
                 })}
               </>
             ) : (
-              <div className="text-xs text-gray-400 px-2 py-2">Nincsenek saját címkék</div>
+              <div className="px-2 py-2 text-xs text-gray-400">Nincsenek saját címkék</div>
             )}
           </div>
         </div>
       )}
 
       {/* Új címke létrehozása */}
-      <div className="p-2 border-t border-gray-200 dark:border-dark-border">
+      <div className="dark:border-dark-border border-t border-gray-200 p-2">
         {showNewLabel ? (
           <div className="flex items-center gap-2">
             <input
@@ -207,7 +228,7 @@ export function LabelManager({ emailId, currentLabels, onClose }: LabelManagerPr
               value={newLabelName}
               onChange={(e) => setNewLabelName(e.target.value)}
               placeholder="Címke neve..."
-              className="flex-1 px-2 py-1 text-sm border border-gray-200 dark:border-dark-border rounded bg-transparent dark:text-dark-text"
+              className="dark:border-dark-border dark:text-dark-text flex-1 rounded border border-gray-200 bg-transparent px-2 py-1 text-sm"
               autoFocus
               onKeyDown={handleKeyDown}
               maxLength={100}
@@ -216,7 +237,7 @@ export function LabelManager({ emailId, currentLabels, onClose }: LabelManagerPr
               onClick={handleCreateLabel}
               disabled={!newLabelName.trim() || createLabel.isPending}
               type="button"
-              className="p-1 text-green-500 hover:bg-green-50 dark:hover:bg-green-500/20 rounded disabled:opacity-50"
+              className="rounded p-1 text-green-500 hover:bg-green-50 disabled:opacity-50 dark:hover:bg-green-500/20"
               aria-label="Mentés"
             >
               {createLabel.isPending ? (
@@ -228,7 +249,7 @@ export function LabelManager({ emailId, currentLabels, onClose }: LabelManagerPr
             <button
               onClick={() => setShowNewLabel(false)}
               type="button"
-              className="p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary rounded"
+              className="dark:hover:bg-dark-bg-tertiary rounded p-1 text-gray-400 hover:bg-gray-100"
               aria-label="Mégse"
             >
               <X className="h-4 w-4" />
@@ -238,7 +259,7 @@ export function LabelManager({ emailId, currentLabels, onClose }: LabelManagerPr
           <button
             onClick={() => setShowNewLabel(true)}
             type="button"
-            className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/20 rounded"
+            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/20"
           >
             <Plus className="h-4 w-4" />
             Új címke létrehozása

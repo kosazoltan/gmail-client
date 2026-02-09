@@ -49,16 +49,14 @@ export function AccountSwitcher({ compact = false }: AccountSwitcherProps) {
 
   if (!session?.authenticated) return null;
 
-  const activeAccount = session.accounts.find(
-    (a) => a.id === session.activeAccountId,
-  );
+  const activeAccount = session.accounts.find((a) => a.id === session.activeAccountId);
 
   if (compact) {
     return (
       <div className="relative">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium mx-auto"
+          className="mx-auto flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium text-white"
           style={{
             backgroundColor: getAccountColor(activeAccount),
           }}
@@ -87,25 +85,25 @@ export function AccountSwitcher({ compact = false }: AccountSwitcherProps) {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 w-full px-2 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary transition-colors"
+        className="dark:hover:bg-dark-bg-tertiary flex w-full items-center gap-2 rounded-lg px-2 py-2 transition-colors hover:bg-gray-100"
       >
         <div
-          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0"
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-medium text-white"
           style={{
             backgroundColor: getAccountColor(activeAccount),
           }}
         >
           {getInitials(activeAccount?.name || activeAccount?.email || '?')}
         </div>
-        <div className="flex-1 text-left min-w-0">
-          <div className="text-sm font-medium text-gray-800 dark:text-dark-text truncate">
+        <div className="min-w-0 flex-1 text-left">
+          <div className="dark:text-dark-text truncate text-sm font-medium text-gray-800">
             {activeAccount?.name}
           </div>
-          <div className="text-xs text-gray-400 dark:text-dark-text-muted truncate">
+          <div className="dark:text-dark-text-muted truncate text-xs text-gray-400">
             {activeAccount?.email}
           </div>
         </div>
-        <ChevronDown className="h-4 w-4 text-gray-400 dark:text-dark-text-muted flex-shrink-0" />
+        <ChevronDown className="dark:text-dark-text-muted h-4 w-4 flex-shrink-0 text-gray-400" />
       </button>
 
       {isOpen && (
@@ -154,30 +152,34 @@ function AccountDropdown({
 
       <div
         className={cn(
-          'absolute z-50 bg-white dark:bg-dark-bg-secondary rounded-lg shadow-lg border border-gray-200 dark:border-dark-border py-1 min-w-[280px]',
-          compact ? 'left-12 bottom-0' : 'bottom-full left-0 right-0 mb-1',
+          'dark:bg-dark-bg-secondary dark:border-dark-border absolute z-50 min-w-[280px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg',
+          compact ? 'bottom-0 left-12' : 'right-0 bottom-full left-0 mb-1',
         )}
       >
         {/* Fiókok */}
         {session.accounts.map((account) => (
           <div key={account.id} className="relative">
-            <div className="flex items-center gap-2 w-full px-3 py-2 hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary">
+            <div className="dark:hover:bg-dark-bg-tertiary flex w-full items-center gap-2 px-3 py-2 hover:bg-gray-50">
               <button
                 onClick={() => onSwitch(account.id)}
-                className="flex items-center gap-2 flex-1 text-left"
+                className="flex flex-1 items-center gap-2 text-left"
               >
                 <div
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0"
+                  className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-medium text-white"
                   style={{ backgroundColor: getAccountColor(account) }}
                 >
                   {getInitials(account.name || account.email)}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm text-gray-800 dark:text-dark-text truncate">{account.name}</div>
-                  <div className="text-xs text-gray-400 dark:text-dark-text-muted truncate">{account.email}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="dark:text-dark-text truncate text-sm text-gray-800">
+                    {account.name}
+                  </div>
+                  <div className="dark:text-dark-text-muted truncate text-xs text-gray-400">
+                    {account.email}
+                  </div>
                 </div>
                 {account.id === session.activeAccountId && (
-                  <Check className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                  <Check className="h-4 w-4 flex-shrink-0 text-blue-500" />
                 )}
               </button>
 
@@ -187,7 +189,7 @@ function AccountDropdown({
                   e.stopPropagation();
                   setColorPickerFor(colorPickerFor === account.id ? null : account.id);
                 }}
-                className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-dark-bg text-gray-400 dark:text-dark-text-muted hover:text-gray-600 dark:hover:text-dark-text transition-colors"
+                className="dark:hover:bg-dark-bg dark:text-dark-text-muted dark:hover:text-dark-text rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600"
                 title="Fiók színének módosítása"
               >
                 <Palette className="h-4 w-4" />
@@ -196,15 +198,17 @@ function AccountDropdown({
 
             {/* Szín választó panel */}
             {colorPickerFor === account.id && (
-              <div className="px-3 py-2 bg-gray-50 dark:bg-dark-bg border-t border-gray-100 dark:border-dark-border">
-                <div className="text-xs text-gray-500 dark:text-dark-text-muted mb-2">Válassz színt:</div>
+              <div className="dark:bg-dark-bg dark:border-dark-border border-t border-gray-100 bg-gray-50 px-3 py-2">
+                <div className="dark:text-dark-text-muted mb-2 text-xs text-gray-500">
+                  Válassz színt:
+                </div>
                 <div className="grid grid-cols-8 gap-1">
                   {PRESET_COLORS.map((color) => (
                     <button
                       key={color}
                       onClick={() => handleColorChange(account.id, color)}
                       className={cn(
-                        'w-6 h-6 rounded-full border-2 transition-transform hover:scale-110',
+                        'h-6 w-6 rounded-full border-2 transition-transform hover:scale-110',
                         account.color === color
                           ? 'border-gray-800 dark:border-white'
                           : 'border-transparent',
@@ -219,12 +223,12 @@ function AccountDropdown({
           </div>
         ))}
 
-        <div className="border-t border-gray-100 dark:border-dark-border my-1" />
+        <div className="dark:border-dark-border my-1 border-t border-gray-100" />
 
         {/* Fiók hozzáadása */}
         <button
           onClick={onAdd}
-          className="flex items-center gap-2 w-full px-3 py-2 hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary text-sm text-gray-600 dark:text-dark-text-secondary"
+          className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
         >
           <Plus className="h-4 w-4" />
           Fiók hozzáadása
@@ -234,7 +238,7 @@ function AccountDropdown({
         {session.activeAccountId && (
           <button
             onClick={() => onLogout(session.activeAccountId!)}
-            className="flex items-center gap-2 w-full px-3 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm text-red-600 dark:text-red-400"
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
           >
             <LogOut className="h-4 w-4" />
             Kijelentkezés

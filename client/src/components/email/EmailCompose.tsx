@@ -2,7 +2,18 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import { useSendEmail, useReplyEmail, type EmailAttachment } from '../../hooks/useEmails';
-import { Send, X, Loader2, Paperclip, File, Image, FileText, Trash2, Clock, CalendarClock } from 'lucide-react';
+import {
+  Send,
+  X,
+  Loader2,
+  Paperclip,
+  File,
+  Image,
+  FileText,
+  Trash2,
+  Clock,
+  CalendarClock,
+} from 'lucide-react';
 import { EmailAutocomplete } from './EmailAutocomplete';
 import { TemplateSelector } from './TemplateSelector';
 import { TemplatesManager } from '../settings/TemplatesManager';
@@ -99,7 +110,8 @@ export function EmailCompose() {
   const sendSnapshotRef = useRef<SendSnapshot | null>(null);
 
   // Undo send késleltetés beállításból vagy alapértelmezett
-  const undoSendDelay = settings?.undoSendDelay ?? defaultSettings.undoSendDelay ?? DEFAULT_UNDO_DELAY;
+  const undoSendDelay =
+    settings?.undoSendDelay ?? defaultSettings.undoSendDelay ?? DEFAULT_UNDO_DELAY;
 
   // Cleanup timeout, toast, and snapshot on unmount
   useEffect(() => {
@@ -176,7 +188,9 @@ export function EmailCompose() {
 
       // Össz méret ellenőrzése
       if (currentTotal + file.size > MAX_TOTAL_SIZE) {
-        alert(`A mellékletek össz mérete meghaladja a limitet (max ~35MB). A "${file.name}" nem lett hozzáadva.`);
+        alert(
+          `A mellékletek össz mérete meghaladja a limitet (max ~35MB). A "${file.name}" nem lett hozzáadva.`,
+        );
         break;
       }
 
@@ -317,7 +331,7 @@ export function EmailCompose() {
     undoToastIdRef.current = toast.undoable(
       `Email küldése ${undoSendDelay} másodperc múlva...`,
       cancelSend,
-      undoSendDelay * 1000
+      undoSendDelay * 1000,
     );
 
     // Időzítő beállítása a tényleges küldéshez
@@ -360,29 +374,33 @@ export function EmailCompose() {
     }
   };
 
-  const isPending = sendEmail.isPending || replyEmail.isPending || isSendPending || createScheduledEmail.isPending;
+  const isPending =
+    sendEmail.isPending || replyEmail.isPending || isSendPending || createScheduledEmail.isPending;
 
   // Összes melléklet mérete
   const totalAttachmentSize = attachments.reduce((sum, a) => sum + a.size, 0);
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <div className="bg-white dark:bg-dark-bg-secondary rounded-xl shadow-sm border border-gray-200 dark:border-dark-border">
+    <div className="mx-auto max-w-3xl p-6">
+      <div className="dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white shadow-sm">
         {/* Fejléc */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-dark-border">
-          <h2 className="font-medium text-gray-800 dark:text-dark-text">
+        <div className="dark:border-dark-border flex items-center justify-between border-b border-gray-200 px-4 py-3">
+          <h2 className="dark:text-dark-text font-medium text-gray-800">
             {isReply ? 'Válasz' : isForward ? 'Továbbítás' : 'Új levél'}
           </h2>
           <div className="flex items-center gap-2">
             {undoSendDelay > 0 && (
-              <span className="text-xs text-gray-400 dark:text-dark-text-muted flex items-center gap-1" title="Küldés visszavonható ennyi ideig">
+              <span
+                className="dark:text-dark-text-muted flex items-center gap-1 text-xs text-gray-400"
+                title="Küldés visszavonható ennyi ideig"
+              >
                 <Clock className="h-3 w-3" />
                 {undoSendDelay}mp
               </span>
             )}
             <button
               onClick={() => navigate(-1)}
-              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-400 dark:text-dark-text-muted transition-colors"
+              className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-muted rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100"
               aria-label="Bezárás"
             >
               <X className="h-5 w-5" />
@@ -391,19 +409,21 @@ export function EmailCompose() {
         </div>
 
         {/* Űrlap */}
-        <div className="p-4 space-y-3">
+        <div className="space-y-3 p-4">
           <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-500 dark:text-dark-text-secondary w-20 shrink-0">Címzett:</label>
+            <label className="dark:text-dark-text-secondary w-20 shrink-0 text-sm text-gray-500">
+              Címzett:
+            </label>
             <EmailAutocomplete
               value={to}
               onChange={setTo}
               placeholder="pelda@gmail.com"
-              className="flex-1 min-w-0 w-full px-3 py-1.5 text-sm border border-gray-200 dark:border-dark-border rounded-xl focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20 outline-none bg-transparent dark:text-dark-text transition-colors"
+              className="dark:border-dark-border dark:text-dark-text w-full min-w-0 flex-1 rounded-xl border border-gray-200 bg-transparent px-3 py-1.5 text-sm transition-colors outline-none focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20"
             />
             {!showCc && (
               <button
                 onClick={() => setShowCc(true)}
-                className="text-xs text-[#4f6ef7] hover:text-[#3d5ce5] shrink-0 transition-colors"
+                className="shrink-0 text-xs text-[#4f6ef7] transition-colors hover:text-[#3d5ce5]"
               >
                 Másolat
               </button>
@@ -412,24 +432,28 @@ export function EmailCompose() {
 
           {showCc && (
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-500 dark:text-dark-text-secondary w-20 shrink-0">Másolat:</label>
+              <label className="dark:text-dark-text-secondary w-20 shrink-0 text-sm text-gray-500">
+                Másolat:
+              </label>
               <EmailAutocomplete
                 value={cc}
                 onChange={setCc}
                 placeholder="masik@gmail.com"
-                className="flex-1 min-w-0 w-full px-3 py-1.5 text-sm border border-gray-200 dark:border-dark-border rounded-xl focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20 outline-none bg-transparent dark:text-dark-text transition-colors"
+                className="dark:border-dark-border dark:text-dark-text w-full min-w-0 flex-1 rounded-xl border border-gray-200 bg-transparent px-3 py-1.5 text-sm transition-colors outline-none focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20"
               />
             </div>
           )}
 
           <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-500 dark:text-dark-text-secondary w-20 shrink-0">Tárgy:</label>
+            <label className="dark:text-dark-text-secondary w-20 shrink-0 text-sm text-gray-500">
+              Tárgy:
+            </label>
             <input
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Levél tárgya"
-              className="flex-1 min-w-0 px-3 py-1.5 text-sm border border-gray-200 dark:border-dark-border rounded-xl focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20 outline-none bg-transparent dark:text-dark-text transition-colors"
+              className="dark:border-dark-border dark:text-dark-text min-w-0 flex-1 rounded-xl border border-gray-200 bg-transparent px-3 py-1.5 text-sm transition-colors outline-none focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20"
             />
           </div>
 
@@ -438,20 +462,22 @@ export function EmailCompose() {
             contentEditable
             onInput={handleBodyInput}
             onKeyDown={handleKeyDown}
-            className="w-full px-3 py-2 text-sm outline-none bg-transparent text-gray-900 dark:text-gray-300 min-h-[240px] max-h-[500px] overflow-y-auto border border-gray-200 dark:border-dark-border rounded-xl focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20 transition-colors [&_div]:!text-[inherit] [&_*]:!text-[inherit]"
+            className="dark:border-dark-border max-h-[500px] min-h-[240px] w-full overflow-y-auto rounded-xl border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-900 transition-colors outline-none focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20 dark:text-gray-300 [&_*]:!text-[inherit] [&_div]:!text-[inherit]"
             style={{
               whiteSpace: 'pre-wrap',
               wordWrap: 'break-word',
             }}
-            data-placeholder={body ? '' : 'Levél szövege... (Válaszoláskor az új szöveged kék színnel jelenik meg)'}
+            data-placeholder={
+              body ? '' : 'Levél szövege... (Válaszoláskor az új szöveged kék színnel jelenik meg)'
+            }
           />
 
           {/* Mellékletek */}
           {attachments.length > 0 && (
-            <div className="border-t border-gray-100 dark:border-dark-border pt-3">
-              <div className="flex items-center gap-2 mb-2">
+            <div className="dark:border-dark-border border-t border-gray-100 pt-3">
+              <div className="mb-2 flex items-center gap-2">
                 <Paperclip className="h-4 w-4 text-gray-400" />
-                <span className="text-xs text-gray-500 dark:text-dark-text-secondary">
+                <span className="dark:text-dark-text-secondary text-xs text-gray-500">
                   {attachments.length} melléklet ({formatFileSize(totalAttachmentSize)})
                 </span>
               </div>
@@ -459,16 +485,16 @@ export function EmailCompose() {
                 {attachments.map((att) => (
                   <div
                     key={att.id}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-dark-bg-tertiary rounded-lg group"
+                    className="dark:bg-dark-bg-tertiary group flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-1.5"
                   >
                     <AttachmentIcon mimeType={att.mimeType} className="h-4 w-4 text-gray-500" />
-                    <span className="text-xs text-gray-700 dark:text-dark-text max-w-[150px] truncate">
+                    <span className="dark:text-dark-text max-w-[150px] truncate text-xs text-gray-700">
                       {att.filename}
                     </span>
                     <span className="text-xs text-gray-400">{formatFileSize(att.size)}</span>
                     <button
                       onClick={() => removeAttachment(att.id)}
-                      className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-500/20 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                      className="rounded p-0.5 text-gray-400 opacity-0 transition-all group-hover:opacity-100 hover:bg-red-100 hover:text-red-500 dark:hover:bg-red-500/20"
                       aria-label="Melléklet eltávolítása"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -482,23 +508,20 @@ export function EmailCompose() {
 
         {/* Scheduled badge */}
         {scheduledAt && (
-          <div className="px-4 py-2 border-t border-gray-100 dark:border-dark-border">
-            <ScheduledBadge
-              scheduledAt={scheduledAt}
-              onCancel={() => setScheduledAt(null)}
-            />
+          <div className="dark:border-dark-border border-t border-gray-100 px-4 py-2">
+            <ScheduledBadge scheduledAt={scheduledAt} onCancel={() => setScheduledAt(null)} />
           </div>
         )}
 
         {/* Küldés gomb */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-dark-border">
-          <div className="flex items-center gap-2 flex-wrap">
+        <div className="dark:border-dark-border flex items-center justify-between border-t border-gray-200 px-4 py-3">
+          <div className="flex flex-wrap items-center gap-2">
             {scheduledAt ? (
               /* Ütemezett küldés gomb */
               <button
                 onClick={handleScheduledSend}
                 disabled={!to || isPending}
-                className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-2 rounded-lg bg-purple-600 px-6 py-2 text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -512,7 +535,7 @@ export function EmailCompose() {
               <button
                 onClick={handleSend}
                 disabled={!to || !body || isPending}
-                className="flex items-center gap-2 px-6 py-2 bg-[#4f6ef7] text-white rounded-lg hover:bg-[#3d5ce5] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-2 rounded-lg bg-[#4f6ef7] px-6 py-2 text-white transition-colors hover:bg-[#3d5ce5] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -525,10 +548,7 @@ export function EmailCompose() {
 
             {/* Ütemezés menü - csak ha nincs már ütemezve */}
             {!scheduledAt && !isReply && (
-              <ScheduleMenu
-                onSchedule={handleSchedule}
-                disabled={isPending}
-              />
+              <ScheduleMenu onSchedule={handleSchedule} disabled={isPending} />
             )}
 
             {/* Melléklet csatolás gomb */}
@@ -542,11 +562,11 @@ export function EmailCompose() {
             />
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-dark-text-secondary hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary rounded-lg transition-colors"
+              className="dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary flex items-center gap-2 rounded-lg px-4 py-2 text-gray-600 transition-colors hover:bg-gray-100"
               title="Melléklet csatolása"
             >
               <Paperclip className="h-4 w-4" />
-              <span className="hidden sm:inline text-sm">Csatolás</span>
+              <span className="hidden text-sm sm:inline">Csatolás</span>
             </button>
 
             <TemplateSelector
@@ -557,7 +577,7 @@ export function EmailCompose() {
 
           <button
             onClick={() => navigate(-1)}
-            className="text-sm text-gray-500 dark:text-dark-text-secondary hover:text-gray-700 dark:hover:text-dark-text transition-colors"
+            className="dark:text-dark-text-secondary dark:hover:text-dark-text text-sm text-gray-500 transition-colors hover:text-gray-700"
           >
             Elvetés
           </button>
@@ -565,9 +585,7 @@ export function EmailCompose() {
       </div>
 
       {/* Sablonkezelő modal */}
-      {showTemplatesManager && (
-        <TemplatesManager onClose={() => setShowTemplatesManager(false)} />
-      )}
+      {showTemplatesManager && <TemplatesManager onClose={() => setShowTemplatesManager(false)} />}
     </div>
   );
 }

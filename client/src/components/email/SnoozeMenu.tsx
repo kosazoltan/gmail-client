@@ -13,7 +13,13 @@ interface SnoozeMenuProps {
   variant?: 'button' | 'menu-item';
 }
 
-export function SnoozeMenu({ emailId, onSuccess, onClose, className = '', variant = 'button' }: SnoozeMenuProps) {
+export function SnoozeMenu({
+  emailId,
+  onSuccess,
+  onClose,
+  className = '',
+  variant = 'button',
+}: SnoozeMenuProps) {
   const snoozeEmail = useSnoozeEmail();
   const [isOpen, setIsOpen] = useState(false);
   const [showCustom, setShowCustom] = useState(false);
@@ -85,7 +91,7 @@ export function SnoozeMenu({ emailId, onSuccess, onClose, className = '', varian
           e.stopPropagation();
           setIsOpen(!isOpen);
         }}
-        className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary transition-colors rounded-lg"
+        className="dark:text-dark-text dark:hover:bg-dark-bg-tertiary flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100"
       >
         <Clock className="h-4 w-4" />
         <span>Szundi</span>
@@ -97,7 +103,7 @@ export function SnoozeMenu({ emailId, onSuccess, onClose, className = '', varian
     <div className={`relative ${className}`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-600 dark:text-dark-text-secondary transition-colors"
+        className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-100"
         title="Szundi"
       >
         <Clock className="h-4 w-4" />
@@ -111,9 +117,9 @@ export function SnoozeMenu({ emailId, onSuccess, onClose, className = '', varian
           <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
 
           {/* Dropdown */}
-          <div className="absolute top-full right-0 mt-1 w-56 bg-white dark:bg-dark-bg-secondary border border-gray-200 dark:border-dark-border rounded-lg shadow-lg z-20 overflow-hidden">
+          <div className="dark:bg-dark-bg-secondary dark:border-dark-border absolute top-full right-0 z-20 mt-1 w-56 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
             <div className="p-2">
-              <div className="text-xs font-medium text-gray-400 dark:text-dark-text-muted px-2 py-1 uppercase">
+              <div className="dark:text-dark-text-muted px-2 py-1 text-xs font-medium text-gray-400 uppercase">
                 Emlékeztess később
               </div>
 
@@ -122,34 +128,34 @@ export function SnoozeMenu({ emailId, onSuccess, onClose, className = '', varian
                   key={option.id}
                   onClick={() => handleSnooze(option.time)}
                   disabled={snoozeEmail.isPending}
-                  className="w-full flex items-center justify-between px-2 py-2 text-sm text-gray-700 dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary rounded transition-colors disabled:opacity-50"
+                  className="dark:text-dark-text dark:hover:bg-dark-bg-tertiary flex w-full items-center justify-between rounded px-2 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:opacity-50"
                 >
                   <span>{option.label}</span>
-                  <span className="text-xs text-gray-400 dark:text-dark-text-muted">
+                  <span className="dark:text-dark-text-muted text-xs text-gray-400">
                     {format(option.time, 'HH:mm', { locale: hu })}
                   </span>
                 </button>
               ))}
 
-              <div className="border-t border-gray-100 dark:border-dark-border my-2" />
+              <div className="dark:border-dark-border my-2 border-t border-gray-100" />
 
               {!showCustom ? (
                 <button
                   onClick={() => setShowCustom(true)}
-                  className="w-full flex items-center gap-2 px-2 py-2 text-sm text-gray-700 dark:text-dark-text hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary rounded transition-colors"
+                  className="dark:text-dark-text dark:hover:bg-dark-bg-tertiary flex w-full items-center gap-2 rounded px-2 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100"
                 >
                   <Calendar className="h-4 w-4" />
                   <span>Egyéni időpont...</span>
                 </button>
               ) : (
-                <div className="p-2 space-y-2">
+                <div className="space-y-2 p-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500 dark:text-dark-text-secondary">
+                    <span className="dark:text-dark-text-secondary text-xs text-gray-500">
                       Egyéni időpont
                     </span>
                     <button
                       onClick={() => setShowCustom(false)}
-                      className="p-1 rounded hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary"
+                      className="dark:hover:bg-dark-bg-tertiary rounded p-1 hover:bg-gray-100"
                     >
                       <X className="h-3 w-3 text-gray-400" />
                     </button>
@@ -160,20 +166,20 @@ export function SnoozeMenu({ emailId, onSuccess, onClose, className = '', varian
                     value={customDate}
                     onChange={(e) => setCustomDate(e.target.value)}
                     min={new Date().toISOString().split('T')[0]}
-                    className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-dark-border rounded bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text"
+                    className="dark:border-dark-border dark:bg-dark-bg dark:text-dark-text w-full rounded border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900"
                   />
 
                   <input
                     type="time"
                     value={customTime}
                     onChange={(e) => setCustomTime(e.target.value)}
-                    className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-dark-border rounded bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text"
+                    className="dark:border-dark-border dark:bg-dark-bg dark:text-dark-text w-full rounded border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-900"
                   />
 
                   <button
                     onClick={handleCustomSnooze}
                     disabled={!customDate || snoozeEmail.isPending}
-                    className="w-full px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="w-full rounded bg-blue-600 px-3 py-1.5 text-sm text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Szundi beállítása
                   </button>

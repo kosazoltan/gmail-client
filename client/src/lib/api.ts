@@ -64,9 +64,12 @@ export const api = {
         method: 'POST',
       }),
     resync: (id: string) =>
-      request<{ success: boolean; messagesProcessed: number; message: string }>(`/accounts/${id}/resync`, {
-        method: 'POST',
-      }),
+      request<{ success: boolean; messagesProcessed: number; message: string }>(
+        `/accounts/${id}/resync`,
+        {
+          method: 'POST',
+        },
+      ),
     updateColor: (id: string, color: string) =>
       request<{ success: boolean; color: string }>(`/accounts/${id}/color`, {
         method: 'PUT',
@@ -97,8 +100,7 @@ export const api = {
       body: string;
       cc?: string;
       attachments?: Array<{ filename: string; mimeType: string; content: string }>;
-    }) =>
-      request('/emails/send', { method: 'POST', body: JSON.stringify(data) }),
+    }) => request('/emails/send', { method: 'POST', body: JSON.stringify(data) }),
     reply: (data: {
       to: string;
       subject?: string;
@@ -118,8 +120,7 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ isStarred }),
       }),
-    delete: (id: string) =>
-      request(`/emails/${id}`, { method: 'DELETE' }),
+    delete: (id: string) => request(`/emails/${id}`, { method: 'DELETE' }),
     batchDelete: (emailIds: string[]) =>
       request<{ deletedCount: number; failedCount: number }>('/emails/batch', {
         method: 'DELETE',
@@ -158,8 +159,7 @@ export const api = {
         `/views/by-time/${periodId}${query}`,
       );
     },
-    byCategory: () =>
-      request<{ categories: import('../types').Category[] }>('/views/by-category'),
+    byCategory: () => request<{ categories: import('../types').Category[] }>('/views/by-category'),
     byCategoryEmails: (categoryId: string, params?: { page?: number }) => {
       const query = params?.page ? `?page=${params.page}` : '';
       return request<{ emails: import('../types').Email[]; category: import('../types').Category }>(
@@ -204,15 +204,11 @@ export const api = {
     update: (id: string, data: { name?: string; color?: string; icon?: string }) =>
       request(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: string) => request(`/categories/${id}`, { method: 'DELETE' }),
-    getRules: () => request<{ rules: import('../types').CategorizationRule[] }>('/categories/rules'),
-    createRule: (data: {
-      categoryId: string;
-      type: string;
-      value: string;
-      priority?: number;
-    }) => request('/categories/rules', { method: 'POST', body: JSON.stringify(data) }),
-    deleteRule: (id: string) =>
-      request(`/categories/rules/${id}`, { method: 'DELETE' }),
+    getRules: () =>
+      request<{ rules: import('../types').CategorizationRule[] }>('/categories/rules'),
+    createRule: (data: { categoryId: string; type: string; value: string; priority?: number }) =>
+      request('/categories/rules', { method: 'POST', body: JSON.stringify(data) }),
+    deleteRule: (id: string) => request(`/categories/rules/${id}`, { method: 'DELETE' }),
     recategorize: () => request('/categories/recategorize', { method: 'POST' }),
   },
 
@@ -227,14 +223,16 @@ export const api = {
 
   attachments: {
     downloadUrl: (id: string) => `${BASE_URL}/attachments/${id}/download`,
-    list: (params: {
-      type?: string;
-      search?: string;
-      sort?: 'date' | 'size' | 'name';
-      order?: 'asc' | 'desc';
-      page?: number;
-      limit?: number;
-    } = {}) => {
+    list: (
+      params: {
+        type?: string;
+        search?: string;
+        sort?: 'date' | 'size' | 'name';
+        order?: 'asc' | 'desc';
+        page?: number;
+        limit?: number;
+      } = {},
+    ) => {
       const query = new URLSearchParams();
       if (params.type) query.set('type', params.type);
       if (params.search) query.set('search', params.search);
@@ -248,13 +246,20 @@ export const api = {
 
   contacts: {
     search: (query: string, limit = 10) =>
-      request<import('../types').Contact[]>(`/contacts/search?q=${encodeURIComponent(query)}&limit=${limit}`),
+      request<import('../types').Contact[]>(
+        `/contacts/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+      ),
     list: () => request<import('../types').Contact[]>('/contacts'),
     delete: (id: string) => request(`/contacts/${id}`, { method: 'DELETE' }),
     update: (id: string, name: string) =>
       request(`/contacts/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
     extract: () => request<{ extractedCount: number }>('/contacts/extract', { method: 'POST' }),
-    fixEncoding: () => request<{ success: boolean; fixed: { contacts: number; senderGroups: number; emails: number }; message: string }>('/contacts/fix-encoding', { method: 'POST' }),
+    fixEncoding: () =>
+      request<{
+        success: boolean;
+        fixed: { contacts: number; senderGroups: number; emails: number };
+        message: string;
+      }>('/contacts/fix-encoding', { method: 'POST' }),
   },
 
   savedSearches: {
@@ -280,7 +285,10 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
-    update: (id: string, data: { name?: string; body?: string; subject?: string; shortcut?: string }) =>
+    update: (
+      id: string,
+      data: { name?: string; body?: string; subject?: string; shortcut?: string },
+    ) =>
       request<import('../types').Template>(`/templates/${id}`, {
         method: 'PUT',
         body: JSON.stringify(data),
@@ -316,24 +324,19 @@ export const api = {
       request<{ reminders: import('../types').Reminder[] }>(
         `/reminders?includeCompleted=${includeCompleted}`,
       ),
-    due: () =>
-      request<{ reminders: import('../types').Reminder[] }>('/reminders/due'),
+    due: () => request<{ reminders: import('../types').Reminder[] }>('/reminders/due'),
     count: () => request<{ count: number }>('/reminders/count'),
     create: (data: { emailId: string; remindAt: number; note?: string }) =>
       request<{ reminder: import('../types').Reminder }>('/reminders', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
-    update: (
-      id: string,
-      data: { remindAt?: number; note?: string; isCompleted?: boolean },
-    ) =>
+    update: (id: string, data: { remindAt?: number; note?: string; isCompleted?: boolean }) =>
       request<{ reminder: import('../types').Reminder }>(`/reminders/${id}`, {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
-    delete: (id: string) =>
-      request<{ success: boolean }>(`/reminders/${id}`, { method: 'DELETE' }),
+    delete: (id: string) => request<{ success: boolean }>(`/reminders/${id}`, { method: 'DELETE' }),
     complete: (id: string) =>
       request<{ reminder: import('../types').Reminder }>(`/reminders/${id}/complete`, {
         method: 'POST',
@@ -342,17 +345,19 @@ export const api = {
 
   database: {
     getStats: () => request<import('../types').DatabaseStats>('/database/stats'),
-    listEmails: (params: {
-      page?: number;
-      limit?: number;
-      sortBy?: 'date' | 'from' | 'subject' | 'size';
-      sortOrder?: 'asc' | 'desc';
-      search?: string;
-      dateFrom?: number;
-      dateTo?: number;
-      hasAttachments?: boolean;
-      isRead?: boolean;
-    } = {}) => {
+    listEmails: (
+      params: {
+        page?: number;
+        limit?: number;
+        sortBy?: 'date' | 'from' | 'subject' | 'size';
+        sortOrder?: 'asc' | 'desc';
+        search?: string;
+        dateFrom?: number;
+        dateTo?: number;
+        hasAttachments?: boolean;
+        isRead?: boolean;
+      } = {},
+    ) => {
       const query = new URLSearchParams();
       if (params.page) query.set('page', params.page.toString());
       if (params.limit) query.set('limit', params.limit.toString());
@@ -361,7 +366,8 @@ export const api = {
       if (params.search) query.set('search', params.search);
       if (params.dateFrom) query.set('dateFrom', params.dateFrom.toString());
       if (params.dateTo) query.set('dateTo', params.dateTo.toString());
-      if (params.hasAttachments !== undefined) query.set('hasAttachments', params.hasAttachments.toString());
+      if (params.hasAttachments !== undefined)
+        query.set('hasAttachments', params.hasAttachments.toString());
       if (params.isRead !== undefined) query.set('isRead', params.isRead.toString());
       return request<{
         emails: import('../types').DatabaseEmail[];
@@ -386,9 +392,12 @@ export const api = {
         body: JSON.stringify({ olderThanDays }),
       }),
     createBackup: () =>
-      request<{ filename: string; path: string; size: number }>('/database/backup', { method: 'POST' }),
+      request<{ filename: string; path: string; size: number }>('/database/backup', {
+        method: 'POST',
+      }),
     listBackups: () => request<{ backups: import('../types').Backup[] }>('/database/backups'),
-    downloadBackupUrl: (filename: string) => `${BASE_URL}/database/backups/${encodeURIComponent(filename)}`,
+    downloadBackupUrl: (filename: string) =>
+      `${BASE_URL}/database/backups/${encodeURIComponent(filename)}`,
     deleteBackup: (filename: string) =>
       request(`/database/backups/${encodeURIComponent(filename)}`, { method: 'DELETE' }),
     vacuum: () => request('/database/vacuum', { method: 'POST' }),
@@ -396,8 +405,7 @@ export const api = {
   },
 
   labels: {
-    list: () =>
-      request<{ labels: import('../types').GmailLabel[] }>('/labels'),
+    list: () => request<{ labels: import('../types').GmailLabel[] }>('/labels'),
     create: (data: { name: string; backgroundColor?: string; textColor?: string }) =>
       request<{ label: { id: string; name: string } }>('/labels', {
         method: 'POST',
@@ -436,12 +444,14 @@ export const api = {
       }),
     removeSender: (id: string) =>
       request<{ success: boolean }>(`/newsletters/senders/${id}`, { method: 'DELETE' }),
-    getEmails: (params: {
-      page?: number;
-      limit?: number;
-      senderId?: string;
-      includeMuted?: boolean;
-    } = {}) => {
+    getEmails: (
+      params: {
+        page?: number;
+        limit?: number;
+        senderId?: string;
+        includeMuted?: boolean;
+      } = {},
+    ) => {
       const query = new URLSearchParams();
       if (params.page) query.set('page', params.page.toString());
       if (params.limit) query.set('limit', params.limit.toString());
@@ -449,13 +459,11 @@ export const api = {
       if (params.includeMuted) query.set('includeMuted', 'true');
       return request<import('../types').NewsletterEmailsResult>(`/newsletters/emails?${query}`);
     },
-    getStats: () =>
-      request<import('../types').NewsletterStats>('/newsletters/stats'),
+    getStats: () => request<import('../types').NewsletterStats>('/newsletters/stats'),
   },
 
   push: {
-    getVapidKey: () =>
-      request<{ publicKey: string }>('/push/vapid-public-key'),
+    getVapidKey: () => request<{ publicKey: string }>('/push/vapid-public-key'),
     subscribe: (subscription: PushSubscriptionJSON) =>
       request<{ success: boolean; message: string }>('/push/subscribe', {
         method: 'POST',
@@ -473,8 +481,7 @@ export const api = {
   },
 
   pinned: {
-    list: () =>
-      request<{ pinnedEmailIds: string[] }>('/pinned'),
+    list: () => request<{ pinnedEmailIds: string[] }>('/pinned'),
     pin: (emailId: string) =>
       request<{ success: boolean; pinnedAt?: number }>(`/pinned/${emailId}`, {
         method: 'POST',
@@ -490,10 +497,8 @@ export const api = {
   },
 
   settings: {
-    getAll: () =>
-      request<{ settings: Record<string, unknown> }>('/settings'),
-    get: (key: string) =>
-      request<{ value: unknown }>(`/settings/${key}`),
+    getAll: () => request<{ settings: Record<string, unknown> }>('/settings'),
+    get: (key: string) => request<{ value: unknown }>(`/settings/${key}`),
     set: (key: string, value: unknown) =>
       request<{ success: boolean; key: string; value: unknown }>(`/settings/${key}`, {
         method: 'PUT',
@@ -537,19 +542,21 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
-    update: (id: string, data: {
-      to?: string;
-      cc?: string;
-      subject?: string;
-      body?: string;
-      scheduledAt?: number;
-    }) =>
+    update: (
+      id: string,
+      data: {
+        to?: string;
+        cc?: string;
+        subject?: string;
+        body?: string;
+        scheduledAt?: number;
+      },
+    ) =>
       request<{ success: boolean }>(`/scheduled/${id}`, {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
-    delete: (id: string) =>
-      request<{ success: boolean }>(`/scheduled/${id}`, { method: 'DELETE' }),
+    delete: (id: string) => request<{ success: boolean }>(`/scheduled/${id}`, { method: 'DELETE' }),
     sendNow: (id: string) =>
       request<{ success: boolean }>(`/scheduled/${id}/send-now`, { method: 'POST' }),
   },
@@ -564,8 +571,7 @@ export const api = {
           createdAt: number;
         }>;
       }>('/vip'),
-    emails: () =>
-      request<{ emails: string[] }>('/vip/emails'),
+    emails: () => request<{ emails: string[] }>('/vip/emails'),
     add: (email: string, name?: string) =>
       request<{
         id: string;
@@ -581,8 +587,7 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify({ name }),
       }),
-    delete: (id: string) =>
-      request<{ success: boolean }>(`/vip/${id}`, { method: 'DELETE' }),
+    delete: (id: string) => request<{ success: boolean }>(`/vip/${id}`, { method: 'DELETE' }),
     toggle: (email: string, name?: string) =>
       request<{ isVip: boolean; id?: string }>('/vip/toggle', {
         method: 'POST',

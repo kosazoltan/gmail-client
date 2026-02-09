@@ -16,38 +16,40 @@ This document contains all the information needed to submit ZMail for Google OAu
 
 ### Basic Information
 
-| Field | Value |
-|-------|-------|
-| App name | ZMail |
-| User support email | support@mindenes.org |
-| App logo | (upload ZMail logo) |
-| Application home page | https://mail.mindenes.org |
-| Application privacy policy link | https://mail.mindenes.org/privacy |
-| Application terms of service link | https://mail.mindenes.org/terms |
-| Authorized domains | mindenes.org |
-| Developer contact email | developer@mindenes.org |
+| Field                             | Value                             |
+| --------------------------------- | --------------------------------- |
+| App name                          | ZMail                             |
+| User support email                | support@mindenes.org              |
+| App logo                          | (upload ZMail logo)               |
+| Application home page             | https://mail.mindenes.org         |
+| Application privacy policy link   | https://mail.mindenes.org/privacy |
+| Application terms of service link | https://mail.mindenes.org/terms   |
+| Authorized domains                | mindenes.org                      |
+| Developer contact email           | developer@mindenes.org            |
 
 ### Scopes Requested
 
 The application requests the following OAuth scopes:
 
-| Scope | Purpose | Sensitivity |
-|-------|---------|-------------|
-| `https://www.googleapis.com/auth/gmail.readonly` | Read email messages and metadata | Sensitive |
-| `https://www.googleapis.com/auth/gmail.send` | Send email messages | Sensitive |
-| `https://www.googleapis.com/auth/gmail.modify` | Modify email labels and status | Sensitive |
-| `https://www.googleapis.com/auth/gmail.labels` | Manage email labels | Sensitive |
-| `https://www.googleapis.com/auth/userinfo.email` | Get user email address | Non-sensitive |
-| `https://www.googleapis.com/auth/userinfo.profile` | Get user profile information | Non-sensitive |
+| Scope                                              | Purpose                          | Sensitivity   |
+| -------------------------------------------------- | -------------------------------- | ------------- |
+| `https://www.googleapis.com/auth/gmail.readonly`   | Read email messages and metadata | Sensitive     |
+| `https://www.googleapis.com/auth/gmail.send`       | Send email messages              | Sensitive     |
+| `https://www.googleapis.com/auth/gmail.modify`     | Modify email labels and status   | Sensitive     |
+| `https://www.googleapis.com/auth/gmail.labels`     | Manage email labels              | Sensitive     |
+| `https://www.googleapis.com/auth/userinfo.email`   | Get user email address           | Non-sensitive |
+| `https://www.googleapis.com/auth/userinfo.profile` | Get user profile information     | Non-sensitive |
 
 ## App Description (for Google Review)
 
 ### Short Description (max 100 characters)
+
 ```
 ZMail is a personal Gmail client with smart email organization and productivity features.
 ```
 
 ### Full Description
+
 ```
 ZMail is a modern, responsive web application that serves as a personal Gmail client.
 It provides an enhanced email experience with features like:
@@ -72,36 +74,44 @@ user data for advertising or any commercial purposes.
 ## Justification for Sensitive Scopes
 
 ### gmail.readonly
+
 **Justification:** Required to display user's emails in the application. ZMail reads email content, metadata (sender, subject, date), labels, and attachments to provide the core email viewing functionality.
 
 ### gmail.send
+
 **Justification:** Required to allow users to compose and send new emails, reply to existing emails, and forward emails to other recipients.
 
 ### gmail.modify
+
 **Justification:** Required to manage email status (read/unread), star emails, move emails between folders, and delete emails. These are core email management features.
 
 ### gmail.labels
+
 **Justification:** Required to read and display Gmail labels/folders, and to organize emails into categories for the smart organization features.
 
 ## Data Handling Declaration
 
 ### Data Collection
+
 - Email content and metadata (for display purposes)
 - User profile information (email, name, profile picture)
 - OAuth tokens (for authentication)
 
 ### Data Storage
+
 - All data is stored locally on our secure server
 - OAuth tokens are encrypted using AES-256
 - Data is retained only while the user has an active account
 - Users can request data deletion at any time
 
 ### Data Sharing
+
 - **We do NOT share any user data with third parties**
 - Data is only transmitted between the user's browser, our server, and Google APIs
 - No data is sold, rented, or transferred to advertisers
 
 ### Data Usage
+
 - Email data is used solely to provide email viewing and management features
 - No automated analysis or profiling of email content
 - No advertising based on email content
@@ -146,12 +156,14 @@ user data for advertising or any commercial purposes.
 ## Video Demonstration (if required)
 
 Google may request a video demonstration showing:
+
 1. User authentication flow (OAuth consent screen)
 2. How the app uses Gmail data
 3. Where user data is displayed in the app
 4. How users can revoke access
 
 ### Suggested Video Script
+
 ```
 1. Open ZMail at https://mail.mindenes.org
 2. Click "Sign in with Google"
@@ -165,11 +177,11 @@ Google may request a video demonstration showing:
 
 ## Contact Information for Google Review
 
-| Contact Type | Email |
-|--------------|-------|
+| Contact Type      | Email                  |
+| ----------------- | ---------------------- |
 | Developer contact | developer@mindenes.org |
-| Support email | support@mindenes.org |
-| Privacy inquiries | privacy@mindenes.org |
+| Support email     | support@mindenes.org   |
+| Privacy inquiries | privacy@mindenes.org   |
 
 ## Timeline
 
@@ -180,6 +192,7 @@ Google may request a video demonstration showing:
 ## Post-Verification
 
 After verification is approved:
+
 1. Remove any "unverified app" warnings from documentation
 2. Update app status to "Production"
 3. Consider applying for "Verified App" badge if applicable

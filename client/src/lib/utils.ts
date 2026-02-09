@@ -65,7 +65,7 @@ export function getInitials(name: string): string {
   const trimmed = name.trim();
   if (!trimmed) return '??';
 
-  const parts = trimmed.split(/\s+/).filter(p => p.length > 0);
+  const parts = trimmed.split(/\s+/).filter((p) => p.length > 0);
   if (parts.length === 0) return '??';
 
   if (parts.length >= 2 && parts[0][0] && parts[parts.length - 1][0]) {

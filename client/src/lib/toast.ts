@@ -28,7 +28,14 @@ class ToastManager {
 
   private add(type: ToastType, message: string, duration = 3000, onUndo?: () => void) {
     const id = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
-    const toast: Toast = { id, type, message, duration, onUndo, progress: type === 'undo' ? 100 : undefined };
+    const toast: Toast = {
+      id,
+      type,
+      message,
+      duration,
+      onUndo,
+      progress: type === 'undo' ? 100 : undefined,
+    };
 
     this.toasts.push(toast);
     this.notify();

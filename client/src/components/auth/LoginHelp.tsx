@@ -18,10 +18,10 @@ export function LoginHelp({ isOpen, onClose }: LoginHelpProps) {
       content: (
         <>
           <p className="mb-2">
-            A bejelentkezés során egy figyelmeztetés jelenik meg:
-            "A Google nem ellenorizte ezt az alkalmazast"
+            A bejelentkezés során egy figyelmeztetés jelenik meg: "A Google nem ellenorizte ezt az
+            alkalmazast"
           </p>
-          <p className="text-sm text-gray-500 dark:text-dark-text-muted">
+          <p className="dark:text-dark-text-muted text-sm text-gray-500">
             Ez normalis, mert a ZMail sajat fejlesztesu alkalmazas.
           </p>
         </>
@@ -32,11 +32,11 @@ export function LoginHelp({ isOpen, onClose }: LoginHelpProps) {
       content: (
         <>
           <p className="mb-2">
-            A figyelmezteto oldalon keresd meg az "Advanced" vagy "Specialis" linket
-            (altalaban bal also sarokban).
+            A figyelmezteto oldalon keresd meg az "Advanced" vagy "Specialis" linket (altalaban bal
+            also sarokban).
           </p>
-          <div className="bg-gray-100 dark:bg-dark-bg-tertiary p-3 rounded-lg text-sm">
-            <span className="text-blue-600 dark:text-blue-400 underline cursor-pointer">
+          <div className="dark:bg-dark-bg-tertiary rounded-lg bg-gray-100 p-3 text-sm">
+            <span className="cursor-pointer text-blue-600 underline dark:text-blue-400">
               Advanced / Specialis
             </span>
           </div>
@@ -48,12 +48,12 @@ export function LoginHelp({ isOpen, onClose }: LoginHelpProps) {
       content: (
         <>
           <p className="mb-2">
-            A kibovitett reszben kattints a "Go to ZMail (unsafe)" vagy
-            "Tovabb a ZMail alkalmazashoz (nem biztonsagos)" linkre.
+            A kibovitett reszben kattints a "Go to ZMail (unsafe)" vagy "Tovabb a ZMail
+            alkalmazashoz (nem biztonsagos)" linkre.
           </p>
-          <p className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 p-2 rounded">
-            Megjegyzes: Az "unsafe" cimke csak azt jelenti, hogy a Google nem ellenorizte
-            az alkalmazast. A ZMail biztonsagos, a kód nyilt forrasu.
+          <p className="rounded bg-amber-50 p-2 text-sm text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
+            Megjegyzes: Az "unsafe" cimke csak azt jelenti, hogy a Google nem ellenorizte az
+            alkalmazast. A ZMail biztonsagos, a kód nyilt forrasu.
           </p>
         </>
       ),
@@ -62,10 +62,8 @@ export function LoginHelp({ isOpen, onClose }: LoginHelpProps) {
       title: 'Engedelyek megadasa',
       content: (
         <>
-          <p className="mb-2">
-            Hagyd jova a kert engedelyeket:
-          </p>
-          <ul className="list-disc pl-5 space-y-1 text-sm text-gray-600 dark:text-dark-text-secondary">
+          <p className="mb-2">Hagyd jova a kert engedelyeket:</p>
+          <ul className="dark:text-dark-text-secondary list-disc space-y-1 pl-5 text-sm text-gray-600">
             <li>Gmail levelek olvasasa</li>
             <li>Gmail levelek kuldese</li>
             <li>Gmail levelek modositasa (olvasott/csillag)</li>
@@ -78,25 +76,25 @@ export function LoginHelp({ isOpen, onClose }: LoginHelpProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white dark:bg-dark-bg-secondary rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-auto">
+      <div className="dark:bg-dark-bg-secondary max-h-[90vh] w-full max-w-lg overflow-auto rounded-xl bg-white shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-dark-border">
+        <div className="dark:border-dark-border flex items-center justify-between border-b border-gray-200 p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-amber-100 dark:bg-amber-500/20 rounded-lg">
+            <div className="rounded-lg bg-amber-100 p-2 dark:bg-amber-500/20">
               <ShieldAlert className="h-6 w-6 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
-              <h2 className="font-semibold text-gray-900 dark:text-dark-text">
+              <h2 className="dark:text-dark-text font-semibold text-gray-900">
                 Bejelentkezesi segitseg
               </h2>
-              <p className="text-sm text-gray-500 dark:text-dark-text-muted">
+              <p className="dark:text-dark-text-muted text-sm text-gray-500">
                 Google OAuth figyelmeztetés
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-bg-tertiary text-gray-500"
+            className="dark:hover:bg-dark-bg-tertiary rounded-lg p-2 text-gray-500 hover:bg-gray-100"
             aria-label="Bezaras"
           >
             <X className="h-5 w-5" />
@@ -105,25 +103,25 @@ export function LoginHelp({ isOpen, onClose }: LoginHelpProps) {
 
         {/* Content */}
         <div className="p-4">
-          <p className="text-sm text-gray-600 dark:text-dark-text-secondary mb-4">
-            A Google egy figyelmeztetest jelenít meg az ellenorizetlen alkalmazasoknal.
-            Kovesse az alabbi lepéseket a bejelentkezeshez:
+          <p className="dark:text-dark-text-secondary mb-4 text-sm text-gray-600">
+            A Google egy figyelmeztetest jelenít meg az ellenorizetlen alkalmazasoknal. Kovesse az
+            alabbi lepéseket a bejelentkezeshez:
           </p>
 
           <div className="space-y-2">
             {steps.map((step, index) => (
               <div
                 key={index}
-                className="border border-gray-200 dark:border-dark-border rounded-lg overflow-hidden"
+                className="dark:border-dark-border overflow-hidden rounded-lg border border-gray-200"
               >
                 <button
                   onClick={() => setExpandedStep(expandedStep === index + 1 ? null : index + 1)}
-                  className="w-full flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary"
+                  className="dark:hover:bg-dark-bg-tertiary flex w-full items-center gap-3 p-3 hover:bg-gray-50"
                 >
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-sm font-medium flex items-center justify-center">
+                  <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-medium text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">
                     {index + 1}
                   </div>
-                  <span className="flex-1 text-left text-sm font-medium text-gray-900 dark:text-dark-text">
+                  <span className="dark:text-dark-text flex-1 text-left text-sm font-medium text-gray-900">
                     {step.title}
                   </span>
                   {expandedStep === index + 1 ? (
@@ -133,7 +131,7 @@ export function LoginHelp({ isOpen, onClose }: LoginHelpProps) {
                   )}
                 </button>
                 {expandedStep === index + 1 && (
-                  <div className="px-3 pb-3 pt-1 text-sm text-gray-600 dark:text-dark-text-secondary border-t border-gray-100 dark:border-dark-border">
+                  <div className="dark:text-dark-text-secondary dark:border-dark-border border-t border-gray-100 px-3 pt-1 pb-3 text-sm text-gray-600">
                     {step.content}
                   </div>
                 )}
@@ -142,14 +140,14 @@ export function LoginHelp({ isOpen, onClose }: LoginHelpProps) {
           </div>
 
           {/* Additional info */}
-          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-500/10 rounded-lg">
-            <h3 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">
+          <div className="mt-4 rounded-lg bg-blue-50 p-3 dark:bg-blue-500/10">
+            <h3 className="mb-1 text-sm font-medium text-blue-800 dark:text-blue-300">
               Miert latom ezt a figyelmeztetes?
             </h3>
             <p className="text-xs text-blue-600 dark:text-blue-400">
-              A ZMail egy privat alkalmazas, amelyet a Google nem ellenorzott hivatalosan.
-              Ez nem jelent biztonsagi kockazatot - csak a Google verifikációs folyamat
-              hianyzik. A ZMail osszes forráskodja nyilvánosan elerheto.
+              A ZMail egy privat alkalmazas, amelyet a Google nem ellenorzott hivatalosan. Ez nem
+              jelent biztonsagi kockazatot - csak a Google verifikációs folyamat hianyzik. A ZMail
+              osszes forráskodja nyilvánosan elerheto.
             </p>
           </div>
 
@@ -158,25 +156,25 @@ export function LoginHelp({ isOpen, onClose }: LoginHelpProps) {
             href="https://console.cloud.google.com/apis/credentials/consent"
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-4 flex items-center gap-2 text-xs text-gray-500 dark:text-dark-text-muted hover:text-blue-600 dark:hover:text-blue-400"
+            className="dark:text-dark-text-muted mt-4 flex items-center gap-2 text-xs text-gray-500 hover:text-blue-600 dark:hover:text-blue-400"
           >
             <ExternalLink className="h-3 w-3" />
             Fejlesztoknek: Google Cloud Console OAuth beallitasok
           </a>
 
           {/* Privacy & Terms links */}
-          <div className="mt-4 pt-3 border-t border-gray-200 dark:border-dark-border flex gap-4 text-xs">
+          <div className="dark:border-dark-border mt-4 flex gap-4 border-t border-gray-200 pt-3 text-xs">
             <Link
               to="/privacy"
               onClick={onClose}
-              className="text-gray-500 dark:text-dark-text-muted hover:text-blue-600 dark:hover:text-blue-400"
+              className="dark:text-dark-text-muted text-gray-500 hover:text-blue-600 dark:hover:text-blue-400"
             >
               Adatvédelmi Szabályzat
             </Link>
             <Link
               to="/terms"
               onClick={onClose}
-              className="text-gray-500 dark:text-dark-text-muted hover:text-blue-600 dark:hover:text-blue-400"
+              className="dark:text-dark-text-muted text-gray-500 hover:text-blue-600 dark:hover:text-blue-400"
             >
               Felhasználási Feltételek
             </Link>
@@ -184,10 +182,10 @@ export function LoginHelp({ isOpen, onClose }: LoginHelpProps) {
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-200 dark:border-dark-border bg-gray-50 dark:bg-dark-bg-tertiary">
+        <div className="dark:border-dark-border dark:bg-dark-bg-tertiary border-t border-gray-200 bg-gray-50 p-4">
           <button
             onClick={onClose}
-            className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            className="w-full rounded-lg bg-blue-600 py-2 font-medium text-white transition-colors hover:bg-blue-700"
           >
             Ertettem
           </button>

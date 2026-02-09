@@ -32,7 +32,10 @@ export function useCreateScheduledEmail() {
 export function useUpdateScheduledEmail() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: {
+    mutationFn: ({
+      id,
+      data,
+    }: {
       id: string;
       data: {
         to?: string;

@@ -30,23 +30,19 @@ export function QuietHoursSettings() {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-lg font-medium text-gray-800 dark:text-dark-text mb-1">
-          Csendes órák
-        </h3>
-        <p className="text-sm text-gray-500 dark:text-dark-text-muted mb-4">
+        <h3 className="dark:text-dark-text mb-1 text-lg font-medium text-gray-800">Csendes órák</h3>
+        <p className="dark:text-dark-text-muted mb-4 text-sm text-gray-500">
           A megadott időszakban nem kapsz push értesítéseket az új levelekről.
         </p>
       </div>
 
       {/* Enable toggle */}
-      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-dark-bg rounded-lg">
+      <div className="dark:bg-dark-bg flex items-center justify-between rounded-lg bg-gray-50 p-4">
         <div className="flex items-center gap-3">
           <Moon className="h-5 w-5 text-[#4f6ef7]" />
           <div>
-            <div className="font-medium text-gray-800 dark:text-dark-text">
-              Csendes mód
-            </div>
-            <div className="text-sm text-gray-500 dark:text-dark-text-muted">
+            <div className="dark:text-dark-text font-medium text-gray-800">Csendes mód</div>
+            <div className="dark:text-dark-text-muted text-sm text-gray-500">
               Értesítések némítása
             </div>
           </div>
@@ -55,15 +51,13 @@ export function QuietHoursSettings() {
           onClick={handleToggle}
           disabled={updateSetting.isPending}
           className={cn(
-            'relative w-12 h-6 rounded-full transition-colors',
-            enabled
-              ? 'bg-[#4f6ef7]'
-              : 'bg-gray-300 dark:bg-dark-bg-tertiary',
+            'relative h-6 w-12 rounded-full transition-colors',
+            enabled ? 'bg-[#4f6ef7]' : 'dark:bg-dark-bg-tertiary bg-gray-300',
           )}
         >
           <span
             className={cn(
-              'absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform',
+              'absolute top-1 left-1 h-4 w-4 rounded-full bg-white transition-transform',
               enabled && 'translate-x-6',
             )}
           />
@@ -72,12 +66,12 @@ export function QuietHoursSettings() {
 
       {/* Time settings */}
       {enabled && (
-        <div className="space-y-4 pl-4 border-l-2 border-[#4f6ef7]/30 dark:border-[#4f6ef7]/40">
+        <div className="space-y-4 border-l-2 border-[#4f6ef7]/30 pl-4 dark:border-[#4f6ef7]/40">
           {/* Time range */}
           <div className="flex items-center gap-4">
             <div className="flex-1">
-              <label className="block text-sm text-gray-500 dark:text-dark-text-muted mb-1">
-                <Clock className="inline h-4 w-4 mr-1" />
+              <label className="dark:text-dark-text-muted mb-1 block text-sm text-gray-500">
+                <Clock className="mr-1 inline h-4 w-4" />
                 Kezdés
               </label>
               <input
@@ -85,12 +79,12 @@ export function QuietHoursSettings() {
                 value={startTime}
                 onChange={(e) => handleStartTimeChange(e.target.value)}
                 disabled={updateSetting.isPending}
-                className="w-full px-3 py-2 border border-gray-200 dark:border-dark-border rounded-lg bg-white dark:bg-dark-bg-secondary text-gray-800 dark:text-dark-text text-sm disabled:opacity-50"
+                className="dark:border-dark-border dark:bg-dark-bg-secondary dark:text-dark-text w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 disabled:opacity-50"
               />
             </div>
             <div className="flex-1">
-              <label className="block text-sm text-gray-500 dark:text-dark-text-muted mb-1">
-                <Clock className="inline h-4 w-4 mr-1" />
+              <label className="dark:text-dark-text-muted mb-1 block text-sm text-gray-500">
+                <Clock className="mr-1 inline h-4 w-4" />
                 Befejezés
               </label>
               <input
@@ -98,16 +92,16 @@ export function QuietHoursSettings() {
                 value={endTime}
                 onChange={(e) => handleEndTimeChange(e.target.value)}
                 disabled={updateSetting.isPending}
-                className="w-full px-3 py-2 border border-gray-200 dark:border-dark-border rounded-lg bg-white dark:bg-dark-bg-secondary text-gray-800 dark:text-dark-text text-sm disabled:opacity-50"
+                className="dark:border-dark-border dark:bg-dark-bg-secondary dark:text-dark-text w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 disabled:opacity-50"
               />
             </div>
           </div>
 
           {/* Weekend only */}
-          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-dark-bg rounded-lg">
+          <div className="dark:bg-dark-bg flex items-center justify-between rounded-lg bg-gray-50 p-3">
             <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-gray-500 dark:text-dark-text-muted" />
-              <span className="text-sm text-gray-700 dark:text-dark-text-secondary">
+              <Calendar className="dark:text-dark-text-muted h-4 w-4 text-gray-500" />
+              <span className="dark:text-dark-text-secondary text-sm text-gray-700">
                 Csak hétvégén
               </span>
             </div>
@@ -115,15 +109,13 @@ export function QuietHoursSettings() {
               onClick={handleWeekendOnlyToggle}
               disabled={updateSetting.isPending}
               className={cn(
-                'relative w-10 h-5 rounded-full transition-colors',
-                weekendOnly
-                  ? 'bg-[#4f6ef7]'
-                  : 'bg-gray-300 dark:bg-dark-bg-tertiary',
+                'relative h-5 w-10 rounded-full transition-colors',
+                weekendOnly ? 'bg-[#4f6ef7]' : 'dark:bg-dark-bg-tertiary bg-gray-300',
               )}
             >
               <span
                 className={cn(
-                  'absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform',
+                  'absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform',
                   weekendOnly && 'translate-x-5',
                 )}
               />
@@ -131,7 +123,7 @@ export function QuietHoursSettings() {
           </div>
 
           {/* Info */}
-          <div className="p-3 bg-[#4f6ef7]/10 dark:bg-[#4f6ef7]/10 rounded-lg text-sm text-[#4f6ef7] dark:text-[#8b9ff7]">
+          <div className="rounded-lg bg-[#4f6ef7]/10 p-3 text-sm text-[#4f6ef7] dark:bg-[#4f6ef7]/10 dark:text-[#8b9ff7]">
             <p>
               {weekendOnly ? (
                 <>
@@ -147,8 +139,9 @@ export function QuietHoursSettings() {
         </div>
       )}
 
-      <div className="text-xs text-gray-400 dark:text-dark-text-muted pt-2 border-t border-gray-100 dark:border-dark-border">
-        Megjegyzés: Ez a beállítás csak a push értesítésekre vonatkozik. Az emailek továbbra is megérkeznek és láthatóak lesznek az alkalmazásban.
+      <div className="dark:text-dark-text-muted dark:border-dark-border border-t border-gray-100 pt-2 text-xs text-gray-400">
+        Megjegyzés: Ez a beállítás csak a push értesítésekre vonatkozik. Az emailek továbbra is
+        megérkeznek és láthatóak lesznek az alkalmazásban.
       </div>
     </div>
   );

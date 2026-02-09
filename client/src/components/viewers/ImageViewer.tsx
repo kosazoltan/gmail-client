@@ -21,16 +21,16 @@ export function ImageViewer({ url, filename, onClose }: ImageViewerProps) {
 
   const handleZoomIn = () => {
     setFitToScreen(false);
-    setScale(s => Math.min(3, s + 0.25));
+    setScale((s) => Math.min(3, s + 0.25));
   };
 
   const handleZoomOut = () => {
     setFitToScreen(false);
-    setScale(s => Math.max(0.25, s - 0.25));
+    setScale((s) => Math.max(0.25, s - 0.25));
   };
 
   const handleRotate = () => {
-    setRotation(r => (r + 90) % 360);
+    setRotation((r) => (r + 90) % 360);
   };
 
   const handleFitToScreen = () => {
@@ -41,7 +41,7 @@ export function ImageViewer({ url, filename, onClose }: ImageViewerProps) {
   // Add keyboard event handlers
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      switch(e.key) {
+      switch (e.key) {
         case 'Escape':
           onClose();
           break;
@@ -67,26 +67,26 @@ export function ImageViewer({ url, filename, onClose }: ImageViewerProps) {
   }, [onClose, scale, fitToScreen]); // Include dependencies for handlers
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/95">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 bg-black/50 backdrop-blur-sm text-white">
-        <h2 className="text-lg font-medium truncate max-w-md">{filename}</h2>
+      <div className="flex items-center justify-between bg-black/50 p-4 text-white backdrop-blur-sm">
+        <h2 className="max-w-md truncate text-lg font-medium">{filename}</h2>
 
         <div className="flex items-center gap-2">
           {/* Zoom gombok */}
           <button
             onClick={handleZoomOut}
-            className="p-2 rounded hover:bg-white/10 transition-colors"
+            className="rounded p-2 transition-colors hover:bg-white/10"
             title="Kicsinyítés"
           >
             <ZoomOut className="h-5 w-5" />
           </button>
-          <span className="text-sm px-2 min-w-[60px] text-center">
+          <span className="min-w-[60px] px-2 text-center text-sm">
             {fitToScreen ? 'Auto' : `${Math.round(scale * 100)}%`}
           </span>
           <button
             onClick={handleZoomIn}
-            className="p-2 rounded hover:bg-white/10 transition-colors"
+            className="rounded p-2 transition-colors hover:bg-white/10"
             title="Nagyítás"
           >
             <ZoomIn className="h-5 w-5" />
@@ -95,7 +95,7 @@ export function ImageViewer({ url, filename, onClose }: ImageViewerProps) {
           {/* Fit to screen */}
           <button
             onClick={handleFitToScreen}
-            className={`p-2 rounded hover:bg-white/10 transition-colors ml-2 ${fitToScreen ? 'bg-white/20' : ''}`}
+            className={`ml-2 rounded p-2 transition-colors hover:bg-white/10 ${fitToScreen ? 'bg-white/20' : ''}`}
             title="Képernyőhöz igazítás"
           >
             <Maximize2 className="h-5 w-5" />
@@ -104,7 +104,7 @@ export function ImageViewer({ url, filename, onClose }: ImageViewerProps) {
           {/* Forgatás */}
           <button
             onClick={handleRotate}
-            className="p-2 rounded hover:bg-white/10 transition-colors"
+            className="rounded p-2 transition-colors hover:bg-white/10"
             title="Forgatás 90°"
           >
             <RotateCw className="h-5 w-5" />
@@ -113,7 +113,7 @@ export function ImageViewer({ url, filename, onClose }: ImageViewerProps) {
           {/* Letöltés */}
           <button
             onClick={handleDownload}
-            className="p-2 rounded hover:bg-white/10 transition-colors ml-2"
+            className="ml-2 rounded p-2 transition-colors hover:bg-white/10"
             title="Letöltés"
           >
             <Download className="h-5 w-5" />
@@ -122,7 +122,7 @@ export function ImageViewer({ url, filename, onClose }: ImageViewerProps) {
           {/* Bezárás */}
           <button
             onClick={onClose}
-            className="p-2 rounded hover:bg-white/10 transition-colors ml-2"
+            className="ml-2 rounded p-2 transition-colors hover:bg-white/10"
             title="Bezárás (ESC)"
           >
             <X className="h-5 w-5" />
@@ -132,7 +132,7 @@ export function ImageViewer({ url, filename, onClose }: ImageViewerProps) {
 
       {/* Kép tartalom */}
       <div
-        className="flex-1 overflow-auto flex items-center justify-center p-4"
+        className="flex flex-1 items-center justify-center overflow-auto p-4"
         onClick={(e) => {
           if (e.target === e.currentTarget) {
             onClose();
@@ -142,7 +142,7 @@ export function ImageViewer({ url, filename, onClose }: ImageViewerProps) {
         <img
           src={url}
           alt={filename}
-          className="max-w-full max-h-full object-contain transition-transform duration-200"
+          className="max-h-full max-w-full object-contain transition-transform duration-200"
           style={{
             transform: `scale(${fitToScreen ? 1 : scale}) rotate(${rotation}deg)`,
             transformOrigin: 'center',
@@ -152,7 +152,7 @@ export function ImageViewer({ url, filename, onClose }: ImageViewerProps) {
       </div>
 
       {/* Keyboard shortcuts hint */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-sm text-white text-xs px-4 py-2 rounded-full opacity-50 hover:opacity-100 transition-opacity">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/70 px-4 py-2 text-xs text-white opacity-50 backdrop-blur-sm transition-opacity hover:opacity-100">
         ESC: Bezárás | +/-: Zoom | R: Forgatás
       </div>
     </div>

@@ -2,7 +2,13 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
 import { useInboxInfinite } from '../../hooks/useInbox';
-import { useToggleStar, useMarkRead, useDeleteEmail, useBatchDeleteEmails, useBatchMarkRead } from '../../hooks/useEmails';
+import {
+  useToggleStar,
+  useMarkRead,
+  useDeleteEmail,
+  useBatchDeleteEmails,
+  useBatchMarkRead,
+} from '../../hooks/useEmails';
 import { useKeyboardShortcuts, useSearchFocus } from '../../hooks/useKeyboardShortcuts';
 import { useInfiniteScroll } from '../../hooks/useInfiniteScroll';
 import { ThreadedEmailList } from '../email/ThreadedEmailList';
@@ -27,13 +33,9 @@ export function InboxView() {
   const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
 
   const accountId = session?.activeAccountId || undefined;
-  const {
-    data,
-    isLoading,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
-  } = useInboxInfinite({ accountId });
+  const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInboxInfinite({
+    accountId,
+  });
 
   const { containerRef } = useInfiniteScroll({
     hasNextPage: !!hasNextPage,
@@ -47,7 +49,7 @@ export function InboxView() {
   const batchMarkRead = useBatchMarkRead();
   const focusSearch = useSearchFocus();
 
-  const emails = useMemo(() => data?.pages?.flatMap(page => page.emails) || [], [data?.pages]);
+  const emails = useMemo(() => data?.pages?.flatMap((page) => page.emails) || [], [data?.pages]);
   const totalEmails = data?.pages?.[0]?.total || 0;
 
   // Kiválasztott email indexe
@@ -68,33 +70,36 @@ export function InboxView() {
     });
   }, []);
 
-  const toggleSelectEmail = useCallback((emailId: string, event?: React.MouseEvent) => {
-    const emailIndex = emails.findIndex(e => e.id === emailId);
+  const toggleSelectEmail = useCallback(
+    (emailId: string, event?: React.MouseEvent) => {
+      const emailIndex = emails.findIndex((e) => e.id === emailId);
 
-    if (event?.shiftKey && lastClickedIndexRef.current >= 0 && emailIndex >= 0) {
-      // Shift+click: select range
-      const start = Math.min(lastClickedIndexRef.current, emailIndex);
-      const end = Math.max(lastClickedIndexRef.current, emailIndex);
-      setSelectedIds((prev) => {
-        const newSet = new Set(prev);
-        for (let i = start; i <= end; i++) {
-          newSet.add(emails[i].id);
-        }
-        return newSet;
-      });
-    } else {
-      setSelectedIds((prev) => {
-        const newSet = new Set(prev);
-        if (newSet.has(emailId)) {
-          newSet.delete(emailId);
-        } else {
-          newSet.add(emailId);
-        }
-        return newSet;
-      });
-    }
-    lastClickedIndexRef.current = emailIndex;
-  }, [emails]);
+      if (event?.shiftKey && lastClickedIndexRef.current >= 0 && emailIndex >= 0) {
+        // Shift+click: select range
+        const start = Math.min(lastClickedIndexRef.current, emailIndex);
+        const end = Math.max(lastClickedIndexRef.current, emailIndex);
+        setSelectedIds((prev) => {
+          const newSet = new Set(prev);
+          for (let i = start; i <= end; i++) {
+            newSet.add(emails[i].id);
+          }
+          return newSet;
+        });
+      } else {
+        setSelectedIds((prev) => {
+          const newSet = new Set(prev);
+          if (newSet.has(emailId)) {
+            newSet.delete(emailId);
+          } else {
+            newSet.add(emailId);
+          }
+          return newSet;
+        });
+      }
+      lastClickedIndexRef.current = emailIndex;
+    },
+    [emails],
+  );
 
   const selectAllEmails = useCallback(() => {
     setSelectedIds(new Set(emails.map((e) => e.id)));
@@ -104,18 +109,21 @@ export function InboxView() {
     setSelectedIds(new Set());
   }, []);
 
-  const handleBatchMarkRead = useCallback((isRead: boolean) => {
-    if (selectedIds.size === 0) return;
-    batchMarkRead.mutate(
-      { emailIds: Array.from(selectedIds), isRead },
-      {
-        onSuccess: () => {
-          setSelectedIds(new Set());
-          setSelectionMode(false);
+  const handleBatchMarkRead = useCallback(
+    (isRead: boolean) => {
+      if (selectedIds.size === 0) return;
+      batchMarkRead.mutate(
+        { emailIds: Array.from(selectedIds), isRead },
+        {
+          onSuccess: () => {
+            setSelectedIds(new Set());
+            setSelectionMode(false);
+          },
         },
-      },
-    );
-  }, [selectedIds, batchMarkRead]);
+      );
+    },
+    [selectedIds, batchMarkRead],
+  );
 
   const handleBatchDelete = useCallback(() => {
     if (selectedIds.size === 0) return;
@@ -171,9 +179,7 @@ export function InboxView() {
   // Továbbítás
   const handleForward = useCallback(() => {
     if (!selectedEmail) return;
-    navigate(
-      `/compose?subject=${encodeURIComponent(`Fwd: ${selectedEmail.subject || ''}`)}`,
-    );
+    navigate(`/compose?subject=${encodeURIComponent(`Fwd: ${selectedEmail.subject || ''}`)}`);
   }, [selectedEmail, navigate]);
 
   // Csillagozás toggle
@@ -184,9 +190,7 @@ export function InboxView() {
       isStarred: !selectedEmail.isStarred,
     });
     // Frissítsük a helyi állapotot is
-    setSelectedEmail((prev) =>
-      prev ? { ...prev, isStarred: !prev.isStarred } : null,
-    );
+    setSelectedEmail((prev) => (prev ? { ...prev, isStarred: !prev.isStarred } : null));
   }, [selectedEmail, toggleStar]);
 
   // Olvasott/olvasatlan toggle
@@ -196,9 +200,7 @@ export function InboxView() {
       emailId: selectedEmail.id,
       isRead: !selectedEmail.isRead,
     });
-    setSelectedEmail((prev) =>
-      prev ? { ...prev, isRead: !prev.isRead } : null,
-    );
+    setSelectedEmail((prev) => (prev ? { ...prev, isRead: !prev.isRead } : null));
   }, [selectedEmail, markRead]);
 
   // Törlés
@@ -260,15 +262,15 @@ export function InboxView() {
   }
 
   const leftPanel = (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {/* Selection toolbar - sticky */}
-      <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-dark-bg-tertiary border-b border-gray-200 dark:border-dark-border sticky top-0 z-10">
+      <div className="dark:bg-dark-bg-tertiary dark:border-dark-border sticky top-0 z-10 flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2">
         <button
           onClick={toggleSelectionMode}
-          className={`p-2 rounded-lg transition-colors ${
+          className={`rounded-lg p-2 transition-colors ${
             selectionMode
-              ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400'
-              : 'hover:bg-gray-200 dark:hover:bg-dark-border text-gray-600 dark:text-dark-text-secondary'
+              ? 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400'
+              : 'dark:hover:bg-dark-border dark:text-dark-text-secondary text-gray-600 hover:bg-gray-200'
           }`}
           title={selectionMode ? 'Kijelölés befejezése' : 'Kijelölési mód'}
         >
@@ -277,11 +279,11 @@ export function InboxView() {
 
         {selectionMode && (
           <>
-            <div className="h-5 w-px bg-gray-300 dark:bg-dark-border" />
+            <div className="dark:bg-dark-border h-5 w-px bg-gray-300" />
 
             <button
               onClick={selectAllEmails}
-              className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-border text-gray-600 dark:text-dark-text-secondary"
+              className="dark:hover:bg-dark-border dark:text-dark-text-secondary rounded-lg p-2 text-gray-600 hover:bg-gray-200"
               title="Összes kijelölése"
             >
               <CheckCheck className="h-5 w-5" />
@@ -289,7 +291,7 @@ export function InboxView() {
 
             <button
               onClick={deselectAllEmails}
-              className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-border text-gray-600 dark:text-dark-text-secondary"
+              className="dark:hover:bg-dark-border dark:text-dark-text-secondary rounded-lg p-2 text-gray-600 hover:bg-gray-200"
               title="Kijelölés törlése"
             >
               <Square className="h-5 w-5" />
@@ -297,15 +299,15 @@ export function InboxView() {
 
             {selectedIds.size > 0 && (
               <>
-                <div className="h-5 w-px bg-gray-300 dark:bg-dark-border" />
+                <div className="dark:bg-dark-border h-5 w-px bg-gray-300" />
 
-                <span className="text-sm text-gray-600 dark:text-dark-text-secondary">
+                <span className="dark:text-dark-text-secondary text-sm text-gray-600">
                   {selectedIds.size} kijelölve
                 </span>
 
                 <button
                   onClick={handleBatchDelete}
-                  className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400"
+                  className="rounded-lg p-2 text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-500/20"
                   title="Kijelöltek törlése"
                 >
                   <Trash2 className="h-5 w-5" />
@@ -313,7 +315,7 @@ export function InboxView() {
 
                 <button
                   onClick={() => handleBatchMarkRead(true)}
-                  className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-border text-gray-600 dark:text-dark-text-secondary"
+                  className="dark:hover:bg-dark-border dark:text-dark-text-secondary rounded-lg p-2 text-gray-600 hover:bg-gray-200"
                   title="Olvasottnak jelölés"
                 >
                   <MailOpen className="h-5 w-5" />
@@ -321,7 +323,7 @@ export function InboxView() {
 
                 <button
                   onClick={() => handleBatchMarkRead(false)}
-                  className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-border text-gray-600 dark:text-dark-text-secondary"
+                  className="dark:hover:bg-dark-border dark:text-dark-text-secondary rounded-lg p-2 text-gray-600 hover:bg-gray-200"
                   title="Olvasatlannak jelölés"
                 >
                   <Mail className="h-5 w-5" />
@@ -333,7 +335,7 @@ export function InboxView() {
 
             <button
               onClick={toggleSelectionMode}
-              className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-border text-gray-600 dark:text-dark-text-secondary"
+              className="dark:hover:bg-dark-border dark:text-dark-text-secondary rounded-lg p-2 text-gray-600 hover:bg-gray-200"
               title="Bezárás"
             >
               <X className="h-5 w-5" />
@@ -342,7 +344,7 @@ export function InboxView() {
         )}
 
         {!selectionMode && (
-          <h2 className="text-sm font-medium text-gray-600 dark:text-dark-text-secondary">
+          <h2 className="dark:text-dark-text-secondary text-sm font-medium text-gray-600">
             Beérkezett levelek{totalEmails ? ` (${totalEmails})` : ''}
           </h2>
         )}
@@ -355,7 +357,7 @@ export function InboxView() {
           selectedEmailId={selectedEmail?.id || null}
           onSelectEmail={setSelectedEmail}
           onDeleteEmail={(emailId) => {
-            const emailIndex = emails.findIndex(e => e.id === emailId);
+            const emailIndex = emails.findIndex((e) => e.id === emailId);
             deleteEmail.mutate(emailId, {
               onSuccess: () => {
                 if (selectedEmail?.id === emailId) {
@@ -368,7 +370,7 @@ export function InboxView() {
                     setSelectedEmail(emails[emailIndex - 1]);
                   }
                 }
-              }
+              },
             });
           }}
           emptyMessage="Nincs beérkezett levél. Szinkronizálj a frissítéshez!"
@@ -379,7 +381,9 @@ export function InboxView() {
         {isFetchingNextPage && (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-            <span className="ml-2 text-sm text-gray-500 dark:text-dark-text-secondary">További levelek betöltése...</span>
+            <span className="dark:text-dark-text-secondary ml-2 text-sm text-gray-500">
+              További levelek betöltése...
+            </span>
           </div>
         )}
       </div>
@@ -424,25 +428,25 @@ export function InboxView() {
 
       {/* Törlés megerősítő modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-dark-bg-secondary rounded-lg p-6 max-w-sm mx-4 shadow-xl dark:border dark:border-dark-border">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-dark-text mb-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="dark:bg-dark-bg-secondary dark:border-dark-border mx-4 max-w-sm rounded-lg bg-white p-6 shadow-xl dark:border">
+            <h3 className="dark:text-dark-text mb-2 text-lg font-medium text-gray-900">
               Email törlése
             </h3>
-            <p className="text-sm text-gray-500 dark:text-dark-text-secondary mb-4">
+            <p className="dark:text-dark-text-secondary mb-4 text-sm text-gray-500">
               Biztosan törölni szeretnéd ezt az emailt? Az email a kukába kerül.
             </p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary dark:text-dark-text"
+                className="dark:border-dark-border dark:hover:bg-dark-bg-tertiary dark:text-dark-text rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
               >
                 Mégse
               </button>
               <button
                 onClick={confirmDelete}
                 disabled={deleteEmail.isPending}
-                className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 disabled:opacity-50"
               >
                 {deleteEmail.isPending ? 'Törlés...' : 'Törlés'}
               </button>
@@ -453,25 +457,26 @@ export function InboxView() {
 
       {/* Batch törlés megerősítő modal */}
       {showBatchDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-dark-bg-secondary rounded-lg p-6 max-w-sm mx-4 shadow-xl dark:border dark:border-dark-border">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-dark-text mb-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="dark:bg-dark-bg-secondary dark:border-dark-border mx-4 max-w-sm rounded-lg bg-white p-6 shadow-xl dark:border">
+            <h3 className="dark:text-dark-text mb-2 text-lg font-medium text-gray-900">
               {selectedIds.size} email törlése
             </h3>
-            <p className="text-sm text-gray-500 dark:text-dark-text-secondary mb-4">
-              Biztosan törölni szeretnéd a kijelölt {selectedIds.size} emailt? A levelek a kukába kerülnek.
+            <p className="dark:text-dark-text-secondary mb-4 text-sm text-gray-500">
+              Biztosan törölni szeretnéd a kijelölt {selectedIds.size} emailt? A levelek a kukába
+              kerülnek.
             </p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowBatchDeleteConfirm(false)}
-                className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary dark:text-dark-text"
+                className="dark:border-dark-border dark:hover:bg-dark-bg-tertiary dark:text-dark-text rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
               >
                 Mégse
               </button>
               <button
                 onClick={confirmBatchDelete}
                 disabled={batchDeleteEmails.isPending}
-                className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 disabled:opacity-50"
               >
                 {batchDeleteEmails.isPending ? 'Törlés...' : `${selectedIds.size} törlése`}
               </button>

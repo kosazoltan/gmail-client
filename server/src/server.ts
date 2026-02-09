@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import { createSessionMiddleware } from './middleware/session.js';
+import { createSessionMiddleware, getSessionStore } from './middleware/session.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { initializeDatabase, stopAutoSave, startAutoSave } from './db/index.js';
 import { startBackgroundSync, stopAllBackgroundSyncs } from './services/sync.service.js';
@@ -168,8 +168,20 @@ function gracefulShutdown(signal: string) {
   stopAllBackgroundSyncs();
 
   // Clear periodic intervals
-  if (snoozeInterval) { clearInterval(snoozeInterval); snoozeInterval = null; }
-  if (scheduledInterval) { clearInterval(scheduledInterval); scheduledInterval = null; }
+  if (snoozeInterval) {
+    clearInterval(snoozeInterval);
+    snoozeInterval = null;
+  }
+  if (scheduledInterval) {
+    clearInterval(scheduledInterval);
+    scheduledInterval = null;
+  }
+
+  // Stop session store cleanup
+  const store = getSessionStore();
+  if (store) {
+    store.stopCleanup();
+  }
 
   // Save database
   stopAutoSave();

@@ -45,7 +45,17 @@ function canPreview(mimeType: string | undefined, filename: string): boolean {
   if (mimeType.startsWith('text/') || mimeType === 'application/json') return true;
 
   // Office dokumentumok
-  const officeExtensions = ['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.odt', '.ods', '.odp'];
+  const officeExtensions = [
+    '.doc',
+    '.docx',
+    '.xls',
+    '.xlsx',
+    '.ppt',
+    '.pptx',
+    '.odt',
+    '.ods',
+    '.odp',
+  ];
   // FIX: Handle files without extension
   const lastDotIndex = filename.lastIndexOf('.');
   const ext = lastDotIndex !== -1 ? filename.toLowerCase().substring(lastDotIndex) : '';
@@ -86,29 +96,31 @@ export function AttachmentView({ attachment }: AttachmentViewProps) {
     <>
       <div
         onClick={handlePreview}
-        className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-dark-border hover:border-blue-300 dark:hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-500/10 cursor-pointer transition-colors group"
+        className="dark:border-dark-border group flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 p-3 transition-colors hover:border-blue-300 hover:bg-blue-50/50 dark:hover:border-blue-500 dark:hover:bg-blue-500/10"
       >
-        <div className={`p-2 rounded-lg ${colorClass}`}>
+        <div className={`rounded-lg p-2 ${colorClass}`}>
           <FileIcon mimeType={attachment.mimeType} className="h-5 w-5" />
         </div>
 
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-700 dark:text-dark-text truncate">
+        <div className="min-w-0 flex-1">
+          <p className="dark:text-dark-text truncate text-sm font-medium text-gray-700">
             {attachment.filename}
           </p>
-          <p className="text-xs text-gray-400 dark:text-dark-text-muted">{formatFileSize(attachment.size)}</p>
+          <p className="dark:text-dark-text-muted text-xs text-gray-400">
+            {formatFileSize(attachment.size)}
+          </p>
         </div>
 
         <div className="flex items-center gap-1">
           {hasPreview && (
-            <Eye className="h-4 w-4 text-gray-300 dark:text-dark-text-muted group-hover:text-blue-500 transition-colors" />
+            <Eye className="dark:text-dark-text-muted h-4 w-4 text-gray-300 transition-colors group-hover:text-blue-500" />
           )}
           <button
             onClick={handleDownload}
-            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-dark-bg-tertiary"
+            className="dark:hover:bg-dark-bg-tertiary rounded p-1 hover:bg-gray-200"
             title="Letöltés"
           >
-            <Download className="h-4 w-4 text-gray-300 dark:text-dark-text-muted hover:text-blue-500 transition-colors" />
+            <Download className="dark:text-dark-text-muted h-4 w-4 text-gray-300 transition-colors hover:text-blue-500" />
           </button>
         </div>
       </div>

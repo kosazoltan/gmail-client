@@ -5,12 +5,14 @@ Ez a dokumentáció leírja, hogyan telepítheted a Gmail Client alkalmazást VP
 ## Előfeltételek
 
 ### VPS követelmények
+
 - Ubuntu 20.04+ vagy Debian 11+
 - Minimum 1GB RAM
 - Minimum 10GB tárhely
 - Root hozzáférés
 
 ### Domain beállítás (Cloudflare)
+
 1. Hozz létre egy `A` rekordot a Cloudflare-ben:
    - **Name**: `mail` (vagy amit szeretnél)
    - **IPv4 address**: A VPS IP címe
@@ -21,6 +23,7 @@ Ez a dokumentáció leírja, hogyan telepítheted a Gmail Client alkalmazást VP
    - Edge Certificates → Always Use HTTPS: On
 
 ### Google Cloud Console
+
 1. Menj a [Google Cloud Console](https://console.cloud.google.com/) oldalra
 2. Hozz létre egy új projektet vagy válaszd ki a meglévőt
 3. Engedélyezd a Gmail API-t
@@ -36,16 +39,17 @@ Ez a dokumentáció leírja, hogyan telepítheted a Gmail Client alkalmazást VP
 
 A repository Settings → Secrets and variables → Actions menüpontban add hozzá:
 
-| Secret neve | Leírás |
-|------------|--------|
-| `VPS_SSH_PRIVATE_KEY` | SSH privát kulcs a VPS-hez |
-| `VPS_SERVER_IP` | VPS IP címe |
-| `VPS_SSH_USER` | SSH felhasználó (általában `root`) |
-| `GOOGLE_CLIENT_ID` | Google OAuth Client ID |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth Client Secret |
-| `SESSION_SECRET` | Random string a session titkosításhoz |
+| Secret neve            | Leírás                                |
+| ---------------------- | ------------------------------------- |
+| `VPS_SSH_PRIVATE_KEY`  | SSH privát kulcs a VPS-hez            |
+| `VPS_SERVER_IP`        | VPS IP címe                           |
+| `VPS_SSH_USER`         | SSH felhasználó (általában `root`)    |
+| `GOOGLE_CLIENT_ID`     | Google OAuth Client ID                |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth Client Secret            |
+| `SESSION_SECRET`       | Random string a session titkosításhoz |
 
 #### SSH kulcs generálás (ha még nincs)
+
 ```bash
 # Lokális gépen
 ssh-keygen -t ed25519 -C "github-actions"
@@ -57,17 +61,20 @@ ssh-keygen -t ed25519 -C "github-actions"
 ```
 
 #### Deployment indítása
+
 - Push a `main` vagy `master` branch-re automatikusan elindítja a deployment-et
 - Vagy manuálisan: Actions → Deploy Gmail Client to VPS → Run workflow
 
 ### 2. Manuális telepítés
 
 #### SSH kapcsolat a VPS-sel
+
 ```bash
 ssh root@your-vps-ip
 ```
 
 #### Telepítés
+
 ```bash
 # Repository klónozása
 cd /var/www
@@ -80,11 +87,13 @@ sudo ./deployment/install.sh mail.mindenes.org
 ```
 
 #### .env fájl beállítása
+
 ```bash
 nano /var/www/gmail-client/server/.env
 ```
 
 Tartalom:
+
 ```env
 PORT=5000
 SESSION_SECRET=your-random-secret-here
@@ -96,6 +105,7 @@ NODE_ENV=production
 ```
 
 #### Szolgáltatás indítása
+
 ```bash
 sudo systemctl start gmail-client-backend
 sudo systemctl status gmail-client-backend
@@ -104,9 +114,11 @@ sudo systemctl status gmail-client-backend
 ## Frissítés
 
 ### GitHub Actions-szal
+
 Push a main/master branch-re.
 
 ### Manuálisan
+
 ```bash
 cd /var/www/gmail-client
 sudo ./deployment/update.sh
@@ -115,27 +127,32 @@ sudo ./deployment/update.sh
 ## Hibaelhárítás
 
 ### Backend logok
+
 ```bash
 sudo journalctl -u gmail-client-backend -f
 ```
 
 ### Nginx logok
+
 ```bash
 sudo tail -f /var/log/nginx/gmail-client-*.log
 ```
 
 ### Szolgáltatás újraindítása
+
 ```bash
 sudo systemctl restart gmail-client-backend
 sudo systemctl reload nginx
 ```
 
 ### SSL tanúsítvány megújítása
+
 ```bash
 sudo certbot renew
 ```
 
 ### Portok ellenőrzése
+
 ```bash
 sudo ss -tlnp | grep -E '(5000|80|443)'
 ```

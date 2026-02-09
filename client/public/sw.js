@@ -4,10 +4,7 @@ const CACHE_NAME = 'zmail-offline-v1';
 const OFFLINE_URL = '/offline.html';
 
 // Csak az offline fallback fájlokat cache-eljük
-const OFFLINE_ASSETS = [
-  '/offline.html',
-  '/icons/icon-192x192.png',
-];
+const OFFLINE_ASSETS = ['/offline.html', '/icons/icon-192x192.png'];
 
 // Install event - csak offline fallback cache
 self.addEventListener('install', (event) => {
@@ -16,7 +13,7 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME).then((cache) => {
       console.log('[SW] Caching offline assets only');
       return cache.addAll(OFFLINE_ASSETS);
-    })
+    }),
   );
   // Azonnal aktiválódjon
   self.skipWaiting();
@@ -34,9 +31,9 @@ self.addEventListener('activate', (event) => {
             console.log('[SW] Deleting cache:', cacheName);
             return caches.delete(cacheName);
           }
-        })
+        }),
       );
-    })
+    }),
   );
   // Azonnal átveszi az irányítást
   self.clients.claim();
@@ -51,14 +48,11 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api')) {
     event.respondWith(
       fetch(request).catch(() => {
-        return new Response(
-          JSON.stringify({ error: 'Offline - nincs internetkapcsolat' }),
-          {
-            status: 503,
-            headers: { 'Content-Type': 'application/json' },
-          }
-        );
-      })
+        return new Response(JSON.stringify({ error: 'Offline - nincs internetkapcsolat' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
     );
     return;
   }
@@ -82,7 +76,7 @@ self.addEventListener('fetch', (event) => {
           }
           // Ha nincs cache, hibaüzenet
           return new Response('Offline', { status: 503 });
-        })
+        }),
     );
   }
 });
@@ -107,9 +101,7 @@ self.addEventListener('push', (event) => {
     ],
   };
 
-  event.waitUntil(
-    self.registration.showNotification(data.title || 'ZMail', options)
-  );
+  event.waitUntil(self.registration.showNotification(data.title || 'ZMail', options));
 });
 
 // Notification click kezelés
@@ -133,7 +125,7 @@ self.addEventListener('notificationclick', (event) => {
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }
-    })
+    }),
   );
 });
 

@@ -50,4 +50,3 @@ export function searchEmails(options: SearchOptions) {
     totalPages: Math.ceil((countResult?.total || 0) / limit),
   };
 }
-

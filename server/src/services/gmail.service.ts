@@ -59,7 +59,11 @@ export async function getMessageMetadata(gmail: gmail_v1.Gmail, messageId: strin
 }
 
 // Üzenet feldolgozása
-async function parseMessage(message: gmail_v1.Schema$Message, gmail?: gmail_v1.Gmail, messageId?: string) {
+async function parseMessage(
+  message: gmail_v1.Schema$Message,
+  gmail?: gmail_v1.Gmail,
+  messageId?: string,
+) {
   const headers = message.payload?.headers || [];
   const getHeader = (name: string) =>
     headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value || '';
@@ -89,9 +93,8 @@ async function parseMessage(message: gmail_v1.Schema$Message, gmail?: gmail_v1.G
   }
 
   // HTML-ben a cid: referenciák cseréje base64 data URL-ekre
-  const processedHtml = html && inlineImages.length > 0
-    ? replaceCidReferences(html, inlineImages)
-    : html;
+  const processedHtml =
+    html && inlineImages.length > 0 ? replaceCidReferences(html, inlineImages) : html;
 
   // Mellékletek
   const attachmentsList = extractAttachments(message.payload);
@@ -145,9 +148,7 @@ function parseMessageMetadata(message: gmail_v1.Schema$Message) {
     isRead: !message.labelIds?.includes('UNREAD'),
     isStarred: message.labelIds?.includes('STARRED') || false,
     labels: message.labelIds || [],
-    hasAttachments: (message.payload?.parts || []).some(
-      (p) => p.filename && p.filename.length > 0,
-    ),
+    hasAttachments: (message.payload?.parts || []).some((p) => p.filename && p.filename.length > 0),
   };
 }
 
@@ -301,16 +302,15 @@ export interface InlineImage {
 }
 
 // Inline képek kinyerése (cid: referenciákhoz)
-function extractInlineImages(
-  payload?: gmail_v1.Schema$MessagePart | null,
-): InlineImage[] {
+function extractInlineImages(payload?: gmail_v1.Schema$MessagePart | null): InlineImage[] {
   const result: InlineImage[] = [];
 
   if (!payload) return result;
 
   const headers = payload.headers || [];
-  const contentId = headers.find(h => h.name?.toLowerCase() === 'content-id')?.value;
-  const contentDisposition = headers.find(h => h.name?.toLowerCase() === 'content-disposition')?.value || '';
+  const contentId = headers.find((h) => h.name?.toLowerCase() === 'content-id')?.value;
+  const contentDisposition =
+    headers.find((h) => h.name?.toLowerCase() === 'content-disposition')?.value || '';
   const isInline = contentDisposition.toLowerCase().includes('inline') || contentId;
 
   // Ha van Content-ID és inline kép
@@ -366,12 +366,18 @@ function replaceCidReferences(html: string, inlineImages: InlineImage[]): string
 
     // FIX: Validate MIME type to prevent injection
     if (!VALID_IMAGE_MIME_TYPES.has(img.mimeType)) {
-      logger.warn('Skipping inline image with invalid MIME type', { contentId: img.contentId, mimeType: img.mimeType });
+      logger.warn('Skipping inline image with invalid MIME type', {
+        contentId: img.contentId,
+        mimeType: img.mimeType,
+      });
       continue;
     }
 
     // cid:xxx formátumú referenciák cseréje data URL-re
-    const cidPattern = new RegExp(`cid:${img.contentId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'gi');
+    const cidPattern = new RegExp(
+      `cid:${img.contentId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
+      'gi',
+    );
     // A Gmail API base64url formátumot használ, át kell alakítani sima base64-re
     const base64Data = img.data.replace(/-/g, '+').replace(/_/g, '/');
     const dataUrl = `data:${img.mimeType};base64,${base64Data}`;
@@ -382,9 +388,7 @@ function replaceCidReferences(html: string, inlineImages: InlineImage[]): string
 }
 
 // Mellékletek kinyerése (csak valódi mellékletek, inline képek kiszűrése)
-function extractAttachments(
-  payload?: gmail_v1.Schema$MessagePart | null,
-): Array<{
+function extractAttachments(payload?: gmail_v1.Schema$MessagePart | null): Array<{
   filename: string;
   mimeType: string;
   size: number;
@@ -401,8 +405,9 @@ function extractAttachments(
 
   // Ellenőrizzük, hogy valódi melléklet-e (nem inline)
   const headers = payload.headers || [];
-  const contentDisposition = headers.find(h => h.name?.toLowerCase() === 'content-disposition')?.value || '';
-  const contentId = headers.find(h => h.name?.toLowerCase() === 'content-id')?.value;
+  const contentDisposition =
+    headers.find((h) => h.name?.toLowerCase() === 'content-disposition')?.value || '';
+  const contentId = headers.find((h) => h.name?.toLowerCase() === 'content-id')?.value;
   const isInline = contentDisposition.toLowerCase().includes('inline') || contentId;
 
   // Csak akkor adjuk hozzá, ha van filename, attachmentId és NEM inline
@@ -575,10 +580,7 @@ export async function modifyMessage(
 }
 
 // History lekérése inkrementális szinkronizáláshoz
-export async function getHistory(
-  gmail: gmail_v1.Gmail,
-  startHistoryId: string,
-) {
+export async function getHistory(gmail: gmail_v1.Gmail, startHistoryId: string) {
   const response = await gmail.users.history.list({
     userId: 'me',
     startHistoryId,
@@ -637,8 +639,9 @@ export async function listLabels(gmail: gmail_v1.Gmail): Promise<GmailLabelInfo[
   });
 
   return (response.data.labels ?? [])
-    .filter((label): label is typeof label & { id: string; name: string } =>
-      typeof label.id === 'string' && typeof label.name === 'string'
+    .filter(
+      (label): label is typeof label & { id: string; name: string } =>
+        typeof label.id === 'string' && typeof label.name === 'string',
     )
     .map((label) => ({
       id: label.id,

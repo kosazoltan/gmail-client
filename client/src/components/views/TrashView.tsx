@@ -44,11 +44,17 @@ export function TrashView() {
               const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);
               setSelectedEmail(nextEmail);
             }
-          }
+          },
         });
       }}
       title={`Kuka (${emails.length})`}
-      emptyMessage={<EmptyState icon={Trash2} title="A kuka üres" description="A törölt levelek itt jelennek meg." />}
+      emptyMessage={
+        <EmptyState
+          icon={Trash2}
+          title="A kuka üres"
+          description="A törölt levelek itt jelennek meg."
+        />
+      }
     />
   );
 
