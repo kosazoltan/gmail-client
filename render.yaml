@@ -7,8 +7,9 @@ services:
     runtime: node
     region: frankfurt  # EU régió a magyar felhasználóknak
     plan: starter      # $7/hó, mindig aktív (free tier spin-down problémás email klienshez)
-    buildCommand: cd server && npm install && npm run build
-    startCommand: cd server && node dist/server.js
+    rootDir: server    # A server/ almappából buildelünk
+    buildCommand: npm install && npm run build
+    startCommand: node dist/server.js
     healthCheckPath: /api/health
     autoDeploy: true   # Git push-ra automatikus deploy
     disk:
