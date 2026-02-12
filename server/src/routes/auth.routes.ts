@@ -5,7 +5,7 @@ import { startBackgroundSync } from '../services/sync.service.js';
 import { deleteSubscriptionsByAccount } from '../services/push.service.js';
 
 const router = Router();
-const frontendUrl = process.env.FRONTEND_URL || 'https://mail.mindenes.org';
+const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 // OAuth2 login redirect URL generálás
 router.get('/login', (req, res) => {

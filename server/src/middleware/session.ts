@@ -26,19 +26,26 @@ export function createSessionMiddleware(): RequestHandler {
   // SQLite session store létrehozása (perzisztens session-ök)
   sessionStore = new SqliteSessionStore();
 
-  // Cookie domain kinyerése a FRONTEND_URL-ből
+  // Cookie domain meghatározása a FRONTEND_URL és BACKEND_URL alapján
   const frontendUrl = process.env.FRONTEND_URL || '';
+  const backendUrl = process.env.BACKEND_URL || '';
   let cookieDomain: string | undefined;
-  if (isProduction && frontendUrl) {
+  if (isProduction && frontendUrl && backendUrl) {
     try {
-      const url = new URL(frontendUrl);
-      // Subdomain támogatáshoz pont prefixet adunk
-      const parts = url.hostname.split('.');
-      if (parts.length >= 2) {
-        cookieDomain = '.' + parts.slice(-2).join('.');
+      const feUrl = new URL(frontendUrl);
+      const beUrl = new URL(backendUrl);
+      const feParts = feUrl.hostname.split('.');
+      const beParts = beUrl.hostname.split('.');
+      // Közös parent domain keresése (pl. mail.mindenes.org + api.mindenes.org → .mindenes.org)
+      const feParent = feParts.slice(-2).join('.');
+      const beParent = beParts.slice(-2).join('.');
+      if (feParent === beParent && feParts.length >= 2) {
+        cookieDomain = '.' + feParent;
       }
+      // Ha különböző domain (pl. vercel.app vs onrender.com): cookieDomain marad undefined
+      // Ilyenkor a böngésző a backend domain-jéhez köti a cookie-t
     } catch (err) {
-      logger.warn('Failed to parse frontend URL for cookie domain', { frontendUrl, error: err });
+      logger.warn('Failed to parse URLs for cookie domain', { frontendUrl, backendUrl, error: err });
     }
   }
 

@@ -1,0 +1,38 @@
+# Render Blueprint – Gmail Client Backend
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: gmail-client-backend
+    runtime: node
+    region: frankfurt  # EU régió a magyar felhasználóknak
+    plan: starter      # $7/hó, mindig aktív (free tier spin-down problémás email klienshez)
+    buildCommand: cd server && npm install && npm run build
+    startCommand: cd server && node dist/server.js
+    healthCheckPath: /api/health
+    autoDeploy: true   # Git push-ra automatikus deploy
+    disk:
+      name: gmail-data
+      mountPath: /data
+      sizeGB: 1         # 1 GB elég az SQLite DB-nek
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000     # Render belső port
+      - key: FRONTEND_URL
+        value: https://mail.mindenes.org
+      - key: BACKEND_URL
+        value: https://api.mindenes.org
+      - key: GOOGLE_REDIRECT_URI
+        value: https://api.mindenes.org/api/auth/callback
+      - key: DATABASE_URL
+        value: /data/gmail-client.db
+      - key: GOOGLE_CLIENT_ID
+        sync: false      # Kézzel kell beállítani a Render dashboardon
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true  # Render generál egy random értéket
+      - key: ENCRYPTION_KEY
+        sync: false

@@ -2,6 +2,8 @@ import initSqlJs, { Database as SqlJsDatabase } from 'sql.js';
 import path from 'path';
 import fs from 'fs';
 
+// Render Persistent Disk: DATABASE_URL=/data/gmail-client.db
+// Lokális fejlesztés: DATABASE_URL=./data/gmail-client.db
 const dbPath = process.env.DATABASE_URL || './data/gmail-client.db';
 const dbDir = path.dirname(dbPath);
 
