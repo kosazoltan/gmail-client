@@ -61,12 +61,31 @@ async function start() {
     }),
   );
 
-  // CORS - csak a megadott frontend URL-ről engedélyezett
+  // CORS - több frontend origin támogatása
+  const allowedOrigins = [
+    frontendUrl || 'http://localhost:5173',
+    'https://mindenes.org',
+    'https://mail.mindenes.org',
+    'http://localhost:5173',
+    'http://localhost:5000'
+  ].filter(Boolean);
+
   app.use(
     cors({
-      origin: frontendUrl || 'http://localhost:5173',
+      origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps, Postman)
+        if (!origin) return callback(null, true);
+
+        if (allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          logger.warn(`CORS blocked origin: ${origin}`);
+          callback(new Error('Not allowed by CORS'));
+        }
+      },
       credentials: true,
       maxAge: 86400, // Preflight cache: 24 óra
+      exposedHeaders: ['Content-Range', 'X-Content-Range'],
     }),
   );
 
