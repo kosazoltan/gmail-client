@@ -4,6 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { createSessionMiddleware, getSessionStore } from './middleware/session.js';
 import { errorHandler } from './middleware/error-handler.js';
+import { deleteProtection } from './middleware/delete-protection.js';
 import { initializeDatabase, stopAutoSave, startAutoSave } from './db/index.js';
 import { startBackgroundSync, stopAllBackgroundSyncs } from './services/sync.service.js';
 import { getAllAccounts } from './services/auth.service.js';
@@ -95,6 +96,9 @@ async function start() {
 
   // Session middleware (SQLite store - adatbázis már inicializálva)
   app.use(createSessionMiddleware());
+
+  // Delete protection middleware — logs and blocks dangerous deletions
+  app.use(deleteProtection);
 
   // Routes
   app.use('/api/auth', authRoutes);
