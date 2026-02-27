@@ -9,6 +9,9 @@
 - **Vite config:** Optimalizalt manualChunks (vendor-react, vendor-query, vendor-ui, vendor-sanitize)
 - **Viewer-ek:** PDF, Office, Spreadsheet naturally lazy loaded
 
+### Bug Fixes
+- **Tailwind 4 dark mode:** Hozzaadva `@custom-variant dark` a class-based dark mode mukodesehez (TW4-ben alaperetelmezetten media query-t hasznal, nem class-t)
+
 ### Design System
 - **CSS modernizalas:** Teljes index.css ujrairas
   - Custom @theme valtozok (dark mode szinpaletta)
