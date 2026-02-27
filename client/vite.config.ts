@@ -20,12 +20,14 @@ export default defineConfig({
     },
   },
   build: {
+    chunkSizeWarningLimit: 450,
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom'],
-          pdf: ['pdfjs-dist', 'react-pdf'],
-          ui: ['@tanstack/react-query', 'lucide-react', 'clsx', 'date-fns'],
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-query': ['@tanstack/react-query'],
+          'vendor-ui': ['lucide-react', 'clsx', 'tailwind-merge', 'date-fns', 'date-fns-tz'],
+          'vendor-sanitize': ['dompurify'],
         },
       },
     },

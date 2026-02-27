@@ -3,33 +3,37 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AppLayout } from './components/layout/AppLayout';
-import { InboxView } from './components/views/InboxView';
-import { BySenderView } from './components/views/BySenderView';
-import { ByTopicView } from './components/views/ByTopicView';
-import { ByTimeView } from './components/views/ByTimeView';
-import { CategoryView } from './components/views/CategoryView';
-import { PersonalView } from './components/views/PersonalView';
-import { InvoicesView } from './components/views/InvoicesView';
-import { TrashView } from './components/views/TrashView';
-import { LabelView } from './components/views/LabelView';
-import { AttachmentsView } from './components/views/AttachmentsView';
-import { RemindersView } from './components/views/RemindersView';
-import { NewslettersView } from './components/views/NewslettersView';
-import { SearchResults } from './components/views/SearchResults';
-import { EmailCompose } from './components/email/EmailCompose';
-import { DatabaseManager } from './components/database/DatabaseManager';
-import { SettingsView } from './components/views/SettingsView';
-import { ScheduledView } from './components/views/ScheduledView';
-import { UnifiedInboxView } from './components/views/UnifiedInboxView';
-import { PrivacyPolicy } from './components/pages/PrivacyPolicy';
-import { TermsOfService } from './components/pages/TermsOfService';
 import { InstallPrompt } from './components/pwa/InstallPrompt';
 import { ToastContainer } from './components/common/ToastContainer';
+import { Suspense, lazy } from 'react';
+import { LoadingSkeleton } from './components/common/LoadingSkeleton';
+
+// Lazy loaded views — code splitting
+const InboxView = lazy(() => import('./components/views/InboxView').then(m => ({ default: m.InboxView })));
+const UnifiedInboxView = lazy(() => import('./components/views/UnifiedInboxView').then(m => ({ default: m.UnifiedInboxView })));
+const BySenderView = lazy(() => import('./components/views/BySenderView').then(m => ({ default: m.BySenderView })));
+const ByTopicView = lazy(() => import('./components/views/ByTopicView').then(m => ({ default: m.ByTopicView })));
+const ByTimeView = lazy(() => import('./components/views/ByTimeView').then(m => ({ default: m.ByTimeView })));
+const CategoryView = lazy(() => import('./components/views/CategoryView').then(m => ({ default: m.CategoryView })));
+const PersonalView = lazy(() => import('./components/views/PersonalView').then(m => ({ default: m.PersonalView })));
+const InvoicesView = lazy(() => import('./components/views/InvoicesView').then(m => ({ default: m.InvoicesView })));
+const TrashView = lazy(() => import('./components/views/TrashView').then(m => ({ default: m.TrashView })));
+const LabelView = lazy(() => import('./components/views/LabelView').then(m => ({ default: m.LabelView })));
+const AttachmentsView = lazy(() => import('./components/views/AttachmentsView').then(m => ({ default: m.AttachmentsView })));
+const RemindersView = lazy(() => import('./components/views/RemindersView').then(m => ({ default: m.RemindersView })));
+const NewslettersView = lazy(() => import('./components/views/NewslettersView').then(m => ({ default: m.NewslettersView })));
+const SearchResults = lazy(() => import('./components/views/SearchResults').then(m => ({ default: m.SearchResults })));
+const EmailCompose = lazy(() => import('./components/email/EmailCompose').then(m => ({ default: m.EmailCompose })));
+const DatabaseManager = lazy(() => import('./components/database/DatabaseManager').then(m => ({ default: m.DatabaseManager })));
+const SettingsView = lazy(() => import('./components/views/SettingsView').then(m => ({ default: m.SettingsView })));
+const ScheduledView = lazy(() => import('./components/views/ScheduledView').then(m => ({ default: m.ScheduledView })));
+const PrivacyPolicy = lazy(() => import('./components/pages/PrivacyPolicy').then(m => ({ default: m.PrivacyPolicy })));
+const TermsOfService = lazy(() => import('./components/pages/TermsOfService').then(m => ({ default: m.TermsOfService })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30 * 1000, // 30 másodperc
+      staleTime: 30 * 1000,
       retry: 1,
     },
   },
@@ -43,26 +47,26 @@ function App() {
           <BrowserRouter>
             <Routes>
               <Route element={<AppLayout />}>
-                <Route path="/" element={<InboxView />} />
-                <Route path="/unified" element={<UnifiedInboxView />} />
-                <Route path="/by-sender" element={<BySenderView />} />
-                <Route path="/by-topic" element={<ByTopicView />} />
-                <Route path="/by-time" element={<ByTimeView />} />
-                <Route path="/by-category" element={<CategoryView />} />
-                <Route path="/personal" element={<PersonalView />} />
-                <Route path="/invoices" element={<InvoicesView />} />
-                <Route path="/trash" element={<TrashView />} />
-                <Route path="/label/:labelId" element={<LabelView />} />
-                <Route path="/attachments" element={<AttachmentsView />} />
-                <Route path="/reminders" element={<RemindersView onEmailSelect={() => {}} />} />
-                <Route path="/newsletters" element={<NewslettersView onEmailSelect={() => {}} />} />
-                <Route path="/search" element={<SearchResults />} />
-                <Route path="/compose" element={<EmailCompose />} />
-                <Route path="/database" element={<DatabaseManager />} />
-                <Route path="/settings" element={<SettingsView />} />
-                <Route path="/scheduled" element={<ScheduledView />} />
-                <Route path="/privacy" element={<PrivacyPolicy />} />
-                <Route path="/terms" element={<TermsOfService />} />
+                <Route path="/" element={<Suspense fallback={<LoadingSkeleton />}><InboxView /></Suspense>} />
+                <Route path="/unified" element={<Suspense fallback={<LoadingSkeleton />}><UnifiedInboxView /></Suspense>} />
+                <Route path="/by-sender" element={<Suspense fallback={<LoadingSkeleton />}><BySenderView /></Suspense>} />
+                <Route path="/by-topic" element={<Suspense fallback={<LoadingSkeleton />}><ByTopicView /></Suspense>} />
+                <Route path="/by-time" element={<Suspense fallback={<LoadingSkeleton />}><ByTimeView /></Suspense>} />
+                <Route path="/by-category" element={<Suspense fallback={<LoadingSkeleton />}><CategoryView /></Suspense>} />
+                <Route path="/personal" element={<Suspense fallback={<LoadingSkeleton />}><PersonalView /></Suspense>} />
+                <Route path="/invoices" element={<Suspense fallback={<LoadingSkeleton />}><InvoicesView /></Suspense>} />
+                <Route path="/trash" element={<Suspense fallback={<LoadingSkeleton />}><TrashView /></Suspense>} />
+                <Route path="/label/:labelId" element={<Suspense fallback={<LoadingSkeleton />}><LabelView /></Suspense>} />
+                <Route path="/attachments" element={<Suspense fallback={<LoadingSkeleton />}><AttachmentsView /></Suspense>} />
+                <Route path="/reminders" element={<Suspense fallback={<LoadingSkeleton />}><RemindersView onEmailSelect={() => {}} /></Suspense>} />
+                <Route path="/newsletters" element={<Suspense fallback={<LoadingSkeleton />}><NewslettersView onEmailSelect={() => {}} /></Suspense>} />
+                <Route path="/search" element={<Suspense fallback={<LoadingSkeleton />}><SearchResults /></Suspense>} />
+                <Route path="/compose" element={<Suspense fallback={<LoadingSkeleton />}><EmailCompose /></Suspense>} />
+                <Route path="/database" element={<Suspense fallback={<LoadingSkeleton />}><DatabaseManager /></Suspense>} />
+                <Route path="/settings" element={<Suspense fallback={<LoadingSkeleton />}><SettingsView /></Suspense>} />
+                <Route path="/scheduled" element={<Suspense fallback={<LoadingSkeleton />}><ScheduledView /></Suspense>} />
+                <Route path="/privacy" element={<Suspense fallback={<LoadingSkeleton />}><PrivacyPolicy /></Suspense>} />
+                <Route path="/terms" element={<Suspense fallback={<LoadingSkeleton />}><TermsOfService /></Suspense>} />
               </Route>
             </Routes>
             <InstallPrompt />
