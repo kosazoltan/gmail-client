@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* Tailwind 4: class-based dark mode (html.dark selector) */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* === ZMail 2026 Design System === */
 @theme {
   --color-dark-bg: #0f1117;
