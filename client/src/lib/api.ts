@@ -1,3 +1,4 @@
+// Build trigger: env var update 2026-02-28
 // Production: VITE_API_URL környezeti változóból, vagy /api
 // Development: /api (proxied by Vite)
 const BASE_URL = import.meta.env.VITE_API_URL || '/api';
