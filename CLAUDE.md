@@ -1,36 +1,49 @@
-CLAUDE.md - ZMail Fejlesztesi Szabalyok
+﻿CLAUDE.md - ZMail Fejlesztesi Szabalyok
 
 KOTELEZO olvasmany minden AI agent szamara.
 
-KRITIKUS TANULSAGOK
+KRITIKUS TANULSAGOK (2026-02-28)
 
 1. SOHA NE HASZNALJ PowerShell-t package.json szerkesztesre!
-PowerShell ConvertFrom-Json UTF-8 BOM-ot es rossz formatumot general.
-MINDIG Node.js-sel vagy npm-mel szerkeszd!
+   PowerShell ConvertFrom-Json UTF-8 BOM-ot es rossz formatumot general.
+   MINDIG Node.js-sel vagy npm-mel szerkeszd!
 
 2. @types es typescript MINDIG devDependencies!
-render.yaml: npm install --include=dev -> devDeps telepul.
+   Render buildCommand: npm install --include=dev && npm run build
+   render.yaml-t a Render FIGYELMEN KIVUL HAGYJA ha a service mar letezik!
+   A Dashboard / API beallitas ervenyesul.
 
 3. Tailwind 4 dark mode: @custom-variant dark kell az index.css-ben.
 
 4. Delete Protection aktiv (server/src/middleware/delete-protection.ts)
 
-5. Deploy: Render backend + Vercel frontend autoDeploy. GitHub Actions NINCS.
+5. Deploy: Render backend (Frankfurt) + Vercel frontend autoDeploy. GitHub Actions NINCS.
 
-Stack: React 19+TS+Tailwind4+Vite (Vercel) / Express 5+TS+sql.js (Render)
+6. VITE_API_URL KOTELEZO a Vercel-en!
+   Erteke: https://api.mindenes.org/api
+   NE torold, NE ird at, NE probald Vercel rewrite proxy-val helyettesiteni!
+   A Vercel rewrite NEM tovabbitja a bongeszo cookie-jait a backend fele.
+   A frontend KOZVETLENUL hivja az api.mindenes.org-t (cross-origin).
+
+7. Google OAuth redirect_uri HAROM helyen kell egyeznie:
+   - Google Cloud Console -> Credentials -> Authorized redirect URIs
+   - Render env var: GOOGLE_REDIRECT_URI
+   - Kodban: auth.service.ts -> createOAuth2Client()
+   Jelenlegi: https://api.mindenes.org/api/auth/callback
+   
+8. Google Client Secret MINDIG GOCSPX- prefix-szel kezdodik!
+   Ha nem azzal kezdodik -> ROSSZ secret, auth_failed lesz.
+
+9. Cloudflare DNS: api rekord SZURKE felho (DNS only)!
+   Narancssarga felho (Proxy) -> 403 hiba a Render SSL utkozese miatt.
+
+10. Session cookie config:
+    Domain=.mindenes.org; SameSite=None; Secure; HttpOnly
+    Ez mukodik cross-subdomain (mail.mindenes.org <-> api.mindenes.org).
+
+Stack: React 19+TS+Tailwind4+Vite (Vercel) / Express 5+TS+sql.js (Render Frankfurt)
 
 Push Checklist:
 1. cd server && npx tsc --noEmit && npm run build
-2. cd client && npx tsc --noEmit && npm run build
+2. cd client && npx tsc --noEmit && npm run build  
 3. git push origin main
-
-6. VITE_API_URL NE LEGYEN beallitva Vercel-en!
-A frontend /api keresei a Vercel rewrite-on menjenek at (same-origin).
-Ha VITE_API_URL be van allitva, cross-origin lesz es a session cookie
-elveszik (Chrome SameSite policy). A vercel.json tartalmazza a rewrite-ot.
-
-7. OAuth callback FONTOS: A Google redirect_uri (api.mindenes.org/api/auth/callback)
-a backend domain-re mutat. A backend ONNAN redirect-al a FRONTEND_URL-re.
-A session cookie Domain=.mindenes.org igy same-site marad.
-DE ha a frontend kozvetlenul hivja az API-t (VITE_API_URL), a cookie
-third-party context-ben jon letre es a bongeszo blokkolja.
