@@ -91,13 +91,9 @@ const SOURCES: Array<{
 ];
 
 // --- Helpers ---
-function randomInRange(min: number, max: number): number {
-  return Math.round((min + Math.random() * (max - min)) * 100) / 100;
-}
-
-function generateDirection(rate: number, change: number): 'bullish' | 'bearish' | 'neutral' {
-  if (change > 0.15) return 'bullish';
-  if (change < -0.15) return 'bearish';
+function generateDirection(change: number): 'bullish' | 'bearish' | 'neutral' {
+  if (change > 0.3) return 'bullish';
+  if (change < -0.3) return 'bearish';
   return 'neutral';
 }
 
@@ -105,9 +101,9 @@ function generateAnalyses(rates: RateInfo[]): AnalysisItem[] {
   const rateMap = new Map(rates.map(r => [r.pair, r]));
   const now = new Date();
   const hour = now.getUTCHours();
-  const isAsianSession = hour >= 0 && hour < 8;
   const isEuropeanSession = hour >= 7 && hour < 16;
   const isUSSession = hour >= 13 && hour < 22;
+  const isAsianSession = !isEuropeanSession && !isUSSession;
 
   const sessionContext = isUSSession
     ? 'az amerikai kereskedési session'
@@ -119,7 +115,7 @@ function generateAnalyses(rates: RateInfo[]): AnalysisItem[] {
     const primaryPair = src.pairs[0];
     const rateInfo = rateMap.get(primaryPair);
     const change = rateInfo?.changePercent ?? 0;
-    const direction = generateDirection(rateInfo?.rate ?? 1, change);
+    const direction = generateDirection(change);
     const confidence = Math.min(95, Math.max(45, 65 + Math.round(Math.abs(change) * 30) + Math.round((src.weight - 1.0) * 20)));
 
     const dirHu = direction === 'bullish' ? 'bika' : direction === 'bearish' ? 'medve' : 'semleges';
@@ -324,7 +320,7 @@ function computeWeightedConclusion(analyses: AnalysisItem[], rates: RateInfo[]):
   for (const pair of pairs) {
     const relevantAnalyses = analyses.filter(a => a.pairs.includes(pair));
     if (relevantAnalyses.length === 0) {
-      result[pair] = { direction: 'semleges', score: 50, summary: 'Nincs elég adat az értékeléshez.' };
+      result[pair] = { direction: 'neutral', score: 50, summary: 'Nincs elég adat az értékeléshez.' };
       continue;
     }
 
@@ -337,7 +333,7 @@ function computeWeightedConclusion(analyses: AnalysisItem[], rates: RateInfo[]):
     }
 
     const score = Math.round(weightedSum / totalWeight);
-    const direction = score > 60 ? 'bullish' : score < 45 ? 'bearish' : 'semleges';
+    const direction = score > 60 ? 'bullish' : score < 45 ? 'bearish' : 'neutral';
     const dirHu = direction === 'bullish' ? 'Bika' : direction === 'bearish' ? 'Medve' : 'Semleges';
 
     const rateInfo = rates.find(r => r.pair === pair);
@@ -396,36 +392,46 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
   const eurgbp = eurRates['GBP'] ?? 0.8580;
   const eurchf = eurRates['CHF'] ?? 0.9520;
 
-  // Arany árfolyam (fallback: számolt érték)
+  // Arany árfolyam — több forrás próbálása
   let xauusd = 2650.00;
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    // Frankfurter dev commodities endpoint
-    const goldResp = await fetch('https://api.frankfurter.dev/v1/latest?base=XAU&symbols=USD,EUR', {
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-    if (goldResp.ok) {
-      const goldData = await goldResp.json() as { rates: Record<string, number> };
-      if (goldData.rates['USD']) {
-        xauusd = goldData.rates['USD'];
+  let goldFetched = false;
+
+  // 1. próba: goldapi.io (ingyenes, nincs API key szükséges a basic endpoint-hoz)
+  if (!goldFetched) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const goldResp = await fetch('https://www.goldapi.io/api/XAU/USD', {
+        signal: controller.signal,
+        headers: { 'x-access-token': 'goldapi-free' },
+      });
+      clearTimeout(timeout);
+      if (goldResp.ok) {
+        const goldData = await goldResp.json() as { price?: number };
+        if (goldData.price && goldData.price > 0) {
+          xauusd = goldData.price;
+          goldFetched = true;
+          logger.info(`Arany árfolyam betöltve (goldapi): ${xauusd} USD/oz`);
+        }
       }
-      logger.info('Arany árfolyam betöltve (frankfurter)');
+    } catch (err) {
+      logger.warn('GoldAPI hiba:', err instanceof Error ? err.message : err);
     }
-  } catch (err) {
-    logger.warn('Arany API hiba, fallback használata:', err instanceof Error ? err.message : err);
+  }
+
+  // 2. fallback: statikus árfolyam kommenttel
+  if (!goldFetched) {
+    logger.warn(`Arany API nem elérhető — fallback ${xauusd} USD/oz használata`);
   }
 
   const xaueur = xauusd / eurusd;
 
-  // Szimulált 24h változás (az ingyenes API nem ad történetit, tehát kiszámoljuk)
+  // Szimulált 24h változás (az ingyenes API nem ad történetit, tehát becsüljük)
   const genChange = (base: number, maxPct: number): { change24h: number; changePercent: number } => {
-    const pct = (Math.random() - 0.48) * maxPct; // enyhen bullish bias
-    return {
-      change24h: Math.round(base * pct * 100) / 10000,
-      changePercent: Math.round(pct * 10000) / 100,
-    };
+    const pct = (Math.random() - 0.48) * maxPct; // enyhén bullish bias
+    const changePercent = Math.round(pct * 10000) / 100; // pl. 0.42%
+    const change24h = Math.round(base * pct * 10000) / 10000; // abszolút érték: pl. 0.0045
+    return { change24h, changePercent };
   };
 
   const rates: RateInfo[] = [
