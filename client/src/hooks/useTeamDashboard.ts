@@ -5,8 +5,9 @@ export function useTeamDashboard() {
   return useQuery({
     queryKey: ['team', 'dashboard'],
     queryFn: () => api.team.dashboard(),
-    refetchInterval: 10000, // 10 mp auto-refresh
-    staleTime: 5000,
-    retry: 1,
+    refetchInterval: false, // Ne pollingoljon — a team API nem elérhető Render-en
+    staleTime: 300000, // 5 perc cache
+    retry: 0, // Ne retry-ozzon 503-ra
+    refetchOnWindowFocus: false,
   });
 }
