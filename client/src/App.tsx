@@ -29,6 +29,11 @@ const SettingsView = lazy(() => import('./components/views/SettingsView').then(m
 const ScheduledView = lazy(() => import('./components/views/ScheduledView').then(m => ({ default: m.ScheduledView })));
 const PrivacyPolicy = lazy(() => import('./components/pages/PrivacyPolicy').then(m => ({ default: m.PrivacyPolicy })));
 const TermsOfService = lazy(() => import('./components/pages/TermsOfService').then(m => ({ default: m.TermsOfService })));
+const DashboardView = lazy(() => import('./components/views/DashboardView').then(m => ({ default: m.DashboardView })));
+const CalendarView = lazy(() => import('./components/views/CalendarView').then(m => ({ default: m.CalendarView })));
+const TasksView = lazy(() => import('./components/views/TasksView').then(m => ({ default: m.TasksView })));
+const TeamDashboardView = lazy(() => import('./components/views/TeamDashboardView').then(m => ({ default: m.TeamDashboardView })));
+const MarketAnalysisView = lazy(() => import('./components/views/MarketAnalysisView').then(m => ({ default: m.MarketAnalysisView })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,6 +52,11 @@ function App() {
           <BrowserRouter>
             <Routes>
               <Route element={<AppLayout />}>
+                <Route path="/dashboard" element={<Suspense fallback={<LoadingSkeleton />}><DashboardView /></Suspense>} />
+                <Route path="/calendar" element={<Suspense fallback={<LoadingSkeleton />}><CalendarView /></Suspense>} />
+                <Route path="/tasks" element={<Suspense fallback={<LoadingSkeleton />}><TasksView /></Suspense>} />
+                <Route path="/team" element={<Suspense fallback={<LoadingSkeleton />}><TeamDashboardView /></Suspense>} />
+                <Route path="/market" element={<Suspense fallback={<LoadingSkeleton />}><MarketAnalysisView /></Suspense>} />
                 <Route path="/" element={<Suspense fallback={<LoadingSkeleton />}><InboxView /></Suspense>} />
                 <Route path="/unified" element={<Suspense fallback={<LoadingSkeleton />}><UnifiedInboxView /></Suspense>} />
                 <Route path="/by-sender" element={<Suspense fallback={<LoadingSkeleton />}><BySenderView /></Suspense>} />

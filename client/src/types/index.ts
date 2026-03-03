@@ -36,7 +36,7 @@ export interface Email {
   hasAttachments: boolean;
   categoryId: string | null;
   topicId: string | null;
-  // Részletes nézetnél
+  // RĂ©szletes nĂ©zetnĂ©l
   body?: string | null;
   bodyHtml?: string | null;
   attachments?: Attachment[];
@@ -260,7 +260,129 @@ export interface VipSender {
   createdAt: number;
 }
 
-// Thread conversation - teljes beszélgetés egy thread-ben
+// Calendar event
+export interface CalendarEvent {
+  id: string;
+  summary: string;
+  description: string | null;
+  location: string | null;
+  start: string;
+  end: string;
+  isAllDay: boolean;
+  htmlLink: string | null;
+  colorId: string | null;
+  status: string | null;
+  hangoutLink: string | null;
+}
+
+// Google Task
+export interface GoogleTask {
+  id: string;
+  title: string;
+  notes: string | null;
+  status: 'needsAction' | 'completed';
+  due: string | null;
+  completed: string | null;
+  updated: string | null;
+  position: string | null;
+  parent: string | null;
+}
+
+// Task list
+export interface TaskList {
+  id: string;
+  title: string;
+  updated: string | null;
+}
+
+// Dashboard data
+export interface DashboardData {
+  unreadCount: number;
+  todayEvents: Array<{
+    id: string;
+    summary: string;
+    start: string;
+    end: string;
+    isAllDay: boolean;
+    location: string | null;
+  }>;
+  todayEventsCount: number;
+  openTasks: Array<{
+    id: string;
+    title: string;
+    status: string;
+    due: string | null;
+    listId: string;
+    listTitle: string;
+  }>;
+  openTasksCount: number;
+  timestamp: number;
+}
+
+// AI Team Dashboard
+export interface TeamAgent {
+  id: string;
+  name: string;
+  emoji: string;
+  role: string;
+  model: string;
+  tasks: number;
+  tasks7d: number;
+  successRate: number;
+  rate7d: number | null;
+  trend: number | null;
+  sparkline: (number | null)[];
+}
+
+export interface TeamDashboardData {
+  phase: string;
+  phaseReason: string | null;
+  timestamp: string;
+  stats: {
+    facts: number;
+    trails: number;
+    delegations: number;
+    discoveries: number;
+    pheromones: number;
+    ledgerEntries: number;
+    dreams: number;
+    goals: number;
+    scaffolds: number;
+    modules: number;
+  };
+  agents: TeamAgent[];
+  intentions: {
+    achievedGoals: number;
+    activeGoals: number;
+    topGoal: { description: string; severity: number } | null;
+  };
+  dreams: {
+    totalCycles: number;
+    totalAssociations: number;
+  };
+  stigmergy: {
+    locations: number;
+    totalPheromones: number;
+  };
+  quorum: {
+    mode: string;
+    activeSignals: number;
+  };
+  modules: Array<{
+    name: string;
+    exists: boolean;
+    sizeKB: number;
+  }>;
+  recentActivity: Array<{
+    time: string;
+    from: string;
+    to: string;
+    task: string;
+    result: string;
+  }>;
+}
+
+// Thread conversation - teljes beszĂ©lgetĂ©s egy thread-ben
 export interface ThreadEmail extends Email {
   isSent?: boolean;
   isDraft?: boolean;
@@ -270,4 +392,73 @@ export interface ThreadConversation {
   threadId: string | null;
   accountEmail: string | null;
   emails: ThreadEmail[];
+}
+
+// Market Analysis
+export interface MarketRateInfo {
+  pair: string;
+  label: string;
+  rate: number;
+  change24h: number;
+  changePercent: number;
+  timestamp: string;
+}
+
+export interface MarketAnalysisItem {
+  sourceId: string;
+  source: string;
+  direction: 'bullish' | 'bearish' | 'neutral';
+  pairs: string[];
+  summary: string;
+  keyLevel: string;
+  outlook: string;
+  confidence: number;
+  weight: number;
+  speciality: string;
+}
+
+export interface MarketPositioningItem {
+  pair: string;
+  longPct: number;
+  shortPct: number;
+  bias: string;
+  targetLow: number;
+  targetHigh: number;
+  support: number;
+  resistance: number;
+  catalyst48h: string;
+  scenarioBull: string;
+  scenarioBear: string;
+}
+
+export interface MarketNewsItem {
+  title: string;
+  source: string;
+  originalLanguage: string;
+  impact: 'Magas' | 'Kozepes' | 'Alacsony';
+  pairs: string[];
+  summary: string;
+  publishedAt: string;
+}
+
+export interface MarketWeightedConclusion {
+  direction: string;
+  score: number;
+  summary: string;
+}
+
+export interface MarketBriefingData {
+  generatedAt: string;
+  cached: boolean;
+  rates: MarketRateInfo[];
+  analyses: MarketAnalysisItem[];
+  positioning: MarketPositioningItem[];
+  newsItems: MarketNewsItem[];
+  weightedConclusion: Record<string, MarketWeightedConclusion>;
+  overallSentiment: string;
+}
+
+export interface MarketBriefingResponse {
+  success: boolean;
+  data: MarketBriefingData;
 }

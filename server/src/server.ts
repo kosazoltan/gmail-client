@@ -32,6 +32,11 @@ import settingsRoutes from './routes/settings.routes.js';
 import scheduledRoutes, { processScheduledEmails } from './routes/scheduled.routes.js';
 import vipRoutes from './routes/vip.routes.js';
 import translateRoutes from './routes/translate.routes.js';
+import calendarRoutes from './routes/calendar.routes.js';
+import tasksRoutes from './routes/tasks.routes.js';
+import dashboardRoutes from './routes/dashboard.routes.js';
+import teamRoutes from './routes/team.routes.js';
+import marketRoutes from './routes/market.routes.js';
 
 const PORT = parseInt(process.env.PORT || '5000', 10);
 
@@ -122,6 +127,11 @@ async function start() {
   app.use('/api/scheduled', scheduledRoutes);
   app.use('/api/vip', vipRoutes);
   app.use('/api/translate', translateRoutes);
+  app.use('/api/calendar', calendarRoutes);
+  app.use('/api/tasks', tasksRoutes);
+  app.use('/api/dashboard', dashboardRoutes);
+  app.use('/api/team', teamRoutes);
+  app.use('/api/market', marketRoutes);
 
   // Health check
   app.get('/api/health', (_req, res) => {

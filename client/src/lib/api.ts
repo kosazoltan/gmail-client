@@ -596,6 +596,68 @@ export const api = {
       }),
   },
 
+  calendar: {
+    today: () =>
+      request<{ events: import('../types').CalendarEvent[] }>('/calendar/today'),
+    week: () =>
+      request<{
+        events: import('../types').CalendarEvent[];
+        weekStart: string;
+        weekEnd: string;
+      }>('/calendar/week'),
+    events: (params?: { timeMin?: string; timeMax?: string }) => {
+      const query = new URLSearchParams();
+      if (params?.timeMin) query.set('timeMin', params.timeMin);
+      if (params?.timeMax) query.set('timeMax', params.timeMax);
+      const qs = query.toString();
+      return request<{ events: import('../types').CalendarEvent[] }>(
+        `/calendar/events${qs ? `?${qs}` : ''}`,
+      );
+    },
+  },
+
+  tasks: {
+    lists: () =>
+      request<{ lists: import('../types').TaskList[] }>('/tasks/lists'),
+    listTasks: (listId: string, showCompleted = true) =>
+      request<{ tasks: import('../types').GoogleTask[] }>(
+        `/tasks/list/${listId}?showCompleted=${showCompleted}`,
+      ),
+    updateTask: (
+      listId: string,
+      taskId: string,
+      data: { status?: string; title?: string; notes?: string; due?: string },
+    ) =>
+      request<{ task: import('../types').GoogleTask }>(
+        `/tasks/list/${listId}/task/${taskId}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(data),
+        },
+      ),
+    createTask: (listId: string, data: { title: string; notes?: string; due?: string }) =>
+      request<{ task: import('../types').GoogleTask }>(`/tasks/list/${listId}`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    deleteTask: (listId: string, taskId: string) =>
+      request<{ success: boolean }>(`/tasks/list/${listId}/task/${taskId}`, {
+        method: 'DELETE',
+      }),
+  },
+
+  dashboard: {
+    get: () => request<import('../types').DashboardData>('/dashboard'),
+  },
+
+  team: {
+    dashboard: () => request<import('../types').TeamDashboardData>('/team/dashboard'),
+  },
+
+  market: {
+    briefing: () => request<import('../types').MarketBriefingResponse>('/market/briefing'),
+  },
+
   translate: {
     translate: (text: string, targetLang = 'hu', sourceLang = 'auto') =>
       request<{

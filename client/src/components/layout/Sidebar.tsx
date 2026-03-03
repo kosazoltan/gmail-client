@@ -34,8 +34,14 @@ import {
   Settings,
   CalendarClock,
   Mail,
+  LayoutDashboard,
+  Calendar,
+  CheckSquare,
+  Bot,
+  BarChart3,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useDashboard } from '../../hooks/useDashboard';
 import { useState, useMemo } from 'react';
 
 interface SidebarProps {
@@ -44,7 +50,17 @@ interface SidebarProps {
   onShowShortcuts?: () => void;
 }
 
-const navItems = [
+// Dashboard szekció — felül, vizuálisan elkülönítve
+const dashboardItems = [
+  { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { path: '/calendar', icon: Calendar, label: 'Naptár' },
+  { path: '/tasks', icon: CheckSquare, label: 'Feladatok' },
+  { path: '/team', icon: Bot, label: 'AI Csapat' },
+  { path: '/market', icon: BarChart3, label: 'Piaci Elemz\u00e9s' },
+];
+
+// Email szekció — a megszokott menüpontok
+const emailItems = [
   { path: '/', icon: Inbox, label: 'Beérkezett' },
   { path: '/unified', icon: Mail, label: 'Minden levél' },
   { path: '/by-sender', icon: Users, label: 'Küldő szerint' },
@@ -77,6 +93,7 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
   const { data: dueRemindersCount } = useDueRemindersCount();
   const { data: labelsData } = useLabels();
   const { data: unreadCount } = useUnreadCount(session?.activeAccountId || undefined);
+  const { data: dashboardData } = useDashboard();
 
   // Gyakran használt címkék (user típusúak, messagesTotal alapján rendezve)
   const frequentLabels = useMemo(() => {
@@ -146,7 +163,72 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
 
       {/* Navigáció */}
       <nav className="flex-1 space-y-1 overflow-auto px-2 py-2" aria-label="Fő navigáció">
-        {navItems.map((item) => {
+        {/* Dashboard szekció */}
+        {dashboardItems.map((item) => {
+          // Badge logika: naptár → mai események, feladatok → nyitott tasks
+          const calendarBadge =
+            item.path === '/calendar' && dashboardData?.todayEventsCount
+              ? dashboardData.todayEventsCount
+              : 0;
+          const tasksBadge =
+            item.path === '/tasks' && dashboardData?.openTasksCount
+              ? dashboardData.openTasksCount
+              : 0;
+          const badgeCount = calendarBadge || tasksBadge;
+
+          return (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              aria-label={item.label}
+              title={item.label}
+              className={({ isActive }) =>
+                cn(
+                  'flex min-h-[44px] touch-manipulation items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors',
+                  isActive
+                    ? 'bg-[#4f6ef7]/10 font-medium text-[#4f6ef7] dark:bg-[#4f6ef7]/15 dark:text-[#6d8cff]'
+                    : 'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+                  !isOpen && 'justify-center px-2',
+                )
+              }
+            >
+              <div className="relative">
+                <item.icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+                {badgeCount > 0 && !isOpen && (
+                  <span
+                    className={cn(
+                      'absolute -top-1 -right-1 h-2 w-2 rounded-full',
+                      item.path === '/calendar' ? 'bg-purple-500' : 'bg-green-500',
+                    )}
+                  />
+                )}
+              </div>
+              {isOpen && (
+                <div className="flex flex-1 items-center justify-between">
+                  <span>{item.label}</span>
+                  {badgeCount > 0 && (
+                    <span
+                      className={cn(
+                        'rounded-full px-1.5 py-0.5 text-xs font-medium',
+                        item.path === '/calendar'
+                          ? 'bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400'
+                          : 'bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400',
+                      )}
+                    >
+                      {badgeCount > 99 ? '99+' : badgeCount}
+                    </span>
+                  )}
+                </div>
+              )}
+            </NavLink>
+          );
+        })}
+
+        {/* Elválasztó vonal a dashboard és email szekciók között */}
+        <div className="dark:border-dark-border mx-2 border-t border-gray-200/60 my-1" />
+
+        {/* Email szekció */}
+        {emailItems.map((item) => {
           const showBadge =
             item.path === '/reminders' && dueRemindersCount && dueRemindersCount > 0;
           return (
