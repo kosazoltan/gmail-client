@@ -97,7 +97,7 @@ async function start() {
 
   // Trust proxy (Cloudflare mögött)
   app.set('trust proxy', 1);
-  app.use(express.json({ limit: '10mb' })); // Limit request body size
+  app.use(express.json({ limit: '2mb' })); // Limit request body size (was 10mb — OOM risk on 512MB Render)
 
   // Session middleware (SQLite store - adatbázis már inicializálva)
   app.use(createSessionMiddleware());

@@ -3,13 +3,21 @@ import logger from '../utils/logger.js';
 
 const router = Router();
 
-const TEAM_API_URL = process.env.TEAM_DASHBOARD_API || 'http://127.0.0.1:3460/api/dashboard';
+const TEAM_API_URL = process.env.TEAM_DASHBOARD_API || '';
 
 // Proxy a lokális AI Team Dashboard API-hoz
 router.get('/dashboard', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
+  }
+
+  // Ha nincs TEAM_DASHBOARD_API env var → ne próbáljunk localhost-ot hívni
+  if (!TEAM_API_URL) {
+    return res.status(503).json({
+      error: 'AI Team Dashboard API nincs konfigurálva',
+      hint: 'Állítsd be a TEAM_DASHBOARD_API környezeti változót',
+    });
   }
 
   try {
