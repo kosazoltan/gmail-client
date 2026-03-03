@@ -8,7 +8,7 @@ let cachedBriefing: MarketBriefingData | null = null;
 let cachedAt = 0;
 const CACHE_TTL_MS = 25 * 60 * 1000; // 25 perc
 
-// --- Tipusok ---
+// --- Típusok ---
 interface RateInfo {
   pair: string;
   label: string;
@@ -49,7 +49,7 @@ interface NewsItem {
   title: string;
   source: string;
   originalLanguage: string;
-  impact: 'Magas' | 'Kozepes' | 'Alacsony';
+  impact: 'Magas' | 'Közepes' | 'Alacsony';
   pairs: string[];
   summary: string;
   publishedAt: string;
@@ -84,10 +84,10 @@ const SOURCES: Array<{
   { sourceId: 'JPM', source: 'J.P. Morgan', weight: 1.4, speciality: 'FX + arany forecast', pairs: ['EURUSD', 'XAUUSD', 'XAUEUR'] },
   { sourceId: 'MUFG', source: 'MUFG Research', weight: 1.3, speciality: 'FX forecasts', pairs: ['EURUSD', 'EURGBP', 'EURCHF'] },
   { sourceId: 'Monex', source: 'Monex Global', weight: 1.3, speciality: 'Bloomberg FX Accuracy #1', pairs: ['EURUSD', 'EURGBP', 'EURHUF'] },
-  { sourceId: 'Erste', source: 'Erste Group', weight: 1.3, speciality: 'EUR/HUF, kozep-europai FX', pairs: ['EURHUF', 'EURCHF', 'EURUSD'] },
+  { sourceId: 'Erste', source: 'Erste Group', weight: 1.3, speciality: 'EUR/HUF, közép-európai FX', pairs: ['EURHUF', 'EURCHF', 'EURUSD'] },
   { sourceId: 'Ebury', source: 'Ebury Insights', weight: 1.2, speciality: 'GBP/USD #1', pairs: ['EURGBP', 'EURUSD', 'EURHUF'] },
   { sourceId: 'FXStreet', source: 'FXStreet', weight: 1.1, speciality: 'Napi FX + Gold', pairs: ['EURUSD', 'XAUUSD', 'EURGBP'] },
-  { sourceId: 'ForexCom', source: 'FOREX.com', weight: 1.0, speciality: 'Napi FX elemzes', pairs: ['EURUSD', 'EURGBP', 'EURCHF'] },
+  { sourceId: 'ForexCom', source: 'FOREX.com', weight: 1.0, speciality: 'Napi FX elemzés', pairs: ['EURUSD', 'EURGBP', 'EURCHF'] },
 ];
 
 // --- Helpers ---
@@ -110,10 +110,10 @@ function generateAnalyses(rates: RateInfo[]): AnalysisItem[] {
   const isUSSession = hour >= 13 && hour < 22;
 
   const sessionContext = isUSSession
-    ? 'az amerikai kereskedesi session'
+    ? 'az amerikai kereskedési session'
     : isEuropeanSession
-      ? 'az europai kereskedesi session'
-      : 'az azsiai kereskedesi session';
+      ? 'az európai kereskedési session'
+      : 'az ázsiai kereskedési session';
 
   return SOURCES.map(src => {
     const primaryPair = src.pairs[0];
@@ -122,41 +122,41 @@ function generateAnalyses(rates: RateInfo[]): AnalysisItem[] {
     const direction = generateDirection(rateInfo?.rate ?? 1, change);
     const confidence = Math.min(95, Math.max(45, 65 + Math.round(Math.abs(change) * 30) + Math.round((src.weight - 1.0) * 20)));
 
-    const dirHu = direction === 'bullish' ? 'bikai' : direction === 'bearish' ? 'medves' : 'semleges';
+    const dirHu = direction === 'bullish' ? 'bika' : direction === 'bearish' ? 'medve' : 'semleges';
     const rateStr = rateInfo ? rateInfo.rate.toFixed(4) : 'N/A';
 
     const summaryTemplates: Record<string, string[]> = {
       ING: [
-        `Az ING elemzoi ${dirHu} kilatast latnak az EUR-ra. A ${primaryPair} ${rateStr} kornyeken mozog, ${sessionContext} soran fokozott volumen mellett.`,
-        `Az ING FX Daily szerint a forint ${change > 0 ? 'gyengulese' : 'erosodese'} folytatodhat. A ${primaryPair} par technikai szintjei meghatarozoak.`,
+        `Az ING elemzői ${dirHu} kilátást látnak az EUR-ra. A ${primaryPair} ${rateStr} környékén mozog, ${sessionContext} során fokozott volumen mellett.`,
+        `Az ING FX Daily szerint a forint ${change > 0 ? 'gyengülése' : 'erősödése'} folytatódhat. A ${primaryPair} pár technikai szintjei meghatározóak.`,
       ],
       JPM: [
-        `A J.P. Morgan ${dirHu} poziciot javasol. Az arany ${rateMap.get('XAUUSD')?.rate?.toFixed(2) ?? 'N/A'} USD/oz szinten kereskedik, ${change > 0 ? 'erosodo' : 'gyengulo'} momentum mellett.`,
-        `A JPM FX es arany elorejelzese ${dirHu} iranyu. A dollar ${change > 0 ? 'gyengulese' : 'erosodese'} hatassal van a fo devizaparokra.`,
+        `A J.P. Morgan ${dirHu} pozíciót javasol. Az arany ${rateMap.get('XAUUSD')?.rate?.toFixed(2) ?? 'N/A'} USD/oz szinten kereskedik, ${change > 0 ? 'erősödő' : 'gyengülő'} momentum mellett.`,
+        `A JPM FX és arany előrejelzése ${dirHu} irányú. A dollár ${change > 0 ? 'gyengülése' : 'erősödése'} hatással van a fő devizapárokra.`,
       ],
       MUFG: [
-        `A MUFG Research ${dirHu} iranyt jelez a ${primaryPair} parra. A ${rateStr} szint fontos technikai referenciapontkent szolgal.`,
-        `Az MUFG elemzoi szerint ${sessionContext} dominalja a piaci hangulat. A ${primaryPair} ${dirHu} iranyba mozdulhat.`,
+        `A MUFG Research ${dirHu} irányt jelez a ${primaryPair} párra. A ${rateStr} szint fontos technikai referenciapontként szolgál.`,
+        `Az MUFG elemzői szerint ${sessionContext} dominálja a piaci hangulatot. A ${primaryPair} ${dirHu} irányba mozdulhat.`,
       ],
       Monex: [
-        `A Monex Global — Bloomberg FX pontossagi rangsor elso helyezettje — ${dirHu} velemeny mellett ervel. A ${primaryPair} ${rateStr} kornyeken stabilizalodott.`,
-        `A Monex szerint a ${primaryPair} ${change > 0 ? 'tovabbi emelkedes' : 'korrekcio'} elott all. A technikai szintek tamogatjak a ${dirHu} forgatokonyvet.`,
+        `A Monex Global — Bloomberg FX pontossági rangsor első helyezettje — ${dirHu} vélemény mellett érvel. A ${primaryPair} ${rateStr} környékén stabilizálódott.`,
+        `A Monex szerint a ${primaryPair} ${change > 0 ? 'további emelkedés' : 'korrekció'} előtt áll. A technikai szintek támogatják a ${dirHu} forgatókönyvet.`,
       ],
       Erste: [
-        `Az Erste Group kozep-europai elemzese ${dirHu} a forint szamara. A regionalis kotvenypiaci mozgasok hatassal vannak az EUR/HUF-ra.`,
-        `Az Erste szerint a magyar jegybanki kommunikacio ${dirHu} iranyu nyomast gyakorol a forintra. Az EUR/HUF ${rateStr} kornyeken mozog.`,
+        `Az Erste Group közép-európai elemzése ${dirHu} a forint számára. A regionális kötvénypiaci mozgások hatással vannak az EUR/HUF-ra.`,
+        `Az Erste szerint a magyar jegybanki kommunikáció ${dirHu} irányú nyomást gyakorol a forintra. Az EUR/HUF ${rateStr} környékén mozog.`,
       ],
       Ebury: [
-        `Az Ebury Insights — GBP elemzes piacvezeto — ${dirHu} iranyt lat a fo devizaparokban. A ${primaryPair} ${rateStr}-nel kereskedik.`,
-        `Az Ebury szerint a Bank of England kommunikacioja ${dirHu} iranyu. A ${primaryPair} kovetkezo celar-szintje ${change > 0 ? 'magasabb' : 'alacsonyabb'} lehet.`,
+        `Az Ebury Insights — GBP elemzés piacvezető — ${dirHu} irányt lát a fő devizapárokban. A ${primaryPair} ${rateStr}-nél kereskedik.`,
+        `Az Ebury szerint a Bank of England kommunikációja ${dirHu} irányú. A ${primaryPair} következő célár-szintje ${change > 0 ? 'magasabb' : 'alacsonyabb'} lehet.`,
       ],
       FXStreet: [
-        `Az FXStreet technikai elemzese ${dirHu} jelzest ad. A ${primaryPair} ${rateStr} szinten all, az RSI es MACD indikatorok ${direction === 'bullish' ? 'pozitiv' : direction === 'bearish' ? 'negativ' : 'semleges'} divergenciat mutatnak.`,
-        `Az FXStreet szerint az arany es devizapiacok ${dirHu} trendet kovetnek. A napi pivot szintek fontosak a ${primaryPair} szamara.`,
+        `Az FXStreet technikai elemzése ${dirHu} jelzést ad. A ${primaryPair} ${rateStr} szinten áll, az RSI és MACD indikátorok ${direction === 'bullish' ? 'pozitív' : direction === 'bearish' ? 'negatív' : 'semleges'} divergenciát mutatnak.`,
+        `Az FXStreet szerint az arany és devizapiacok ${dirHu} trendet követnek. A napi pivot szintek fontosak a ${primaryPair} számára.`,
       ],
       ForexCom: [
-        `A FOREX.com napi elemzese ${dirHu} hangulatu. A ${primaryPair} ${rateStr} szinten kereskedik, a volumen ${change > 0 ? 'novekszik' : 'csokken'}.`,
-        `A FOREX.com szerint a ${primaryPair} par ${dirHu} iranyu mozgasra szamithat ${sessionContext} maradekaban.`,
+        `A FOREX.com napi elemzése ${dirHu} hangulatú. A ${primaryPair} ${rateStr} szinten kereskedik, a volumen ${change > 0 ? 'növekszik' : 'csökken'}.`,
+        `A FOREX.com szerint a ${primaryPair} pár ${dirHu} irányú mozgásra számíthat ${sessionContext} maradékában.`,
       ],
     };
 
@@ -164,20 +164,20 @@ function generateAnalyses(rates: RateInfo[]): AnalysisItem[] {
     const summary = templates[Math.floor(Math.random() * templates.length)];
 
     const keyLevelMap: Record<string, string> = {
-      EURUSD: `${(rateInfo?.rate ?? 1.08).toFixed(4)} (pivot), ${((rateInfo?.rate ?? 1.08) - 0.005).toFixed(4)} (tamasz)`,
-      EURHUF: `${(rateInfo?.rate ?? 395).toFixed(2)} (pivot), ${((rateInfo?.rate ?? 395) + 2).toFixed(2)} (ellenallas)`,
-      EURGBP: `${(rateInfo?.rate ?? 0.86).toFixed(4)} (pivot), ${((rateInfo?.rate ?? 0.86) - 0.003).toFixed(4)} (tamasz)`,
-      EURCHF: `${(rateInfo?.rate ?? 0.95).toFixed(4)} (pivot), ${((rateInfo?.rate ?? 0.95) + 0.003).toFixed(4)} (ellenallas)`,
+      EURUSD: `${(rateInfo?.rate ?? 1.08).toFixed(4)} (pivot), ${((rateInfo?.rate ?? 1.08) - 0.005).toFixed(4)} (támasz)`,
+      EURHUF: `${(rateInfo?.rate ?? 395).toFixed(2)} (pivot), ${((rateInfo?.rate ?? 395) + 2).toFixed(2)} (ellenállás)`,
+      EURGBP: `${(rateInfo?.rate ?? 0.86).toFixed(4)} (pivot), ${((rateInfo?.rate ?? 0.86) - 0.003).toFixed(4)} (támasz)`,
+      EURCHF: `${(rateInfo?.rate ?? 0.95).toFixed(4)} (pivot), ${((rateInfo?.rate ?? 0.95) + 0.003).toFixed(4)} (ellenállás)`,
       XAUUSD: `${(rateMap.get('XAUUSD')?.rate ?? 2650).toFixed(2)} USD/oz (pivot)`,
       XAUEUR: `${(rateMap.get('XAUEUR')?.rate ?? 2450).toFixed(2)} EUR/oz (pivot)`,
     };
 
-    const keyLevel = keyLevelMap[primaryPair] ?? `${rateStr} (aktualis szint)`;
+    const keyLevel = keyLevelMap[primaryPair] ?? `${rateStr} (aktuális szint)`;
 
     const outlookTemplates = [
-      `Rovid tavon ${dirHu}, a kovetkezo 48 oraban ${direction === 'bullish' ? 'emelkedes' : direction === 'bearish' ? 'esés' : 'oldalazas'} varhato.`,
-      `A heti kilatasok ${dirHu} iranyt sugallnak, kulonosen ${sessionContext} aktivitasat figyelembe veve.`,
-      `A kovetkezo jegybanki kommunikacio fordulopontot hozhat. Jelenleg ${dirHu} a hangulat.`,
+      `Rövid távon ${dirHu}, a következő 48 órában ${direction === 'bullish' ? 'emelkedés' : direction === 'bearish' ? 'esés' : 'oldalazás'} várható.`,
+      `A heti kilátások ${dirHu} irányt sugallnak, különösen ${sessionContext} aktivitását figyelembe véve.`,
+      `A következő jegybanki kommunikáció fordulópontot hozhat. Jelenleg ${dirHu} a hangulat.`,
     ];
 
     return {
@@ -221,14 +221,14 @@ function generatePositioning(rates: RateInfo[]): PositioningItem[] {
 
 function generateCatalyst(pair: string): string {
   const catalysts: Record<string, string[]> = {
-    EURUSD: ['Fed beszed / FOMC jegyzokonyv', 'Eurozonás PMI adatok', 'US foglalkoztatasi adat (NFP)'],
-    EURHUF: ['MNB kamatdontés / kommunikacio', 'Regionalis kotvenypiaci mozgas', 'EU forrasok kiutalasal'],
-    EURGBP: ['BoE kamatdontés', 'UK CPI inflacio adat', 'Brexit utohatasok, kereskedelem'],
-    EURCHF: ['SNB monetaris politika', 'Europai geopolitikai kockazat', 'Svaici inflacio adat'],
-    XAUUSD: ['Fed kamatvaltozasi varakozasok', 'Geopolitikai feszultseg', 'US realhozamok valtozasa'],
-    XAUEUR: ['ECB kamatpalya', 'Europai inflacio', 'Safe-haven keresleti sokkol'],
+    EURUSD: ['Fed beszéd / FOMC jegyzőkönyv', 'Eurózónás PMI adatok', 'US foglalkoztatási adat (NFP)'],
+    EURHUF: ['MNB kamatdöntés / kommunikáció', 'Regionális kötvénypiaci mozgás', 'EU források kiutalása'],
+    EURGBP: ['BoE kamatdöntés', 'UK CPI infláció adat', 'Brexit utóhatások, kereskedelem'],
+    EURCHF: ['SNB monetáris politika', 'Európai geopolitikai kockázat', 'Svájci infláció adat'],
+    XAUUSD: ['Fed kamatváltozási várakozások', 'Geopolitikai feszültség', 'US reálhozamok változása'],
+    XAUEUR: ['ECB kamatpálya', 'Európai infláció', 'Safe-haven keresleti sokk'],
   };
-  const list = catalysts[pair] ?? ['Makrogazdasagi adat megjelenes'];
+  const list = catalysts[pair] ?? ['Makrogazdasági adat megjelenés'];
   return list[Math.floor(Math.random() * list.length)];
 }
 
@@ -236,18 +236,18 @@ function generateBullScenario(pair: string, rate: number): string {
   const isGold = pair.startsWith('XAU');
   const target = isGold ? (rate * 1.02).toFixed(2) : (rate * 1.01).toFixed(4);
   if (pair === 'EURHUF') {
-    return `Ha az EUR erosodik, az EUR/HUF ${(rate + 3).toFixed(2)} fele mozdulhat. Forint gyengules a regionalis kockazati etvagy romlasa eseten.`;
+    return `Ha az EUR erősödik, az EUR/HUF ${(rate + 3).toFixed(2)} felé mozdulhat. Forint gyengülés a regionális kockázati étvágy romlása esetén.`;
   }
-  return `Bikai forgatakonyvben a ${pair} elerheti a ${target} szintet, ha a piaci momentum fenntartodik.`;
+  return `Bika forgatókönyvben a ${pair} elérheti a ${target} szintet, ha a piaci momentum fenntartódik.`;
 }
 
 function generateBearScenario(pair: string, rate: number): string {
   const isGold = pair.startsWith('XAU');
   const target = isGold ? (rate * 0.98).toFixed(2) : (rate * 0.99).toFixed(4);
   if (pair === 'EURHUF') {
-    return `Forint erosodesi forgatakonyvben az EUR/HUF ${(rate - 3).toFixed(2)} ala eshet. Pozitiv regionalis hangulat es EU forrasok tamogatjak.`;
+    return `Forint erősödési forgatókönyvben az EUR/HUF ${(rate - 3).toFixed(2)} alá eshet. Pozitív regionális hangulat és EU források támogatják.`;
   }
-  return `Medves forgatakonyvben a ${pair} a ${target} szintig korrigalhat, ha a nyomas fokozodik.`;
+  return `Medve forgatókönyvben a ${pair} a ${target} szintig korrigálhat, ha a nyomás fokozódik.`;
 }
 
 function generateNewsItems(rates: RateInfo[]): NewsItem[] {
@@ -259,57 +259,57 @@ function generateNewsItems(rates: RateInfo[]): NewsItem[] {
   const now = new Date();
   const newsPool: NewsItem[] = [
     {
-      title: 'Fed tisztsegviselok ovatosan a kamatvagasokrol',
+      title: 'Fed tisztségviselők óvatosan a kamatvágásokról',
       source: 'Reuters',
       originalLanguage: 'en',
       impact: 'Magas' as const,
       pairs: ['EURUSD', 'XAUUSD'],
-      summary: `A Fed tisztsegviseloi ovatosabb hangot utottek meg a kamatvagasokkal kapcsolatban. A dollar ${eurUsd && eurUsd.changePercent < 0 ? 'erosodott' : 'gyengult'} a nyilatkozatok hatasara.`,
+      summary: `A Fed tisztségviselői óvatosabb hangot ütöttek meg a kamatvágásokkal kapcsolatban. A dollár ${eurUsd && eurUsd.changePercent < 0 ? 'erősödött' : 'gyengült'} a nyilatkozatok hatására.`,
       publishedAt: new Date(now.getTime() - 2 * 3600000).toISOString(),
     },
     {
-      title: `Aranyar ${xauUsd && xauUsd.changePercent > 0 ? 'uj csucson' : 'korrekcioban'} - geopolitikai feszultseg`,
+      title: `Aranyár ${xauUsd && xauUsd.changePercent > 0 ? 'új csúcson' : 'korrekcióban'} - geopolitikai feszültség`,
       source: 'Bloomberg',
       originalLanguage: 'en',
       impact: 'Magas' as const,
       pairs: ['XAUUSD', 'XAUEUR'],
-      summary: `Az arany ${xauUsd?.rate?.toFixed(2) ?? 'N/A'} USD/oz szinten kereskedik. A geopolitikai feszultsegek es a jegybanki aranyvesarlesek tamogatjak az arat.`,
+      summary: `Az arany ${xauUsd?.rate?.toFixed(2) ?? 'N/A'} USD/oz szinten kereskedik. A geopolitikai feszültségek és a jegybanki aranyvásárlások támogatják az árat.`,
       publishedAt: new Date(now.getTime() - 4 * 3600000).toISOString(),
     },
     {
-      title: `MNB: A forint stabil, az EUR/HUF ${eurHuf?.rate?.toFixed(2) ?? '395'} kornyeken`,
+      title: `MNB: A forint stabil, az EUR/HUF ${eurHuf?.rate?.toFixed(2) ?? '395'} környékén`,
       source: 'Portfolio.hu',
       originalLanguage: 'hu',
-      impact: 'Kozepes' as const,
+      impact: 'Közepes' as const,
       pairs: ['EURHUF'],
-      summary: `A Magyar Nemzeti Bank kommunikacioja szerint a monetaris politika tamogatja a forint stabilitasat. Az EUR/HUF ${eurHuf?.rate?.toFixed(2) ?? '395'} kornyeken kereskedik.`,
+      summary: `A Magyar Nemzeti Bank kommunikációja szerint a monetáris politika támogatja a forint stabilitását. Az EUR/HUF ${eurHuf?.rate?.toFixed(2) ?? '395'} környékén kereskedik.`,
       publishedAt: new Date(now.getTime() - 5 * 3600000).toISOString(),
     },
     {
-      title: 'ECB: Inflacio tovabbra is a celszint felett',
+      title: 'ECB: Infláció továbbra is a célszint felett',
       source: 'ECB',
       originalLanguage: 'en',
-      impact: 'Kozepes' as const,
+      impact: 'Közepes' as const,
       pairs: ['EURUSD', 'EURGBP', 'EURCHF'],
-      summary: 'Az ECB legfrissebb kozlemenye szerint az eurozonás inflacio tovabbra is a 2%-os celszint felett marad. A kamatpalya bizonytalan.',
+      summary: 'Az ECB legfrissebb közleménye szerint az eurózónás infláció továbbra is a 2%-os célszint felett marad. A kamatpálya bizonytalan.',
       publishedAt: new Date(now.getTime() - 7 * 3600000).toISOString(),
     },
     {
-      title: 'GBP/EUR mozgas a BoE dontés elott',
+      title: 'GBP/EUR mozgás a BoE döntés előtt',
       source: 'Financial Times',
       originalLanguage: 'en',
       impact: 'Alacsony' as const,
       pairs: ['EURGBP'],
-      summary: 'A piac a Bank of England kovetkezo kamatdonteset varjal. A GBP enyhen erosodott az EUR-ral szemben.',
+      summary: 'A piac a Bank of England következő kamatdöntését várja. A GBP enyhén erősödött az EUR-ral szemben.',
       publishedAt: new Date(now.getTime() - 10 * 3600000).toISOString(),
     },
     {
-      title: 'Svaici frank: menedekdeviza szerepe erosodik',
+      title: 'Svájci frank: menedékdeviza szerepe erősödik',
       source: 'NZZ',
       originalLanguage: 'de',
       impact: 'Alacsony' as const,
       pairs: ['EURCHF'],
-      summary: 'A geopolitikai bizonytalansag kozepette a svaici frank menedekdeviza szerepe ismét felertékelodott. Az EUR/CHF enyhen csokkenol.',
+      summary: 'A geopolitikai bizonytalanság közepette a svájci frank menedékdeviza szerepe ismét felértékelődött. Az EUR/CHF enyhén csökkenő.',
       publishedAt: new Date(now.getTime() - 12 * 3600000).toISOString(),
     },
   ];
@@ -324,7 +324,7 @@ function computeWeightedConclusion(analyses: AnalysisItem[], rates: RateInfo[]):
   for (const pair of pairs) {
     const relevantAnalyses = analyses.filter(a => a.pairs.includes(pair));
     if (relevantAnalyses.length === 0) {
-      result[pair] = { direction: 'semleges', score: 50, summary: 'Nincs eleg adat az ertekeléshez.' };
+      result[pair] = { direction: 'semleges', score: 50, summary: 'Nincs elég adat az értékeléshez.' };
       continue;
     }
 
@@ -338,7 +338,7 @@ function computeWeightedConclusion(analyses: AnalysisItem[], rates: RateInfo[]):
 
     const score = Math.round(weightedSum / totalWeight);
     const direction = score > 60 ? 'bullish' : score < 45 ? 'bearish' : 'semleges';
-    const dirHu = direction === 'bullish' ? 'Bikai' : direction === 'bearish' ? 'Medves' : 'Semleges';
+    const dirHu = direction === 'bullish' ? 'Bika' : direction === 'bearish' ? 'Medve' : 'Semleges';
 
     const rateInfo = rates.find(r => r.pair === pair);
     const rateStr = rateInfo ? (pair.startsWith('XAU') ? rateInfo.rate.toFixed(2) : rateInfo.rate.toFixed(4)) : 'N/A';
@@ -346,7 +346,7 @@ function computeWeightedConclusion(analyses: AnalysisItem[], rates: RateInfo[]):
     result[pair] = {
       direction,
       score,
-      summary: `${dirHu} hangulat (${score}%). A ${pair} ${rateStr} szinten, ${relevantAnalyses.length} intezmeny egyezo elemzese alapjan.`,
+      summary: `${dirHu} hangulat (${score}%). A ${pair} ${rateStr} szinten, ${relevantAnalyses.length} intézmény egyező elemzése alapján.`,
     };
   }
 
@@ -360,19 +360,19 @@ function generateOverallSentiment(conclusion: Record<string, WeightedConclusion>
   const bearCount = Object.values(conclusion).filter(c => c.direction === 'bearish').length;
 
   if (bullCount >= 4) {
-    return `Osszessegeben BIKAI hangulat dominal a deviza- es aranypiacokon (atlag: ${avg}%). ${bullCount} devizaparbol ${bullCount} mutat pozitiv iranyt. A kockazati etvagy javult, az EUR erosodese jellemzo.`;
+    return `Összességében BIKA hangulat dominál a deviza- és aranypiacokon (átlag: ${avg}%). ${bullCount} devizapárból ${bullCount} mutat pozitív irányt. A kockázati étvágy javult, az EUR erősödése jellemző.`;
   }
   if (bearCount >= 4) {
-    return `Osszessegeben MEDVES hangulat uralja a piacot (atlag: ${avg}%). ${bearCount} devizapar mutat negativ iranyt. A kockazatkerules erosodott, a menedekdevizak es az arany iranti kereslet novekedhet.`;
+    return `Összességében MEDVE hangulat uralja a piacot (átlag: ${avg}%). ${bearCount} devizapár mutat negatív irányt. A kockázatkerülés erősödött, a menedékdevizák és az arany iránti kereslet növekedhet.`;
   }
-  return `VEGYES piaci hangulat (atlag: ${avg}%). A devizaparok ${bullCount} bikai es ${bearCount} medves iranyt mutatnak. A piac varakozik a kovetkezo makroadatokra es jegybanki kommunikaciora.`;
+  return `VEGYES piaci hangulat (átlag: ${avg}%). A devizapárok ${bullCount} bika és ${bearCount} medve irányt mutatnak. A piac várakozik a következő makroadatokra és jegybanki kommunikációra.`;
 }
 
-// --- Elo arfolyam lekeres ---
+// --- Élő árfolyam lekérés ---
 async function fetchLiveRates(): Promise<RateInfo[]> {
   const now = new Date().toISOString();
 
-  // ECB-alapu arfolyamok (frankfurter.app - ingyenes, megbizhato)
+  // ECB-alapú árfolyamok (frankfurter.app - ingyenes, megbízható)
   let eurRates: Record<string, number> = {};
   try {
     const controller = new AbortController();
@@ -385,10 +385,10 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
     if (resp.ok) {
       const data = await resp.json() as { rates: Record<string, number> };
       eurRates = data.rates;
-      logger.info('Frankfurter arfolyamok betoltve');
+      logger.info('Frankfurter árfolyamok betöltve');
     }
   } catch (err) {
-    logger.warn('Frankfurter API hiba, fallback arfolyamok hasznalata:', err instanceof Error ? err.message : err);
+    logger.warn('Frankfurter API hiba, fallback árfolyamok használata:', err instanceof Error ? err.message : err);
   }
 
   const eurusd = eurRates['USD'] ?? 1.0850;
@@ -396,7 +396,7 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
   const eurgbp = eurRates['GBP'] ?? 0.8580;
   const eurchf = eurRates['CHF'] ?? 0.9520;
 
-  // Arany arfolyam (fallback: szamolt ertek)
+  // Arany árfolyam (fallback: számolt érték)
   let xauusd = 2650.00;
   try {
     const controller = new AbortController();
@@ -411,15 +411,15 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
       if (goldData.rates['USD']) {
         xauusd = goldData.rates['USD'];
       }
-      logger.info('Arany arfolyam betoltve (frankfurter)');
+      logger.info('Arany árfolyam betöltve (frankfurter)');
     }
   } catch (err) {
-    logger.warn('Arany API hiba, fallback hasznalata:', err instanceof Error ? err.message : err);
+    logger.warn('Arany API hiba, fallback használata:', err instanceof Error ? err.message : err);
   }
 
   const xaueur = xauusd / eurusd;
 
-  // Szimulalt 24h valtozas (az ingyenes API nem ad tortenetiit, tehat kiszamoljuk)
+  // Szimulált 24h változás (az ingyenes API nem ad történetit, tehát kiszámoljuk)
   const genChange = (base: number, maxPct: number): { change24h: number; changePercent: number } => {
     const pct = (Math.random() - 0.48) * maxPct; // enyhen bullish bias
     return {
@@ -440,11 +440,11 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
   return rates;
 }
 
-// --- Fo endpoint ---
+// --- Fő endpoint ---
 router.get('/briefing', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
-    return res.status(401).json({ error: 'Nincs aktiv fiok' });
+    return res.status(401).json({ error: 'Nincs aktív fiók' });
   }
 
   // Cache check
@@ -481,10 +481,10 @@ router.get('/briefing', async (req, res) => {
 
     return res.json({ success: true, data: briefing });
   } catch (error) {
-    logger.error('Piaci elemzes hiba:', error);
+    logger.error('Piaci elemzés hiba:', error);
     return res.status(500).json({
       success: false,
-      error: 'Piaci elemzes generalasa sikertelen',
+      error: 'Piaci elemzés generálása sikertelen',
     });
   }
 });

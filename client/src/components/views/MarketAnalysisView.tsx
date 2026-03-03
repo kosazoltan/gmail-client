@@ -28,7 +28,7 @@ function DirectionIcon({ direction, className }: { direction: string; className?
 }
 
 function DirectionBadge({ direction }: { direction: string }) {
-  const label = direction === 'bullish' ? 'Bikai' : direction === 'bearish' ? 'Medves' : 'Semleges';
+  const label = direction === 'bullish' ? 'Bika' : direction === 'bearish' ? 'Medve' : 'Semleges';
   const color = direction === 'bullish'
     ? 'bg-green-500/20 text-green-400 border-green-500/30'
     : direction === 'bearish'
@@ -46,7 +46,7 @@ function DirectionBadge({ direction }: { direction: string }) {
 function ImpactBadge({ impact }: { impact: string }) {
   const color = impact === 'Magas'
     ? 'bg-red-500/20 text-red-400 border-red-500/30'
-    : impact === 'Kozepes'
+    : impact === 'Közepes'
       ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
       : 'bg-green-500/20 text-green-400 border-green-500/30';
 
@@ -115,7 +115,7 @@ function PositioningCard({ item }: { item: MarketPositioningItem }) {
           <span>Long {item.longPct}%</span>
           <span>Short {item.shortPct}%</span>
         </div>
-        <div className="flex h-2 overflow-hidden rounded-full bg-gray-700">
+        <div className="flex h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
           <div className="bg-green-500 transition-all" style={{ width: item.longPct + '%' }} />
           <div className="bg-red-500 transition-all" style={{ width: item.shortPct + '%' }} />
         </div>
@@ -123,27 +123,27 @@ function PositioningCard({ item }: { item: MarketPositioningItem }) {
 
       <div className="space-y-2 text-xs text-gray-400">
         <div className="flex justify-between">
-          <span>Celsav:</span>
+          <span>Célsáv:</span>
           <span className="text-white">{formatRate(item.pair, item.targetLow)} - {formatRate(item.pair, item.targetHigh)}</span>
         </div>
         <div className="flex justify-between">
-          <span>Tamasz / Ellenallas:</span>
+          <span>Támasz / Ellenállás:</span>
           <span className="text-white">{formatRate(item.pair, item.support)} / {formatRate(item.pair, item.resistance)}</span>
         </div>
         <div>
-          <span className="text-yellow-400">48h katalizator:</span>
+          <span className="text-yellow-400">48h katalizátor:</span>
           <span className="ml-1 text-gray-300">{item.catalyst48h}</span>
         </div>
         <div className="mt-2 grid grid-cols-2 gap-2">
           <div className="rounded-lg bg-green-500/10 p-2">
             <div className="mb-1 flex items-center gap-1 text-green-400">
-              <TrendingUp className="h-3 w-3" /> Bikai
+              <TrendingUp className="h-3 w-3" /> Bika
             </div>
             <p className="text-xs leading-relaxed text-gray-300">{item.scenarioBull}</p>
           </div>
           <div className="rounded-lg bg-red-500/10 p-2">
             <div className="mb-1 flex items-center gap-1 text-red-400">
-              <TrendingDown className="h-3 w-3" /> Medves
+              <TrendingDown className="h-3 w-3" /> Medve
             </div>
             <p className="text-xs leading-relaxed text-gray-300">{item.scenarioBear}</p>
           </div>
@@ -168,11 +168,11 @@ function ConclusionCard({ pair, data }: { pair: string; data: MarketWeightedConc
       </div>
       <div className="mb-2">
         <div className="mb-1 flex justify-between text-xs text-gray-400">
-          <span>Medves</span>
+          <span>Medve</span>
           <span className="font-medium text-white">{data.score}%</span>
-          <span>Bikai</span>
+          <span>Bika</span>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-gray-700">
+        <div className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
           <div className={cn('h-full transition-all', barColor)} style={{ width: data.score + '%' }} />
         </div>
       </div>
@@ -192,13 +192,13 @@ function AnalystCard({ item }: { item: MarketAnalysisItem }) {
         <DirectionBadge direction={item.direction} />
       </div>
       <div className="mb-3 flex items-center gap-3 text-xs text-gray-400">
-        <span>Suly: <span className="text-white">{item.weight}x</span></span>
+        <span>Súly: <span className="text-white">{item.weight}x</span></span>
         <span>Bizalom: <span className="text-white">{item.confidence}%</span></span>
       </div>
       <p className="mb-2 text-xs leading-relaxed text-gray-300">{item.summary}</p>
       <div className="space-y-1 text-xs text-gray-400">
         <div><span className="text-gray-500">Kulcsszint:</span> {item.keyLevel}</div>
-        <div><span className="text-gray-500">Kilatas:</span> {item.outlook}</div>
+        <div><span className="text-gray-500">Kilátás:</span> {item.outlook}</div>
       </div>
       <div className="mt-2 flex flex-wrap gap-1">
         {item.pairs.map(p => (
@@ -213,7 +213,7 @@ function getTimeAgo(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
   const hours = Math.floor(diff / 3600000);
   if (hours < 1) return 'most';
-  if (hours < 24) return hours + ' oraja';
+  if (hours < 24) return hours + ' órája';
   return Math.floor(hours / 24) + ' napja';
 }
 
@@ -234,7 +234,7 @@ export function MarketAnalysisView() {
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <RefreshCw className="mx-auto mb-3 h-8 w-8 animate-spin text-[#4f6ef7]" />
-          <p className="text-gray-400">Piaci elemzes betoltese...</p>
+          <p className="text-gray-400">Piaci elemzés betöltése...</p>
         </div>
       </div>
     );
@@ -245,9 +245,9 @@ export function MarketAnalysisView() {
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <AlertTriangle className="mx-auto mb-3 h-8 w-8 text-red-400" />
-          <p className="text-gray-400">Nem sikerult betolteni a piaci elemzest.</p>
+          <p className="text-gray-400">Nem sikerült betölteni a piaci elemzést.</p>
           <button onClick={handleRefresh} className="mt-3 rounded-lg bg-[#4f6ef7] px-4 py-2 text-sm text-white hover:bg-[#3d5ce5]">
-            Ujraproba
+            Újrapróba
           </button>
         </div>
       </div>
@@ -263,17 +263,17 @@ export function MarketAnalysisView() {
   });
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
-        {/* Fejlec */}
+        {/* Fejléc */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="flex items-center gap-2 text-xl font-bold text-white md:text-2xl">
               <BarChart3 className="h-6 w-6 text-[#4f6ef7]" />
-              Piaci Elemzes — Reggeli Briefing
+              Piaci Elemzés — Reggeli Briefing
             </h1>
             <p className="mt-1 text-sm text-gray-400">
-              {generatedAt} {data.cached && <span className="text-yellow-400">(gyorsitotarazott)</span>}
+              {generatedAt} {data.cached && <span className="text-yellow-400">(gyorsítótárazott)</span>}
             </p>
           </div>
           <button
@@ -282,57 +282,57 @@ export function MarketAnalysisView() {
             className="inline-flex items-center gap-2 rounded-lg bg-[#4f6ef7] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#3d5ce5] disabled:opacity-50"
           >
             <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} />
-            Frissites
+            Frissítés
           </button>
         </div>
 
-        {/* Elo arfolyamok */}
+        {/* Élő árfolyamok */}
         <section>
           <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-white">
             <TrendingUp className="h-5 w-5 text-green-400" />
-            Elo arfolyamok
+            Élő árfolyamok
           </h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {data.rates.map(r => <RateCard key={r.pair} rate={r} />)}
           </div>
         </section>
 
-        {/* Altalanos piaci hangulat */}
+        {/* Általános piaci hangulat */}
         <section className="rounded-xl border border-[#4f6ef7]/30 bg-[#4f6ef7]/10 p-4">
           <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-white">
             <Scale className="h-5 w-5 text-[#4f6ef7]" />
-            Altalanos piaci hangulat
+            Általános piaci hangulat
           </h2>
           <p className="leading-relaxed text-gray-300">{data.overallSentiment}</p>
         </section>
 
-        {/* Friss hirek */}
+        {/* Friss hírek */}
         <section>
           <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-white">
             <Newspaper className="h-5 w-5 text-yellow-400" />
-            Friss hirek
+            Friss hírek
           </h2>
           <div className="grid gap-3 md:grid-cols-2">
             {data.newsItems.map((item, i) => <NewsCard key={i} item={item} />)}
           </div>
         </section>
 
-        {/* Piaci pozicionalas */}
+        {/* Piaci pozícionálás */}
         <section>
           <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-white">
             <BarChart3 className="h-5 w-5 text-purple-400" />
-            Piaci pozicionalas
+            Piaci pozícionálás
           </h2>
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {data.positioning.map(item => <PositioningCard key={item.pair} item={item} />)}
           </div>
         </section>
 
-        {/* Sulyozott osszesito */}
+        {/* Súlyozott összesítő */}
         <section>
           <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-white">
             <Scale className="h-5 w-5 text-blue-400" />
-            Sulyozott osszesito
+            Súlyozott összesítő
           </h2>
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {Object.entries(data.weightedConclusion).map(([pair, wc]) => (
@@ -341,11 +341,11 @@ export function MarketAnalysisView() {
           </div>
         </section>
 
-        {/* Intezmenyi elemzok */}
+        {/* Intézményi elemzők */}
         <section>
           <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-white">
             <Building2 className="h-5 w-5 text-amber-400" />
-            Intezmenyi elemzok (8)
+            Intézményi elemzők (8)
           </h2>
           <div className="grid gap-3 md:grid-cols-2">
             {data.analyses.map(item => <AnalystCard key={item.sourceId} item={item} />)}
@@ -357,11 +357,11 @@ export function MarketAnalysisView() {
           <div className="flex items-start gap-2 text-xs leading-relaxed text-gray-500">
             <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0" />
             <p>
-              Ez az elemzes kizarolag tajekoztatasi celokat szolgal, es NEM minosul befektetesi tanacsnak.
-              A deviza- es aranykereskedelem jelentos kockazattal jar. Az EBC (Exclusive Best Change) nem
-              vallal felelosseget az itt kozolt informaciok alapjan hozott dontesekert. A tenyleges
-              tranzakcios arfolyamok elterhetnek a fent megjelenitetett piaci arfolyamoktol. Mindig
-              kerjen szakertoi velement penzugyi dontesei elott.
+              Ez az elemzés kizárólag tájékoztatási célokat szolgál, és NEM minősül befektetési tanácsnak.
+              A deviza- és aranykereskedelem jelentős kockázattal jár. Az EBC (Exclusive Best Change) nem
+              vállal felelősséget az itt közölt információk alapján hozott döntésekért. A tényleges
+              tranzakciós árfolyamok eltérhetnek a fent megjelenített piaci árfolyamoktól. Mindig
+              kérjen szakértői véleményt pénzügyi döntései előtt.
             </p>
           </div>
         </footer>
@@ -370,4 +370,3 @@ export function MarketAnalysisView() {
   );
 }
 
-export default MarketAnalysisView;

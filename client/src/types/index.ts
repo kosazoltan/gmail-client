@@ -435,7 +435,7 @@ export interface MarketNewsItem {
   title: string;
   source: string;
   originalLanguage: string;
-  impact: 'Magas' | 'Kozepes' | 'Alacsony';
+  impact: 'Magas' | 'Közepes' | 'Alacsony';
   pairs: string[];
   summary: string;
   publishedAt: string;

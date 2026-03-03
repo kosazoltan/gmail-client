@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useCalendarWeek, useCalendarToday } from '../../hooks/useCalendar';
+import { useCalendarEvents, useCalendarToday } from '../../hooks/useCalendar';
 import { format, addDays, startOfWeek, isToday as isTodayFn } from 'date-fns';
 import { hu } from 'date-fns/locale';
 import {
@@ -21,7 +21,14 @@ export function CalendarView() {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [selectedDate, setSelectedDate] = useState(new Date());
 
-  const { data: weekData, isLoading: weekLoading, error: weekError } = useCalendarWeek();
+  // Hét navigáció: a selectedDate alapján számolt timeMin/timeMax
+  const monday = useMemo(() => startOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
+  const sunday = useMemo(() => addDays(monday, 7), [monday]);
+
+  const { data: weekData, isLoading: weekLoading, error: weekError } = useCalendarEvents({
+    timeMin: monday.toISOString(),
+    timeMax: sunday.toISOString(),
+  });
   const { data: todayData, isLoading: todayLoading, error: todayError } = useCalendarToday();
 
   const isLoading = viewMode === 'week' ? weekLoading : todayLoading;
@@ -30,9 +37,8 @@ export function CalendarView() {
 
   // Hét napjai (hétfőtől vasárnapig)
   const weekDays = useMemo(() => {
-    const monday = startOfWeek(selectedDate, { weekStartsOn: 1 });
     return Array.from({ length: 7 }, (_, i) => addDays(monday, i));
-  }, [selectedDate]);
+  }, [monday]);
 
   // Események nap szerint csoportosítva
   const eventsByDay = useMemo(() => {
@@ -234,7 +240,7 @@ export function CalendarView() {
                 ))}
             </div>
           ) : (
-            <div className="dark:text-dark-text-muted py-12 text-center text-sm text-gray-400">
+            <div className="dark:text-dark-text-muted py-12 text-center text-sm text-gray-500">
               Nincs ma esemény — szabad a nap! 🎉
             </div>
           )}

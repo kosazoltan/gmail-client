@@ -209,7 +209,7 @@ export function TasksView() {
           ))}
         </div>
       ) : (
-        <div className="dark:text-dark-text-muted py-12 text-center text-sm text-gray-400">
+        <div className="dark:text-dark-text-muted py-12 text-center text-sm text-gray-500">
           {filter === 'open'
             ? 'Minden feladat kész — szép munka! ✅'
             : filter === 'completed'

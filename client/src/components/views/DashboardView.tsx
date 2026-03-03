@@ -179,7 +179,7 @@ export function DashboardView() {
               ))}
             </div>
           ) : (
-            <div className="dark:text-dark-text-muted py-8 text-center text-sm text-gray-400">
+            <div className="dark:text-dark-text-muted py-8 text-center text-sm text-gray-500">
               Nincs ma esemény — szabad a nap! 🎉
             </div>
           )}
@@ -233,7 +233,7 @@ export function DashboardView() {
               ))}
             </div>
           ) : (
-            <div className="dark:text-dark-text-muted py-8 text-center text-sm text-gray-400">
+            <div className="dark:text-dark-text-muted py-8 text-center text-sm text-gray-500">
               Minden feladat kész — szép munka! ✅
             </div>
           )}
