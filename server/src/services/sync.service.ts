@@ -442,7 +442,7 @@ const syncInProgress = new Set<string>();
 export function startBackgroundSync(accountId: string) {
   if (syncIntervals.has(accountId)) return;
 
-  const intervalMs = Math.max(30000, parseInt(process.env.SYNC_INTERVAL_MS || '120000', 10));
+  const intervalMs = Math.max(60000, parseInt(process.env.SYNC_INTERVAL_MS || '300000', 10));
   const interval = setInterval(async () => {
     // Guard against overlapping syncs for the same account
     if (syncInProgress.has(accountId)) {

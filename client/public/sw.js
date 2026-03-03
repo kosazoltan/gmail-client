@@ -44,16 +44,9 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // API hívások - mindig network
-  if (url.pathname.startsWith('/api')) {
-    event.respondWith(
-      fetch(request).catch(() => {
-        return new Response(JSON.stringify({ error: 'Offline - nincs internetkapcsolat' }), {
-          status: 503,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }),
-    );
+  // API hívások — NE intercept-áljuk, engedjük át a böngészőnek közvetlenül
+  // Cross-origin (api.mindenes.org) hívásokat a SW amúgy sem kezelheti megbízhatóan
+  if (url.pathname.startsWith('/api') || url.hostname !== self.location.hostname) {
     return;
   }
 

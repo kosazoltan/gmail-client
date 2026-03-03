@@ -372,7 +372,7 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
   let eurRates: Record<string, number> = {};
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), 5000);
     const resp = await fetch('https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD,HUF,GBP,CHF', {
       signal: controller.signal,
     });
@@ -400,7 +400,7 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
   if (!goldFetched) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
+      const timeout = setTimeout(() => controller.abort(), 3000);
       const goldResp = await fetch('https://www.goldapi.io/api/XAU/USD', {
         signal: controller.signal,
         headers: { 'x-access-token': 'goldapi-free' },

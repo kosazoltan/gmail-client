@@ -187,9 +187,25 @@ async function start() {
   // Automatikus mentés indítása
   startAutoSave();
 
+  // Memory monitoring — log usage every 5 minutes, force GC if over 350MB
+  setInterval(() => {
+    const usage = process.memoryUsage();
+    const heapMB = Math.round(usage.heapUsed / 1024 / 1024);
+    const rssMB = Math.round(usage.rss / 1024 / 1024);
+    if (heapMB > 300) {
+      logger.warn(`High memory usage: heap=${heapMB}MB rss=${rssMB}MB`);
+      if (global.gc) {
+        global.gc();
+        logger.info('Manual GC triggered');
+      }
+    }
+  }, 300000);
+
   httpServer = app.listen(PORT, () => {
     logger.info(`Gmail client server running on port ${PORT}`);
     logger.info(`${existingAccounts.length} accounts loaded`);
+    const usage = process.memoryUsage();
+    logger.info(`Startup memory: heap=${Math.round(usage.heapUsed / 1024 / 1024)}MB rss=${Math.round(usage.rss / 1024 / 1024)}MB`);
   });
 }
 
