@@ -141,16 +141,19 @@ async function start() {
   // Error handler
   app.use(errorHandler);
 
-  // Háttér szinkronizálás indítása minden meglévő fiókhoz
+  // Háttér szinkronizálás indítása — 30s késleltetéssel, hogy a szerver előbb stabilan elinduljon
   const existingAccounts = getAllAccounts();
-  for (const account of existingAccounts) {
-    try {
-      logger.info(`Starting background sync for account: ${account.email}`);
-      startBackgroundSync(account.id);
-    } catch (err) {
-      logger.error(`Failed to start background sync for ${account.email}`, err);
+  setTimeout(() => {
+    for (const account of existingAccounts) {
+      try {
+        logger.info(`Starting background sync for account: ${account.email}`);
+        startBackgroundSync(account.id);
+      } catch (err) {
+        logger.error(`Failed to start background sync for ${account.email}`, err);
+      }
     }
-  }
+    logger.info(`Background sync scheduled for ${existingAccounts.length} accounts (delayed 30s)`);
+  }, 30000);
 
   // Lejárt szundik feldolgozása percenként
   // Clear any previous interval to prevent accumulation
@@ -173,16 +176,19 @@ async function start() {
     }
   }, 60000);
 
-  // Első futtatás induláskor (with error handling)
-  try {
-    processExpiredSnoozes();
-  } catch (err) {
-    logger.error('Initial snooze processing failed:', err);
-  }
-
-  processScheduledEmails().catch((err: unknown) => {
-    logger.error('Initial scheduled processing failed:', err);
-  });
+  // Első futtatás 60s késleltetéssel — ne terhelje a startup-ot
+  setTimeout(async () => {
+    try {
+      processExpiredSnoozes();
+    } catch (err) {
+      logger.error('Initial snooze processing failed:', err);
+    }
+    try {
+      await processScheduledEmails();
+    } catch (err) {
+      logger.error('Initial scheduled processing failed:', err);
+    }
+  }, 60000);
 
   // Automatikus mentés indítása
   startAutoSave();
