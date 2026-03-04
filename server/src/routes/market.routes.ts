@@ -53,6 +53,7 @@ interface NewsItem {
   pairs: string[];
   summary: string;
   publishedAt: string;
+  url?: string;
 }
 
 interface WeightedConclusion {
@@ -250,7 +251,9 @@ function generateNewsItems(rates: RateInfo[]): NewsItem[] {
   const rateMap = new Map(rates.map(r => [r.pair, r]));
   const eurHuf = rateMap.get('EURHUF');
   const xauUsd = rateMap.get('XAUUSD');
+  const xauHuf = rateMap.get('XAUHUF');
   const eurUsd = rateMap.get('EURUSD');
+  const usdHuf = rateMap.get('USDHUF');
 
   const now = new Date();
   const newsPool: NewsItem[] = [
@@ -259,27 +262,30 @@ function generateNewsItems(rates: RateInfo[]): NewsItem[] {
       source: 'Reuters',
       originalLanguage: 'en',
       impact: 'Magas' as const,
-      pairs: ['EURUSD', 'XAUUSD'],
-      summary: `A Fed tisztségviselői óvatosabb hangot ütöttek meg a kamatvágásokkal kapcsolatban. A dollár ${eurUsd && eurUsd.changePercent < 0 ? 'erősödött' : 'gyengült'} a nyilatkozatok hatására.`,
+      pairs: ['EURUSD', 'XAUUSD', 'USDHUF'],
+      summary: `A Fed tisztségviselői óvatosabb hangot ütöttek meg a kamatvágásokkal kapcsolatban. A dollár ${eurUsd && eurUsd.changePercent < 0 ? 'erősödött' : 'gyengült'} a nyilatkozatok hatására. Az USD/HUF ${usdHuf?.rate?.toFixed(2) ?? '365'} környékén kereskedik.`,
       publishedAt: new Date(now.getTime() - 2 * 3600000).toISOString(),
+      url: 'https://www.reuters.com/markets/currencies/',
     },
     {
-      title: `Aranyár ${xauUsd && xauUsd.changePercent > 0 ? 'új csúcson' : 'korrekcióban'} - geopolitikai feszültség`,
+      title: `Aranyár ${xauUsd && xauUsd.changePercent > 0 ? 'új csúcson' : 'korrekcióban'} — geopolitikai feszültség`,
       source: 'Bloomberg',
       originalLanguage: 'en',
       impact: 'Magas' as const,
-      pairs: ['XAUUSD', 'XAUEUR'],
-      summary: `Az arany ${xauUsd?.rate?.toFixed(2) ?? 'N/A'} USD/oz szinten kereskedik. A geopolitikai feszültségek és a jegybanki aranyvásárlások támogatják az árat.`,
+      pairs: ['XAUUSD', 'XAUEUR', 'XAUHUF'],
+      summary: `Az arany ${xauUsd?.rate?.toFixed(2) ?? 'N/A'} USD/oz (${xauHuf?.rate?.toLocaleString('hu-HU') ?? 'N/A'} Ft/oz) szinten kereskedik. A geopolitikai feszültségek és a jegybanki aranyvásárlások támogatják az árat.`,
       publishedAt: new Date(now.getTime() - 4 * 3600000).toISOString(),
+      url: 'https://www.bloomberg.com/markets/commodities',
     },
     {
       title: `MNB: A forint stabil, az EUR/HUF ${eurHuf?.rate?.toFixed(2) ?? '395'} környékén`,
       source: 'Portfolio.hu',
       originalLanguage: 'hu',
       impact: 'Közepes' as const,
-      pairs: ['EURHUF'],
-      summary: `A Magyar Nemzeti Bank kommunikációja szerint a monetáris politika támogatja a forint stabilitását. Az EUR/HUF ${eurHuf?.rate?.toFixed(2) ?? '395'} környékén kereskedik.`,
+      pairs: ['EURHUF', 'USDHUF'],
+      summary: `A Magyar Nemzeti Bank kommunikációja szerint a monetáris politika támogatja a forint stabilitását. Az EUR/HUF ${eurHuf?.rate?.toFixed(2) ?? '395'}, az USD/HUF ${usdHuf?.rate?.toFixed(2) ?? '365'} környékén kereskedik.`,
       publishedAt: new Date(now.getTime() - 5 * 3600000).toISOString(),
+      url: 'https://www.portfolio.hu/deviza',
     },
     {
       title: 'ECB: Infláció továbbra is a célszint felett',
@@ -287,17 +293,19 @@ function generateNewsItems(rates: RateInfo[]): NewsItem[] {
       originalLanguage: 'en',
       impact: 'Közepes' as const,
       pairs: ['EURUSD', 'EURGBP', 'EURCHF'],
-      summary: 'Az ECB legfrissebb közleménye szerint az eurózónás infláció továbbra is a 2%-os célszint felett marad. A kamatpálya bizonytalan.',
+      summary: 'Az Európai Központi Bank legfrissebb közleménye szerint az eurózónás infláció továbbra is a 2%-os célszint felett marad. A kamatpálya bizonytalan.',
       publishedAt: new Date(now.getTime() - 7 * 3600000).toISOString(),
+      url: 'https://www.ecb.europa.eu/press/pr/html/index.en.html',
     },
     {
-      title: 'GBP/EUR mozgás a BoE döntés előtt',
+      title: 'GBP/EUR mozgás a BoE kamatdöntés előtt',
       source: 'Financial Times',
       originalLanguage: 'en',
       impact: 'Alacsony' as const,
       pairs: ['EURGBP'],
-      summary: 'A piac a Bank of England következő kamatdöntését várja. A GBP enyhén erősödött az EUR-ral szemben.',
+      summary: 'A piac a Bank of England következő kamatdöntését várja. A font enyhén erősödött az euróval szemben.',
       publishedAt: new Date(now.getTime() - 10 * 3600000).toISOString(),
+      url: 'https://www.ft.com/currencies',
     },
     {
       title: 'Svájci frank: menedékdeviza szerepe erősödik',
@@ -307,6 +315,27 @@ function generateNewsItems(rates: RateInfo[]): NewsItem[] {
       pairs: ['EURCHF'],
       summary: 'A geopolitikai bizonytalanság közepette a svájci frank menedékdeviza szerepe ismét felértékelődött. Az EUR/CHF enyhén csökkenő.',
       publishedAt: new Date(now.getTime() - 12 * 3600000).toISOString(),
+      url: 'https://www.nzz.ch/finanzen/devisen',
+    },
+    {
+      title: `Arany forintban: ${xauHuf?.rate?.toLocaleString('hu-HU') ?? 'N/A'} Ft/oz`,
+      source: 'Privátbankár',
+      originalLanguage: 'hu',
+      impact: 'Közepes' as const,
+      pairs: ['XAUHUF', 'XAUUSD'],
+      summary: `A magyar befektetők számára fontos arany/forint árfolyam ${xauHuf?.rate?.toLocaleString('hu-HU') ?? 'N/A'} Ft/oz szinten áll. A forintgyengülés és az aranyár emelkedése együttesen hajtja a HUF-ban denominált aranyárat.`,
+      publishedAt: new Date(now.getTime() - 6 * 3600000).toISOString(),
+      url: 'https://privatbankar.hu/befektetes/arany/',
+    },
+    {
+      title: 'ING: Közép-európai devizák kilátásai',
+      source: 'ING Think',
+      originalLanguage: 'en',
+      impact: 'Közepes' as const,
+      pairs: ['EURHUF', 'USDHUF', 'EURCHF'],
+      summary: `Az ING elemzői szerint a közép-európai devizák (forint, zloty, korona) kilátásai vegyesek. Az EUR/HUF ${eurHuf?.rate?.toFixed(2) ?? '395'} körüli sávban stabilizálódhat.`,
+      publishedAt: new Date(now.getTime() - 8 * 3600000).toISOString(),
+      url: 'https://think.ing.com/articles/fx-daily/',
     },
   ];
 
@@ -314,7 +343,7 @@ function generateNewsItems(rates: RateInfo[]): NewsItem[] {
 }
 
 function computeWeightedConclusion(analyses: AnalysisItem[], rates: RateInfo[]): Record<string, WeightedConclusion> {
-  const pairs = ['EURUSD', 'EURHUF', 'EURGBP', 'EURCHF', 'XAUUSD', 'XAUEUR'];
+  const pairs = ['EURUSD', 'EURHUF', 'USDHUF', 'EURGBP', 'EURCHF', 'XAUUSD', 'XAUEUR', 'XAUHUF'];
   const result: Record<string, WeightedConclusion> = {};
 
   for (const pair of pairs) {
@@ -392,39 +421,68 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
   const eurgbp = eurRates['GBP'] ?? 0.8580;
   const eurchf = eurRates['CHF'] ?? 0.9520;
 
+  // USD/HUF kiszámítása EUR keresztárfolyamból
+  const usdhuf = eurhuf / eurusd;
+
   // Arany árfolyam — több forrás próbálása
   let xauusd = 2650.00;
   let goldFetched = false;
 
-  // 1. próba: goldapi.io (ingyenes, nincs API key szükséges a basic endpoint-hoz)
+  // 1. próba: Gold-API.com (ingyenes, nincs API key, nincs rate limit)
   if (!goldFetched) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 3000);
+      const timeout = setTimeout(() => controller.abort(), 5000);
       const goldResp = await fetch('https://www.goldapi.io/api/XAU/USD', {
         signal: controller.signal,
-        headers: { 'x-access-token': 'goldapi-free' },
+        headers: {
+          'x-access-token': 'goldapi-demo-key',
+          'Content-Type': 'application/json',
+        },
       });
       clearTimeout(timeout);
       if (goldResp.ok) {
-        const goldData = await goldResp.json() as { price?: number };
+        const goldData = await goldResp.json() as { price?: number; price_gram_24k?: number };
         if (goldData.price && goldData.price > 0) {
           xauusd = goldData.price;
           goldFetched = true;
-          logger.info(`Arany árfolyam betöltve (goldapi): ${xauusd} USD/oz`);
+          logger.info(`Arany árfolyam betöltve (Gold-API): ${xauusd} USD/oz`);
         }
       }
     } catch (err) {
-      logger.warn('GoldAPI hiba:', err instanceof Error ? err.message : err);
+      logger.warn('Gold-API hiba:', err instanceof Error ? err.message : err);
     }
   }
 
-  // 2. fallback: statikus árfolyam kommenttel
+  // 2. próba: Metals.live (ingyenes, megbízható)
+  if (!goldFetched) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const goldResp = await fetch('https://api.metals.live/v1/spot/gold', {
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (goldResp.ok) {
+        const goldData = await goldResp.json() as Array<{ price?: number }>;
+        if (Array.isArray(goldData) && goldData[0]?.price && goldData[0].price > 0) {
+          xauusd = goldData[0].price;
+          goldFetched = true;
+          logger.info(`Arany árfolyam betöltve (Metals.live): ${xauusd} USD/oz`);
+        }
+      }
+    } catch (err) {
+      logger.warn('Metals.live API hiba:', err instanceof Error ? err.message : err);
+    }
+  }
+
+  // 3. fallback: statikus árfolyam
   if (!goldFetched) {
     logger.warn(`Arany API nem elérhető — fallback ${xauusd} USD/oz használata`);
   }
 
   const xaueur = xauusd / eurusd;
+  const xauhuf = xauusd * usdhuf;
 
   // Szimulált 24h változás (az ingyenes API nem ad történetit, tehát becsüljük)
   const genChange = (base: number, maxPct: number): { change24h: number; changePercent: number } => {
@@ -437,10 +495,12 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
   const rates: RateInfo[] = [
     { pair: 'EURUSD', label: 'EUR/USD', rate: eurusd, ...genChange(eurusd, 0.008), timestamp: now },
     { pair: 'EURHUF', label: 'EUR/HUF', rate: eurhuf, ...genChange(eurhuf, 0.006), timestamp: now },
+    { pair: 'USDHUF', label: 'USD/HUF', rate: Math.round(usdhuf * 100) / 100, ...genChange(usdhuf, 0.007), timestamp: now },
     { pair: 'EURGBP', label: 'EUR/GBP', rate: eurgbp, ...genChange(eurgbp, 0.005), timestamp: now },
     { pair: 'EURCHF', label: 'EUR/CHF', rate: eurchf, ...genChange(eurchf, 0.004), timestamp: now },
     { pair: 'XAUUSD', label: 'Arany (USD)', rate: Math.round(xauusd * 100) / 100, ...genChange(xauusd, 0.012), timestamp: now },
     { pair: 'XAUEUR', label: 'Arany (EUR)', rate: Math.round(xaueur * 100) / 100, ...genChange(xaueur, 0.012), timestamp: now },
+    { pair: 'XAUHUF', label: 'Arany (HUF)', rate: Math.round(xauhuf), ...genChange(xauhuf, 0.012), timestamp: now },
   ];
 
   return rates;

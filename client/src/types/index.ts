@@ -439,6 +439,7 @@ export interface MarketNewsItem {
   pairs: string[];
   summary: string;
   publishedAt: string;
+  url?: string;
 }
 
 export interface MarketWeightedConclusion {

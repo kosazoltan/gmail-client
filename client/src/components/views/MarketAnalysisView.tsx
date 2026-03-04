@@ -11,6 +11,7 @@ import {
   Scale,
   Building2,
   ShieldAlert,
+  ExternalLink,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type {
@@ -77,10 +78,28 @@ function RateCard({ rate }: { rate: MarketRateInfo }) {
 function NewsCard({ item }: { item: MarketNewsItem }) {
   const timeAgo = getTimeAgo(item.publishedAt);
 
+  const handleClick = () => {
+    if (item.url) {
+      window.open(item.url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+    <div
+      className={cn(
+        'rounded-xl border border-white/10 bg-white/5 p-4 transition-all',
+        item.url && 'cursor-pointer hover:border-[#4f6ef7]/50 hover:bg-white/[0.08]'
+      )}
+      onClick={handleClick}
+      role={item.url ? 'link' : undefined}
+      tabIndex={item.url ? 0 : undefined}
+      onKeyDown={(e) => { if (item.url && (e.key === 'Enter' || e.key === ' ')) handleClick(); }}
+    >
       <div className="mb-2 flex items-start justify-between gap-2">
-        <h4 className="text-sm font-medium text-white">{item.title}</h4>
+        <h4 className="text-sm font-medium text-white">
+          {item.title}
+          {item.url && <ExternalLink className="ml-1.5 inline h-3 w-3 text-gray-500" />}
+        </h4>
         <ImpactBadge impact={item.impact} />
       </div>
       <p className="mb-3 text-xs leading-relaxed text-gray-400">{item.summary}</p>
