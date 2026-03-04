@@ -68,13 +68,17 @@ async function start() {
   );
 
   // CORS - több frontend origin támogatása
+  // Trim whitespace and filter empty values
   const allowedOrigins = [
-    frontendUrl || 'http://localhost:5173',
+    frontendUrl?.trim(),
     'https://mindenes.org',
     'https://mail.mindenes.org',
     'http://localhost:5173',
     'http://localhost:5000'
-  ].filter(Boolean);
+  ].filter((x): x is string => Boolean(x?.trim()));
+
+  // Log allowed origins at startup for debugging
+  logger.info(`CORS allowed origins: ${JSON.stringify(allowedOrigins)}`);
 
   app.use(
     cors({
@@ -82,10 +86,13 @@ async function start() {
         // Allow requests with no origin (like mobile apps, Postman)
         if (!origin) return callback(null, true);
 
-        if (allowedOrigins.includes(origin)) {
+        // Normalize origin for comparison (trim whitespace)
+        const normalizedOrigin = origin.trim();
+
+        if (allowedOrigins.includes(normalizedOrigin)) {
           callback(null, true);
         } else {
-          logger.warn(`CORS blocked origin: ${origin}`);
+          logger.warn(`CORS blocked origin: "${origin}" (normalized: "${normalizedOrigin}"). Allowed: ${allowedOrigins.join(', ')}`);
           callback(new Error('Not allowed by CORS'));
         }
       },
