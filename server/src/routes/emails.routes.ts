@@ -505,8 +505,17 @@ router.patch('/batch-read', async (req, res) => {
   }
 });
 
-// Batch email törlés (kukába helyezés)
+// Batch email törlés (kukába helyezés) — POST is elfogadott (DELETE body nem mindig megy át proxy-n)
+router.post('/batch-delete', async (req, res) => {
+  // Forward to the same handler
+  req.method = 'DELETE';
+  return batchDeleteHandler(req, res);
+});
 router.delete('/batch', async (req, res) => {
+  return batchDeleteHandler(req, res);
+});
+
+async function batchDeleteHandler(req: any, res: any) {
   const accountId = validateAccountAccess(req);
   if (!accountId) {
     res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
@@ -571,7 +580,7 @@ router.delete('/batch', async (req, res) => {
     logger.error('Batch törlés hiba:', error);
     res.status(500).json({ error: 'Batch törlés sikertelen' });
   }
-});
+}
 
 // Email törlése (kukába helyezés)
 router.delete('/:id', async (req, res) => {

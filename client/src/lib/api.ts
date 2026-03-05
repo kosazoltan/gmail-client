@@ -123,8 +123,8 @@ export const api = {
       }),
     delete: (id: string) => request(`/emails/${id}`, { method: 'DELETE' }),
     batchDelete: (emailIds: string[]) =>
-      request<{ deletedCount: number; failedCount: number }>('/emails/batch', {
-        method: 'DELETE',
+      request<{ deletedCount: number; failedCount: number }>('/emails/batch-delete', {
+        method: 'POST',
         body: JSON.stringify({ emailIds }),
       }),
     batchMarkRead: (emailIds: string[], isRead: boolean) =>

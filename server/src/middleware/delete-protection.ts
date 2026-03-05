@@ -28,8 +28,9 @@ const LOCAL_DB_DELETE_ROUTES: RegExp[] = [
 
 // Routes that move to TRASH (not permanent) — ALLOWED
 const TRASH_ROUTES: RegExp[] = [
-  /^\/api\/emails\/batch$/,    // batch trash (Gmail kukaba)
-  /^\/api\/emails\/[^/]+$/,    // single email trash (Gmail kukaba)
+  /^\/api\/emails\/batch$/,         // batch trash via DELETE (Gmail kukaba)
+  /^\/api\/emails\/batch-delete$/,  // batch trash via POST (proxy-safe)
+  /^\/api\/emails\/[^/]+$/,         // single email trash (Gmail kukaba)
 ];
 
 // Safe metadata delete routes — ALLOWED
