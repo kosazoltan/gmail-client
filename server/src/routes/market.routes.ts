@@ -165,6 +165,8 @@ function generateAnalyses(rates: RateInfo[]): AnalysisItem[] {
       EURHUF: `${(rateInfo?.rate ?? 395).toFixed(2)} (pivot), ${((rateInfo?.rate ?? 395) + 2).toFixed(2)} (ellenállás)`,
       EURGBP: `${(rateInfo?.rate ?? 0.86).toFixed(4)} (pivot), ${((rateInfo?.rate ?? 0.86) - 0.003).toFixed(4)} (támasz)`,
       EURCHF: `${(rateInfo?.rate ?? 0.95).toFixed(4)} (pivot), ${((rateInfo?.rate ?? 0.95) + 0.003).toFixed(4)} (ellenállás)`,
+      GBPHUF: `${(rateInfo?.rate ?? 446).toFixed(2)} (pivot), ${((rateInfo?.rate ?? 446) + 2).toFixed(2)} (ellenállás)`,
+      CHFHUF: `${(rateInfo?.rate ?? 428).toFixed(2)} (pivot), ${((rateInfo?.rate ?? 428) + 2).toFixed(2)} (ellenállás)`,
       XAUUSD: `${(rateMap.get('XAUUSD')?.rate ?? 2650).toFixed(2)} USD/oz (pivot)`,
       XAUEUR: `${(rateMap.get('XAUEUR')?.rate ?? 2450).toFixed(2)} EUR/oz (pivot)`,
     };
@@ -222,6 +224,8 @@ function generateCatalyst(pair: string): string {
     EURHUF: ['MNB kamatdöntés / kommunikáció', 'Regionális kötvénypiaci mozgás', 'EU források kiutalása'],
     EURGBP: ['BoE kamatdöntés', 'UK CPI infláció adat', 'Brexit utóhatások, kereskedelem'],
     EURCHF: ['SNB monetáris politika', 'Európai geopolitikai kockázat', 'Svájci infláció adat'],
+    GBPHUF: ['BoE kamatdöntés', 'UK munkaerőpiaci adat', 'MNB monetáris politika'],
+    CHFHUF: ['SNB kamatpálya', 'MNB kommunikáció', 'Regionális kockázati étvágy'],
     XAUUSD: ['Fed kamatváltozási várakozások', 'Geopolitikai feszültség', 'US reálhozamok változása'],
     XAUEUR: ['ECB kamatpálya', 'Európai infláció', 'Safe-haven keresleti sokk'],
   };
@@ -343,7 +347,7 @@ function generateNewsItems(rates: RateInfo[]): NewsItem[] {
 }
 
 function computeWeightedConclusion(analyses: AnalysisItem[], rates: RateInfo[]): Record<string, WeightedConclusion> {
-  const pairs = ['EURUSD', 'EURHUF', 'USDHUF', 'EURGBP', 'EURCHF', 'XAUUSD', 'XAUEUR', 'XAUHUF'];
+  const pairs = ['EURUSD', 'EURHUF', 'USDHUF', 'EURGBP', 'EURCHF', 'GBPHUF', 'CHFHUF', 'XAUUSD', 'XAUEUR', 'XAUHUF'];
   const result: Record<string, WeightedConclusion> = {};
 
   for (const pair of pairs) {
@@ -421,58 +425,81 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
   const eurgbp = eurRates['GBP'] ?? 0.8580;
   const eurchf = eurRates['CHF'] ?? 0.9520;
 
-  // USD/HUF kiszámítása EUR keresztárfolyamból
+  // Keresztárfolyamok kiszámítása
   const usdhuf = eurhuf / eurusd;
+  const gbphuf = eurhuf / eurgbp;
+  const chfhuf = eurhuf / eurchf;
 
   // Arany árfolyam — több forrás próbálása
   let xauusd = 2650.00;
   let goldFetched = false;
 
-  // 1. próba: Gold-API.com (ingyenes, nincs API key, nincs rate limit)
+  // 1. próba: Swissquote (élő bróker feed, nincs API key, real-time)
   if (!goldFetched) {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
-      const goldResp = await fetch('https://www.goldapi.io/api/XAU/USD', {
+      const goldResp = await fetch('https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/XAU/USD', {
         signal: controller.signal,
-        headers: {
-          'x-access-token': 'goldapi-demo-key',
-          'Content-Type': 'application/json',
-        },
       });
       clearTimeout(timeout);
       if (goldResp.ok) {
-        const goldData = await goldResp.json() as { price?: number; price_gram_24k?: number };
-        if (goldData.price && goldData.price > 0) {
-          xauusd = goldData.price;
-          goldFetched = true;
-          logger.info(`Arany árfolyam betöltve (Gold-API): ${xauusd} USD/oz`);
+        const goldData = await goldResp.json() as Array<{
+          spreadProfilePrices: Array<{ bid: number; ask: number }>;
+        }>;
+        if (Array.isArray(goldData) && goldData[0]?.spreadProfilePrices?.[0]) {
+          const { bid, ask } = goldData[0].spreadProfilePrices[0];
+          if (bid > 0 && ask > 0) {
+            xauusd = Math.round(((bid + ask) / 2) * 100) / 100;
+            goldFetched = true;
+            logger.info(`Arany árfolyam betöltve (Swissquote): ${xauusd} USD/oz`);
+          }
         }
       }
     } catch (err) {
-      logger.warn('Gold-API hiba:', err instanceof Error ? err.message : err);
+      logger.warn('Swissquote API hiba:', err instanceof Error ? err.message : err);
     }
   }
 
-  // 2. próba: Metals.live (ingyenes, megbízható)
+  // 2. próba: NBP (Lengyel Nemzeti Bank — hivatalos, napi frissítés, PLN/g → USD/oz konverzió)
   if (!goldFetched) {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
-      const goldResp = await fetch('https://api.metals.live/v1/spot/gold', {
+      const nbpResp = await fetch('https://api.nbp.pl/api/cenyzlota?format=json', {
         signal: controller.signal,
       });
       clearTimeout(timeout);
-      if (goldResp.ok) {
-        const goldData = await goldResp.json() as Array<{ price?: number }>;
-        if (Array.isArray(goldData) && goldData[0]?.price && goldData[0].price > 0) {
-          xauusd = goldData[0].price;
-          goldFetched = true;
-          logger.info(`Arany árfolyam betöltve (Metals.live): ${xauusd} USD/oz`);
+      if (nbpResp.ok) {
+        const nbpData = await nbpResp.json() as Array<{ cena: number }>;
+        if (Array.isArray(nbpData) && nbpData[0]?.cena > 0) {
+          // NBP returns PLN per gram; convert to USD per troy ounce
+          // 1 troy ounce = 31.1035 grams; need PLN/USD rate from Frankfurter
+          const plnPerGram = nbpData[0].cena;
+          const plnPerOz = plnPerGram * 31.1035;
+          // Get EUR/PLN from Frankfurter for conversion
+          try {
+            const plnController = new AbortController();
+            const plnTimeout = setTimeout(() => plnController.abort(), 5000);
+            const plnResp = await fetch('https://api.frankfurter.dev/v1/latest?base=EUR&symbols=PLN', {
+              signal: plnController.signal,
+            });
+            clearTimeout(plnTimeout);
+            if (plnResp.ok) {
+              const plnRates = await plnResp.json() as { rates: { PLN?: number } };
+              const eurpln = plnRates.rates.PLN ?? 4.30;
+              const usdpln = eurpln / eurusd;
+              xauusd = Math.round((plnPerOz / usdpln) * 100) / 100;
+              goldFetched = true;
+              logger.info(`Arany árfolyam betöltve (NBP): ${xauusd} USD/oz (${plnPerGram} PLN/g)`);
+            }
+          } catch {
+            // PLN conversion failed, skip NBP source
+          }
         }
       }
     } catch (err) {
-      logger.warn('Metals.live API hiba:', err instanceof Error ? err.message : err);
+      logger.warn('NBP API hiba:', err instanceof Error ? err.message : err);
     }
   }
 
@@ -498,6 +525,8 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
     { pair: 'USDHUF', label: 'USD/HUF', rate: Math.round(usdhuf * 100) / 100, ...genChange(usdhuf, 0.007), timestamp: now },
     { pair: 'EURGBP', label: 'EUR/GBP', rate: eurgbp, ...genChange(eurgbp, 0.005), timestamp: now },
     { pair: 'EURCHF', label: 'EUR/CHF', rate: eurchf, ...genChange(eurchf, 0.004), timestamp: now },
+    { pair: 'GBPHUF', label: 'GBP/HUF', rate: Math.round(gbphuf * 100) / 100, ...genChange(gbphuf, 0.006), timestamp: now },
+    { pair: 'CHFHUF', label: 'CHF/HUF', rate: Math.round(chfhuf * 100) / 100, ...genChange(chfhuf, 0.005), timestamp: now },
     { pair: 'XAUUSD', label: 'Arany (USD)', rate: Math.round(xauusd * 100) / 100, ...genChange(xauusd, 0.012), timestamp: now },
     { pair: 'XAUEUR', label: 'Arany (EUR)', rate: Math.round(xaueur * 100) / 100, ...genChange(xaueur, 0.012), timestamp: now },
     { pair: 'XAUHUF', label: 'Arany (HUF)', rate: Math.round(xauhuf), ...genChange(xauhuf, 0.012), timestamp: now },

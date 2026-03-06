@@ -61,7 +61,8 @@ function ImpactBadge({ impact }: { impact: string }) {
 function RateCard({ rate }: { rate: MarketRateInfo }) {
   const isPositive = rate.changePercent >= 0;
   const isGold = rate.pair.startsWith('XAU');
-  const rateStr = isGold ? rate.rate.toFixed(2) : rate.rate.toFixed(4);
+  const isHuf = rate.pair.endsWith('HUF');
+  const rateStr = (isGold || isHuf) ? rate.rate.toFixed(2) : rate.rate.toFixed(4);
 
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 p-4 transition-colors hover:bg-white/[0.08]">
@@ -237,7 +238,9 @@ function getTimeAgo(isoString: string): string {
 }
 
 function formatRate(pair: string, value: number): string {
-  return pair.startsWith('XAU') ? value.toFixed(2) : value.toFixed(4);
+  if (pair.startsWith('XAU')) return value.toFixed(2);
+  if (pair.endsWith('HUF')) return value.toFixed(2);
+  return value.toFixed(4);
 }
 
 export function MarketAnalysisView() {
@@ -311,7 +314,7 @@ export function MarketAnalysisView() {
             <TrendingUp className="h-5 w-5 text-green-400" />
             Élő árfolyamok
           </h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {data.rates.map(r => <RateCard key={r.pair} rate={r} />)}
           </div>
         </section>
