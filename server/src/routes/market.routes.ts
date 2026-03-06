@@ -430,8 +430,8 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
   const gbphuf = eurhuf / eurgbp;
   const chfhuf = eurhuf / eurchf;
 
-  // Arany árfolyam — több forrás próbálása
-  let xauusd = 2650.00;
+  // Arany árfolyam — több forrás próbálása (nincs statikus fallback)
+  let xauusd = 0;
   let goldFetched = false;
 
   // 1. próba: Swissquote (élő bróker feed, nincs API key, real-time)
@@ -503,9 +503,30 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
     }
   }
 
-  // 3. fallback: statikus árfolyam
+  // 3. próba: fawazahmed0 Currency API (CDN, napi frissítés, nincs API key)
   if (!goldFetched) {
-    logger.warn(`Arany API nem elérhető — fallback ${xauusd} USD/oz használata`);
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const resp = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/xau.json', {
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (resp.ok) {
+        const data = await resp.json() as { xau?: Record<string, number> };
+        if (data.xau?.usd && data.xau.usd > 0) {
+          xauusd = Math.round(data.xau.usd * 100) / 100;
+          goldFetched = true;
+          logger.info(`Arany árfolyam betöltve (Currency-API CDN): ${xauusd} USD/oz`);
+        }
+      }
+    } catch (err) {
+      logger.warn('Currency-API CDN hiba:', err instanceof Error ? err.message : err);
+    }
+  }
+
+  if (!goldFetched) {
+    logger.error('FIGYELEM: Minden arany API forrás sikertelen! Az arany árfolyam nem elérhető.');
   }
 
   const xaueur = xauusd / eurusd;
@@ -527,10 +548,16 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
     { pair: 'EURCHF', label: 'EUR/CHF', rate: eurchf, ...genChange(eurchf, 0.004), timestamp: now },
     { pair: 'GBPHUF', label: 'GBP/HUF', rate: Math.round(gbphuf * 100) / 100, ...genChange(gbphuf, 0.006), timestamp: now },
     { pair: 'CHFHUF', label: 'CHF/HUF', rate: Math.round(chfhuf * 100) / 100, ...genChange(chfhuf, 0.005), timestamp: now },
-    { pair: 'XAUUSD', label: 'Arany (USD)', rate: Math.round(xauusd * 100) / 100, ...genChange(xauusd, 0.012), timestamp: now },
-    { pair: 'XAUEUR', label: 'Arany (EUR)', rate: Math.round(xaueur * 100) / 100, ...genChange(xaueur, 0.012), timestamp: now },
-    { pair: 'XAUHUF', label: 'Arany (HUF)', rate: Math.round(xauhuf), ...genChange(xauhuf, 0.012), timestamp: now },
   ];
+
+  // Arany ráták csak ha sikerült lekérni (nincs statikus fallback)
+  if (goldFetched) {
+    rates.push(
+      { pair: 'XAUUSD', label: 'Arany (USD)', rate: Math.round(xauusd * 100) / 100, ...genChange(xauusd, 0.012), timestamp: now },
+      { pair: 'XAUEUR', label: 'Arany (EUR)', rate: Math.round(xaueur * 100) / 100, ...genChange(xaueur, 0.012), timestamp: now },
+      { pair: 'XAUHUF', label: 'Arany (HUF)', rate: Math.round(xauhuf), ...genChange(xauhuf, 0.012), timestamp: now },
+    );
+  }
 
   return rates;
 }
