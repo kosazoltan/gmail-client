@@ -18,6 +18,7 @@ export function searchEmails(options: SearchOptions) {
   const results = queryAll(
     `SELECT * FROM emails
      WHERE account_id = ?
+     AND labels NOT LIKE '%TRASH%'
      AND (
        subject LIKE ? COLLATE NOCASE OR
        from_email LIKE ? COLLATE NOCASE OR
@@ -33,6 +34,7 @@ export function searchEmails(options: SearchOptions) {
   const countResult = queryOne<{ total: number }>(
     `SELECT COUNT(*) as total FROM emails
      WHERE account_id = ?
+     AND labels NOT LIKE '%TRASH%'
      AND (
        subject LIKE ? COLLATE NOCASE OR
        from_email LIKE ? COLLATE NOCASE OR
