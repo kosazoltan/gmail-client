@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import logger from '../utils/logger.js';
+import { generateAIAnalysis } from '../services/ai-market.service.js';
 
 const router = Router();
 
@@ -29,6 +30,8 @@ interface AnalysisItem {
   confidence: number;
   weight: number;
   speciality: string;
+  url: string;
+  originalLanguage: string;
 }
 
 interface PositioningItem {
@@ -80,15 +83,17 @@ const SOURCES: Array<{
   weight: number;
   speciality: string;
   pairs: string[];
+  url: string;
+  lang: string;
 }> = [
-  { sourceId: 'ING', source: 'ING Think', weight: 1.4, speciality: 'EUR/HUF, napi FX Daily', pairs: ['EURUSD', 'EURHUF', 'EURGBP'] },
-  { sourceId: 'JPM', source: 'J.P. Morgan', weight: 1.4, speciality: 'FX + arany forecast', pairs: ['EURUSD', 'XAUUSD', 'XAUEUR'] },
-  { sourceId: 'MUFG', source: 'MUFG Research', weight: 1.3, speciality: 'FX forecasts', pairs: ['EURUSD', 'EURGBP', 'EURCHF'] },
-  { sourceId: 'Monex', source: 'Monex Global', weight: 1.3, speciality: 'Bloomberg FX Accuracy #1', pairs: ['EURUSD', 'EURGBP', 'EURHUF'] },
-  { sourceId: 'Erste', source: 'Erste Group', weight: 1.3, speciality: 'EUR/HUF, közép-európai FX', pairs: ['EURHUF', 'EURCHF', 'EURUSD'] },
-  { sourceId: 'Ebury', source: 'Ebury Insights', weight: 1.2, speciality: 'GBP/USD #1', pairs: ['EURGBP', 'EURUSD', 'EURHUF'] },
-  { sourceId: 'FXStreet', source: 'FXStreet', weight: 1.1, speciality: 'Napi FX + Gold', pairs: ['EURUSD', 'XAUUSD', 'EURGBP'] },
-  { sourceId: 'ForexCom', source: 'FOREX.com', weight: 1.0, speciality: 'Napi FX elemzés', pairs: ['EURUSD', 'EURGBP', 'EURCHF'] },
+  { sourceId: 'ING', source: 'ING Think', weight: 1.4, speciality: 'EUR/HUF, napi FX Daily', pairs: ['EURUSD', 'EURHUF', 'GBPHUF'], url: 'https://think.ing.com/articles/fx-daily/', lang: 'en' },
+  { sourceId: 'JPM', source: 'J.P. Morgan', weight: 1.4, speciality: 'FX + arany forecast', pairs: ['EURUSD', 'XAUUSD', 'XAUEUR'], url: 'https://www.jpmorgan.com/insights/global-research/currencies', lang: 'en' },
+  { sourceId: 'MUFG', source: 'MUFG Research', weight: 1.3, speciality: 'FX forecasts', pairs: ['EURUSD', 'GBPHUF', 'CHFHUF'], url: 'https://www.mufgamericas.com/insight/fx-weekly', lang: 'en' },
+  { sourceId: 'Monex', source: 'Monex Global', weight: 1.3, speciality: 'Bloomberg FX Accuracy #1', pairs: ['EURUSD', 'GBPHUF', 'EURHUF'], url: 'https://www.monexeurope.com/news-analysis/', lang: 'en' },
+  { sourceId: 'Erste', source: 'Erste Group', weight: 1.3, speciality: 'EUR/HUF, közép-európai FX', pairs: ['EURHUF', 'CHFHUF', 'EURUSD'], url: 'https://www.erstegroup.com/en/research/report', lang: 'en' },
+  { sourceId: 'Ebury', source: 'Ebury Insights', weight: 1.2, speciality: 'GBP/HUF elemzés', pairs: ['GBPHUF', 'EURUSD', 'EURHUF'], url: 'https://www.ebury.com/insights/', lang: 'en' },
+  { sourceId: 'FXStreet', source: 'FXStreet', weight: 1.1, speciality: 'Napi FX + Gold', pairs: ['EURUSD', 'XAUUSD', 'GBPHUF'], url: 'https://www.fxstreet.com/analysis', lang: 'en' },
+  { sourceId: 'ForexCom', source: 'FOREX.com', weight: 1.0, speciality: 'Napi FX elemzés', pairs: ['EURUSD', 'GBPHUF', 'CHFHUF'], url: 'https://www.forex.com/en/market-analysis/', lang: 'en' },
 ];
 
 // --- Helpers ---
@@ -163,10 +168,8 @@ function generateAnalyses(rates: RateInfo[]): AnalysisItem[] {
     const keyLevelMap: Record<string, string> = {
       EURUSD: `${(rateInfo?.rate ?? 1.08).toFixed(4)} (pivot), ${((rateInfo?.rate ?? 1.08) - 0.005).toFixed(4)} (támasz)`,
       EURHUF: `${(rateInfo?.rate ?? 395).toFixed(2)} (pivot), ${((rateInfo?.rate ?? 395) + 2).toFixed(2)} (ellenállás)`,
-      EURGBP: `${(rateInfo?.rate ?? 0.86).toFixed(4)} (pivot), ${((rateInfo?.rate ?? 0.86) - 0.003).toFixed(4)} (támasz)`,
-      EURCHF: `${(rateInfo?.rate ?? 0.95).toFixed(4)} (pivot), ${((rateInfo?.rate ?? 0.95) + 0.003).toFixed(4)} (ellenállás)`,
-      GBPHUF: `${(rateInfo?.rate ?? 446).toFixed(2)} (pivot), ${((rateInfo?.rate ?? 446) + 2).toFixed(2)} (ellenállás)`,
-      CHFHUF: `${(rateInfo?.rate ?? 428).toFixed(2)} (pivot), ${((rateInfo?.rate ?? 428) + 2).toFixed(2)} (ellenállás)`,
+      GBPHUF: `${(rateInfo?.rate ?? 460).toFixed(2)} (pivot), ${((rateInfo?.rate ?? 460) + 2).toFixed(2)} (ellenállás)`,
+      CHFHUF: `${(rateInfo?.rate ?? 415).toFixed(2)} (pivot), ${((rateInfo?.rate ?? 415) + 2).toFixed(2)} (ellenállás)`,
       XAUUSD: `${(rateMap.get('XAUUSD')?.rate ?? 2650).toFixed(2)} USD/oz (pivot)`,
       XAUEUR: `${(rateMap.get('XAUEUR')?.rate ?? 2450).toFixed(2)} EUR/oz (pivot)`,
     };
@@ -190,6 +193,8 @@ function generateAnalyses(rates: RateInfo[]): AnalysisItem[] {
       confidence,
       weight: src.weight,
       speciality: src.speciality,
+      url: src.url,
+      originalLanguage: src.lang,
     };
   });
 }
@@ -222,10 +227,8 @@ function generateCatalyst(pair: string): string {
   const catalysts: Record<string, string[]> = {
     EURUSD: ['Fed beszéd / FOMC jegyzőkönyv', 'Eurózónás PMI adatok', 'US foglalkoztatási adat (NFP)'],
     EURHUF: ['MNB kamatdöntés / kommunikáció', 'Regionális kötvénypiaci mozgás', 'EU források kiutalása'],
-    EURGBP: ['BoE kamatdöntés', 'UK CPI infláció adat', 'Brexit utóhatások, kereskedelem'],
-    EURCHF: ['SNB monetáris politika', 'Európai geopolitikai kockázat', 'Svájci infláció adat'],
-    GBPHUF: ['BoE kamatdöntés', 'UK munkaerőpiaci adat', 'MNB monetáris politika'],
-    CHFHUF: ['SNB kamatpálya', 'MNB kommunikáció', 'Regionális kockázati étvágy'],
+    GBPHUF: ['BoE kamatdöntés', 'UK CPI infláció adat', 'MNB monetáris politika'],
+    CHFHUF: ['SNB monetáris politika', 'MNB kamatdöntés', 'Svájci infláció adat'],
     XAUUSD: ['Fed kamatváltozási várakozások', 'Geopolitikai feszültség', 'US reálhozamok változása'],
     XAUEUR: ['ECB kamatpálya', 'Európai infláció', 'Safe-haven keresleti sokk'],
   };
@@ -296,7 +299,7 @@ function generateNewsItems(rates: RateInfo[]): NewsItem[] {
       source: 'ECB',
       originalLanguage: 'en',
       impact: 'Közepes' as const,
-      pairs: ['EURUSD', 'EURGBP', 'EURCHF'],
+      pairs: ['EURUSD', 'EURHUF', 'CHFHUF'],
       summary: 'Az Európai Központi Bank legfrissebb közleménye szerint az eurózónás infláció továbbra is a 2%-os célszint felett marad. A kamatpálya bizonytalan.',
       publishedAt: new Date(now.getTime() - 7 * 3600000).toISOString(),
       url: 'https://www.ecb.europa.eu/press/pr/html/index.en.html',
@@ -306,8 +309,8 @@ function generateNewsItems(rates: RateInfo[]): NewsItem[] {
       source: 'Financial Times',
       originalLanguage: 'en',
       impact: 'Alacsony' as const,
-      pairs: ['EURGBP'],
-      summary: 'A piac a Bank of England következő kamatdöntését várja. A font enyhén erősödött az euróval szemben.',
+      pairs: ['GBPHUF'],
+      summary: 'A piac a Bank of England következő kamatdöntését várja. A font/forint árfolyam mozgásban.',
       publishedAt: new Date(now.getTime() - 10 * 3600000).toISOString(),
       url: 'https://www.ft.com/currencies',
     },
@@ -316,8 +319,8 @@ function generateNewsItems(rates: RateInfo[]): NewsItem[] {
       source: 'NZZ',
       originalLanguage: 'de',
       impact: 'Alacsony' as const,
-      pairs: ['EURCHF'],
-      summary: 'A geopolitikai bizonytalanság közepette a svájci frank menedékdeviza szerepe ismét felértékelődött. Az EUR/CHF enyhén csökkenő.',
+      pairs: ['CHFHUF'],
+      summary: 'A geopolitikai bizonytalanság közepette a svájci frank menedékdeviza szerepe ismét felértékelődött. A CHF/HUF árfolyam emelkedhet.',
       publishedAt: new Date(now.getTime() - 12 * 3600000).toISOString(),
       url: 'https://www.nzz.ch/finanzen/devisen',
     },
@@ -336,7 +339,7 @@ function generateNewsItems(rates: RateInfo[]): NewsItem[] {
       source: 'ING Think',
       originalLanguage: 'en',
       impact: 'Közepes' as const,
-      pairs: ['EURHUF', 'USDHUF', 'EURCHF'],
+      pairs: ['EURHUF', 'USDHUF', 'CHFHUF'],
       summary: `Az ING elemzői szerint a közép-európai devizák (forint, zloty, korona) kilátásai vegyesek. Az EUR/HUF ${eurHuf?.rate?.toFixed(2) ?? '395'} körüli sávban stabilizálódhat.`,
       publishedAt: new Date(now.getTime() - 8 * 3600000).toISOString(),
       url: 'https://think.ing.com/articles/fx-daily/',
@@ -347,7 +350,7 @@ function generateNewsItems(rates: RateInfo[]): NewsItem[] {
 }
 
 function computeWeightedConclusion(analyses: AnalysisItem[], rates: RateInfo[]): Record<string, WeightedConclusion> {
-  const pairs = ['EURUSD', 'EURHUF', 'USDHUF', 'EURGBP', 'EURCHF', 'GBPHUF', 'CHFHUF', 'XAUUSD', 'XAUEUR', 'XAUHUF'];
+  const pairs = ['EURUSD', 'EURHUF', 'USDHUF', 'GBPHUF', 'CHFHUF', 'XAUUSD', 'XAUEUR', 'XAUHUF'];
   const result: Record<string, WeightedConclusion> = {};
 
   for (const pair of pairs) {
@@ -449,7 +452,7 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
         }>;
         if (Array.isArray(goldData) && goldData[0]?.spreadProfilePrices?.[0]) {
           const { bid, ask } = goldData[0].spreadProfilePrices[0];
-          if (bid > 0 && ask > 0) {
+          if (bid > 1000 && ask > 1000) {
             xauusd = Math.round(((bid + ask) / 2) * 100) / 100;
             goldFetched = true;
             logger.info(`Arany árfolyam betöltve (Swissquote): ${xauusd} USD/oz`);
@@ -489,9 +492,12 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
               const plnRates = await plnResp.json() as { rates: { PLN?: number } };
               const eurpln = plnRates.rates.PLN ?? 4.30;
               const usdpln = eurpln / eurusd;
-              xauusd = Math.round((plnPerOz / usdpln) * 100) / 100;
-              goldFetched = true;
-              logger.info(`Arany árfolyam betöltve (NBP): ${xauusd} USD/oz (${plnPerGram} PLN/g)`);
+              const nbpXau = Math.round((plnPerOz / usdpln) * 100) / 100;
+              if (nbpXau > 1000) {
+                xauusd = nbpXau;
+                goldFetched = true;
+                logger.info(`Arany árfolyam betöltve (NBP): ${xauusd} USD/oz (${plnPerGram} PLN/g)`);
+              }
             }
           } catch {
             // PLN conversion failed, skip NBP source
@@ -514,7 +520,7 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
       clearTimeout(timeout);
       if (resp.ok) {
         const data = await resp.json() as { xau?: Record<string, number> };
-        if (data.xau?.usd && data.xau.usd > 0) {
+        if (data.xau?.usd && data.xau.usd > 1000) {
           xauusd = Math.round(data.xau.usd * 100) / 100;
           goldFetched = true;
           logger.info(`Arany árfolyam betöltve (Currency-API CDN): ${xauusd} USD/oz`);
@@ -544,8 +550,6 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
     { pair: 'EURUSD', label: 'EUR/USD', rate: eurusd, ...genChange(eurusd, 0.008), timestamp: now },
     { pair: 'EURHUF', label: 'EUR/HUF', rate: eurhuf, ...genChange(eurhuf, 0.006), timestamp: now },
     { pair: 'USDHUF', label: 'USD/HUF', rate: Math.round(usdhuf * 100) / 100, ...genChange(usdhuf, 0.007), timestamp: now },
-    { pair: 'EURGBP', label: 'EUR/GBP', rate: eurgbp, ...genChange(eurgbp, 0.005), timestamp: now },
-    { pair: 'EURCHF', label: 'EUR/CHF', rate: eurchf, ...genChange(eurchf, 0.004), timestamp: now },
     { pair: 'GBPHUF', label: 'GBP/HUF', rate: Math.round(gbphuf * 100) / 100, ...genChange(gbphuf, 0.006), timestamp: now },
     { pair: 'CHFHUF', label: 'CHF/HUF', rate: Math.round(chfhuf * 100) / 100, ...genChange(chfhuf, 0.005), timestamp: now },
   ];
@@ -569,9 +573,9 @@ router.get('/briefing', async (req, res) => {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
   }
 
-  // Cache check
+  const forceRefresh = req.query.refresh === 'true';
   const now = Date.now();
-  if (cachedBriefing && (now - cachedAt) < CACHE_TTL_MS) {
+  if (!forceRefresh && cachedBriefing && (now - cachedAt) < CACHE_TTL_MS) {
     return res.json({
       success: true,
       data: { ...cachedBriefing, cached: true },
@@ -580,11 +584,31 @@ router.get('/briefing', async (req, res) => {
 
   try {
     const rates = await fetchLiveRates();
-    const analyses = generateAnalyses(rates);
-    const positioning = generatePositioning(rates);
-    const newsItems = generateNewsItems(rates);
-    const weightedConclusion = computeWeightedConclusion(analyses, rates);
-    const overallSentiment = generateOverallSentiment(weightedConclusion);
+
+    // AI elemzés (ha van API kulcs), egyébként sablon fallback
+    const aiResult = await generateAIAnalysis(rates);
+
+    let analyses: AnalysisItem[];
+    let positioning: PositioningItem[];
+    let newsItems: NewsItem[];
+    let weightedConclusion: Record<string, WeightedConclusion>;
+    let overallSentiment: string;
+
+    if (aiResult) {
+      logger.info('AI-alapú piaci elemzés használata');
+      analyses = aiResult.analyses;
+      positioning = aiResult.positioning;
+      newsItems = aiResult.newsItems;
+      weightedConclusion = aiResult.weightedConclusion;
+      overallSentiment = aiResult.overallSentiment;
+    } else {
+      logger.info('Sablon-alapú piaci elemzés használata (nincs AI)');
+      analyses = generateAnalyses(rates);
+      positioning = generatePositioning(rates);
+      newsItems = generateNewsItems(rates);
+      weightedConclusion = computeWeightedConclusion(analyses, rates);
+      overallSentiment = generateOverallSentiment(weightedConclusion);
+    }
 
     const briefing: MarketBriefingData = {
       generatedAt: new Date().toISOString(),

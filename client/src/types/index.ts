@@ -415,6 +415,8 @@ export interface MarketAnalysisItem {
   confidence: number;
   weight: number;
   speciality: string;
+  url: string;
+  originalLanguage: string;
 }
 
 export interface MarketPositioningItem {

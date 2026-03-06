@@ -1,5 +1,5 @@
+import { useState } from 'react';
 import { useMarketAnalysis } from '../../hooks/useMarketAnalysis';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   RefreshCw,
   TrendingUp,
@@ -12,6 +12,7 @@ import {
   Building2,
   ShieldAlert,
   ExternalLink,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type {
@@ -21,6 +22,15 @@ import type {
   MarketNewsItem,
   MarketWeightedConclusion,
 } from '../../types';
+
+const RECOMMENDATION_PAIRS = [
+  { pair: 'EURHUF', buyLabel: 'EUR vétel (HUF ellenében)', sellLabel: 'EUR eladás (HUF ellenében)' },
+  { pair: 'EURUSD', buyLabel: 'EUR vétel (USD ellenében)', sellLabel: 'EUR eladás (USD ellenében)' },
+  { pair: 'GBPHUF', buyLabel: 'GBP vétel (HUF ellenében)', sellLabel: 'GBP eladás (HUF ellenében)' },
+  { pair: 'CHFHUF', buyLabel: 'CHF vétel (HUF ellenében)', sellLabel: 'CHF eladás (HUF ellenében)' },
+  { pair: 'XAUUSD', buyLabel: 'Arany vétel (USD-ben)', sellLabel: 'Arany eladás (USD-ben)' },
+  { pair: 'XAUEUR', buyLabel: 'Arany vétel (EUR-ban)', sellLabel: 'Arany eladás (EUR-ban)' },
+];
 
 function DirectionIcon({ direction, className }: { direction: string; className?: string }) {
   if (direction === 'bullish') return <TrendingUp className={cn('h-5 w-5 text-green-400', className)} />;
@@ -76,12 +86,18 @@ function RateCard({ rate }: { rate: MarketRateInfo }) {
   );
 }
 
+function translateUrl(url: string, lang: string): string {
+  if (lang === 'hu') return url;
+  return `https://translate.google.com/translate?sl=${lang}&tl=hu&u=${encodeURIComponent(url)}`;
+}
+
 function NewsCard({ item }: { item: MarketNewsItem }) {
   const timeAgo = getTimeAgo(item.publishedAt);
 
   const handleClick = () => {
     if (item.url) {
-      window.open(item.url, '_blank', 'noopener,noreferrer');
+      const url = translateUrl(item.url, item.originalLanguage ?? 'en');
+      window.open(url, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -202,11 +218,30 @@ function ConclusionCard({ pair, data }: { pair: string; data: MarketWeightedConc
 }
 
 function AnalystCard({ item }: { item: MarketAnalysisItem }) {
+  const handleClick = () => {
+    if (item.url) {
+      const url = translateUrl(item.url, item.originalLanguage ?? 'en');
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+    <div
+      className={cn(
+        'rounded-xl border border-white/10 bg-white/5 p-4 transition-all',
+        item.url && 'cursor-pointer hover:border-[#4f6ef7]/50 hover:bg-white/[0.08]'
+      )}
+      onClick={handleClick}
+      role={item.url ? 'link' : undefined}
+      tabIndex={item.url ? 0 : undefined}
+      onKeyDown={(e) => { if (item.url && (e.key === 'Enter' || e.key === ' ')) handleClick(); }}
+    >
       <div className="mb-2 flex items-start justify-between">
         <div>
-          <h4 className="font-medium text-white">{item.source}</h4>
+          <h4 className="font-medium text-white">
+            {item.source}
+            {item.url && <ExternalLink className="ml-1.5 inline h-3 w-3 text-gray-500" />}
+          </h4>
           <p className="text-xs text-gray-500">{item.speciality}</p>
         </div>
         <DirectionBadge direction={item.direction} />
@@ -244,11 +279,16 @@ function formatRate(pair: string, value: number): string {
 }
 
 export function MarketAnalysisView() {
-  const { data, isLoading, error, isFetching } = useMarketAnalysis();
-  const queryClient = useQueryClient();
+  const { data, isLoading, error, isFetching, forceRefresh } = useMarketAnalysis();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['market', 'briefing'] });
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await forceRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   if (isLoading) {
@@ -300,10 +340,10 @@ export function MarketAnalysisView() {
           </div>
           <button
             onClick={handleRefresh}
-            disabled={isFetching}
+            disabled={isFetching || isRefreshing}
             className="inline-flex items-center gap-2 rounded-lg bg-[#4f6ef7] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#3d5ce5] disabled:opacity-50"
           >
-            <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} />
+            <RefreshCw className={cn('h-4 w-4', (isFetching || isRefreshing) && 'animate-spin')} />
             Frissítés
           </button>
         </div>
@@ -316,6 +356,45 @@ export function MarketAnalysisView() {
           </h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {data.rates.map(r => <RateCard key={r.pair} rate={r} />)}
+          </div>
+        </section>
+
+        {/* Javaslatok */}
+        <section>
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-white">
+            <ArrowRightLeft className="h-5 w-5 text-[#4f6ef7]" />
+            Javaslatok az elemzések alapján
+          </h2>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {RECOMMENDATION_PAIRS.map(({ pair, buyLabel, sellLabel }) => {
+              const wc = data.weightedConclusion[pair];
+              if (!wc) return null;
+              const isBuy = wc.direction === 'bullish';
+              const isSell = wc.direction === 'bearish';
+              const isNeutral = !isBuy && !isSell;
+              return (
+                <div key={pair} className={cn(
+                  'flex items-center gap-3 rounded-xl border p-3',
+                  isBuy ? 'border-green-500/30 bg-green-500/10' :
+                  isSell ? 'border-red-500/30 bg-red-500/10' :
+                  'border-white/10 bg-white/5'
+                )}>
+                  <div className="flex-1">
+                    <div className="mb-1 text-xs text-gray-400">{pair.replace(/([A-Z]{3})([A-Z]{3})/, '$1/$2')}</div>
+                    <div className={cn(
+                      'text-sm font-bold',
+                      isBuy ? 'text-green-400' : isSell ? 'text-red-400' : 'text-gray-400'
+                    )}>
+                      {isBuy ? buyLabel : isSell ? sellLabel : 'Kivárás javasolt'}
+                    </div>
+                    <div className="mt-0.5 text-xs text-gray-500">Megbízhatóság: {wc.score}%</div>
+                  </div>
+                  {isBuy ? <TrendingUp className="h-6 w-6 text-green-400" /> :
+                   isSell ? <TrendingDown className="h-6 w-6 text-red-400" /> :
+                   <Minus className="h-6 w-6 text-gray-500" />}
+                </div>
+              );
+            })}
           </div>
         </section>
 

@@ -655,7 +655,7 @@ export const api = {
   },
 
   market: {
-    briefing: () => request<import('../types').MarketBriefingResponse>('/market/briefing'),
+    briefing: (refresh?: boolean) => request<import('../types').MarketBriefingResponse>(`/market/briefing${refresh ? '?refresh=true' : ''}`),
   },
 
   translate: {
