@@ -245,11 +245,11 @@ KOVETELMENYEK:
 - Az elemzes legyen MEGALAPOZOTT es OVATOSAN OPTIMISTA/PESSZIMISTA, ne legyen tulzottan egyertelmuen egyik iranyba sem (kiveve ha a hirek egyertelmuen azt mutatjak)`;
 
   try {
-    logger.info(`AI piaci elemzes inditasa (Sonnet 4.6, ${newsItems.length} hir alapjan)...`);
+    logger.info(`AI piaci elemzes inditasa (Sonnet 4, ${newsItems.length} hir alapjan)...`);
     const startTime = Date.now();
 
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6-20250514',
+      model: 'claude-sonnet-4-20250514',
       max_tokens: 10000,
       messages: [{ role: 'user', content: prompt }],
     });
