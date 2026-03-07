@@ -75,11 +75,11 @@ function RateCard({ rate }: { rate: MarketRateInfo }) {
   const rateStr = (isGold || isHuf) ? rate.rate.toFixed(2) : rate.rate.toFixed(4);
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-4 transition-colors hover:bg-white/[0.08]">
-      <div className="mb-1 text-xs text-gray-400">{rate.label}</div>
-      <div className="text-2xl font-bold text-white tabular-nums">{rateStr}</div>
-      <div className={cn('mt-1 flex items-center gap-1 text-sm font-medium', isPositive ? 'text-green-400' : 'text-red-400')}>
-        {isPositive ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+    <div className="rounded-xl border border-white/10 bg-white/5 p-2.5 transition-colors hover:bg-white/8">
+      <div className="mb-0.5 text-[10px] text-gray-400">{rate.label}</div>
+      <div className="text-base font-bold text-white tabular-nums">{rateStr}</div>
+      <div className={cn('mt-0.5 flex items-center gap-1 text-xs font-medium', isPositive ? 'text-green-400' : 'text-red-400')}>
+        {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
         <span>{isPositive ? '+' : ''}{rate.changePercent.toFixed(2)}%</span>
       </div>
     </div>
@@ -105,27 +105,27 @@ function NewsCard({ item }: { item: MarketNewsItem }) {
   return (
     <div
       className={cn(
-        'rounded-xl border border-white/10 bg-white/5 p-4 transition-all',
-        item.url && 'cursor-pointer hover:border-[#4f6ef7]/50 hover:bg-white/[0.08]'
+        'rounded-xl border border-white/10 bg-white/5 p-2.5 transition-all',
+        item.url && 'cursor-pointer hover:border-accent/50 hover:bg-white/8'
       )}
       onClick={handleClick}
       role={item.url ? 'link' : undefined}
       tabIndex={item.url ? 0 : undefined}
       onKeyDown={(e) => { if (item.url && (e.key === 'Enter' || e.key === ' ')) handleClick(); }}
     >
-      <div className="mb-2 flex items-start justify-between gap-2">
-        <h4 className="text-sm font-medium text-white">
+      <div className="mb-1 flex items-start justify-between gap-2">
+        <h4 className="text-xs font-medium text-white">
           {item.title}
-          {item.url && <ExternalLink className="ml-1.5 inline h-3 w-3 text-gray-500" />}
+          {item.url && <ExternalLink className="ml-1 inline h-2.5 w-2.5 text-gray-500" />}
         </h4>
         <ImpactBadge impact={item.impact} />
       </div>
-      <p className="mb-3 text-xs leading-relaxed text-gray-400">{item.summary}</p>
-      <div className="flex flex-wrap items-center gap-2">
+      <p className="mb-2 text-[10px] leading-relaxed text-gray-400">{item.summary}</p>
+      <div className="flex flex-wrap items-center gap-1.5">
         {item.pairs.map(p => (
-          <span key={p} className="rounded bg-[#4f6ef7]/20 px-1.5 py-0.5 text-xs text-[#6d8cff]">{p}</span>
+          <span key={p} className="rounded bg-accent/20 px-1 py-0.5 text-[10px] text-[#6d8cff]">{p}</span>
         ))}
-        <span className="ml-auto text-xs text-gray-500">{item.source} &middot; {timeAgo}</span>
+        <span className="ml-auto text-[10px] text-gray-500">{item.source} &middot; {timeAgo}</span>
       </div>
     </div>
   );
@@ -133,11 +133,11 @@ function NewsCard({ item }: { item: MarketNewsItem }) {
 
 function PositioningCard({ item }: { item: MarketPositioningItem }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="font-medium text-white">{item.pair}</span>
+    <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-sm font-medium text-white">{item.pair}</span>
         <span className={cn(
-          'rounded-full px-2 py-0.5 text-xs font-medium',
+          'rounded-full px-1.5 py-0.5 text-[10px] font-medium',
           item.bias === 'Long' ? 'bg-green-500/20 text-green-400' :
           item.bias === 'Short' ? 'bg-red-500/20 text-red-400' :
           'bg-gray-500/20 text-gray-400'
@@ -147,18 +147,18 @@ function PositioningCard({ item }: { item: MarketPositioningItem }) {
       </div>
 
       {/* Long/Short bar */}
-      <div className="mb-3">
-        <div className="mb-1 flex justify-between text-xs text-gray-400">
+      <div className="mb-2">
+        <div className="mb-0.5 flex justify-between text-[10px] text-gray-400">
           <span>Long {item.longPct}%</span>
           <span>Short {item.shortPct}%</span>
         </div>
-        <div className="flex h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+        <div className="flex h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
           <div className="bg-green-500 transition-all" style={{ width: item.longPct + '%' }} />
           <div className="bg-red-500 transition-all" style={{ width: item.shortPct + '%' }} />
         </div>
       </div>
 
-      <div className="space-y-2 text-xs text-gray-400">
+      <div className="space-y-1 text-[10px] text-gray-400">
         <div className="flex justify-between">
           <span>Célsáv:</span>
           <span className="text-white">{formatRate(item.pair, item.targetLow)} - {formatRate(item.pair, item.targetHigh)}</span>
@@ -171,18 +171,18 @@ function PositioningCard({ item }: { item: MarketPositioningItem }) {
           <span className="text-yellow-400">48h katalizátor:</span>
           <span className="ml-1 text-gray-300">{item.catalyst48h}</span>
         </div>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <div className="rounded-lg bg-green-500/10 p-2">
-            <div className="mb-1 flex items-center gap-1 text-green-400">
-              <TrendingUp className="h-3 w-3" /> Bika
+        <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+          <div className="rounded-lg bg-green-500/10 p-1.5">
+            <div className="mb-0.5 flex items-center gap-1 text-[10px] text-green-400">
+              <TrendingUp className="h-2.5 w-2.5" /> Bika
             </div>
-            <p className="text-xs leading-relaxed text-gray-300">{item.scenarioBull}</p>
+            <p className="text-[10px] leading-relaxed text-gray-300">{item.scenarioBull}</p>
           </div>
-          <div className="rounded-lg bg-red-500/10 p-2">
-            <div className="mb-1 flex items-center gap-1 text-red-400">
-              <TrendingDown className="h-3 w-3" /> Medve
+          <div className="rounded-lg bg-red-500/10 p-1.5">
+            <div className="mb-0.5 flex items-center gap-1 text-[10px] text-red-400">
+              <TrendingDown className="h-2.5 w-2.5" /> Medve
             </div>
-            <p className="text-xs leading-relaxed text-gray-300">{item.scenarioBear}</p>
+            <p className="text-[10px] leading-relaxed text-gray-300">{item.scenarioBear}</p>
           </div>
         </div>
       </div>
@@ -198,22 +198,22 @@ function ConclusionCard({ pair, data }: { pair: string; data: MarketWeightedConc
       : 'bg-gray-500';
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="font-medium text-white">{pair}</span>
+    <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-sm font-medium text-white">{pair}</span>
         <DirectionBadge direction={data.direction} />
       </div>
-      <div className="mb-2">
-        <div className="mb-1 flex justify-between text-xs text-gray-400">
+      <div className="mb-1.5">
+        <div className="mb-0.5 flex justify-between text-[10px] text-gray-400">
           <span>Medve</span>
           <span className="font-medium text-white">{data.score}%</span>
           <span>Bika</span>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+        <div className="h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
           <div className={cn('h-full transition-all', barColor)} style={{ width: data.score + '%' }} />
         </div>
       </div>
-      <p className="text-xs leading-relaxed text-gray-400">{data.summary}</p>
+      <p className="text-[10px] leading-relaxed text-gray-400">{data.summary}</p>
     </div>
   );
 }
@@ -229,36 +229,36 @@ function AnalystCard({ item }: { item: MarketAnalysisItem }) {
   return (
     <div
       className={cn(
-        'rounded-xl border border-white/10 bg-white/5 p-4 transition-all',
-        item.url && 'cursor-pointer hover:border-[#4f6ef7]/50 hover:bg-white/[0.08]'
+        'rounded-xl border border-white/10 bg-white/5 p-2.5 transition-all',
+        item.url && 'cursor-pointer hover:border-accent/50 hover:bg-white/8'
       )}
       onClick={handleClick}
       role={item.url ? 'link' : undefined}
       tabIndex={item.url ? 0 : undefined}
       onKeyDown={(e) => { if (item.url && (e.key === 'Enter' || e.key === ' ')) handleClick(); }}
     >
-      <div className="mb-2 flex items-start justify-between">
+      <div className="mb-1.5 flex items-start justify-between">
         <div>
-          <h4 className="font-medium text-white">
+          <h4 className="text-sm font-medium text-white">
             {item.source}
-            {item.url && <ExternalLink className="ml-1.5 inline h-3 w-3 text-gray-500" />}
+            {item.url && <ExternalLink className="ml-1 inline h-2.5 w-2.5 text-gray-500" />}
           </h4>
-          <p className="text-xs text-gray-500">{item.speciality}</p>
+          <p className="text-[10px] text-gray-500">{item.speciality}</p>
         </div>
         <DirectionBadge direction={item.direction} />
       </div>
-      <div className="mb-3 flex items-center gap-3 text-xs text-gray-400">
+      <div className="mb-2 flex items-center gap-2 text-[10px] text-gray-400">
         <span>Súly: <span className="text-white">{item.weight}x</span></span>
         <span>Bizalom: <span className="text-white">{item.confidence}%</span></span>
       </div>
-      <p className="mb-2 text-xs leading-relaxed text-gray-300">{item.summary}</p>
-      <div className="space-y-1 text-xs text-gray-400">
+      <p className="mb-1.5 text-[10px] leading-relaxed text-gray-300">{item.summary}</p>
+      <div className="space-y-0.5 text-[10px] text-gray-400">
         <div><span className="text-gray-500">Kulcsszint:</span> {item.keyLevel}</div>
         <div><span className="text-gray-500">Kilátás:</span> {item.outlook}</div>
       </div>
-      <div className="mt-2 flex flex-wrap gap-1">
+      <div className="mt-1.5 flex flex-wrap gap-1">
         {item.pairs.map(p => (
-          <span key={p} className="rounded bg-[#4f6ef7]/20 px-1.5 py-0.5 text-xs text-[#6d8cff]">{p}</span>
+          <span key={p} className="rounded bg-accent/20 px-1 py-0.5 text-[10px] text-[#6d8cff]">{p}</span>
         ))}
       </div>
     </div>
@@ -375,24 +375,24 @@ export function MarketAnalysisView() {
               const isNeutral = !isBuy && !isSell;
               return (
                 <div key={pair} className={cn(
-                  'flex items-center gap-3 rounded-xl border p-3',
+                  'flex items-center gap-2 rounded-xl border p-2',
                   isBuy ? 'border-green-500/30 bg-green-500/10' :
                   isSell ? 'border-red-500/30 bg-red-500/10' :
                   'border-white/10 bg-white/5'
                 )}>
                   <div className="flex-1">
-                    <div className="mb-1 text-xs text-gray-400">{pair.replace(/([A-Z]{3})([A-Z]{3})/, '$1/$2')}</div>
+                    <div className="mb-0.5 text-[10px] text-gray-400">{pair.replace(/([A-Z]{3})([A-Z]{3})/, '$1/$2')}</div>
                     <div className={cn(
-                      'text-sm font-bold',
+                      'text-xs font-bold',
                       isBuy ? 'text-green-400' : isSell ? 'text-red-400' : 'text-gray-400'
                     )}>
                       {isBuy ? buyLabel : isSell ? sellLabel : 'Kivárás javasolt'}
                     </div>
-                    <div className="mt-0.5 text-xs text-gray-500">Megbízhatóság: {wc.score}%</div>
+                    <div className="mt-0.5 text-[10px] text-gray-500">Megbízhatóság: {wc.score}%</div>
                   </div>
-                  {isBuy ? <TrendingUp className="h-6 w-6 text-green-400" /> :
-                   isSell ? <TrendingDown className="h-6 w-6 text-red-400" /> :
-                   <Minus className="h-6 w-6 text-gray-500" />}
+                  {isBuy ? <TrendingUp className="h-4 w-4 text-green-400" /> :
+                   isSell ? <TrendingDown className="h-4 w-4 text-red-400" /> :
+                   <Minus className="h-4 w-4 text-gray-500" />}
                 </div>
               );
             })}
