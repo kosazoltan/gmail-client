@@ -13,7 +13,7 @@ export function useMarketAnalysis() {
       const resp = await api.market.briefing();
       return resp.data;
     },
-    staleTime: 25 * 60 * 1000, // 25 perc
+    staleTime: 30 * 60 * 1000, // 30 perc – megegyezik refetchInterval-lel (BUG6 FIX)
     refetchInterval: 30 * 60 * 1000, // 30 perc
     retry: 1,
   });

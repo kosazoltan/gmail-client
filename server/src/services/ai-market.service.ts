@@ -86,15 +86,16 @@ async function fetchRSSNews(): Promise<RSSNewsItem[]> {
   await Promise.allSettled(feeds.map(async (feed) => {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
+      // BUG1 FIX: timeout covers the FULL fetch + body read (8s total), not just connection
+      const timeout = setTimeout(() => controller.abort(), 8000);
       const resp = await fetch(feed.url, {
         signal: controller.signal,
         headers: { 'User-Agent': 'ZMail-MarketAnalysis/1.0' },
       });
-      clearTimeout(timeout);
 
-      if (!resp.ok) return;
-      const xml = await resp.text();
+      if (!resp.ok) { clearTimeout(timeout); return; }
+      const xml = await resp.text(); // controller still active during body read
+      clearTimeout(timeout);         // cancel only after body is fully read
 
       // Simple RSS XML parsing (no dependency needed)
       const itemRegex = /<item>([\s\S]*?)<\/item>/gi;
@@ -102,9 +103,10 @@ async function fetchRSSNews(): Promise<RSSNewsItem[]> {
       let count = 0;
       while ((match = itemRegex.exec(xml)) !== null && count < 5) {
         const itemXml = match[1];
-        const title = itemXml.match(/<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/)?.[1] ?? '';
-        const link = itemXml.match(/<link>(.*?)<\/link>/)?.[1] ?? '';
-        const pubDate = itemXml.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] ?? '';
+        // BUG2 FIX: ([\s\S]*?) instead of (.*?) to handle newlines in CDATA
+        const title = itemXml.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/)?.[1] ?? '';
+        const link = itemXml.match(/<link>([\s\S]*?)<\/link>/)?.[1] ?? '';
+        const pubDate = itemXml.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1] ?? '';
         const sourceMatch = itemXml.match(/<source[^>]*>(.*?)<\/source>/);
 
         if (title && title.length > 10) {
@@ -259,20 +261,39 @@ KOVETELMENYEK:
 
     const text = response.content[0].type === 'text' ? response.content[0].text : '';
 
-    // Extract JSON from response (handle potential markdown wrapping)
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    // BUG4 FIX: strip markdown code blocks before JSON extraction
+    const stripped = text
+      .replace(/```(?:json)?\s*/gi, '')
+      .replace(/```\s*/gi, '');
+
+    const jsonMatch = stripped.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       logger.error('AI valasz nem tartalmaz JSON-t:', text.substring(0, 200));
       return null;
     }
 
-    const result = JSON.parse(jsonMatch[0]) as AIAnalysisResult;
+    let result: AIAnalysisResult;
+    try {
+      result = JSON.parse(jsonMatch[0]) as AIAnalysisResult;
+    } catch (parseErr) {
+      logger.error('JSON parse hiba az AI valaszban:', parseErr instanceof Error ? parseErr.message : parseErr);
+      logger.error('AI valasz (elso 500 karakter):', text.substring(0, 500));
+      return null;
+    }
 
     // Validate basic structure
     if (!result.analyses || !result.newsItems || !result.positioning || !result.weightedConclusion || !result.overallSentiment) {
       logger.error('AI valasz hianyos strukturu');
       return null;
     }
+
+    // BUG5 FIX: clamp confidence and score values to valid ranges
+    result.analyses.forEach(a => {
+      a.confidence = Math.max(40, Math.min(95, Math.round(a.confidence)));
+    });
+    Object.values(result.weightedConclusion).forEach(wc => {
+      wc.score = Math.max(0, Math.min(100, Math.round(wc.score)));
+    });
 
     logger.info(`AI elemzes: ${result.analyses.length} elemzes, ${result.newsItems.length} hir, ${result.positioning.length} pozicio`);
     return result;

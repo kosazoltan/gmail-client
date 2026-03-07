@@ -88,7 +88,8 @@ function RateCard({ rate }: { rate: MarketRateInfo }) {
 
 function translateUrl(url: string, lang: string): string {
   if (lang === 'hu') return url;
-  return `https://translate.google.com/translate?sl=${lang}&tl=hu&u=${encodeURIComponent(url)}`;
+  // BUG7 FIX: sl=auto is more robust than sl=${lang} (Google auto-detect is reliable)
+  return `https://translate.google.com/translate?sl=auto&tl=hu&u=${encodeURIComponent(url)}`;
 }
 
 function NewsCard({ item }: { item: MarketNewsItem }) {

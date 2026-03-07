@@ -7,6 +7,7 @@ const router = Router();
 // --- Cache ---
 let cachedBriefing: MarketBriefingData | null = null;
 let cachedAt = 0;
+let isGenerating = false; // BUG3 FIX: prevent duplicate AI calls on concurrent requests
 const CACHE_TTL_MS = 25 * 60 * 1000; // 25 perc
 
 // --- Típusok ---
@@ -582,6 +583,15 @@ router.get('/briefing', async (req, res) => {
     });
   }
 
+  // BUG3 FIX: if another request is already generating, return stale cache or 503
+  if (isGenerating) {
+    if (cachedBriefing) {
+      return res.json({ success: true, data: { ...cachedBriefing, cached: true } });
+    }
+    return res.status(503).json({ success: false, error: 'Elemzés folyamatban, kérlek próbáld újra 30 másodperc múlva.' });
+  }
+
+  isGenerating = true;
   try {
     const rates = await fetchLiveRates();
 
@@ -632,6 +642,8 @@ router.get('/briefing', async (req, res) => {
       success: false,
       error: 'Piaci elemzés generálása sikertelen',
     });
+  } finally {
+    isGenerating = false; // BUG3 FIX: always release the lock
   }
 });
 
