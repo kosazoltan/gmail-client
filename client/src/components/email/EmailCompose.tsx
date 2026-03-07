@@ -278,7 +278,12 @@ export function EmailCompose() {
       }
       sendSnapshotRef.current = null; // Clear snapshot after successful send
       toast.success('Email elküldve!');
-      navigate(-1);
+      // navigate(-1) helyett biztonságos visszanavigálás (mobilon nincs mindig history)
+      if (window.history.length > 1) {
+        navigate(-1);
+      } else {
+        navigate('/', { replace: true });
+      }
     } catch (error) {
       console.error('Küldési hiba:', error);
       toast.error('Nem sikerült elküldeni az emailt. Kérlek próbáld újra.');

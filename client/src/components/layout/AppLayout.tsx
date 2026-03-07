@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { KeyboardShortcutsHelp } from '../common/KeyboardShortcutsHelp';
@@ -10,6 +10,7 @@ export function AppLayout() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const location = useLocation();
 
   // Reszponzív sidebar kezelés
   useEffect(() => {
@@ -26,6 +27,13 @@ export function AppLayout() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Mobilon navigáláskor automatikusan bezárja a sidebárt
+  useEffect(() => {
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  }, [location.pathname, isMobile]);
 
   // Mobilon kattintás a háttérre bezárja a sidebárt
   const handleOverlayClick = () => {
