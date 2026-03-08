@@ -6,19 +6,27 @@ const mockEvents = [
     id: 'event-1',
     summary: 'Heti standup',
     description: 'Csapat meeting',
-    start: { dateTime: new Date().toISOString() },
-    end: { dateTime: new Date(Date.now() + 3600000).toISOString() },
+    start: new Date().toISOString(),
+    end: new Date(Date.now() + 3600000).toISOString(),
+    isAllDay: false,
     location: 'Teams',
     htmlLink: 'https://calendar.google.com/event/1',
+    colorId: null,
+    status: null,
+    hangoutLink: null,
   },
   {
     id: 'event-2',
     summary: 'Ebéd Péterrel',
     description: '',
-    start: { dateTime: new Date(Date.now() + 7200000).toISOString() },
-    end: { dateTime: new Date(Date.now() + 10800000).toISOString() },
+    start: new Date(Date.now() + 7200000).toISOString(),
+    end: new Date(Date.now() + 10800000).toISOString(),
+    isAllDay: false,
     location: 'Étterem',
     htmlLink: 'https://calendar.google.com/event/2',
+    colorId: null,
+    status: null,
+    hangoutLink: null,
   },
 ];
 
@@ -28,20 +36,19 @@ test.describe('Calendar — View & Event Management', () => {
     await page.route('**/api/emails**', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ emails: [], total: 0 }) })
     );
-    // Mock calendar events
+    // Mock calendar events — all calendar endpoints
+    const calendarBody = JSON.stringify({ events: mockEvents });
     await page.route('**/api/calendar/events**', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ events: mockEvents }),
-      })
+      route.fulfill({ status: 200, contentType: 'application/json', body: calendarBody })
     );
     await page.route('**/api/calendar/today', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ events: mockEvents }),
-      })
+      route.fulfill({ status: 200, contentType: 'application/json', body: calendarBody })
+    );
+    await page.route('**/api/calendar/week', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: calendarBody })
+    );
+    await page.route('**/api/calendar/*', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: calendarBody })
     );
   });
 

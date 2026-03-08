@@ -1,0 +1,109 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - complementary [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - img "ZMail logo" [ref=e8]
+          - generic [ref=e13]: ZMail
+        - button "Oldalsáv összecsukása" [ref=e14]:
+          - img [ref=e15]
+      - button "Új levél írása" [ref=e18]:
+        - img [ref=e19]
+        - generic [ref=e22]: Új levél
+      - navigation "Fő navigáció" [ref=e23]:
+        - link "Home" [ref=e24] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e26]
+          - generic [ref=e32]: Home
+        - link "Inbox" [ref=e33] [cursor=pointer]:
+          - /url: /
+          - img [ref=e35]
+          - generic [ref=e39]: Inbox
+        - link "Compose" [ref=e40] [cursor=pointer]:
+          - /url: /compose
+          - img [ref=e42]
+          - generic [ref=e46]: Compose
+        - button "Nézetek" [ref=e48]:
+          - img [ref=e49]
+          - generic [ref=e52]: Nézetek
+          - img [ref=e53]
+        - button "AI Nézetek" [ref=e56]:
+          - img [ref=e57]
+          - generic [ref=e60]: AI Nézetek
+          - img [ref=e61]
+        - link "AI Asszisztens" [ref=e63] [cursor=pointer]:
+          - /url: /ai-assistant
+          - img [ref=e65]
+          - generic [ref=e69]: AI Asszisztens
+        - link "Smart Folders" [ref=e70] [cursor=pointer]:
+          - /url: /smart-folders
+          - img [ref=e72]
+          - generic [ref=e77]: Smart Folders
+        - link "Tasks" [ref=e78] [cursor=pointer]:
+          - /url: /tasks
+          - img [ref=e80]
+          - generic [ref=e84]: Tasks
+        - link "Naptár" [ref=e85] [cursor=pointer]:
+          - /url: /calendar
+          - img [ref=e87]
+          - generic [ref=e90]: Naptár
+        - link "Market" [ref=e91] [cursor=pointer]:
+          - /url: /market
+          - img [ref=e93]
+          - generic [ref=e96]: Market
+      - generic [ref=e98]:
+        - link "Beállítások" [ref=e99] [cursor=pointer]:
+          - /url: /settings
+          - img [ref=e101]
+          - generic [ref=e105]: Beállítások
+        - link "Adatbázis" [ref=e106] [cursor=pointer]:
+          - /url: /database
+          - img [ref=e108]
+          - generic [ref=e113]: Adatbázis
+        - button "Billentyűparancsok megjelenítése" [ref=e114]:
+          - img [ref=e115]
+          - generic [ref=e117]: Billentyűparancsok
+    - generic [ref=e118]:
+      - banner [ref=e119]:
+        - generic [ref=e122]:
+          - img [ref=e123]
+          - textbox "Keresés a levelekben" [ref=e126]:
+            - /placeholder: Keresés...
+        - generic [ref=e128]:
+          - button "Világos mód" [ref=e129]:
+            - img [ref=e130]
+          - button "Rendszer beállítás" [ref=e136]:
+            - img [ref=e137]
+          - button "Sötét mód" [ref=e139]:
+            - img [ref=e140]
+        - button "Levelek szinkronizálása" [ref=e142]:
+          - img [ref=e143]
+        - generic [ref=e148]:
+          - button "TU" [ref=e149]
+          - button "Fiók hozzáadása" [ref=e150]:
+            - img [ref=e151]
+      - main [ref=e152]:
+        - generic [ref=e153]:
+          - generic [ref=e155]:
+            - generic [ref=e156]:
+              - button "Kijelölési mód" [ref=e157]:
+                - img [ref=e158]
+              - heading "Beérkezett levelek" [level=2] [ref=e161]
+            - generic [ref=e163]:
+              - img [ref=e164]
+              - paragraph [ref=e169]: Nincs beérkezett levél. Szinkronizálj a frissítéshez!
+          - img [ref=e172]
+          - generic [ref=e180]:
+            - img [ref=e181]
+            - paragraph [ref=e184]: Válassz ki egy levelet
+            - paragraph [ref=e185]: a megtekintéshez
+  - region "Értesítések" [ref=e186]:
+    - alert [ref=e187]:
+      - img [ref=e188]
+      - paragraph [ref=e191]: Levelek sikeresen szinkronizálva
+      - button "Bezárás" [ref=e192]:
+        - img [ref=e193]
+```

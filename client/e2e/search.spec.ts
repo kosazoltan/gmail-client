@@ -52,8 +52,10 @@ test.describe('Search — Functionality & Suggestions', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          results: mockEmails,
+          emails: mockEmails,
           total: mockEmails.length,
+          page: 1,
+          totalPages: 1,
         }),
       })
     );

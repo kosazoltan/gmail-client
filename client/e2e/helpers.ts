@@ -82,15 +82,44 @@ export async function setupAuthenticatedMocks(page: Page) {
       body: JSON.stringify({ accounts: mockSession.accounts }),
     })
   );
+
+  // --- New endpoints (UX overhaul) ---
+  await page.route('**/api/views/inbox**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ emails: [], total: 0, page: 1, totalPages: 0 }) })
+  );
+  await page.route('**/api/views/trash**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ emails: [], total: 0, page: 1, totalPages: 0 }) })
+  );
+  await page.route('**/api/views/by-category**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ categories: [] }) })
+  );
+  await page.route('**/api/brief/latest**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ brief: null }) })
+  );
+  await page.route('**/api/market/news**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ articles: [] }) })
+  );
+  await page.route('**/api/market/crypto**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ prices: {} }) })
+  );
+  await page.route('**/api/market/briefing**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ briefing: null }) })
+  );
+  await page.route('**/api/market/trend**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ trend: null }) })
+  );
+  await page.route('**/api/sse/events**', (route) =>
+    route.abort('connectionrefused')
+  );
 }
 
-/** Setup email list mock */
+/** Setup email list mock — covers both legacy /api/emails and new /api/views/inbox */
 export async function setupEmailMocks(page: Page, emails = mockEmails) {
+  const body = JSON.stringify({ emails, total: emails.length, page: 1, totalPages: 1 });
   await page.route('**/api/emails**', (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ emails, total: emails.length }),
-    })
+    route.fulfill({ status: 200, contentType: 'application/json', body })
+  );
+  await page.route('**/api/views/inbox**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body })
   );
 }

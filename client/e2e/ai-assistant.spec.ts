@@ -37,13 +37,13 @@ test.describe('AI Assistant — Chat Interface', () => {
   });
 
   test('sending a message and receiving AI response (mocked)', async ({ page }) => {
-    // Mock the AI chat send endpoint
+    // Mock the AI chat send endpoint — returns { reply, conversationId }
     await page.route('**/api/ai/chat', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          message: { id: 'msg-1', role: 'assistant', content: 'Összefoglalva: 3 fontos email érkezett ma.' },
+          reply: 'Összefoglalva: 3 fontos email érkezett ma.',
           conversationId: 'conv-1',
         }),
       })

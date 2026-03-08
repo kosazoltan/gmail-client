@@ -24,17 +24,18 @@ test.describe('Settings — Page & Account Info', () => {
     // Settings header should be visible
     await expect(page.getByText(/beállítások/i).first()).toBeVisible({ timeout: 10_000 });
 
-    // Should show settings sections
-    await expect(page.getByText(/swipe műveletek/i)).toBeVisible();
-    await expect(page.getByText(/email küldés/i)).toBeVisible();
+    // Section labels are <span> elements inside section headers
+    // Use locator('span') to avoid matching tips/descriptions
+    await expect(page.locator('span').filter({ hasText: 'Swipe műveletek' })).toBeVisible();
+    await expect(page.locator('span').filter({ hasText: 'Email küldés' })).toBeVisible();
   });
 
   test('settings page shows all setting sections', async ({ page }) => {
     await page.goto('/settings');
 
-    // All sections from SettingsView should be present
-    await expect(page.getByText(/swipe műveletek/i)).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText(/email küldés/i)).toBeVisible();
-    await expect(page.getByText(/értesítések/i)).toBeVisible();
+    // All section labels from SettingsView should be present
+    await expect(page.locator('span').filter({ hasText: 'Swipe műveletek' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('span').filter({ hasText: 'Email küldés' })).toBeVisible();
+    await expect(page.locator('span').filter({ hasText: 'Értesítések' })).toBeVisible();
   });
 });

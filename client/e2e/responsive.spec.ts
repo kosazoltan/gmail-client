@@ -17,10 +17,10 @@ test.describe('Responsive — Mobile & Desktop Layouts', () => {
     const menuButton = page.locator('button').filter({ has: page.locator('svg.lucide-menu') });
     await expect(menuButton.first()).toBeVisible({ timeout: 10_000 });
 
-    // Sidebar links should NOT be visible by default on mobile
-    // The sidebar is translated off-screen with -translate-x-full
-    const sidebarNav = page.getByRole('link', { name: /dashboard/i });
-    await expect(sidebarNav).not.toBeVisible();
+    // Sidebar links are in the DOM but translated off-screen with -translate-x-full
+    // Use toBeInViewport() to verify they're not within the visible area
+    const sidebarNav = page.getByRole('link', { name: /^home$/i });
+    await expect(sidebarNav).not.toBeInViewport();
   });
 
   test('mobile viewport: hamburger opens sidebar overlay', async ({ page }) => {
@@ -33,7 +33,7 @@ test.describe('Responsive — Mobile & Desktop Layouts', () => {
     await menuButton.first().click();
 
     // Sidebar should now be visible with overlay
-    await expect(page.getByRole('link', { name: /beérkezett/i })).toBeVisible({ timeout: 3_000 });
+    await expect(page.getByRole('link', { name: /^inbox$/i })).toBeVisible({ timeout: 3_000 });
 
     // Overlay backdrop should be present
     const overlay = page.locator('div.fixed.inset-0');
@@ -45,8 +45,8 @@ test.describe('Responsive — Mobile & Desktop Layouts', () => {
     await page.goto('/');
 
     // On desktop, sidebar should be visible with navigation links
-    await expect(page.getByRole('link', { name: /beérkezett/i })).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByRole('link', { name: /dashboard/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /^inbox$/i })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('link', { name: /^home$/i })).toBeVisible();
     await expect(page.getByRole('link', { name: /naptár/i })).toBeVisible();
   });
 
@@ -55,7 +55,7 @@ test.describe('Responsive — Mobile & Desktop Layouts', () => {
     await page.goto('/');
 
     // Sidebar should be open
-    await expect(page.getByRole('link', { name: /beérkezett/i })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('link', { name: /^inbox$/i })).toBeVisible({ timeout: 10_000 });
 
     // Find the collapse button (ChevronLeft icon in sidebar) — MUST exist
     const collapseButton = page.locator('button').filter({ has: page.locator('svg.lucide-chevron-left') });

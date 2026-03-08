@@ -69,13 +69,47 @@ test.describe('Auth — OAuth Login Flow', () => {
         body: JSON.stringify({ emails: [], total: 0 }),
       })
     );
-    // Mock other APIs that InboxView might call
+    // Mock other APIs that InboxView / Sidebar might call
     await page.route('**/api/vip**', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ senders: [] }) })
     );
     await page.route('**/api/pinned**', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ pinnedEmails: [] }) })
     );
+    await page.route('**/api/labels**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ labels: [] }) })
+    );
+    await page.route('**/api/searches**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ searches: [] }) })
+    );
+    await page.route('**/api/reminders/count**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0 }) })
+    );
+    await page.route('**/api/dashboard**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) })
+    );
+    await page.route('**/api/smart-folders**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ folders: [] }) })
+    );
+    await page.route('**/api/detected-tasks/stats**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ open: 0, snoozed: 0 }) })
+    );
+    await page.route('**/api/categories**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ categories: [] }) })
+    );
+    await page.route('**/api/accounts**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ accounts: mockSession.accounts }) })
+    );
+    await page.route('**/api/views/by-category**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ categories: [] }) })
+    );
+    await page.route('**/api/brief/latest**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ brief: null }) })
+    );
+    await page.route('**/api/market/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) })
+    );
+    await page.route('**/api/sse/events**', (route) => route.abort('connectionrefused'));
 
     await page.goto('/');
     // Should NOT show login button
@@ -95,6 +129,40 @@ test.describe('Auth — OAuth Login Flow', () => {
     await page.route('**/api/pinned**', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ pinnedEmails: [] }) })
     );
+    await page.route('**/api/labels**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ labels: [] }) })
+    );
+    await page.route('**/api/searches**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ searches: [] }) })
+    );
+    await page.route('**/api/reminders/count**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0 }) })
+    );
+    await page.route('**/api/dashboard**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) })
+    );
+    await page.route('**/api/smart-folders**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ folders: [] }) })
+    );
+    await page.route('**/api/detected-tasks/stats**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ open: 0, snoozed: 0 }) })
+    );
+    await page.route('**/api/categories**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ categories: [] }) })
+    );
+    await page.route('**/api/accounts**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ accounts: mockSession.accounts }) })
+    );
+    await page.route('**/api/views/by-category**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ categories: [] }) })
+    );
+    await page.route('**/api/brief/latest**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ brief: null }) })
+    );
+    await page.route('**/api/market/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) })
+    );
+    await page.route('**/api/sse/events**', (route) => route.abort('connectionrefused'));
 
     await page.goto('/');
     await expect(page.getByRole('button', { name: /bejelentkezés google fiókkal/i })).not.toBeVisible();

@@ -8,25 +8,26 @@ test.describe('Email List — Loading & Interactions', () => {
 
   test('email list loads with content (skeleton → content transition)', async ({ page }) => {
     // Delay email response to observe loading state
+    const delayedBody = JSON.stringify({ emails: mockEmails, total: mockEmails.length, page: 1, totalPages: 1 });
     await page.route('**/api/emails**', async (route) => {
       await new Promise((r) => setTimeout(r, 500));
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ emails: mockEmails, total: mockEmails.length }),
-      });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: delayedBody });
+    });
+    await page.route('**/api/views/inbox**', async (route) => {
+      await new Promise((r) => setTimeout(r, 500));
+      await route.fulfill({ status: 200, contentType: 'application/json', body: delayedBody });
     });
 
     await page.goto('/');
     // Eventually the email subject should appear
     await expect(page.getByText('Teszt email tárgy')).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText('Második email')).toBeVisible();
+    await expect(page.getByText('Második email', { exact: true })).toBeVisible();
   });
 
   test('clicking an email opens detail view', async ({ page }) => {
     await setupEmailMocks(page);
     // Mock email detail
-    await page.route('**/api/emails/email-1', (route) =>
+    await page.route('**/api/emails/email-1**', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
