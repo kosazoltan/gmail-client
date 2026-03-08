@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import logger from '../utils/logger.js';
-import { generateAIAnalysis } from '../services/ai-market.service.js';
+import { generateAIAnalysis, generateDeepAnalysis } from '../services/ai-market.service.js';
+import type { DeepAnalysisResult, TrendDataPoint } from '../services/ai-market.service.js';
 
 const router = Router();
 
@@ -8,7 +9,18 @@ const router = Router();
 let cachedBriefing: MarketBriefingData | null = null;
 let cachedAt = 0;
 let isGenerating = false; // BUG3 FIX: prevent duplicate AI calls on concurrent requests
-const CACHE_TTL_MS = 25 * 60 * 1000; // 25 perc
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 perc (árfolyam cache)
+
+// Deep analysis cache (15 perc — drága AI hívás)
+let cachedDeepAnalysis: DeepAnalysisResult | null = null;
+let deepAnalysisCachedAt = 0;
+let isDeepAnalysisGenerating = false;
+const DEEP_ANALYSIS_CACHE_TTL_MS = 15 * 60 * 1000;
+
+// Trend cache (1 óra — lassan változik)
+let cachedTrend: { data: TrendDataPoint[]; days: number } | null = null;
+let trendCachedAt = 0;
+const TREND_CACHE_TTL_MS = 60 * 60 * 1000;
 
 // --- Historical rate cache for real 24h change calculation ---
 const historicalEurRatesCache = new Map<string, Record<string, number>>();
@@ -700,6 +712,171 @@ router.get('/briefing', async (req, res) => {
     });
   } finally {
     isGenerating = false; // BUG3 FIX: always release the lock
+  }
+});
+
+// --- 7 napos trend lekérés ---
+async function fetchTrendData(days: number = 7): Promise<TrendDataPoint[]> {
+  const now = Date.now();
+  if (cachedTrend && cachedTrend.days === days && (now - trendCachedAt) < TREND_CACHE_TTL_MS) {
+    return cachedTrend.data;
+  }
+
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+
+  const startStr = startDate.toISOString().split('T')[0];
+  const endStr = endDate.toISOString().split('T')[0];
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const resp = await fetch(
+      `https://api.frankfurter.dev/v1/${startStr}..${endStr}?base=EUR&symbols=USD,HUF,GBP,CHF`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeout);
+
+    if (!resp.ok) {
+      logger.warn(`Frankfurter trend API hiba: ${resp.status}`);
+      return [];
+    }
+
+    const data = await resp.json() as {
+      rates: Record<string, Record<string, number>>;
+    };
+
+    const result: TrendDataPoint[] = Object.entries(data.rates)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, rates]) => {
+        // Calculate cross rates for HUF pairs
+        const eurUsd = rates['USD'] ?? 1;
+        const eurHuf = rates['HUF'] ?? 395;
+        const eurGbp = rates['GBP'] ?? 0.86;
+        const eurChf = rates['CHF'] ?? 0.95;
+
+        return {
+          date,
+          rates: {
+            EUR_HUF: eurHuf,
+            USD_HUF: Math.round((eurHuf / eurUsd) * 100) / 100,
+            GBP_HUF: Math.round((eurHuf / eurGbp) * 100) / 100,
+            CHF_HUF: Math.round((eurHuf / eurChf) * 100) / 100,
+            EUR_USD: eurUsd,
+          },
+        };
+      });
+
+    // Update cache
+    cachedTrend = { data: result, days };
+    trendCachedAt = now;
+
+    logger.info(`Trend adatok betöltve: ${result.length} nap (${startStr}..${endStr})`);
+    return result;
+  } catch (err) {
+    logger.warn('Trend API hiba:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
+
+// --- Trend endpoint ---
+router.get('/trend', async (req, res) => {
+  const accountId = req.session?.activeAccountId;
+  if (!accountId) {
+    return res.status(401).json({ error: 'Nincs aktív fiók' });
+  }
+
+  const days = Math.min(30, Math.max(1, parseInt(req.query.days as string) || 7));
+
+  try {
+    const trendData = await fetchTrendData(days);
+    return res.json({ success: true, data: trendData });
+  } catch (error) {
+    logger.error('Trend lekérés hiba:', error);
+    return res.status(500).json({ success: false, error: 'Trend adatok lekérése sikertelen' });
+  }
+});
+
+// --- Deep Analysis endpoint ---
+router.post('/deep-analysis', async (req, res) => {
+  const accountId = req.session?.activeAccountId;
+  if (!accountId) {
+    return res.status(401).json({ error: 'Nincs aktív fiók' });
+  }
+
+  const now = Date.now();
+
+  // Return cached if fresh
+  if (cachedDeepAnalysis && (now - deepAnalysisCachedAt) < DEEP_ANALYSIS_CACHE_TTL_MS) {
+    return res.json({
+      success: true,
+      data: { ...cachedDeepAnalysis, cached: true },
+    });
+  }
+
+  // Prevent concurrent generation
+  if (isDeepAnalysisGenerating) {
+    if (cachedDeepAnalysis) {
+      return res.json({
+        success: true,
+        data: { ...cachedDeepAnalysis, cached: true },
+      });
+    }
+    return res.status(503).json({
+      success: false,
+      error: 'Mély elemzés folyamatban, kérlek próbáld újra 30 másodperc múlva.',
+    });
+  }
+
+  isDeepAnalysisGenerating = true;
+  try {
+    // Fetch live rates + 7 day trend in parallel
+    const [rates, trendData] = await Promise.all([
+      fetchLiveRates(),
+      fetchTrendData(7),
+    ]);
+
+    const result = await generateDeepAnalysis(rates, trendData);
+
+    if (!result) {
+      return res.json({
+        success: true,
+        data: {
+          summary: 'AI elemzés nem elérhető. Kérjük ellenőrizze az API kulcsot.',
+          currencies: {},
+          gold: { trend: 'N/A', forecast: 'Nem elérhető', recommendation: 'Nem elérhető' },
+          overallRecommendation: 'AI elemzés nem elérhető',
+          risks: ['AI elemzés nem konfigurált vagy átmenetileg nem elérhető'],
+          generatedAt: new Date().toISOString(),
+          cached: false,
+          trendData,
+          rates,
+        },
+      });
+    }
+
+    // Cache the result
+    cachedDeepAnalysis = result;
+    deepAnalysisCachedAt = now;
+
+    return res.json({
+      success: true,
+      data: {
+        ...result,
+        cached: false,
+        trendData,
+        rates,
+      },
+    });
+  } catch (error) {
+    logger.error('Deep analysis hiba:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Mély elemzés generálása sikertelen',
+    });
+  } finally {
+    isDeepAnalysisGenerating = false;
   }
 });
 

@@ -36,11 +36,12 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { toast } from '../../lib/toast';
+import { DailyBriefView } from '../ai/DailyBriefView';
 import type { GoogleTask, DetectedTask } from '../../types';
 
 type TaskFilter = 'all' | 'open' | 'completed';
 type DetectedTaskPriorityFilter = 'all' | 'high' | 'medium' | 'low';
-type TabType = 'detected' | 'google';
+type TabType = 'detected' | 'google' | 'brief';
 
 export function TasksView() {
   const [activeTab, setActiveTab] = useState<TabType>('detected');
@@ -83,9 +84,23 @@ export function TasksView() {
             Google Tasks
           </span>
         </button>
+        <button
+          onClick={() => setActiveTab('brief')}
+          className={cn(
+            'flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors',
+            activeTab === 'brief'
+              ? 'bg-white text-[#4f6ef7] shadow-sm dark:bg-dark-bg-secondary dark:text-[#6d8cff]'
+              : 'dark:text-dark-text-secondary text-gray-600 hover:text-gray-900',
+          )}
+        >
+          <span className="flex items-center justify-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Napi Áttekintés
+          </span>
+        </button>
       </div>
 
-      {activeTab === 'detected' ? <DetectedTasksTab /> : <GoogleTasksTab />}
+      {activeTab === 'detected' ? <DetectedTasksTab /> : activeTab === 'google' ? <GoogleTasksTab /> : <DailyBriefView />}
     </div>
   );
 }

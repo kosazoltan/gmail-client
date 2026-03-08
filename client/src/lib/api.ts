@@ -215,11 +215,31 @@ export const api = {
 
   categories: {
     list: () => request<{ categories: import('../types').Category[] }>('/categories'),
-    create: (data: { name: string; color?: string; icon?: string }) =>
-      request('/categories', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: { name?: string; color?: string; icon?: string }) =>
+    create: (data: { name: string; color?: string; icon?: string; description?: string; sort_order?: number }) =>
+      request<import('../types').Category>('/categories', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: { name?: string; color?: string; icon?: string; description?: string; sort_order?: number }) =>
       request(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: string) => request(`/categories/${id}`, { method: 'DELETE' }),
+    addEmail: (categoryId: string, emailId: string) =>
+      request<{ success: boolean }>(`/categories/${categoryId}/add-email`, {
+        method: 'POST',
+        body: JSON.stringify({ emailId }),
+      }),
+    removeEmail: (categoryId: string, emailId: string) =>
+      request<{ success: boolean }>(`/categories/${categoryId}/remove-email`, {
+        method: 'POST',
+        body: JSON.stringify({ emailId }),
+      }),
+    getEmails: (categoryId: string, page = 1) =>
+      request<{
+        emails: import('../types').Email[];
+        total: number;
+        page: number;
+        totalPages: number;
+        category: import('../types').Category;
+      }>(`/categories/${categoryId}/emails?page=${page}`),
+    getCategoriesForEmail: (emailId: string) =>
+      request<{ categories: import('../types').Category[] }>(`/categories/for-email/${emailId}`),
     getRules: () =>
       request<{ rules: import('../types').CategorizationRule[] }>('/categories/rules'),
     createRule: (data: { categoryId: string; type: string; value: string; priority?: number }) =>
@@ -666,12 +686,14 @@ export const api = {
     get: () => request<import('../types').DashboardData>('/dashboard'),
   },
 
-  team: {
-    dashboard: () => request<import('../types').TeamDashboardData>('/team/dashboard'),
-  },
-
   market: {
     briefing: (refresh?: boolean) => request<import('../types').MarketBriefingResponse>(`/market/briefing${refresh ? '?refresh=true' : ''}`),
+    deepAnalysis: () => request<import('../types').DeepAnalysisResponse>('/market/deep-analysis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 60000, // 60 sec - AI hívás lassabb
+    }),
+    trend: (days: number = 7) => request<import('../types').TrendResponse>(`/market/trend?days=${days}`),
   },
 
   intelligence: {

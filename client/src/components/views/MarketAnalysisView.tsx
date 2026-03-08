@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMarketAnalysis } from '../../hooks/useMarketAnalysis';
+import { useMarketAnalysis, useDeepAnalysis, useTrendData } from '../../hooks/useMarketAnalysis';
 import {
   RefreshCw,
   TrendingUp,
@@ -13,6 +13,10 @@ import {
   ShieldAlert,
   ExternalLink,
   ArrowRightLeft,
+  Zap,
+  Target,
+  Shield,
+  Star,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type {
@@ -21,6 +25,7 @@ import type {
   MarketPositioningItem,
   MarketNewsItem,
   MarketWeightedConclusion,
+  DeepAnalysisCurrencyDetail,
 } from '../../types';
 
 const RECOMMENDATION_PAIRS = [
@@ -31,6 +36,13 @@ const RECOMMENDATION_PAIRS = [
   { pair: 'XAUUSD', buyLabel: 'Arany vétel (USD-ben)', sellLabel: 'Arany eladás (USD-ben)' },
   { pair: 'XAUEUR', buyLabel: 'Arany vétel (EUR-ban)', sellLabel: 'Arany eladás (EUR-ban)' },
 ];
+
+const DEEP_CURRENCY_LABELS: Record<string, string> = {
+  EUR_HUF: 'EUR/HUF',
+  USD_HUF: 'USD/HUF',
+  GBP_HUF: 'GBP/HUF',
+  CHF_HUF: 'CHF/HUF',
+};
 
 function DirectionIcon({ direction, className }: { direction: string; className?: string }) {
   if (direction === 'bullish') return <TrendingUp className={cn('h-5 w-5 text-green-400', className)} />;
@@ -68,8 +80,42 @@ function ImpactBadge({ impact }: { impact: string }) {
   );
 }
 
+function TrendArrow({ changePercent }: { changePercent: number }) {
+  if (changePercent > 0.05) return <span className="text-green-400 font-bold">▲ +{changePercent.toFixed(2)}%</span>;
+  if (changePercent < -0.05) return <span className="text-red-400 font-bold">▼ {changePercent.toFixed(2)}%</span>;
+  return <span className="text-gray-400 font-bold">→ {changePercent.toFixed(2)}%</span>;
+}
+
+function ConfidenceBar({ value, max = 10 }: { value: number; max?: number }) {
+  const pct = Math.round((value / max) * 100);
+  const color = pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-yellow-500' : 'bg-red-500';
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-700">
+        <div className={cn('h-full transition-all', color)} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="text-xs text-gray-400 tabular-nums">{value}/{max}</span>
+    </div>
+  );
+}
+
+function RecommendationBadge({ rec }: { rec: 'buy' | 'sell' | 'hold' | string }) {
+  const label = rec === 'buy' ? 'VÉTEL' : rec === 'sell' ? 'ELADÁS' : 'TARTÁS';
+  const color = rec === 'buy'
+    ? 'bg-green-500/20 text-green-400 border-green-500/40'
+    : rec === 'sell'
+      ? 'bg-red-500/20 text-red-400 border-red-500/40'
+      : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40';
+
+  return (
+    <span className={cn('inline-flex items-center gap-1 rounded-lg border px-3 py-1 text-sm font-bold', color)}>
+      {rec === 'buy' ? <TrendingUp className="h-4 w-4" /> : rec === 'sell' ? <TrendingDown className="h-4 w-4" /> : <Minus className="h-4 w-4" />}
+      {label}
+    </span>
+  );
+}
+
 function RateCard({ rate }: { rate: MarketRateInfo }) {
-  const isPositive = rate.changePercent >= 0;
   const isGold = rate.pair.startsWith('XAU');
   const isHuf = rate.pair.endsWith('HUF');
   const rateStr = (isGold || isHuf) ? rate.rate.toFixed(2) : rate.rate.toFixed(4);
@@ -78,9 +124,8 @@ function RateCard({ rate }: { rate: MarketRateInfo }) {
     <div className="rounded-xl border border-white/10 bg-white/5 p-2.5 transition-colors hover:bg-white/8">
       <div className="mb-0.5 text-[10px] text-gray-400">{rate.label}</div>
       <div className="text-base font-bold text-white tabular-nums">{rateStr}</div>
-      <div className={cn('mt-0.5 flex items-center gap-1 text-xs font-medium', isPositive ? 'text-green-400' : 'text-red-400')}>
-        {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-        <span>{isPositive ? '+' : ''}{rate.changePercent.toFixed(2)}%</span>
+      <div className="mt-0.5 text-xs font-medium">
+        <TrendArrow changePercent={rate.changePercent} />
       </div>
     </div>
   );
@@ -88,7 +133,6 @@ function RateCard({ rate }: { rate: MarketRateInfo }) {
 
 function translateUrl(url: string, lang: string): string {
   if (lang === 'hu') return url;
-  // BUG7 FIX: sl=auto is more robust than sl=${lang} (Google auto-detect is reliable)
   return `https://translate.google.com/translate?sl=auto&tl=hu&u=${encodeURIComponent(url)}`;
 }
 
@@ -265,6 +309,51 @@ function AnalystCard({ item }: { item: MarketAnalysisItem }) {
   );
 }
 
+// --- Deep Analysis Cards ---
+function DeepCurrencyCard({ pair, detail }: { pair: string; detail: DeepAnalysisCurrencyDetail }) {
+  const label = DEEP_CURRENCY_LABELS[pair] ?? pair.replace('_', '/');
+  const trendLabel = detail.trend === 'up' ? 'Emelkedő' : detail.trend === 'down' ? 'Csökkenő' : 'Oldalazó';
+  const trendColor = detail.trend === 'up' ? 'text-green-400' : detail.trend === 'down' ? 'text-red-400' : 'text-yellow-400';
+  const trendIcon = detail.trend === 'up' ? '▲' : detail.trend === 'down' ? '▼' : '→';
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <h4 className="text-sm font-bold text-white">{label}</h4>
+        <span className={cn('text-sm font-bold', trendColor)}>
+          {trendIcon} {trendLabel}
+        </span>
+      </div>
+
+      {/* Support / Resistance */}
+      <div className="mb-2 flex gap-3 text-xs">
+        <div className="flex items-center gap-1">
+          <Target className="h-3 w-3 text-green-400" />
+          <span className="text-gray-400">Támasz:</span>
+          <span className="font-mono text-green-400">{detail.support.toFixed(2)}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <Target className="h-3 w-3 text-red-400" />
+          <span className="text-gray-400">Ellenállás:</span>
+          <span className="font-mono text-red-400">{detail.resistance.toFixed(2)}</span>
+        </div>
+      </div>
+
+      {/* Forecast */}
+      <p className="mb-2 text-xs leading-relaxed text-gray-300">{detail.forecast}</p>
+
+      {/* Recommendation + Confidence */}
+      <div className="flex items-center justify-between gap-2">
+        <RecommendationBadge rec={detail.recommendation} />
+        <div className="flex-1">
+          <div className="mb-0.5 text-[10px] text-gray-500">Konfidencia</div>
+          <ConfidenceBar value={detail.confidence} max={10} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function getTimeAgo(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
   const hours = Math.floor(diff / 3600000);
@@ -281,11 +370,15 @@ function formatRate(pair: string, value: number): string {
 
 export function MarketAnalysisView() {
   const { data, isLoading, error, isFetching, forceRefresh } = useMarketAnalysis();
+  const deepAnalysis = useDeepAnalysis();
+  const trendQuery = useTrendData(7);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const handleRefresh = async () => {
+  const handleDeepAnalysis = async () => {
     setIsRefreshing(true);
     try {
+      deepAnalysis.trigger();
+      // Also refresh basic rates
       await forceRefresh();
     } finally {
       setIsRefreshing(false);
@@ -309,7 +402,7 @@ export function MarketAnalysisView() {
         <div className="text-center">
           <AlertTriangle className="mx-auto mb-3 h-8 w-8 text-red-400" />
           <p className="text-gray-400">Nem sikerült betölteni a piaci elemzést.</p>
-          <button onClick={handleRefresh} className="mt-3 rounded-lg bg-[#4f6ef7] px-4 py-2 text-sm text-white hover:bg-[#3d5ce5]">
+          <button onClick={handleDeepAnalysis} className="mt-3 rounded-lg bg-[#4f6ef7] px-4 py-2 text-sm text-white hover:bg-[#3d5ce5]">
             Újrapróba
           </button>
         </div>
@@ -324,6 +417,9 @@ export function MarketAnalysisView() {
     hour: '2-digit',
     minute: '2-digit',
   });
+
+  const deepData = deepAnalysis.data;
+  const hasCurrencies = deepData && Object.keys(deepData.currencies).length > 0;
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
@@ -340,14 +436,40 @@ export function MarketAnalysisView() {
             </p>
           </div>
           <button
-            onClick={handleRefresh}
-            disabled={isFetching || isRefreshing}
+            onClick={handleDeepAnalysis}
+            disabled={isFetching || isRefreshing || deepAnalysis.isLoading}
             className="inline-flex items-center gap-2 rounded-lg bg-[#4f6ef7] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#3d5ce5] disabled:opacity-50"
           >
-            <RefreshCw className={cn('h-4 w-4', (isFetching || isRefreshing) && 'animate-spin')} />
-            Frissítés
+            {deepAnalysis.isLoading ? (
+              <>
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                Mély elemzés...
+              </>
+            ) : (
+              <>
+                <Zap className="h-4 w-4" />
+                Frissítés + Mély Elemzés
+              </>
+            )}
           </button>
         </div>
+
+        {/* AI Összefoglaló (deep analysis) */}
+        {deepData?.summary && (
+          <section className="rounded-xl border border-[#4f6ef7]/40 bg-[#4f6ef7]/15 p-4">
+            <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-white">
+              <Zap className="h-5 w-5 text-[#4f6ef7]" />
+              AI Összefoglaló
+              {deepData.cached && <span className="text-xs text-yellow-400">(gyorsítótárazott)</span>}
+            </h2>
+            <p className="leading-relaxed text-gray-200">{deepData.summary}</p>
+            {deepData.generatedAt && (
+              <p className="mt-2 text-[10px] text-gray-500">
+                Generálva: {new Date(deepData.generatedAt).toLocaleString('hu-HU')}
+              </p>
+            )}
+          </section>
+        )}
 
         {/* Élő árfolyamok */}
         <section>
@@ -360,7 +482,127 @@ export function MarketAnalysisView() {
           </div>
         </section>
 
-        {/* Javaslatok */}
+        {/* Deep Analysis — Deviza részletes elemzés + Support/Resistance + Ajánlás */}
+        {hasCurrencies && (
+          <section>
+            <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-white">
+              <Target className="h-5 w-5 text-amber-400" />
+              Részletes Deviza Elemzés
+            </h2>
+            <div className="grid gap-3 md:grid-cols-2">
+              {Object.entries(deepData.currencies).map(([pair, detail]) => (
+                <DeepCurrencyCard key={pair} pair={pair} detail={detail} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Deep Analysis — Arany */}
+        {deepData?.gold && deepData.gold.trend !== 'N/A' && (
+          <section className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4">
+            <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-white">
+              <Star className="h-5 w-5 text-yellow-400" />
+              Arany (XAU) Elemzés
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div>
+                <div className="text-[10px] text-gray-400">Trend</div>
+                <div className="text-sm font-bold text-yellow-400">{deepData.gold.trend}</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-gray-400">Előrejelzés</div>
+                <div className="text-xs text-gray-300">{deepData.gold.forecast}</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-gray-400">Ajánlás</div>
+                <div className="text-sm font-bold text-yellow-300">{deepData.gold.recommendation}</div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Deep Analysis — Átfogó Ajánlás */}
+        {deepData?.overallRecommendation && (
+          <section className="rounded-xl border border-[#4f6ef7]/40 bg-gradient-to-r from-[#4f6ef7]/10 to-purple-500/10 p-4">
+            <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-white">
+              <Scale className="h-5 w-5 text-[#4f6ef7]" />
+              Átfogó Ajánlás
+            </h2>
+            <p className="text-sm leading-relaxed text-gray-200">{deepData.overallRecommendation}</p>
+          </section>
+        )}
+
+        {/* Deep Analysis — Kockázatok */}
+        {deepData?.risks && deepData.risks.length > 0 && deepData.risks[0] !== 'AI elemzés nem konfigurált vagy átmenetileg nem elérhető' && (
+          <section className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+            <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-white">
+              <Shield className="h-5 w-5 text-red-400" />
+              Kockázatok
+            </h2>
+            <ul className="space-y-1.5">
+              {deepData.risks.map((risk, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-red-400" />
+                  {risk}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {/* 7 napos trend mini chart (text-based) */}
+        {trendQuery.data && trendQuery.data.length > 1 && (
+          <section>
+            <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-white">
+              <BarChart3 className="h-5 w-5 text-cyan-400" />
+              7 napos trend
+            </h2>
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+              {Object.entries(DEEP_CURRENCY_LABELS).map(([key, label]) => {
+                const values = trendQuery.data.map(d => d.rates[key]).filter(v => v !== undefined);
+                if (values.length < 2) return null;
+                const first = values[0];
+                const last = values[values.length - 1];
+                const changePct = ((last - first) / first) * 100;
+                const min = Math.min(...values);
+                const max = Math.max(...values);
+                return (
+                  <div key={key} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-sm font-medium text-white">{label}</span>
+                      <TrendArrow changePercent={changePct} />
+                    </div>
+                    <div className="mb-1 text-xs text-gray-400">
+                      {first.toFixed(2)} → {last.toFixed(2)}
+                    </div>
+                    {/* Mini sparkline-like bar */}
+                    <div className="flex items-end gap-px h-8">
+                      {values.map((v, i) => {
+                        const range = max - min || 1;
+                        const heightPct = Math.max(10, ((v - min) / range) * 100);
+                        const barColor = v >= first ? 'bg-green-500/60' : 'bg-red-500/60';
+                        return (
+                          <div
+                            key={i}
+                            className={cn('flex-1 rounded-t', barColor)}
+                            style={{ height: `${heightPct}%` }}
+                            title={`${trendQuery.data[i]?.date}: ${v.toFixed(2)}`}
+                          />
+                        );
+                      })}
+                    </div>
+                    <div className="mt-1 flex justify-between text-[9px] text-gray-500">
+                      <span>Min: {min.toFixed(2)}</span>
+                      <span>Max: {max.toFixed(2)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Javaslatok (meglévő briefing alapú) */}
         <section>
           <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-white">
             <ArrowRightLeft className="h-5 w-5 text-[#4f6ef7]" />
@@ -372,7 +614,6 @@ export function MarketAnalysisView() {
               if (!wc) return null;
               const isBuy = wc.direction === 'bullish';
               const isSell = wc.direction === 'bearish';
-              const isNeutral = !isBuy && !isSell;
               return (
                 <div key={pair} className={cn(
                   'flex items-center gap-2 rounded-xl border p-2',
@@ -447,7 +688,7 @@ export function MarketAnalysisView() {
         <section>
           <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-white">
             <Building2 className="h-5 w-5 text-amber-400" />
-            Intézményi elemzők (8)
+            Intézményi elemzők ({data.analyses.length})
           </h2>
           <div className="grid gap-3 md:grid-cols-2">
             {data.analyses.map(item => <AnalystCard key={item.sourceId} item={item} />)}
@@ -471,4 +712,3 @@ export function MarketAnalysisView() {
     </div>
   );
 }
-

@@ -77,6 +77,7 @@ export function WorkflowBuilder() {
       const data = await api.workflows.list();
       setWorkflows(data.workflows || []);
     } catch (err) {
+      console.error('[WorkflowBuilder] loadWorkflows error:', err);
       setError(err instanceof Error ? err.message : 'Hiba a workflow-k betöltésekor');
       setWorkflows([]);
     } finally {

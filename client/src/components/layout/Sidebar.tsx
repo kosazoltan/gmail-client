@@ -37,10 +37,8 @@ import {
   LayoutDashboard,
   Calendar,
   CheckSquare,
-  Bot,
   BarChart3,
   Workflow,
-  Sun,
   Sparkles,
   FolderSearch,
 } from 'lucide-react';
@@ -49,6 +47,8 @@ import { useDashboard } from '../../hooks/useDashboard';
 import { useSmartFolders } from '../../hooks/useSmartFolders';
 import { useDetectedTaskStats } from '../../hooks/useDetectedTasks';
 import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../../lib/api';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -61,16 +61,13 @@ const dashboardItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/calendar', icon: Calendar, label: 'Naptár' },
   { path: '/tasks', icon: CheckSquare, label: 'Feladatok' },
-  { path: '/team', icon: Bot, label: 'AI Csapat' },
   { path: '/market', icon: BarChart3, label: 'Piaci Elemz\u00e9s' },
 ];
 
 // AI szekció — intelligens funkciók
 const aiItems = [
   { path: '/ai-assistant', icon: Sparkles, label: '🤖 AI Asszisztens' },
-  { path: '/ai-analytics', icon: BarChart3, label: '📊 Dashboard' },
   { path: '/ai-workflows', icon: Workflow, label: '⚡ Workflow-k' },
-  { path: '/ai-brief', icon: Sun, label: '📋 Napi Brief' },
 ];
 
 // Email szekció — a megszokott menüpontok
@@ -112,6 +109,17 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
   const smartFolders = smartFoldersData?.folders || [];
   const { data: detectedTaskStats } = useDetectedTaskStats();
   const detectedTaskCount = detectedTaskStats?.open ?? 0;
+
+  // User categories for sidebar sub-items
+  const { data: categoriesData } = useQuery({
+    queryKey: ['views', 'by-category', session?.activeAccountId],
+    queryFn: () => api.views.byCategory(),
+    enabled: !!session?.activeAccountId,
+  });
+  const userCategories = useMemo(() => {
+    if (!categoriesData?.categories) return [];
+    return categoriesData.categories.filter((c) => !c.isSystem && !c.is_system);
+  }, [categoriesData?.categories]);
 
   // Gyakran használt címkék (user típusúak, messagesTotal alapján rendezve)
   const frequentLabels = useMemo(() => {
@@ -383,6 +391,52 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
                 )}
               </NavLink>
             ))}
+          </>
+        )}
+
+        {/* User Categories szekció */}
+        {userCategories.length > 0 && (
+          <>
+            {isOpen && (
+              <div className="px-3 pt-3 pb-1">
+                <div className="dark:text-dark-text-muted flex items-center gap-2 text-xs font-medium tracking-wider text-gray-400 uppercase">
+                  <Tags className="h-3 w-3" aria-hidden="true" />
+                  Saját kategóriák
+                </div>
+              </div>
+            )}
+            {userCategories.slice(0, isOpen ? 6 : 3).map((cat) => {
+              const isActive = location.pathname === '/by-category' && location.search === '';
+              return (
+                <NavLink
+                  key={cat.id}
+                  to={`/by-category`}
+                  className={cn(
+                    'flex min-h-[44px] touch-manipulation items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors',
+                    'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+                    !isOpen && 'justify-center px-2',
+                  )}
+                  title={`${cat.name} (${cat.emailCount ?? 0})`}
+                  aria-label={`Kategória: ${cat.name}`}
+                >
+                  <span
+                    className="h-3 w-3 flex-shrink-0 rounded-full"
+                    style={{ backgroundColor: cat.color }}
+                    aria-hidden="true"
+                  />
+                  {isOpen && (
+                    <div className="flex min-w-0 flex-1 items-center justify-between">
+                      <span className="truncate">{cat.name}</span>
+                      {(cat.emailCount ?? 0) > 0 && (
+                        <span className="dark:text-dark-text-muted ml-2 text-xs text-gray-400">
+                          {cat.emailCount}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </NavLink>
+              );
+            })}
           </>
         )}
 

@@ -138,6 +138,162 @@ function decodeHTMLEntities(text: string): string {
     .replace(/&apos;/g, "'");
 }
 
+// --- Deep Analysis típusok ---
+export interface DeepAnalysisCurrencyDetail {
+  trend: 'up' | 'down' | 'sideways';
+  support: number;
+  resistance: number;
+  forecast: string;
+  recommendation: 'buy' | 'sell' | 'hold';
+  confidence: number;
+}
+
+export interface DeepAnalysisGold {
+  trend: string;
+  forecast: string;
+  recommendation: string;
+}
+
+export interface DeepAnalysisResult {
+  summary: string;
+  currencies: Record<string, DeepAnalysisCurrencyDetail>;
+  gold: DeepAnalysisGold;
+  overallRecommendation: string;
+  risks: string[];
+  generatedAt: string;
+}
+
+export interface TrendDataPoint {
+  date: string;
+  rates: Record<string, number>;
+}
+
+export async function generateDeepAnalysis(
+  rates: RateInfo[],
+  trendData: TrendDataPoint[]
+): Promise<DeepAnalysisResult | null> {
+  const anthropic = getClient();
+  if (!anthropic) return null;
+
+  const ratesText = rates.map(r =>
+    `${r.label}: ${r.rate} (${r.changePercent >= 0 ? '+' : ''}${r.changePercent.toFixed(2)}%)`
+  ).join('\n');
+
+  // Trend szöveg generálás
+  let trendText = 'Nincs trend adat.';
+  if (trendData.length > 1) {
+    const currencies = Object.keys(trendData[0].rates);
+    trendText = currencies.map(cur => {
+      const values = trendData.map(d => d.rates[cur]).filter(v => v !== undefined);
+      if (values.length < 2) return `${cur}: nincs elég adat`;
+      const first = values[0];
+      const last = values[values.length - 1];
+      const change = ((last - first) / first * 100).toFixed(2);
+      const trend = last > first ? 'emelkedő' : last < first ? 'csökkenő' : 'oldalazó';
+      return `${cur}: ${first.toFixed(2)} → ${last.toFixed(2)} (${change}%, ${trend}) [${trendData.length} nap]`;
+    }).join('\n');
+  }
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('hu-HU', { year: 'numeric', month: 'long', day: 'numeric' });
+  const timeStr = now.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
+
+  const prompt = `Te egy professzionális forex és devizapiaci elemző vagy. Elemezd az alábbi adatokat egy magyar valutaváltó cég igazgatója számára.
+A mai dátum: ${dateStr} ${timeStr}.
+
+AKTUÁLIS ÁRFOLYAMOK:
+${ratesText}
+
+7 NAPOS TREND:
+${trendText}
+
+KÉRLEK ADJ:
+1. ÖSSZEFOGLALÓ: Mi történt az elmúlt 24 órában és az elmúlt héten a piacon? (2-3 mondat)
+2. EUR/HUF ELEMZÉS: Trend, támasz/ellenállás szintek, rövid távú előrejelzés
+3. USD/HUF ELEMZÉS: Ugyanaz
+4. GBP/HUF ELEMZÉS: Ugyanaz
+5. CHF/HUF ELEMZÉS: Ugyanaz
+6. ARANY (XAU): Trend és előrejelzés USD-ben és HUF-ban
+7. AJÁNLÁS: Mit tegyen a valutaváltó? Venni vagy eladni? Melyik devizát tartsuk?
+8. KOCKÁZATOK: Mire figyeljen a következő napokban?
+
+Válaszolj KIZÁRÓLAG az alábbi JSON formátumban (semmilyen más szöveg ne legyen a JSON előtt vagy után):
+
+{
+  "summary": "Összefoglaló 2-3 mondat...",
+  "currencies": {
+    "EUR_HUF": { "trend": "up|down|sideways", "support": 390.50, "resistance": 398.00, "forecast": "Előrejelzés magyarul...", "recommendation": "buy|sell|hold", "confidence": 7 },
+    "USD_HUF": { "trend": "up|down|sideways", "support": 360.00, "resistance": 370.00, "forecast": "...", "recommendation": "buy|sell|hold", "confidence": 6 },
+    "GBP_HUF": { "trend": "up|down|sideways", "support": 455.00, "resistance": 470.00, "forecast": "...", "recommendation": "buy|sell|hold", "confidence": 6 },
+    "CHF_HUF": { "trend": "up|down|sideways", "support": 410.00, "resistance": 425.00, "forecast": "...", "recommendation": "buy|sell|hold", "confidence": 5 }
+  },
+  "gold": { "trend": "emelkedő/csökkenő/oldalazó", "forecast": "Arany előrejelzés...", "recommendation": "Ajánlás az aranyra..." },
+  "overallRecommendation": "Átfogó ajánlás a valutaváltó cégnek 2-3 mondatban...",
+  "risks": ["Kockázat 1", "Kockázat 2", "Kockázat 3"]
+}
+
+KÖVETELMÉNYEK:
+- confidence: 1-10 skálán
+- support/resistance: valós, reális szintek a jelenlegi árfolyam közelében
+- Minden szöveg MAGYAR nyelven
+- A recommendation mező CSAK "buy", "sell" vagy "hold" lehet
+- A trend mező CSAK "up", "down" vagy "sideways" lehet
+- Legyél MEGALAPOZOTT és ÓVATOS — ez éles üzleti döntésekhez kell`;
+
+  try {
+    logger.info('Deep analysis indítása (Sonnet 4)...');
+    const startTime = Date.now();
+
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4000,
+      messages: [{ role: 'user', content: prompt }],
+    });
+
+    const elapsed = Date.now() - startTime;
+    logger.info(`Deep analysis kész (${elapsed}ms, ${response.usage?.input_tokens ?? '?'} input / ${response.usage?.output_tokens ?? '?'} output token)`);
+
+    const text = response.content[0].type === 'text' ? response.content[0].text : '';
+
+    const stripped = text
+      .replace(/```(?:json)?\s*/gi, '')
+      .replace(/```\s*/gi, '');
+
+    const jsonMatch = stripped.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      logger.error('Deep analysis: AI válasz nem tartalmaz JSON-t:', text.substring(0, 200));
+      return null;
+    }
+
+    let result: DeepAnalysisResult;
+    try {
+      result = JSON.parse(jsonMatch[0]) as DeepAnalysisResult;
+    } catch (parseErr) {
+      logger.error('Deep analysis JSON parse hiba:', parseErr instanceof Error ? parseErr.message : parseErr);
+      return null;
+    }
+
+    // Validate
+    if (!result.summary || !result.currencies || !result.gold || !result.overallRecommendation || !result.risks) {
+      logger.error('Deep analysis: hiányos struktúra');
+      return null;
+    }
+
+    // Clamp confidence
+    for (const cur of Object.values(result.currencies)) {
+      cur.confidence = Math.max(1, Math.min(10, Math.round(cur.confidence)));
+    }
+
+    result.generatedAt = new Date().toISOString();
+
+    logger.info(`Deep analysis: ${Object.keys(result.currencies).length} deviza, ${result.risks.length} kockázat`);
+    return result;
+  } catch (err) {
+    logger.error('Deep analysis hiba:', err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
 export async function generateAIAnalysis(rates: RateInfo[]): Promise<AIAnalysisResult | null> {
   const anthropic = getClient();
   if (!anthropic) return null;

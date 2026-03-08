@@ -79,6 +79,9 @@ export interface Category {
   color: string;
   icon: string;
   isSystem: boolean;
+  is_system?: number;
+  description?: string | null;
+  sort_order?: number;
   emailCount?: number;
 }
 
@@ -337,29 +340,6 @@ export interface DashboardData {
   timestamp: number;
 }
 
-// Team Dashboard — email-alapú csapattagok
-export interface TeamMember {
-  email: string;
-  name: string;
-  emailCount: number;
-  lastContact: string;
-  topCategory: string | null;
-  status: 'active' | 'inactive';
-}
-
-export interface TeamStats {
-  sentCount: number;
-  receivedCount: number;
-  avgResponseTimeHours: number | null;
-  topCategories: Array<{ name: string; count: number }>;
-}
-
-export interface TeamDashboardData {
-  members: TeamMember[];
-  stats: TeamStats;
-  timestamp: string;
-}
-
 // Thread conversation - teljes beszĂ©lgetĂ©s egy thread-ben
 export interface ThreadEmail extends Email {
   isSent?: boolean;
@@ -442,6 +422,49 @@ export interface MarketBriefingData {
 export interface MarketBriefingResponse {
   success: boolean;
   data: MarketBriefingData;
+}
+
+// Deep Analysis types
+export interface DeepAnalysisCurrencyDetail {
+  trend: 'up' | 'down' | 'sideways';
+  support: number;
+  resistance: number;
+  forecast: string;
+  recommendation: 'buy' | 'sell' | 'hold';
+  confidence: number;
+}
+
+export interface DeepAnalysisGold {
+  trend: string;
+  forecast: string;
+  recommendation: string;
+}
+
+export interface DeepAnalysisData {
+  summary: string;
+  currencies: Record<string, DeepAnalysisCurrencyDetail>;
+  gold: DeepAnalysisGold;
+  overallRecommendation: string;
+  risks: string[];
+  generatedAt: string;
+  cached?: boolean;
+  trendData?: TrendDataPoint[];
+  rates?: MarketRateInfo[];
+}
+
+export interface DeepAnalysisResponse {
+  success: boolean;
+  data: DeepAnalysisData;
+}
+
+export interface TrendDataPoint {
+  date: string;
+  rates: Record<string, number>;
+}
+
+export interface TrendResponse {
+  success: boolean;
+  data: TrendDataPoint[];
 }
 
 // --- Email Intelligence ---

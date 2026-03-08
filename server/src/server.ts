@@ -35,7 +35,6 @@ import translateRoutes from './routes/translate.routes.js';
 import calendarRoutes from './routes/calendar.routes.js';
 import tasksRoutes from './routes/tasks.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
-import teamRoutes from './routes/team.routes.js';
 import marketRoutes from './routes/market.routes.js';
 import workflowRoutes from './routes/workflow.routes.js';
 import { processScheduledWorkflows } from './services/workflow.service.js';
@@ -156,7 +155,6 @@ async function start() {
   app.use('/api/calendar', calendarRoutes);
   app.use('/api/tasks', tasksRoutes);
   app.use('/api/dashboard', dashboardRoutes);
-  app.use('/api/team', teamRoutes);
   app.use('/api/market', marketRoutes);
   app.use('/api/workflows', workflowRoutes);
   app.use('/api/smart', smartFeaturesRoutes);

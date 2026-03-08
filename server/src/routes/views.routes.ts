@@ -294,20 +294,28 @@ router.get('/by-category', (req, res) => {
       return;
     }
 
-    const cats = queryAll<CategoryRecord>('SELECT * FROM categories WHERE account_id = ?', [
+    const cats = queryAll<CategoryRecord & { description?: string; sort_order?: number; created_at?: number }>('SELECT * FROM categories WHERE account_id = ? ORDER BY sort_order ASC, name ASC', [
       accountId,
     ]);
 
-    // N+1 query probléma javítása: egyetlen query az összes kategória email számához
-    const counts = queryAll<{ category_id: string; count: number }>(
+    // System category email counts (from emails.category_id)
+    const systemCounts = queryAll<{ category_id: string; count: number }>(
       'SELECT category_id, COUNT(*) as count FROM emails WHERE account_id = ? AND category_id IS NOT NULL GROUP BY category_id',
       [accountId],
     );
-    const countMap = new Map(counts.map((c) => [c.category_id, c.count]));
+    const systemCountMap = new Map(systemCounts.map((c) => [c.category_id, c.count]));
+
+    // User category email counts (from email_categories join table)
+    const userCounts = queryAll<{ category_id: string; count: number }>(
+      'SELECT category_id, COUNT(*) as count FROM email_categories WHERE account_id = ? GROUP BY category_id',
+      [accountId],
+    );
+    const userCountMap = new Map(userCounts.map((c) => [c.category_id, c.count]));
 
     const categoriesWithCount = cats.map((cat) => ({
       ...cat,
-      emailCount: countMap.get(cat.id) || 0,
+      isSystem: !!cat.is_system,
+      emailCount: cat.is_system ? (systemCountMap.get(cat.id) || 0) : (userCountMap.get(cat.id) || 0),
     }));
 
     res.json({ categories: categoriesWithCount });
@@ -330,15 +338,30 @@ router.get('/by-category/:id', (req, res) => {
     const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), MAX_LIMIT);
     const offset = (page - 1) * limit;
 
-    const results = queryAll<EmailRecord>(
-      'SELECT * FROM emails WHERE account_id = ? AND category_id = ? ORDER BY date DESC LIMIT ? OFFSET ?',
-      [accountId, categoryId, limit, offset],
-    );
     // FIX: Add account_id filter to prevent cross-account category access
-    const cat = queryOne('SELECT * FROM categories WHERE id = ? AND account_id = ?', [
+    const cat = queryOne<CategoryRecord>('SELECT * FROM categories WHERE id = ? AND account_id = ?', [
       categoryId,
       accountId,
     ]);
+
+    let results: EmailRecord[];
+    if (cat && !cat.is_system) {
+      // User-created category: emails from email_categories join table
+      results = queryAll<EmailRecord>(
+        `SELECT e.* FROM emails e
+         INNER JOIN email_categories ec ON ec.email_id = e.id
+         WHERE ec.category_id = ? AND ec.account_id = ?
+         ORDER BY e.date DESC LIMIT ? OFFSET ?`,
+        [categoryId, accountId, limit, offset],
+      );
+    } else {
+      // System category: emails from emails.category_id
+      results = queryAll<EmailRecord>(
+        'SELECT * FROM emails WHERE account_id = ? AND category_id = ? ORDER BY date DESC LIMIT ? OFFSET ?',
+        [accountId, categoryId, limit, offset],
+      );
+    }
+
     res.json({ emails: results.map(formatEmail), category: cat });
   } catch (error) {
     console.error('By-category ID view error:', error);

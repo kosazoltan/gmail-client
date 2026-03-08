@@ -420,6 +420,37 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
     console.error('Failed to add undo send columns:', err);
   }
 
+  // Add user-category columns to categories table + email_categories join table
+  try {
+    const catCols = _db.exec("PRAGMA table_info(categories)");
+    const catColNames = catCols.length > 0 ? catCols[0].values.map((row: unknown[]) => row[1] as string) : [];
+    if (!catColNames.includes('description')) {
+      _db.run("ALTER TABLE categories ADD COLUMN description TEXT");
+    }
+    if (!catColNames.includes('sort_order')) {
+      _db.run("ALTER TABLE categories ADD COLUMN sort_order INTEGER DEFAULT 0");
+    }
+    if (!catColNames.includes('created_at')) {
+      _db.run("ALTER TABLE categories ADD COLUMN created_at INTEGER DEFAULT 0");
+    }
+
+    // Email-category join table for user-created categories
+    _db.run(`
+      CREATE TABLE IF NOT EXISTS email_categories (
+        email_id TEXT NOT NULL,
+        category_id TEXT NOT NULL,
+        account_id TEXT NOT NULL,
+        created_at INTEGER DEFAULT (strftime('%s','now') * 1000),
+        PRIMARY KEY (email_id, category_id)
+      )
+    `);
+    _db.run(`CREATE INDEX IF NOT EXISTS idx_email_categories_category ON email_categories(category_id)`);
+    _db.run(`CREATE INDEX IF NOT EXISTS idx_email_categories_account ON email_categories(account_id)`);
+    _db.run(`CREATE INDEX IF NOT EXISTS idx_email_categories_email ON email_categories(email_id)`);
+  } catch (err) {
+    console.error('Failed to add category migration columns:', err);
+  }
+
   console.log('Adatbázis inicializálva.');
   return _db;
 }
