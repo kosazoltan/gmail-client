@@ -9,50 +9,13 @@ import {
   PieChart,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { API_BASE } from '../../lib/api';
-
-// --- Types ---
-
-interface ResponseTimePoint {
-  date: string;
-  avgMinutes: number;
-}
-
-interface CategoryBreakdown {
-  name: string;
-  count: number;
-  color: string;
-}
-
-interface PeriodComparison {
-  label: string;
-  current: number;
-  previous: number;
-}
-
-interface SenderRanking {
-  email: string;
-  name?: string;
-  count: number;
-}
-
-interface AnalyticsData {
-  responseTimes: ResponseTimePoint[];
-  categories: CategoryBreakdown[];
-  comparison: PeriodComparison[];
-  topSenders: SenderRanking[];
-}
-
-// --- Helper ---
-
-async function apiFetch<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-}
+import { api } from '../../lib/api';
+import type {
+  ResponseTimePoint,
+  CategoryBreakdown,
+  PeriodComparison,
+  AnalyticsData,
+} from '../../types';
 
 // --- SVG Charts ---
 
@@ -249,7 +212,7 @@ export function AnalyticsDashboard() {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await apiFetch<AnalyticsData>(`/smart/analytics?period=${period}`);
+      const result = await api.smart.getAnalytics(period);
       setData(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Hiba az analytics betöltésekor');

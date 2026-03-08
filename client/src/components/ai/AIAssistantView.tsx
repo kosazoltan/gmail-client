@@ -8,22 +8,12 @@ import {
   Loader2,
   MessageSquare,
   ChevronDown,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { API_BASE } from '../../lib/api';
-
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: number;
-}
-
-interface Conversation {
-  id: string;
-  title: string;
-  createdAt: number;
-}
+import { api } from '../../lib/api';
+import type { ChatMessage, Conversation } from '../../types';
 
 const SUGGESTION_BUTTONS = [
   { label: 'Foglald össze', icon: Sparkles, prompt: 'Foglald össze a kijelölt emaileket röviden.' },
@@ -35,10 +25,8 @@ export function AIAssistantView() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [conversations, setConversations] = useState<Conversation[]>([
-    { id: '1', title: 'Új beszélgetés', createdAt: Date.now() },
-  ]);
-  const [activeConversation, setActiveConversation] = useState('1');
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [showConversationDropdown, setShowConversationDropdown] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -54,6 +42,62 @@ export function AIAssistantView() {
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // Load conversations on mount
+  useEffect(() => {
+    loadConversations();
+  }, []);
+
+  const loadConversations = async () => {
+    try {
+      const data = await api.ai.getConversations();
+      setConversations(data.conversations || []);
+    } catch {
+      // Silent fail
+    }
+  };
+
+  const loadConversationMessages = async (convId: string) => {
+    try {
+      const data = await api.ai.getConversationMessages(convId);
+      setMessages(
+        (data.messages || []).map((m) => ({
+          id: m.id,
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+          timestamp: m.timestamp,
+        })),
+      );
+    } catch {
+      // Silent fail
+    }
+  };
+
+  const handleSelectConversation = async (convId: string) => {
+    setActiveConversationId(convId);
+    setShowConversationDropdown(false);
+    await loadConversationMessages(convId);
+  };
+
+  const handleNewConversation = () => {
+    setActiveConversationId(null);
+    setMessages([]);
+    setShowConversationDropdown(false);
+  };
+
+  const handleDeleteConversation = async (convId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await api.ai.deleteConversation(convId);
+      setConversations((prev) => prev.filter((c) => c.id !== convId));
+      if (activeConversationId === convId) {
+        setActiveConversationId(null);
+        setMessages([]);
+      }
+    } catch {
+      // Silent fail
+    }
+  };
 
   const handleSend = async (text?: string) => {
     const messageText = text || input.trim();
@@ -71,19 +115,18 @@ export function AIAssistantView() {
     setIsLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/ai/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          message: messageText,
-          conversationId: activeConversation,
-        }),
-      });
+      const data = await api.ai.chat(
+        messageText,
+        activeConversationId || undefined,
+      );
 
-      if (!res.ok) throw new Error('AI válasz hiba');
+      // Update active conversation ID (backend may have created a new one)
+      if (data.conversationId && data.conversationId !== activeConversationId) {
+        setActiveConversationId(data.conversationId);
+        // Reload conversations list to include the new one
+        await loadConversations();
+      }
 
-      const data = await res.json();
       const assistantMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
@@ -111,6 +154,8 @@ export function AIAssistantView() {
     }
   };
 
+  const activeConvTitle = conversations.find((c) => c.id === activeConversationId)?.title || 'Új beszélgetés';
+
   return (
     <div className="mx-auto flex h-full max-w-4xl flex-col p-6">
       {/* Header */}
@@ -125,32 +170,50 @@ export function AIAssistantView() {
       </div>
 
       {/* Conversation selector */}
-      <div className="relative mb-4">
+      <div className="relative mb-4 flex items-center gap-2">
         <button
           onClick={() => setShowConversationDropdown(!showConversationDropdown)}
           className="dark:border-dark-border dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
         >
           <MessageSquare className="h-4 w-4" />
-          {conversations.find((c) => c.id === activeConversation)?.title || 'Új beszélgetés'}
+          {activeConvTitle}
           <ChevronDown className={cn('h-4 w-4 transition-transform', showConversationDropdown && 'rotate-180')} />
         </button>
+        <button
+          onClick={handleNewConversation}
+          className="dark:border-dark-border dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+          title="Új beszélgetés"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
         {showConversationDropdown && (
-          <div className="dark:bg-dark-bg-secondary dark:border-dark-border absolute z-10 mt-1 rounded-lg border border-gray-200 bg-white shadow-lg">
+          <div className="dark:bg-dark-bg-secondary dark:border-dark-border absolute top-full left-0 z-10 mt-1 max-h-64 min-w-[240px] overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+            <button
+              onClick={handleNewConversation}
+              className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-600 hover:bg-gray-50"
+            >
+              <Plus className="h-4 w-4" />
+              Új beszélgetés
+            </button>
             {conversations.map((conv) => (
               <button
                 key={conv.id}
-                onClick={() => {
-                  setActiveConversation(conv.id);
-                  setShowConversationDropdown(false);
-                }}
+                onClick={() => handleSelectConversation(conv.id)}
                 className={cn(
-                  'dark:hover:bg-dark-bg-tertiary w-full px-4 py-2 text-left text-sm hover:bg-gray-50',
-                  conv.id === activeConversation
+                  'dark:hover:bg-dark-bg-tertiary group flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-gray-50',
+                  conv.id === activeConversationId
                     ? 'font-medium text-[#4f6ef7]'
                     : 'dark:text-dark-text-secondary text-gray-600',
                 )}
               >
-                {conv.title}
+                <span className="truncate">{conv.title}</span>
+                <button
+                  onClick={(e) => handleDeleteConversation(conv.id, e)}
+                  className="ml-2 hidden shrink-0 rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 group-hover:block dark:hover:bg-red-900/20"
+                  title="Beszélgetés törlése"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </button>
             ))}
           </div>

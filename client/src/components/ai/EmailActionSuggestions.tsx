@@ -46,13 +46,11 @@ export function EmailActionSuggestions({
 }: EmailActionSuggestionsProps) {
   const [suggestions, setSuggestions] = useState<ActionSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(false);
 
   useEffect(() => {
     if (!emailId) return;
 
     setIsLoading(true);
-    setError(false);
 
     // Use default suggestions only
     setSuggestions(getDefaultSuggestions());
@@ -108,7 +106,7 @@ export function EmailActionSuggestions({
     );
   }
 
-  if (error || suggestions.length === 0) return null;
+  if (suggestions.length === 0) return null;
 
   return (
     <div className={cn('dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white p-4', className)}>

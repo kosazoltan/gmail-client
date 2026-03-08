@@ -1,19 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Search, Sparkles, Loader2, X, Workflow, Clock } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { API_BASE } from '../../lib/api';
-
-interface SearchSuggestion {
-  id: string;
-  text: string;
-  type: 'recent' | 'ai';
-}
-
-interface SmartSearchResult {
-  query: string;
-  interpretation: string;
-  resultCount: number;
-}
+import { api } from '../../lib/api';
+import type { SearchSuggestion, SmartSearchResult } from '../../types';
 
 interface SmartSearchBarProps {
   onSearch?: (query: string) => void;
@@ -43,26 +32,15 @@ export function SmartSearchBar({ onSearch, onSaveAsWorkflowStep, className }: Sm
     ];
 
     try {
-      const res = await fetch(`${API_BASE}/ai/smart-search`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ query: text, suggestionsOnly: true }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const aiSuggestions: SearchSuggestion[] = (data.suggestions || []).map(
-          (s: string, i: number) => ({
-            id: `ai-${i}`,
-            text: s,
-            type: 'ai' as const,
-          }),
-        );
-        setSuggestions([...recentSearches, ...aiSuggestions]);
-      } else {
-        setSuggestions(recentSearches);
-      }
+      const data = await api.ai.smartSearch(text, true);
+      const aiSuggestions: SearchSuggestion[] = ((data as unknown as Record<string, unknown>).suggestions as string[] || []).map(
+        (s: string, i: number) => ({
+          id: `ai-${i}`,
+          text: s,
+          type: 'ai' as const,
+        }),
+      );
+      setSuggestions([...recentSearches, ...aiSuggestions]);
     } catch {
       setSuggestions(recentSearches);
     }
@@ -94,22 +72,13 @@ export function SmartSearchBar({ onSearch, onSaveAsWorkflowStep, className }: Sm
     setIsOpen(false);
 
     try {
-      const res = await fetch(`${API_BASE}/ai/smart-search`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ query: text }),
+      const data = await api.ai.smartSearch(text);
+      setResult({
+        query: text,
+        interpretation: data.interpretation || '',
+        resultCount: data.resultCount || 0,
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        setResult({
-          query: text,
-          interpretation: data.interpretation || '',
-          resultCount: data.resultCount || 0,
-        });
-        onSearch?.(text);
-      }
+      onSearch?.(text);
     } catch {
       // Silent fail — search still attempted
     } finally {

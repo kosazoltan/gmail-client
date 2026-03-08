@@ -533,6 +533,123 @@ export interface SmartFolder {
   updatedAt: number;
 }
 
+// --- Analytics ---
+
+export interface ResponseTimePoint {
+  date: string;
+  avgMinutes: number;
+}
+
+export interface CategoryBreakdown {
+  name: string;
+  count: number;
+  color: string;
+}
+
+export interface PeriodComparison {
+  label: string;
+  current: number;
+  previous: number;
+}
+
+export interface SenderRanking {
+  email: string;
+  name?: string;
+  count: number;
+}
+
+export interface AnalyticsData {
+  responseTimes: ResponseTimePoint[];
+  categories: CategoryBreakdown[];
+  comparison: PeriodComparison[];
+  topSenders: SenderRanking[];
+}
+
+// --- Daily Brief ---
+
+export interface DailyStats {
+  received: number;
+  replied: number;
+  pending: number;
+  date: string;
+}
+
+export interface PriorityEmail {
+  id: string;
+  subject: string;
+  from: string;
+  fromName?: string;
+  receivedAt: number;
+  priority: 'urgent' | 'high' | 'normal' | 'low';
+  reason?: string;
+}
+
+export interface FollowUp {
+  id: string;
+  emailId: string;
+  subject: string;
+  from_email: string;
+  from_name: string;
+  daysSince: number;
+  urgency: string;
+}
+
+export interface ContactActivity {
+  email: string;
+  name?: string;
+  count: number;
+}
+
+export interface DailyBriefData {
+  stats: DailyStats;
+  contacts: ContactActivity[];
+}
+
+// --- Workflow Run Logs ---
+
+export interface RunLogEntry {
+  id: string;
+  workflowId: string;
+  accountId: string;
+  status: 'running' | 'completed' | 'failed';
+  triggerEmailId: string | null;
+  stepsCompleted: number;
+  result: Record<string, unknown>;
+  startedAt: number;
+  completedAt: number | null;
+  error: string | null;
+}
+
+// --- Smart Search ---
+
+export interface SearchSuggestion {
+  id: string;
+  text: string;
+  type: 'recent' | 'ai';
+}
+
+export interface SmartSearchResult {
+  query: string;
+  interpretation: string;
+  resultCount: number;
+}
+
+// --- AI Chat ---
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+}
+
+export interface Conversation {
+  id: string;
+  title: string;
+  updatedAt?: number;
+  createdAt: number;
+}
+
 // --- Workflows ---
 
 export type WorkflowTriggerType = 'new_email' | 'schedule' | 'manual';

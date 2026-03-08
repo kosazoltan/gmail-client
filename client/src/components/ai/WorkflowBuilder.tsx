@@ -25,28 +25,14 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { API_BASE } from '../../lib/api';
+import { api } from '../../lib/api';
 import type {
   WorkflowTriggerType as TriggerType,
   WorkflowStepType as StepType,
   WorkflowStep,
   WorkflowData,
+  RunLogEntry,
 } from '../../types';
-
-// --- Types ---
-
-interface RunLogEntry {
-  id: string;
-  workflowId: string;
-  accountId: string;
-  status: 'running' | 'completed' | 'failed';
-  triggerEmailId: string | null;
-  stepsCompleted: number;
-  result: Record<string, unknown>;
-  startedAt: number;
-  completedAt: number | null;
-  error: string | null;
-}
 
 // --- Constants ---
 
@@ -71,21 +57,6 @@ const TRIGGER_META: Record<TriggerType, { label: string; icon: typeof Clock }> =
   manual: { label: 'Kézi indítás', icon: Play },
 };
 
-// --- Helper ---
-
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-    throw new Error(err.error || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
-
 // --- Component ---
 
 export function WorkflowBuilder() {
@@ -103,7 +74,7 @@ export function WorkflowBuilder() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await apiFetch<{ workflows: WorkflowData[] }>('/workflows');
+      const data = await api.workflows.list();
       setWorkflows(data.workflows || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Hiba a workflow-k betöltésekor');
@@ -137,17 +108,11 @@ export function WorkflowBuilder() {
     setError(null);
     try {
       if (selected.id) {
-        const updated = await apiFetch<{ workflow: WorkflowData }>(`/workflows/${selected.id}`, {
-          method: 'PUT',
-          body: JSON.stringify(selected),
-        });
+        const updated = await api.workflows.update(selected.id, selected);
         setWorkflows((prev) => prev.map((w) => (w.id === selected.id ? updated.workflow : w)));
         setSelected(updated.workflow);
       } else {
-        const created = await apiFetch<{ workflow: WorkflowData }>('/workflows', {
-          method: 'POST',
-          body: JSON.stringify(selected),
-        });
+        const created = await api.workflows.create(selected);
         setWorkflows((prev) => [...prev, created.workflow]);
         setSelected(created.workflow);
       }
@@ -161,7 +126,7 @@ export function WorkflowBuilder() {
   // Delete
   const handleDelete = async (id: string) => {
     try {
-      await apiFetch(`/workflows/${id}`, { method: 'DELETE' });
+      await api.workflows.delete(id);
       setWorkflows((prev) => prev.filter((w) => w.id !== id));
       if (selected?.id === id) setSelected(null);
     } catch (err) {
@@ -173,10 +138,7 @@ export function WorkflowBuilder() {
   const handleToggleActive = async (wf: WorkflowData) => {
     if (!wf.id) return;
     try {
-      const updated = await apiFetch<{ workflow: WorkflowData }>(`/workflows/${wf.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ ...wf, isActive: !wf.isActive }),
-      });
+      const updated = await api.workflows.update(wf.id, { ...wf, isActive: !wf.isActive });
       setWorkflows((prev) => prev.map((w) => (w.id === wf.id ? updated.workflow : w)));
       if (selected?.id === wf.id) setSelected(updated.workflow);
     } catch (err) {
@@ -187,7 +149,7 @@ export function WorkflowBuilder() {
   // Run
   const handleRun = async (id: string) => {
     try {
-      await apiFetch(`/workflows/${id}/run`, { method: 'POST' });
+      await api.workflows.run(id);
       loadLogs(id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Futtatási hiba');
@@ -197,7 +159,7 @@ export function WorkflowBuilder() {
   // Load logs
   const loadLogs = async (id: string) => {
     try {
-      const data = await apiFetch<{ runs: RunLogEntry[] }>(`/workflows/${id}/runs`);
+      const data = await api.workflows.runs(id);
       setRunLogs(data.runs || []);
       setShowLogs(true);
     } catch {

@@ -6,26 +6,13 @@ import {
   Sparkles,
   Search,
   Workflow,
-  ChevronDown,
   Loader2,
-  MessageSquare,
   Inbox,
+  RotateCcw,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { API_BASE } from '../../lib/api';
-
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: number;
-}
-
-interface Conversation {
-  id: string;
-  title: string;
-  createdAt: number;
-}
+import { api } from '../../lib/api';
+import type { ChatMessage } from '../../types';
 
 interface AIAssistantPanelProps {
   isOpen: boolean;
@@ -49,11 +36,7 @@ export function AIAssistantPanel({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [conversations, setConversations] = useState<Conversation[]>([
-    { id: '1', title: 'Új beszélgetés', createdAt: Date.now() },
-  ]);
-  const [activeConversation, setActiveConversation] = useState('1');
-  const [showConversationDropdown, setShowConversationDropdown] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -71,6 +54,11 @@ export function AIAssistantPanel({
     }
   }, [isOpen]);
 
+  const handleNewConversation = () => {
+    setConversationId(null);
+    setMessages([]);
+  };
+
   const handleSend = async (text?: string) => {
     const messageText = text || input.trim();
     if (!messageText || isLoading) return;
@@ -87,21 +75,16 @@ export function AIAssistantPanel({
     setIsLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/ai/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          message: messageText,
-          conversationId: activeConversation,
-          context: contextLabel,
-          selectedEmailCount,
-        }),
-      });
+      const data = await api.ai.chat(
+        messageText,
+        conversationId || undefined,
+      );
 
-      if (!res.ok) throw new Error('AI válasz hiba');
+      // Track conversation ID from backend
+      if (data.conversationId) {
+        setConversationId(data.conversationId);
+      }
 
-      const data = await res.json();
       const assistantMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
@@ -144,49 +127,23 @@ export function AIAssistantPanel({
           <Bot className="h-5 w-5 text-[#4f6ef7]" />
           <h2 className="dark:text-dark-text font-semibold text-gray-900">AI Asszisztens</h2>
         </div>
-        <button
-          onClick={onClose}
-          className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary rounded-lg p-2 text-gray-500 hover:bg-gray-100"
-          aria-label="Panel bezárása"
-        >
-          <X className="h-5 w-5" />
-        </button>
-      </div>
-
-      {/* Conversation selector */}
-      <div className="dark:border-dark-border relative border-b border-gray-100 px-4 py-2">
-        <button
-          onClick={() => setShowConversationDropdown(!showConversationDropdown)}
-          className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
-        >
-          <span className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            {conversations.find((c) => c.id === activeConversation)?.title || 'Új beszélgetés'}
-          </span>
-          <ChevronDown className={cn('h-4 w-4 transition-transform', showConversationDropdown && 'rotate-180')} />
-        </button>
-
-        {showConversationDropdown && (
-          <div className="dark:bg-dark-bg-secondary dark:border-dark-border absolute right-4 left-4 z-10 mt-1 rounded-lg border border-gray-200 bg-white shadow-lg">
-            {conversations.map((conv) => (
-              <button
-                key={conv.id}
-                onClick={() => {
-                  setActiveConversation(conv.id);
-                  setShowConversationDropdown(false);
-                }}
-                className={cn(
-                  'dark:hover:bg-dark-bg-tertiary w-full px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50',
-                  conv.id === activeConversation
-                    ? 'font-medium text-[#4f6ef7]'
-                    : 'dark:text-dark-text-secondary text-gray-600',
-                )}
-              >
-                {conv.title}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleNewConversation}
+            className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+            aria-label="Új beszélgetés"
+            title="Új beszélgetés"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </button>
+          <button
+            onClick={onClose}
+            className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+            aria-label="Panel bezárása"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       {/* Context indicator */}

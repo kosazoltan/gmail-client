@@ -10,6 +10,43 @@ let cachedAt = 0;
 let isGenerating = false; // BUG3 FIX: prevent duplicate AI calls on concurrent requests
 const CACHE_TTL_MS = 25 * 60 * 1000; // 25 perc
 
+// --- Historical rate cache for real 24h change calculation ---
+const historicalEurRatesCache = new Map<string, Record<string, number>>();
+
+async function fetchHistoricalEurRates(): Promise<Record<string, number> | null> {
+  // Try dates going back from yesterday (handles weekends/holidays when no data)
+  for (let daysBack = 1; daysBack <= 5; daysBack++) {
+    const d = new Date();
+    d.setDate(d.getDate() - daysBack);
+    const dateStr = d.toISOString().split('T')[0];
+
+    // Check in-memory cache (yesterday's rate doesn't change)
+    const cached = historicalEurRatesCache.get(dateStr);
+    if (cached) return cached;
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const resp = await fetch(`https://api.frankfurter.dev/v1/${dateStr}?base=EUR&symbols=USD,HUF,GBP,CHF`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (resp.ok) {
+        const data = await resp.json() as { date: string; rates: Record<string, number> };
+        if (data.rates && Object.keys(data.rates).length > 0) {
+          historicalEurRatesCache.set(data.date, data.rates);
+          logger.info(`Historikus árfolyamok betöltve (${data.date})`);
+          return data.rates;
+        }
+      }
+    } catch (err) {
+      logger.warn(`Frankfurter historikus lekérés sikertelen (${dateStr}):`, err instanceof Error ? err.message : err);
+    }
+  }
+  return null;
+}
+
 // --- Típusok ---
 interface RateInfo {
   pair: string;
@@ -164,7 +201,7 @@ function generateAnalyses(rates: RateInfo[]): AnalysisItem[] {
     };
 
     const templates = summaryTemplates[src.sourceId] ?? [`${src.source} ${dirHu} iranyt lat a ${primaryPair} szamara.`];
-    const summary = templates[Math.floor(Math.random() * templates.length)];
+    const summary = templates[hour % templates.length];
 
     const keyLevelMap: Record<string, string> = {
       EURUSD: `${(rateInfo?.rate ?? 1.08).toFixed(4)} (pivot), ${((rateInfo?.rate ?? 1.08) - 0.005).toFixed(4)} (támasz)`,
@@ -190,7 +227,7 @@ function generateAnalyses(rates: RateInfo[]): AnalysisItem[] {
       pairs: src.pairs,
       summary,
       keyLevel,
-      outlook: outlookTemplates[Math.floor(Math.random() * outlookTemplates.length)],
+      outlook: outlookTemplates[(hour + SOURCES.indexOf(src)) % outlookTemplates.length],
       confidence,
       weight: src.weight,
       speciality: src.speciality,
@@ -202,7 +239,9 @@ function generateAnalyses(rates: RateInfo[]): AnalysisItem[] {
 
 function generatePositioning(rates: RateInfo[]): PositioningItem[] {
   return rates.map(r => {
-    const longPct = Math.round(40 + Math.random() * 25);
+    // Derive positioning from actual changePercent (no randomness)
+    const clampedChange = Math.max(-2, Math.min(2, r.changePercent));
+    const longPct = Math.round(50 + clampedChange * 8); // ±2% → 34-66 range
     const shortPct = 100 - longPct;
     const bias = longPct > 55 ? 'Long' : shortPct > 55 ? 'Short' : 'Vegyes';
     const isGold = r.pair.startsWith('XAU');
@@ -234,7 +273,9 @@ function generateCatalyst(pair: string): string {
     XAUEUR: ['ECB kamatpálya', 'Európai infláció', 'Safe-haven keresleti sokk'],
   };
   const list = catalysts[pair] ?? ['Makrogazdasági adat megjelenés'];
-  return list[Math.floor(Math.random() * list.length)];
+  // Deterministic selection based on current day of week
+  const dayOfWeek = new Date().getDay();
+  return list[dayOfWeek % list.length];
 }
 
 function generateBullScenario(pair: string, rate: number): string {
@@ -539,28 +580,43 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
   const xaueur = xauusd / eurusd;
   const xauhuf = xauusd * usdhuf;
 
-  // Szimulált 24h változás (az ingyenes API nem ad történetit, tehát becsüljük)
-  const genChange = (base: number, maxPct: number): { change24h: number; changePercent: number } => {
-    const pct = (Math.random() - 0.48) * maxPct; // enyhén bullish bias
-    const changePercent = Math.round(pct * 10000) / 100; // pl. 0.42%
-    const change24h = Math.round(base * pct * 10000) / 10000; // abszolút érték: pl. 0.0045
+  // --- Valós 24h változás historikus adatból ---
+  const histRates = await fetchHistoricalEurRates();
+
+  // Yesterday's EUR-based rates (fallback to today if historical unavailable)
+  const prevEurusd = histRates?.['USD'] ?? eurusd;
+  const prevEurhuf = histRates?.['HUF'] ?? eurhuf;
+  const prevEurgbp = histRates?.['GBP'] ?? eurgbp;
+  const prevEurchf = histRates?.['CHF'] ?? eurchf;
+
+  // Yesterday's cross rates
+  const prevUsdhuf = prevEurhuf / prevEurusd;
+  const prevGbphuf = prevEurhuf / prevEurgbp;
+  const prevChfhuf = prevEurhuf / prevEurchf;
+
+  // Calculate real change (current vs historical)
+  const calcChange = (current: number, previous: number): { change24h: number; changePercent: number } => {
+    if (previous === 0 || current === previous) return { change24h: 0, changePercent: 0 };
+    const change24h = Math.round((current - previous) * 10000) / 10000;
+    const changePercent = Math.round(((current - previous) / previous) * 10000) / 100;
     return { change24h, changePercent };
   };
 
   const rates: RateInfo[] = [
-    { pair: 'EURUSD', label: 'EUR/USD', rate: eurusd, ...genChange(eurusd, 0.008), timestamp: now },
-    { pair: 'EURHUF', label: 'EUR/HUF', rate: eurhuf, ...genChange(eurhuf, 0.006), timestamp: now },
-    { pair: 'USDHUF', label: 'USD/HUF', rate: Math.round(usdhuf * 100) / 100, ...genChange(usdhuf, 0.007), timestamp: now },
-    { pair: 'GBPHUF', label: 'GBP/HUF', rate: Math.round(gbphuf * 100) / 100, ...genChange(gbphuf, 0.006), timestamp: now },
-    { pair: 'CHFHUF', label: 'CHF/HUF', rate: Math.round(chfhuf * 100) / 100, ...genChange(chfhuf, 0.005), timestamp: now },
+    { pair: 'EURUSD', label: 'EUR/USD', rate: eurusd, ...calcChange(eurusd, prevEurusd), timestamp: now },
+    { pair: 'EURHUF', label: 'EUR/HUF', rate: eurhuf, ...calcChange(eurhuf, prevEurhuf), timestamp: now },
+    { pair: 'USDHUF', label: 'USD/HUF', rate: Math.round(usdhuf * 100) / 100, ...calcChange(usdhuf, prevUsdhuf), timestamp: now },
+    { pair: 'GBPHUF', label: 'GBP/HUF', rate: Math.round(gbphuf * 100) / 100, ...calcChange(gbphuf, prevGbphuf), timestamp: now },
+    { pair: 'CHFHUF', label: 'CHF/HUF', rate: Math.round(chfhuf * 100) / 100, ...calcChange(chfhuf, prevChfhuf), timestamp: now },
   ];
 
   // Arany ráták csak ha sikerült lekérni (nincs statikus fallback)
+  // Frankfurter nem támogatja az XAU-t → arany change 0 (nincs historikus forrás)
   if (goldFetched) {
     rates.push(
-      { pair: 'XAUUSD', label: 'Arany (USD)', rate: Math.round(xauusd * 100) / 100, ...genChange(xauusd, 0.012), timestamp: now },
-      { pair: 'XAUEUR', label: 'Arany (EUR)', rate: Math.round(xaueur * 100) / 100, ...genChange(xaueur, 0.012), timestamp: now },
-      { pair: 'XAUHUF', label: 'Arany (HUF)', rate: Math.round(xauhuf), ...genChange(xauhuf, 0.012), timestamp: now },
+      { pair: 'XAUUSD', label: 'Arany (USD)', rate: Math.round(xauusd * 100) / 100, change24h: 0, changePercent: 0, timestamp: now },
+      { pair: 'XAUEUR', label: 'Arany (EUR)', rate: Math.round(xaueur * 100) / 100, change24h: 0, changePercent: 0, timestamp: now },
+      { pair: 'XAUHUF', label: 'Arany (HUF)', rate: Math.round(xauhuf), change24h: 0, changePercent: 0, timestamp: now },
     );
   }
 

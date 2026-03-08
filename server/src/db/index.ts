@@ -302,6 +302,14 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
       is_done INTEGER DEFAULT 0,
       created_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS ai_messages (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL REFERENCES ai_conversations(id) ON DELETE CASCADE,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
   `);
 
   // Indexek
@@ -351,6 +359,8 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
     CREATE INDEX IF NOT EXISTS idx_action_items_email ON action_items(email_id);
     CREATE INDEX IF NOT EXISTS idx_action_items_account ON action_items(account_id);
     CREATE INDEX IF NOT EXISTS idx_action_items_done ON action_items(is_done);
+    CREATE INDEX IF NOT EXISTS idx_ai_messages_conversation ON ai_messages(conversation_id);
+    CREATE INDEX IF NOT EXISTS idx_ai_messages_created ON ai_messages(created_at);
 
     -- Extra indexek a teljesítmény javításához
     CREATE INDEX IF NOT EXISTS idx_emails_account_date ON emails(account_id, date DESC);

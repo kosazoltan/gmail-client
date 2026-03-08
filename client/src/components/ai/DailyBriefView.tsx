@@ -13,53 +13,8 @@ import {
   Bell,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { API_BASE } from '../../lib/api';
-
-// --- Types ---
-
-interface DailyStats {
-  received: number;
-  replied: number;
-  pending: number;
-  date: string;
-}
-
-interface PriorityEmail {
-  id: string;
-  subject: string;
-  from: string;
-  fromName?: string;
-  receivedAt: number;
-  priority: 'urgent' | 'high' | 'normal' | 'low';
-  reason?: string;
-}
-
-interface FollowUp {
-  id: string;
-  emailId: string;
-  subject: string;
-  from_email: string;
-  from_name: string;
-  daysSince: number;
-  urgency: string;
-}
-
-interface ContactActivity {
-  email: string;
-  name?: string;
-  count: number;
-}
-
-// --- Helper ---
-
-async function apiFetch<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
-}
+import { api } from '../../lib/api';
+import type { DailyStats, PriorityEmail, FollowUp, ContactActivity } from '../../types';
 
 // --- Component ---
 
@@ -76,9 +31,9 @@ export function DailyBriefView() {
     setError(null);
     try {
       const [briefRes, priorityRes, followUpRes] = await Promise.allSettled([
-        apiFetch<{ stats: DailyStats; contacts: ContactActivity[] }>('/smart/daily-brief'),
-        apiFetch<{ priorities: PriorityEmail[] }>('/smart/priorities'),
-        apiFetch<{ followups: FollowUp[] }>('/smart/followups'),
+        api.smart.getDailyBrief(),
+        api.smart.getPriorities(),
+        api.smart.getFollowUps(),
       ]);
 
       if (briefRes.status === 'fulfilled') {

@@ -732,6 +732,57 @@ export const api = {
       request<{ success: boolean }>(`/smart-folders/${id}`, { method: 'DELETE' }),
   },
 
+  // Smart Features
+  smart: {
+    getDailyBrief: () => request<import('../types').DailyBriefData>('/smart/daily-brief'),
+    getPriorities: () => request<{ priorities: import('../types').PriorityEmail[] }>('/smart/priorities'),
+    getFollowUps: () => request<{ followups: import('../types').FollowUp[] }>('/smart/followups'),
+    getAnalytics: (period: string) => request<import('../types').AnalyticsData>(`/smart/analytics?period=${period}`),
+  },
+
+  // Workflows
+  workflows: {
+    list: () => request<{ workflows: import('../types').WorkflowData[] }>('/workflows'),
+    get: (id: string) => request<{ workflow: import('../types').WorkflowData }>(`/workflows/${id}`),
+    create: (data: Partial<import('../types').WorkflowData>) =>
+      request<{ workflow: import('../types').WorkflowData }>('/workflows', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: Partial<import('../types').WorkflowData>) =>
+      request<{ workflow: import('../types').WorkflowData }>(`/workflows/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) => request<void>(`/workflows/${id}`, { method: 'DELETE' }),
+    run: (id: string, emailId?: string) =>
+      request<void>(`/workflows/${id}/run`, {
+        method: 'POST',
+        body: JSON.stringify({ triggerEmailId: emailId }),
+      }),
+    runs: (id: string) => request<{ runs: import('../types').RunLogEntry[] }>(`/workflows/${id}/runs`),
+  },
+
+  // AI
+  ai: {
+    chat: (message: string, conversationId?: string, emailId?: string) =>
+      request<{ reply: string; conversationId: string }>('/ai/chat', {
+        method: 'POST',
+        body: JSON.stringify({ message, conversationId, emailId }),
+      }),
+    smartSearch: (query: string, suggestionsOnly?: boolean) =>
+      request<import('../types').SmartSearchResult>('/ai/smart-search', {
+        method: 'POST',
+        body: JSON.stringify({ query, suggestionsOnly }),
+      }),
+    getConversations: () =>
+      request<{ conversations: Array<{ id: string; title: string; updatedAt: number; createdAt: number }> }>('/ai/conversations'),
+    getConversationMessages: (id: string) =>
+      request<{ messages: Array<{ id: string; role: string; content: string; timestamp: number }> }>(`/ai/conversations/${id}/messages`),
+    deleteConversation: (id: string) =>
+      request<{ success: boolean }>(`/ai/conversations/${id}`, { method: 'DELETE' }),
+  },
+
   translate: {
     translate: (text: string, targetLang = 'hu', sourceLang = 'auto') =>
       request<{
