@@ -1,7 +1,7 @@
 // ZMail Service Worker
 // Network-first stratégia - mindig friss tartalom, cache csak offline fallback
-const CACHE_NAME = 'zmail-offline-v2';
-const APP_SHELL_CACHE = 'zmail-app-shell-v1';
+const CACHE_NAME = 'zmail-offline-v3';
+const APP_SHELL_CACHE = 'zmail-app-shell-v2';
 const OFFLINE_URL = '/offline.html';
 
 // App shell assets to cache for offline access
@@ -58,8 +58,14 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
 
   // API hívások — NE intercept-áljuk, engedjük át a böngészőnek közvetlenül
-  // Cross-origin (api.mindenes.org) hívásokat a SW amúgy sem kezelheti megbízhatóan
-  if (url.pathname.startsWith('/api') || url.hostname !== self.location.hostname) {
+  // Cross-origin (api.mindenes.org) hívásokat a SW NEM cache-eli — CORS header-ek miatt
+  // Bármilyen /api/ path-ot is kihagyunk (same-origin API proxy esetére)
+  if (
+    url.pathname.startsWith('/api') ||
+    url.hostname !== self.location.hostname ||
+    url.hostname.includes('api.') ||
+    url.pathname.includes('/api/')
+  ) {
     return;
   }
 

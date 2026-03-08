@@ -842,14 +842,34 @@ router.post('/deep-analysis', async (req, res) => {
     const result = await generateDeepAnalysis(rates, trendData);
 
     if (!result) {
+      // Template-based fallback when AI is unavailable
+      const fallbackCurrencies: Record<string, { trend: string; support: number; resistance: number; forecast: string; recommendation: string; confidence: number }> = {};
+      for (const r of rates) {
+        if (r.pair.startsWith('XAU')) continue;
+        const trend = r.changePercent > 0.1 ? 'up' : r.changePercent < -0.1 ? 'down' : 'sideways';
+        const spread = r.rate * 0.015;
+        fallbackCurrencies[r.pair.replace(/(.{3})(.{3})/, '$1_$2')] = {
+          trend,
+          support: Math.round((r.rate - spread) * 100) / 100,
+          resistance: Math.round((r.rate + spread) * 100) / 100,
+          forecast: `Sablon alapú elemzés: a ${r.label} ${r.changePercent >= 0 ? 'emelkedik' : 'csökken'} (${r.changePercent.toFixed(2)}%).`,
+          recommendation: r.changePercent > 0.3 ? 'buy' : r.changePercent < -0.3 ? 'sell' : 'hold',
+          confidence: 3,
+        };
+      }
+
       return res.json({
         success: true,
         data: {
-          summary: 'AI elemzés nem elérhető. Kérjük ellenőrizze az API kulcsot.',
-          currencies: {},
-          gold: { trend: 'N/A', forecast: 'Nem elérhető', recommendation: 'Nem elérhető' },
-          overallRecommendation: 'AI elemzés nem elérhető',
-          risks: ['AI elemzés nem konfigurált vagy átmenetileg nem elérhető'],
+          summary: 'Sablon alapú elemzés — Az AI mély elemzés átmenetileg nem elérhető. Az alábbi adatok az élő árfolyamok alapján készültek.',
+          currencies: fallbackCurrencies,
+          gold: {
+            trend: rates.find(r => r.pair === 'XAUUSD') ? 'Adatok alapján' : 'Nem elérhető',
+            forecast: 'Sablon alapú elemzés — nincs AI előrejelzés.',
+            recommendation: 'Kézi elemzés javasolt.',
+          },
+          overallRecommendation: 'Sablon alapú elemzés — az AI átmenetileg nem elérhető. Az élő árfolyamok és trend adatok alapján hozzon döntést.',
+          risks: ['Az elemzés sablon alapú, nem AI-generált — körültekintő döntéshozatal javasolt.'],
           generatedAt: new Date().toISOString(),
           cached: false,
           trendData,
