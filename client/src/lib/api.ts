@@ -650,6 +650,35 @@ export const api = {
         `/calendar/events${qs ? `?${qs}` : ''}`,
       );
     },
+    create: (data: {
+      summary: string;
+      description?: string;
+      location?: string;
+      start: string;
+      end?: string;
+      isAllDay: boolean;
+    }) =>
+      request<{ event: import('../types').CalendarEvent }>('/calendar', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    update: (
+      id: string,
+      data: {
+        summary: string;
+        description?: string;
+        location?: string;
+        start: string;
+        end?: string;
+        isAllDay: boolean;
+      },
+    ) =>
+      request<{ event: import('../types').CalendarEvent }>(`/calendar/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/calendar/${id}`, { method: 'DELETE' }),
   },
 
   tasks: {

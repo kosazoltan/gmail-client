@@ -142,4 +142,125 @@ function formatEvent(event: {
   };
 }
 
+// Segédfüggvény: eventBody összeállítás POST/PUT-hoz
+function buildEventBody(body: {
+  summary?: string;
+  description?: string;
+  location?: string;
+  start?: string;
+  end?: string;
+  isAllDay?: boolean;
+}) {
+  const { summary, description, location, start, end, isAllDay } = body;
+
+  const eventBody: Record<string, unknown> = {
+    summary: summary?.trim(),
+    description: description || undefined,
+    location: location || undefined,
+  };
+
+  if (isAllDay) {
+    eventBody.start = { date: start };
+    eventBody.end = { date: end || start };
+  } else {
+    eventBody.start = { dateTime: start, timeZone: 'Europe/Budapest' };
+    eventBody.end = {
+      dateTime: end || new Date(new Date(start!).getTime() + 3600000).toISOString(),
+      timeZone: 'Europe/Budapest',
+    };
+  }
+
+  return eventBody;
+}
+
+// POST / — Esemény létrehozás
+router.post('/', async (req, res) => {
+  const accountId = req.session?.activeAccountId;
+  if (!accountId) {
+    return res.status(401).json({ error: 'Nincs aktív fiók' });
+  }
+
+  try {
+    const { summary, start } = req.body;
+    if (!summary?.trim()) {
+      return res.status(400).json({ error: 'A cím kötelező' });
+    }
+    if (!start) {
+      return res.status(400).json({ error: 'A kezdés időpont kötelező' });
+    }
+
+    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+
+    const eventBody = buildEventBody(req.body);
+
+    const response = await calendar.events.insert({
+      calendarId: 'primary',
+      requestBody: eventBody,
+    });
+
+    return res.json({ event: formatEvent(response.data) });
+  } catch (error) {
+    logger.error('Calendar create error:', error);
+    return res.status(500).json({ error: 'Esemény létrehozása sikertelen' });
+  }
+});
+
+// PUT /:id — Esemény szerkesztés
+router.put('/:id', async (req, res) => {
+  const accountId = req.session?.activeAccountId;
+  if (!accountId) {
+    return res.status(401).json({ error: 'Nincs aktív fiók' });
+  }
+
+  try {
+    const { id } = req.params;
+    const { summary } = req.body;
+    if (!summary?.trim()) {
+      return res.status(400).json({ error: 'A cím kötelező' });
+    }
+
+    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+
+    const eventBody = buildEventBody(req.body);
+
+    const response = await calendar.events.update({
+      calendarId: 'primary',
+      eventId: id,
+      requestBody: eventBody,
+    });
+
+    return res.json({ event: formatEvent(response.data) });
+  } catch (error) {
+    logger.error('Calendar update error:', error);
+    return res.status(500).json({ error: 'Esemény szerkesztése sikertelen' });
+  }
+});
+
+// DELETE /:id — Esemény törlés
+router.delete('/:id', async (req, res) => {
+  const accountId = req.session?.activeAccountId;
+  if (!accountId) {
+    return res.status(401).json({ error: 'Nincs aktív fiók' });
+  }
+
+  try {
+    const { id } = req.params;
+
+    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+
+    await calendar.events.delete({
+      calendarId: 'primary',
+      eventId: id,
+    });
+
+    return res.json({ success: true });
+  } catch (error) {
+    logger.error('Calendar delete error:', error);
+    return res.status(500).json({ error: 'Esemény törlése sikertelen' });
+  }
+});
+
 export default router;
