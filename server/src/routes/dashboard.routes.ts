@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { google } from 'googleapis';
 import { getOAuth2ClientForAccount } from '../services/auth.service.js';
 import { queryOne } from '../db/index.js';
+import { getTaskStats, getDetectedTasks } from '../services/task-detection.service.js';
 import logger from '../utils/logger.js';
 
 const router = Router();
@@ -108,12 +109,41 @@ router.get('/', async (req, res) => {
 
     const openTasks = taskItems.filter((t) => t.status === 'needsAction');
 
+    // Detected tasks (email-alapú feladatok) integrálása
+    const detectedStats = getTaskStats(accountId);
+    const { tasks: detectedTasks } = getDetectedTasks(accountId, { status: 'open' });
+
+    // Detected tasks átalakítása dashboard formátumra
+    const detectedTaskItems = detectedTasks.slice(0, 5).map((dt) => ({
+      id: dt.id,
+      title: `📧 ${dt.subject || '(nincs tárgy)'} — ${dt.fromName || dt.fromEmail || 'Ismeretlen'}`,
+      notes: dt.reason || null,
+      status: 'needsAction' as const,
+      due: null,
+      listId: 'detected',
+      listTitle: 'Email feladatok',
+    }));
+
+    // Kombinált lista: detected tasks először, aztán Google Tasks, max 5
+    const combinedOpenTasks = [
+      ...detectedTaskItems,
+      ...openTasks.slice(0, 5).map((t) => ({
+        id: t.id,
+        title: t.title || '',
+        notes: null as string | null,
+        status: t.status || 'needsAction',
+        due: t.due || null,
+        listId: t.listId,
+        listTitle: t.listTitle,
+      })),
+    ].slice(0, 5);
+
     return res.json({
       unreadCount,
       todayEvents: calendarEvents,
       todayEventsCount: calendarEvents.length,
-      openTasks,
-      openTasksCount: openTasks.length,
+      openTasks: combinedOpenTasks,
+      openTasksCount: openTasks.length + detectedStats.open,
       timestamp: Date.now(),
     });
   } catch (error) {

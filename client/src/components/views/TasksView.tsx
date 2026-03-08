@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   useTaskLists,
@@ -115,6 +115,29 @@ function DetectedTasksTab() {
     priority: priorityFilter === 'all' ? undefined : priorityFilter,
   });
   const scanTasks = useScanTasks();
+  const hasAutoScanned = useRef(false);
+
+  // Auto-scan: ha nincs task és stats mind 0 → indítsuk el automatikusan (180 nap)
+  useEffect(() => {
+    if (
+      tasksData &&
+      tasksData.tasks.length === 0 &&
+      statsData &&
+      statsData.open === 0 &&
+      !hasAutoScanned.current &&
+      !scanTasks.isPending
+    ) {
+      hasAutoScanned.current = true;
+      scanTasks.mutate(180, {
+        onSuccess: (data) => {
+          toast.success(`${data.newTasksCount} új feladat találva`);
+        },
+        onError: () => {
+          toast.error('Hiba az emailek átvizsgálásakor');
+        },
+      });
+    }
+  }, [tasksData, statsData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleScan = () => {
     // Ha nincs még task, 180 nap; egyébként 30 nap
@@ -208,8 +231,20 @@ function DetectedTasksTab() {
           ))}
         </div>
       ) : (
-        <div className="dark:text-dark-text-muted py-12 text-center text-sm text-gray-500">
-          Nincs megválaszolatlan email. Minden rendben! 🎉
+        <div className="dark:text-dark-text-muted flex flex-col items-center justify-center gap-2 py-12 text-center text-sm text-gray-500">
+          {scanTasks.isPending ? (
+            <>
+              <Loader2 className="h-6 w-6 animate-spin text-[#4f6ef7]" />
+              <span>Emailek átvizsgálása folyamatban... ⏳</span>
+            </>
+          ) : hasAutoScanned.current ? (
+            <span>Nincs megválaszolatlan email. Minden rendben! 🎉</span>
+          ) : (
+            <>
+              <Loader2 className="h-6 w-6 animate-spin text-[#4f6ef7]" />
+              <span>Emailek átvizsgálása indul... ⏳</span>
+            </>
+          )}
         </div>
       )}
     </div>
