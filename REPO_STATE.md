@@ -113,3 +113,21 @@ git push origin main
 - FattyÃº: workflows.get eltÃ¡volÃ­tva api.ts-bÅ‘l
 - Security: categorization_rules DELETE ownership fix
 - Ãšj tÃ¶rvÃ©nyek: 14 (modulÃ¡ris terv), 15 (Ã¡rva/fattyÃº audit), 16 (konzÃ­lium)
+
+## ?? BEÉPÍTETT AI RENDSZER (17. törvény)
+### Már implementált ?
+- AI Chat (multi-turn, Anthropic Sonnet 4.6)
+- Smart Search (suggestReply, SmartSearchBar)
+- Action Items (email › feladatok, Haiku 4.5)
+- Sentiment Detection (Haiku 4.5)
+- Market Analysis (Frankfurter + AI deep analysis, Sonnet 4.6)
+- Workflow Engine (trigger › action chain, AI lépések)
+- Smart Folders (AI szabály-alapú mappák)
+- Feladat Detektálás (SSE scan, megválaszolatlan/olvasatlan)
+- Heti Riport (AI generált, Sonnet 4.6)
+
+### Bõvítendõ ??
+- Adaptív fájl import emailekbõl (PDF/Excel › AI értelmezi › DB)
+- Felhasználói szokás felismerés › auto workflow javaslat
+- Természetes nyelvû email keresés (nem csak keyword)
+- Kontakt intelligence bõvítés (kapcsolati háló elemzés)
