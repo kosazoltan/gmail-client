@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   detectUnansweredEmails,
+  detectUnansweredEmailsWithProgress,
   getDetectedTasks,
   updateDetectedTaskStatus,
   deleteDetectedTask,
@@ -66,7 +67,51 @@ router.get('/stats', (req, res) => {
   }
 });
 
-// POST /api/detected-tasks/scan — kézi scan indítás
+// GET /api/detected-tasks/scan-stream — SSE progress scan
+router.get('/scan-stream', (req, res) => {
+  try {
+    const accountId = getAccountId(req);
+    if (!accountId) {
+      return res.status(401).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
+    }
+
+    const daysBack = Math.min(
+      Math.max(1, parseInt(req.query.daysBack as string, 10) || 30),
+      365,
+    );
+
+    // SSE headers
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+
+    const sendProgress = (data: { phase: string; processed: number; total: number; found: number }) => {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    const result = detectUnansweredEmailsWithProgress(accountId, daysBack, sendProgress);
+
+    // Snoozed taskok feloldása
+    const unsnoozed = processExpiredSnoozedTasks();
+
+    // Végső eredmény
+    res.write(`data: ${JSON.stringify({ phase: 'done', newTasksCount: result.newTasksCount, totalProcessed: result.totalProcessed, unsnoozedCount: unsnoozed })}\n\n`);
+    res.end();
+  } catch (err) {
+    logger.error('SSE scan-stream error:', err);
+    // Ha még nem küldtünk headert, JSON error; egyébként SSE error event
+    if (!res.headersSent) {
+      return res.status(500).json({ error: 'Scan stream sikertelen' });
+    }
+    res.write(`data: ${JSON.stringify({ phase: 'error', message: 'Scan hiba történt' })}\n\n`);
+    res.end();
+  }
+});
+
+// POST /api/detected-tasks/scan — kézi scan indítás (backwards compatible)
 router.post('/scan', (req, res) => {
   try {
     const accountId = getAccountId(req);

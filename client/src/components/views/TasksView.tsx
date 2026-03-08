@@ -10,7 +10,7 @@ import {
 import {
   useDetectedTasks,
   useDetectedTaskStats,
-  useScanTasks,
+  useScanStream,
   useUpdateDetectedTask,
   useDeleteDetectedTask,
   useSnoozeDetectedTask,
@@ -114,46 +114,60 @@ function DetectedTasksTab() {
     status: 'open',
     priority: priorityFilter === 'all' ? undefined : priorityFilter,
   });
-  const scanTasks = useScanTasks();
+  const { scanState, startScan } = useScanStream();
   const hasAutoScanned = useRef(false);
 
-  // Auto-scan: ha nincs task és stats mind 0 → indítsuk el automatikusan (180 nap)
+  // Auto-scan: ha nincs task és stats mind 0 → első scan 180 nap
   useEffect(() => {
     if (
-      tasksData &&
-      tasksData.tasks.length === 0 &&
       statsData &&
       statsData.open === 0 &&
       !hasAutoScanned.current &&
-      !scanTasks.isPending
+      !scanState.isScanning
     ) {
       hasAutoScanned.current = true;
-      scanTasks.mutate(180, {
-        onSuccess: (data) => {
-          toast.success(`${data.newTasksCount} új feladat találva`);
-        },
-        onError: () => {
-          toast.error('Hiba az emailek átvizsgálásakor');
-        },
-      });
+      startScan(180);
     }
-  }, [tasksData, statsData]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [statsData, scanState.isScanning, startScan]);
 
   const handleScan = () => {
-    // Ha nincs még task, 180 nap; egyébként 30 nap
-    const daysBack = !tasksData?.tasks?.length ? 180 : 30;
-    scanTasks.mutate(daysBack, {
-      onSuccess: (data) => {
-        toast.success(`${data.newTasksCount} új feladat találva`);
-      },
-      onError: () => {
-        toast.error('Hiba az emailek átvizsgálásakor');
-      },
-    });
+    // Kézi frissítés: MINDIG 30 nap (aktuális hónap)
+    startScan(30);
   };
 
   return (
     <div className="space-y-4">
+      {/* SSE Scan progress bar */}
+      {scanState.isScanning && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/30">
+          <div className="mb-2 flex items-center justify-between text-sm">
+            <span className="font-medium">
+              {scanState.phase === 'loading' && '📨 Emailek betöltése...'}
+              {scanState.phase === 'scanning' && `🔍 Elemzés: ${scanState.processed}/${scanState.total} email`}
+              {scanState.phase === 'updating' && '📊 Prioritások frissítése...'}
+            </span>
+            <span className="text-blue-600 dark:text-blue-400">
+              {scanState.found} feladat találva
+            </span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-blue-200 dark:bg-blue-800">
+            <div
+              className="h-full rounded-full bg-blue-500 transition-all duration-300"
+              style={{
+                width: scanState.total > 0
+                  ? `${(scanState.processed / scanState.total) * 100}%`
+                  : '0%',
+              }}
+            />
+          </div>
+          <div className="mt-1 text-xs text-blue-500">
+            {scanState.total > 0
+              ? `${Math.round((scanState.processed / scanState.total) * 100)}%`
+              : 'Betöltés...'}
+          </div>
+        </div>
+      )}
+
       {/* Statisztika sáv */}
       {statsData && (
         <div className="dark:bg-dark-bg-secondary dark:border-dark-border flex flex-wrap items-center gap-4 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
@@ -207,15 +221,15 @@ function DetectedTasksTab() {
 
         <button
           onClick={handleScan}
-          disabled={scanTasks.isPending}
+          disabled={scanState.isScanning}
           className="flex items-center gap-2 rounded-lg bg-[#4f6ef7] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#3d5ce5] disabled:opacity-50"
         >
-          {scanTasks.isPending ? (
+          {scanState.isScanning ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <RefreshCw className="h-4 w-4" />
           )}
-          Emailek átvizsgálása
+          🔄 Frissítés (aktuális hónap)
         </button>
       </div>
 
@@ -232,18 +246,13 @@ function DetectedTasksTab() {
         </div>
       ) : (
         <div className="dark:text-dark-text-muted flex flex-col items-center justify-center gap-2 py-12 text-center text-sm text-gray-500">
-          {scanTasks.isPending ? (
-            <>
-              <Loader2 className="h-6 w-6 animate-spin text-[#4f6ef7]" />
-              <span>Emailek átvizsgálása folyamatban... ⏳</span>
-            </>
-          ) : hasAutoScanned.current ? (
+          {scanState.isScanning ? (
+            // Progress bar fentebb mutatja a státuszt
+            <span>Átvizsgálás folyamatban... ⏳</span>
+          ) : hasAutoScanned.current || scanState.phase === 'done' ? (
             <span>Nincs megválaszolatlan email. Minden rendben! 🎉</span>
           ) : (
-            <>
-              <Loader2 className="h-6 w-6 animate-spin text-[#4f6ef7]" />
-              <span>Emailek átvizsgálása indul... ⏳</span>
-            </>
+            <span>Kattints a &apos;Frissítés&apos; gombra az emailek átvizsgálásához</span>
           )}
         </div>
       )}

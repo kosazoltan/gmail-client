@@ -47,6 +47,7 @@ interface IncomingEmailRow {
   from_email: string | null;
   from_name: string | null;
   date: number;
+  is_read: number;
 }
 
 function rowToDetectedTask(row: DetectedTaskRow): DetectedTask {
@@ -99,15 +100,14 @@ export function detectUnansweredEmails(accountId: string, daysBack: number = 30)
   // Skip emails newer than 1 day — give time to respond
   const oneDayAgo = now - 1 * 24 * 60 * 60 * 1000;
 
-  // 1. Bejövő emailek: olvasott, nem tőlünk, elmúlt N nap, legalább 1 naposak
+  // 1. Bejövő emailek: nem tőlünk, elmúlt N nap, legalább 1 naposak (olvasott + olvasatlan)
   const incomingEmails = queryAll<IncomingEmailRow>(
-    `SELECT id, thread_id, subject, from_email, from_name, date
+    `SELECT id, thread_id, subject, from_email, from_name, date, is_read
      FROM emails
      WHERE account_id = ?
        AND date >= ?
        AND date <= ?
        AND from_email != ?
-       AND is_read = 1
      ORDER BY date DESC`,
     [accountId, sinceDate, oneDayAgo, accountEmail],
   );
@@ -137,8 +137,9 @@ export function detectUnansweredEmails(accountId: string, daysBack: number = 30)
       hasReply = !!reply;
     }
 
-    // 3. Ha NINCS válasz → detected_task
-    if (!hasReply) {
+    // 3. Ha olvasatlan VAGY nincs válasz → detected_task
+    const isUnread = email.is_read === 0;
+    if (isUnread || !hasReply) {
       const daysSinceEmail = Math.floor((now - email.date) / (24 * 60 * 60 * 1000));
 
       // 4. Prioritás meghatározás
@@ -151,13 +152,18 @@ export function detectUnansweredEmails(accountId: string, daysBack: number = 30)
         priority = 'low';
       }
 
-      const reason = `Nem válaszoltál rá ${daysSinceEmail} napja`;
+      // DetectionType: olvasatlan vs megválaszolatlan
+      const detectionType = isUnread ? 'unread' : 'unanswered';
+      const reason = isUnread
+        ? `Olvasatlan email ${daysSinceEmail} napja`
+        : `Nem válaszoltál rá ${daysSinceEmail} napja`;
+
       const id = crypto.randomUUID();
       const taskNow = Date.now();
 
       execute(
         `INSERT INTO detected_tasks (id, account_id, email_id, thread_id, subject, from_email, from_name, email_date, detection_type, reason, priority, status, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'unanswered', ?, ?, 'open', ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
         [
           id,
           accountId,
@@ -167,6 +173,7 @@ export function detectUnansweredEmails(accountId: string, daysBack: number = 30)
           email.from_email,
           email.from_name,
           email.date,
+          detectionType,
           reason,
           priority,
           taskNow,
@@ -183,7 +190,7 @@ export function detectUnansweredEmails(accountId: string, daysBack: number = 30)
         fromEmail: email.from_email,
         fromName: email.from_name,
         emailDate: email.date,
-        detectionType: 'unanswered',
+        detectionType,
         reason,
         priority,
         status: 'open',
@@ -215,6 +222,162 @@ export function detectUnansweredEmails(accountId: string, daysBack: number = 30)
   }
 
   return newTasks;
+}
+
+/**
+ * SSE progress-szel ellátott változat: detectUnansweredEmails + onProgress callback.
+ * Fázisok: 'loading' → 'scanning' → 'updating' → 'done'
+ */
+export function detectUnansweredEmailsWithProgress(
+  accountId: string,
+  daysBack: number,
+  onProgress: (data: { phase: string; processed: number; total: number; found: number }) => void,
+): { newTasksCount: number; totalProcessed: number } {
+  const accountEmail = getAccountEmail(accountId);
+  if (!accountEmail) {
+    logger.warn(`Task detection: no email found for account ${accountId}`);
+    return { newTasksCount: 0, totalProcessed: 0 };
+  }
+
+  const now = Date.now();
+  const sinceDate = now - daysBack * 24 * 60 * 60 * 1000;
+  const oneDayAgo = now - 1 * 24 * 60 * 60 * 1000;
+
+  onProgress({ phase: 'loading', processed: 0, total: 0, found: 0 });
+
+  const incomingEmails = queryAll<IncomingEmailRow>(
+    `SELECT id, thread_id, subject, from_email, from_name, date, is_read
+     FROM emails
+     WHERE account_id = ?
+       AND date >= ?
+       AND date <= ?
+       AND from_email != ?
+     ORDER BY date DESC`,
+    [accountId, sinceDate, oneDayAgo, accountEmail],
+  );
+
+  onProgress({ phase: 'scanning', processed: 0, total: incomingEmails.length, found: 0 });
+
+  const newTasks: DetectedTask[] = [];
+
+  for (let i = 0; i < incomingEmails.length; i++) {
+    const email = incomingEmails[i];
+
+    // Duplikátum elkerülés
+    const existing = queryOne<{ id: string }>(
+      'SELECT id FROM detected_tasks WHERE email_id = ? AND account_id = ?',
+      [email.id, accountId],
+    );
+    if (existing) {
+      if (i % 10 === 0) {
+        onProgress({ phase: 'scanning', processed: i, total: incomingEmails.length, found: newTasks.length });
+      }
+      continue;
+    }
+
+    // Thread alapú válasz detekció
+    let hasReply = false;
+    if (email.thread_id) {
+      const reply = queryOne<{ id: string }>(
+        `SELECT id FROM emails
+         WHERE thread_id = ?
+           AND account_id = ?
+           AND from_email = ?
+           AND date > ?
+         LIMIT 1`,
+        [email.thread_id, accountId, accountEmail, email.date],
+      );
+      hasReply = !!reply;
+    }
+
+    const isUnread = email.is_read === 0;
+    if (isUnread || !hasReply) {
+      const daysSinceEmail = Math.floor((now - email.date) / (24 * 60 * 60 * 1000));
+
+      let priority: string;
+      if (daysSinceEmail >= 7) {
+        priority = 'high';
+      } else if (daysSinceEmail >= 3) {
+        priority = 'medium';
+      } else {
+        priority = 'low';
+      }
+
+      const detectionType = isUnread ? 'unread' : 'unanswered';
+      const reason = isUnread
+        ? `Olvasatlan email ${daysSinceEmail} napja`
+        : `Nem válaszoltál rá ${daysSinceEmail} napja`;
+
+      const id = crypto.randomUUID();
+      const taskNow = Date.now();
+
+      execute(
+        `INSERT INTO detected_tasks (id, account_id, email_id, thread_id, subject, from_email, from_name, email_date, detection_type, reason, priority, status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
+        [
+          id,
+          accountId,
+          email.id,
+          email.thread_id,
+          email.subject,
+          email.from_email,
+          email.from_name,
+          email.date,
+          detectionType,
+          reason,
+          priority,
+          taskNow,
+          taskNow,
+        ],
+      );
+
+      newTasks.push({
+        id,
+        accountId,
+        emailId: email.id,
+        threadId: email.thread_id,
+        subject: email.subject,
+        fromEmail: email.from_email,
+        fromName: email.from_name,
+        emailDate: email.date,
+        detectionType,
+        reason,
+        priority,
+        status: 'open',
+        snoozedUntil: null,
+        createdAt: taskNow,
+        updatedAt: taskNow,
+      });
+    }
+
+    if (i % 10 === 0) {
+      onProgress({ phase: 'scanning', processed: i, total: incomingEmails.length, found: newTasks.length });
+    }
+  }
+
+  // Meglévő open taskok prioritás frissítése
+  onProgress({ phase: 'updating', processed: incomingEmails.length, total: incomingEmails.length, found: newTasks.length });
+
+  const openTasks = queryAll<{ id: string; email_date: number | null }>(
+    "SELECT id, email_date FROM detected_tasks WHERE account_id = ? AND status = 'open'",
+    [accountId],
+  );
+  for (const task of openTasks) {
+    if (task.email_date == null) continue;
+    const daysSince = Math.floor((Date.now() - task.email_date) / 86400000);
+    const newPriority = daysSince >= 7 ? 'high' : daysSince >= 3 ? 'medium' : 'low';
+    execute('UPDATE detected_tasks SET priority = ?, updated_at = ? WHERE id = ?', [
+      newPriority,
+      Date.now(),
+      task.id,
+    ]);
+  }
+
+  if (newTasks.length > 0) {
+    logger.info(`Task detection (progress): found ${newTasks.length} new tasks for account ${accountId}`);
+  }
+
+  return { newTasksCount: newTasks.length, totalProcessed: incomingEmails.length };
 }
 
 /**

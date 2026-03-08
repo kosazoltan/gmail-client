@@ -1,5 +1,6 @@
+import { useState, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../lib/api';
+import { api, API_BASE } from '../lib/api';
 
 export function useDetectedTasks(params?: { status?: string; priority?: string; page?: number; limit?: number }) {
   return useQuery({
@@ -61,4 +62,104 @@ export function useSnoozeDetectedTask() {
       queryClient.invalidateQueries({ queryKey: ['detected-tasks'] });
     },
   });
+}
+
+// --- SSE Scan Stream Hook ---
+
+export interface ScanState {
+  isScanning: boolean;
+  phase: 'idle' | 'loading' | 'scanning' | 'updating' | 'done' | 'error';
+  processed: number;
+  total: number;
+  found: number;
+}
+
+const INITIAL_SCAN_STATE: ScanState = {
+  isScanning: false,
+  phase: 'idle',
+  processed: 0,
+  total: 0,
+  found: 0,
+};
+
+export function useScanStream() {
+  const [scanState, setScanState] = useState<ScanState>(INITIAL_SCAN_STATE);
+  const queryClient = useQueryClient();
+  const abortRef = useRef<AbortController | null>(null);
+
+  const startScan = useCallback((daysBack: number) => {
+    // Ha már fut, ne indítsunk újat
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    setScanState({ isScanning: true, phase: 'loading', processed: 0, total: 0, found: 0 });
+
+    fetch(`${API_BASE}/detected-tasks/scan-stream?daysBack=${daysBack}`, {
+      credentials: 'include',
+      signal: controller.signal,
+    }).then(async (response) => {
+      if (!response.ok) {
+        setScanState(prev => ({ ...prev, isScanning: false, phase: 'error' }));
+        return;
+      }
+
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              setScanState(prev => ({
+                ...prev,
+                phase: data.phase,
+                processed: data.processed ?? data.totalProcessed ?? prev.processed,
+                total: data.total ?? data.totalProcessed ?? prev.total,
+                found: data.found ?? data.newTasksCount ?? prev.found,
+              }));
+
+              if (data.phase === 'done' || data.phase === 'error') {
+                setScanState(prev => ({ ...prev, isScanning: false }));
+                queryClient.invalidateQueries({ queryKey: ['detected-tasks'] });
+                queryClient.invalidateQueries({ queryKey: ['detected-tasks', 'stats'] });
+                abortRef.current = null;
+              }
+            } catch {
+              /* skip parse errors */
+            }
+          }
+        }
+      }
+
+      // Stream véget ért — ha még scanning-ben maradt, lezárjuk
+      setScanState(prev => {
+        if (prev.isScanning) {
+          queryClient.invalidateQueries({ queryKey: ['detected-tasks'] });
+          queryClient.invalidateQueries({ queryKey: ['detected-tasks', 'stats'] });
+          return { ...prev, isScanning: false, phase: 'done' };
+        }
+        return prev;
+      });
+      abortRef.current = null;
+    }).catch((err) => {
+      if (err instanceof Error && err.name === 'AbortError') return;
+      setScanState(prev => ({ ...prev, isScanning: false, phase: 'error' }));
+      abortRef.current = null;
+    });
+  }, [queryClient]);
+
+  return { scanState, startScan };
 }
