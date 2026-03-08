@@ -22,6 +22,13 @@ router.post('/action-items/:emailId', async (req, res) => {
 
   try {
     const { emailId } = req.params;
+
+    // Ownership check
+    const email = queryOne<{ account_id: string }>('SELECT account_id FROM emails WHERE id = ?', [emailId]);
+    if (!email || email.account_id !== accountId) {
+      return res.status(404).json({ error: 'Email not found' });
+    }
+
     const items = await extractActionItems(emailId);
     res.json({ success: true, actionItems: items });
   } catch (err) {
@@ -40,6 +47,13 @@ router.get('/action-items/:emailId', (req, res) => {
 
   try {
     const { emailId } = req.params;
+
+    // Ownership check
+    const email = queryOne<{ account_id: string }>('SELECT account_id FROM emails WHERE id = ?', [emailId]);
+    if (!email || email.account_id !== accountId) {
+      return res.status(404).json({ error: 'Email not found' });
+    }
+
     const items = getActionItemsByEmail(emailId);
     res.json({ success: true, actionItems: items });
   } catch (err) {
@@ -84,6 +98,13 @@ router.post('/sentiment/:emailId', async (req, res) => {
 
   try {
     const { emailId } = req.params;
+
+    // Ownership check
+    const email = queryOne<{ account_id: string }>('SELECT account_id FROM emails WHERE id = ?', [emailId]);
+    if (!email || email.account_id !== accountId) {
+      return res.status(404).json({ error: 'Email not found' });
+    }
+
     const result = await detectSentiment(emailId);
     res.json({ success: true, ...result });
   } catch (err) {
@@ -102,6 +123,13 @@ router.post('/suggest-reply/:emailId', async (req, res) => {
 
   try {
     const { emailId } = req.params;
+
+    // Ownership check
+    const email = queryOne<{ account_id: string }>('SELECT account_id FROM emails WHERE id = ?', [emailId]);
+    if (!email || email.account_id !== accountId) {
+      return res.status(404).json({ error: 'Email not found' });
+    }
+
     const suggestions = await suggestReply(emailId);
     res.json({ success: true, suggestions });
   } catch (err) {
@@ -120,6 +148,13 @@ router.get('/related/:emailId', (req, res) => {
 
   try {
     const { emailId } = req.params;
+
+    // Ownership check
+    const email = queryOne<{ account_id: string }>('SELECT account_id FROM emails WHERE id = ?', [emailId]);
+    if (!email || email.account_id !== accountId) {
+      return res.status(404).json({ error: 'Email not found' });
+    }
+
     const related = findRelatedEmails(emailId);
     res.json({ success: true, relatedEmails: related });
   } catch (err) {

@@ -105,7 +105,7 @@ export function AIAssistantPanel({
       const assistantMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: data.response || 'Nem sikerült választ generálni.',
+        content: data.reply || 'Nem sikerült választ generálni.',
         timestamp: Date.now(),
       };
       setMessages((prev) => [...prev, assistantMessage]);

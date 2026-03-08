@@ -42,6 +42,13 @@ router.get('/:id/emails', (req, res) => {
 
   try {
     const { id } = req.params;
+
+    // Ownership check
+    const folder = getSmartFolderById(id);
+    if (!folder || folder.accountId !== accountId) {
+      return res.status(404).json({ error: 'Smart folder not found' });
+    }
+
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 50;
     const { emails, total } = getSmartFolderEmails(id, page, limit);

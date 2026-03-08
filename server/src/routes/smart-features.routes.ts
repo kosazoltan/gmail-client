@@ -127,11 +127,11 @@ router.get('/daily-brief', (req, res) => {
     const todayMs = todayStart.getTime();
 
     const totalTodayResult = queryOne<{ cnt: number }>(
-      'SELECT COUNT(*) as cnt FROM emails WHERE account_id = ? AND date >= ? AND labels NOT LIKE \'%TRASH%\'',
+      'SELECT COUNT(*) as cnt FROM emails WHERE account_id = ? AND date >= ? AND labels NOT LIKE \'%TRASH%\' AND labels NOT LIKE \'%SENT%\'',
       [accountId, todayMs],
     );
     const unreadTodayResult = queryOne<{ cnt: number }>(
-      'SELECT COUNT(*) as cnt FROM emails WHERE account_id = ? AND date >= ? AND is_read = 0 AND labels NOT LIKE \'%TRASH%\'',
+      'SELECT COUNT(*) as cnt FROM emails WHERE account_id = ? AND date >= ? AND is_read = 0 AND labels NOT LIKE \'%TRASH%\' AND labels NOT LIKE \'%SENT%\'',
       [accountId, todayMs],
     );
     const repliedTodayResult = queryOne<{ cnt: number }>(

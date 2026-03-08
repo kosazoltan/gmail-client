@@ -38,11 +38,14 @@ import type {
 interface RunLogEntry {
   id: string;
   workflowId: string;
-  status: 'success' | 'error' | 'running';
+  accountId: string;
+  status: 'running' | 'completed' | 'failed';
+  triggerEmailId: string | null;
+  stepsCompleted: number;
+  result: Record<string, unknown>;
   startedAt: number;
-  finishedAt?: number;
-  processedCount?: number;
-  error?: string;
+  completedAt: number | null;
+  error: string | null;
 }
 
 // --- Constants ---
@@ -56,6 +59,10 @@ const STEP_META: Record<StepType, { label: string; icon: typeof Filter; color: s
   summarize: { label: 'Összefoglalás', icon: FileText, color: 'text-indigo-500', description: 'Email tartalom összefoglalása' },
   extract: { label: 'Kinyerés', icon: Scissors, color: 'text-pink-500', description: 'Adatok kinyerése emailből' },
   notify: { label: 'Értesítés', icon: Bell, color: 'text-red-500', description: 'Értesítés küldése' },
+  group: { label: 'Csoportosítás', icon: Filter, color: 'text-teal-500', description: 'Emailek csoportosítása mező alapján' },
+  save_report: { label: 'Riport mentés', icon: FileText, color: 'text-emerald-500', description: 'Eredmény mentése riportként' },
+  ai_reply: { label: 'AI Válasz', icon: Bot, color: 'text-violet-500', description: 'AI-alapú válasz tervezet készítése' },
+  condition: { label: 'Feltétel', icon: AlertCircle, color: 'text-amber-500', description: 'Feltételes elágazás' },
 };
 
 const TRIGGER_META: Record<TriggerType, { label: string; icon: typeof Clock }> = {
@@ -114,7 +121,7 @@ export function WorkflowBuilder() {
   const handleNew = () => {
     const newWf: WorkflowData = {
       name: 'Új Workflow',
-      trigger: 'new_email',
+      triggerType: 'new_email',
       triggerConfig: {},
       steps: [],
       isActive: false,
@@ -190,8 +197,8 @@ export function WorkflowBuilder() {
   // Load logs
   const loadLogs = async (id: string) => {
     try {
-      const data = await apiFetch<{ logs: RunLogEntry[] }>(`/workflows/${id}/logs`);
-      setRunLogs(data.logs || []);
+      const data = await apiFetch<{ runs: RunLogEntry[] }>(`/workflows/${id}/runs`);
+      setRunLogs(data.runs || []);
       setShowLogs(true);
     } catch {
       setRunLogs([]);
@@ -303,7 +310,7 @@ export function WorkflowBuilder() {
                   </div>
                   <div className="mt-1 flex items-center gap-2">
                     <span className="dark:text-dark-text-muted text-xs text-gray-400">
-                      {TRIGGER_META[wf.trigger]?.label || wf.trigger}
+                      {TRIGGER_META[wf.triggerType]?.label || wf.triggerType}
                     </span>
                     <span className="dark:text-dark-text-muted text-xs text-gray-300">•</span>
                     <span className="dark:text-dark-text-muted text-xs text-gray-400">
@@ -368,8 +375,8 @@ export function WorkflowBuilder() {
                     Trigger
                   </label>
                   <select
-                    value={selected.trigger}
-                    onChange={(e) => setSelected({ ...selected, trigger: e.target.value as TriggerType })}
+                    value={selected.triggerType}
+                    onChange={(e) => setSelected({ ...selected, triggerType: e.target.value as TriggerType })}
                     className="dark:border-dark-border dark:bg-dark-bg-tertiary dark:text-dark-text w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#4f6ef7]"
                   >
                     {(Object.entries(TRIGGER_META) as [TriggerType, typeof TRIGGER_META[TriggerType]][]).map(([key, meta]) => (
@@ -380,7 +387,7 @@ export function WorkflowBuilder() {
               </div>
 
               {/* Schedule config */}
-              {selected.trigger === 'schedule' && (
+              {selected.triggerType === 'schedule' && (
                 <div className="mb-5">
                   <label className="dark:text-dark-text-secondary mb-1 block text-xs font-medium text-gray-600">
                     Cron kifejezés (pl. 0 9 * * *)
@@ -596,25 +603,25 @@ export function WorkflowBuilder() {
                 <div className="space-y-2">
                   {runLogs.slice(0, 10).map((log) => (
                     <div key={log.id} className="dark:border-dark-border flex items-center gap-3 rounded-lg border border-gray-100 px-3 py-2">
-                      {log.status === 'success' && <CheckCircle2 className="h-4 w-4 text-green-500" />}
-                      {log.status === 'error' && <XCircle className="h-4 w-4 text-red-500" />}
+                      {log.status === 'completed' && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                      {log.status === 'failed' && <XCircle className="h-4 w-4 text-red-500" />}
                       {log.status === 'running' && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
                       <div className="min-w-0 flex-1">
                         <span className="dark:text-dark-text text-xs text-gray-700">
                           {new Date(log.startedAt).toLocaleString('hu-HU')}
                         </span>
-                        {log.processedCount !== undefined && (
+                        {log.stepsCompleted > 0 && (
                           <span className="dark:text-dark-text-muted ml-2 text-xs text-gray-400">
-                            {log.processedCount} email feldolgozva
+                            {log.stepsCompleted} lépés végrehajtva
                           </span>
                         )}
                         {log.error && (
                           <p className="mt-0.5 text-xs text-red-500">{log.error}</p>
                         )}
                       </div>
-                      {log.finishedAt && (
+                      {log.completedAt && (
                         <span className="dark:text-dark-text-muted text-[10px] text-gray-400">
-                          {Math.round((log.finishedAt - log.startedAt) / 1000)}s
+                          {Math.round((log.completedAt - log.startedAt) / 1000)}s
                         </span>
                       )}
                     </div>

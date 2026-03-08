@@ -50,6 +50,10 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'A name és triggerType megadása kötelező' });
     }
 
+    if (steps && (!Array.isArray(steps) || steps.some(s => !s.type || !s.name))) {
+      return res.status(400).json({ error: 'Invalid steps format' });
+    }
+
     const workflow = createWorkflow(
       accountId,
       name,

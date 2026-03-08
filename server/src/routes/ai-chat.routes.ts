@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import Anthropic from '@anthropic-ai/sdk';
-import { queryOne } from '../db/index.js';
+import { queryOne, queryAll } from '../db/index.js';
 import logger from '../utils/logger.js';
 
 const router = Router();
@@ -99,6 +99,95 @@ Segíts email fogalmazásban, elemzésben, összefoglalásban és szervezésben.
     });
   } catch (err) {
     logger.error('AI chat error:', err);
+    const message = err instanceof Error ? err.message : 'Ismeretlen hiba';
+    res.status(500).json({ error: message });
+  }
+});
+
+// POST /api/ai/smart-search — AI-powered natural language email search
+router.post('/smart-search', async (req, res) => {
+  const accountId = req.session?.activeAccountId;
+  if (!accountId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  try {
+    const { query, suggestionsOnly } = req.body as {
+      query?: string;
+      suggestionsOnly?: boolean;
+    };
+
+    if (!query || typeof query !== 'string' || query.trim().length === 0) {
+      return res.status(400).json({ error: 'A query mező kötelező' });
+    }
+
+    const anthropic = getClient();
+
+    if (suggestionsOnly) {
+      // Return search suggestions
+      if (!anthropic) {
+        return res.json({ suggestions: [] });
+      }
+
+      try {
+        const response = await anthropic.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 300,
+          messages: [{
+            role: 'user',
+            content: `A user is searching their email inbox. They typed: "${query}". Suggest 3 possible refined search queries in Hungarian. Return ONLY a JSON array of strings.`,
+          }],
+        });
+
+        const text = response.content[0].type === 'text' ? response.content[0].text : '[]';
+        const stripped = text.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/gi, '');
+        const jsonMatch = stripped.match(/\[[\s\S]*\]/);
+        const suggestions = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+        return res.json({ suggestions });
+      } catch {
+        return res.json({ suggestions: [] });
+      }
+    }
+
+    // Full search — parse query and search emails
+    // Simple keyword-based search as fallback (works without AI too)
+    const searchTerm = query.trim();
+    const emails = queryAll<{ id: string; subject: string; from_email: string; from_name: string; date: number }>(
+      `SELECT id, subject, from_email, from_name, date FROM emails
+       WHERE account_id = ? AND (
+         subject LIKE ? COLLATE NOCASE OR
+         from_email LIKE ? COLLATE NOCASE OR
+         from_name LIKE ? COLLATE NOCASE OR
+         snippet LIKE ? COLLATE NOCASE
+       )
+       ORDER BY date DESC LIMIT 50`,
+      [accountId, `%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`],
+    );
+
+    let interpretation = '';
+    if (anthropic) {
+      try {
+        const aiRes = await anthropic.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 100,
+          messages: [{
+            role: 'user',
+            content: `Briefly explain in Hungarian what this email search query means: "${searchTerm}". One short sentence.`,
+          }],
+        });
+        interpretation = aiRes.content[0].type === 'text' ? aiRes.content[0].text : '';
+      } catch {
+        // Silent fail
+      }
+    }
+
+    res.json({
+      interpretation,
+      resultCount: emails.length,
+      emails: emails.slice(0, 20),
+    });
+  } catch (err) {
+    logger.error('Smart search error:', err);
     const message = err instanceof Error ? err.message : 'Ismeretlen hiba';
     res.status(500).json({ error: message });
   }

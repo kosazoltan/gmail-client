@@ -341,6 +341,7 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
     CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow ON workflow_runs(workflow_id);
     CREATE INDEX IF NOT EXISTS idx_workflow_runs_account ON workflow_runs(account_id);
     CREATE INDEX IF NOT EXISTS idx_workflow_runs_status ON workflow_runs(status);
+    CREATE INDEX IF NOT EXISTS idx_workflow_runs_started_at ON workflow_runs(started_at);
     CREATE INDEX IF NOT EXISTS idx_ai_conversations_account ON ai_conversations(account_id);
     CREATE INDEX IF NOT EXISTS idx_ai_conversations_updated ON ai_conversations(updated_at DESC);
 

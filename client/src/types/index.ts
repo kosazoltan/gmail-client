@@ -545,7 +545,11 @@ export type WorkflowStepType =
   | 'forward'
   | 'summarize'
   | 'extract'
-  | 'notify';
+  | 'notify'
+  | 'group'
+  | 'save_report'
+  | 'ai_reply'
+  | 'condition';
 
 export interface WorkflowStep {
   id: string;
@@ -556,7 +560,7 @@ export interface WorkflowStep {
 export interface WorkflowData {
   id?: string;
   name: string;
-  trigger: WorkflowTriggerType;
+  triggerType: WorkflowTriggerType;
   triggerConfig: Record<string, string>;
   steps: WorkflowStep[];
   isActive: boolean;

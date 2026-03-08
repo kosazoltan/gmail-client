@@ -98,11 +98,11 @@ export async function extractActionItems(emailId: string): Promise<ActionItem[]>
   if (!email) throw new Error('Email nem található');
 
   // Check if action items already exist for this email
-  const existing = queryAll<ActionItem>(
+  const existing = queryAll<{ id: string; emailId: string; accountId: string; text: string; dueDate: number | null; isDone: number; createdAt: number }>(
     'SELECT id, email_id as emailId, account_id as accountId, text, due_date as dueDate, is_done as isDone, created_at as createdAt FROM action_items WHERE email_id = ?',
     [emailId],
   );
-  if (existing.length > 0) return existing;
+  if (existing.length > 0) return existing.map(item => ({ ...item, isDone: item.isDone === 1 }));
 
   const anthropic = getClient();
   if (!anthropic) {
@@ -404,6 +404,53 @@ export function findRelatedEmails(emailId: string): RelatedEmail[] {
   return results.slice(0, 15);
 }
 
+// --- Sentiment Heuristic ---
+
+function estimateSentimentBreakdown(
+  accountId: string,
+  since: number,
+  totalEmails: number,
+): { urgent: number; positive: number; negative: number; neutral: number } {
+  const urgentKeywords = ['sürgős', 'urgent', 'asap', 'azonnal', 'kritikus', 'fontos', 'deadline', 'határidő'];
+  const positiveKeywords = ['köszön', 'gratulál', 'thank', 'great', 'excellent', 'siker', 'örül'];
+  const negativeKeywords = ['probléma', 'hiba', 'panasz', 'reklamáció', 'complaint', 'issue', 'error', 'fail'];
+
+  const emails = queryAll<{ subject: string | null; snippet: string | null }>(
+    'SELECT subject, snippet FROM emails WHERE account_id = ? AND date >= ? LIMIT 500',
+    [accountId, since],
+  );
+
+  let urgent = 0;
+  let positive = 0;
+  let negative = 0;
+  let neutral = 0;
+
+  for (const e of emails) {
+    const text = `${e.subject ?? ''} ${e.snippet ?? ''}`.toLowerCase();
+    const uScore = urgentKeywords.filter(kw => text.includes(kw)).length;
+    const pScore = positiveKeywords.filter(kw => text.includes(kw)).length;
+    const nScore = negativeKeywords.filter(kw => text.includes(kw)).length;
+
+    if (uScore >= 2) urgent++;
+    else if (nScore > pScore) negative++;
+    else if (pScore > nScore) positive++;
+    else neutral++;
+  }
+
+  // Scale to totalEmails if we sampled fewer
+  if (emails.length < totalEmails && emails.length > 0) {
+    const scale = totalEmails / emails.length;
+    return {
+      urgent: Math.round(urgent * scale),
+      positive: Math.round(positive * scale),
+      negative: Math.round(negative * scale),
+      neutral: totalEmails - Math.round(urgent * scale) - Math.round(positive * scale) - Math.round(negative * scale),
+    };
+  }
+
+  return { urgent, positive, negative, neutral };
+}
+
 // --- 5. Weekly Report ---
 
 export async function generateWeeklyReport(accountId: string): Promise<WeeklyReportData> {
@@ -501,7 +548,7 @@ Adatok:
     topSenders: topSenders.map(s => ({ email: s.from_email, name: s.from_name || s.from_email, count: s.cnt })),
     topTopics: topTopics.map(t => ({ subject: t.subject, count: t.cnt })),
     unansweredCount,
-    sentimentBreakdown: { urgent: 0, positive: 0, negative: 0, neutral: totalEmails },
+    sentimentBreakdown: estimateSentimentBreakdown(accountId, weekAgo, totalEmails),
     actionItemsPending,
     summary,
   };

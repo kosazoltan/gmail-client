@@ -30,7 +30,7 @@ interface PriorityEmail {
   from: string;
   fromName?: string;
   receivedAt: number;
-  priority: 'high' | 'medium' | 'low';
+  priority: 'urgent' | 'high' | 'normal' | 'low';
   reason?: string;
 }
 
@@ -38,10 +38,10 @@ interface FollowUp {
   id: string;
   emailId: string;
   subject: string;
-  to: string;
-  sentAt: number;
-  dueAt: number;
-  status: 'pending' | 'received' | 'overdue';
+  from_email: string;
+  from_name: string;
+  daysSince: number;
+  urgency: string;
 }
 
 interface ContactActivity {
@@ -210,7 +210,7 @@ export function DailyBriefView() {
                     <ArrowUp
                       className={cn(
                         'mt-0.5 h-4 w-4 flex-shrink-0',
-                        email.priority === 'high' ? 'text-red-500' : email.priority === 'medium' ? 'text-orange-500' : 'text-blue-500',
+                        email.priority === 'urgent' ? 'text-red-600' : email.priority === 'high' ? 'text-red-500' : email.priority === 'normal' ? 'text-gray-500' : 'text-blue-500',
                       )}
                     />
                     <div className="min-w-0 flex-1">
@@ -249,12 +249,12 @@ export function DailyBriefView() {
           ) : (
             <div className="space-y-3">
               {followUps.slice(0, 5).map((fu) => (
-                <div key={fu.id} className="dark:border-dark-border rounded-lg border border-gray-100 p-3">
+                <div key={fu.emailId} className="dark:border-dark-border rounded-lg border border-gray-100 p-3">
                   <div className="flex items-center gap-2">
                     <AlertTriangle
                       className={cn(
                         'h-4 w-4 flex-shrink-0',
-                        fu.status === 'overdue' ? 'text-red-500' : fu.status === 'received' ? 'text-green-500' : 'text-amber-500',
+                        fu.urgency === 'critical' || fu.urgency === 'high' ? 'text-red-500' : fu.urgency === 'medium' ? 'text-amber-500' : 'text-blue-500',
                       )}
                     />
                     <div className="min-w-0 flex-1">
@@ -262,20 +262,20 @@ export function DailyBriefView() {
                         {fu.subject || '(nincs tárgy)'}
                       </p>
                       <p className="dark:text-dark-text-secondary mt-0.5 text-xs text-gray-500">
-                        Küldve: {fu.to} • Határidő: {new Date(fu.dueAt).toLocaleDateString('hu-HU')}
+                        {fu.from_name || fu.from_email} • {fu.daysSince} napja
                       </p>
                     </div>
                     <span
                       className={cn(
                         'rounded-full px-2 py-0.5 text-[10px] font-medium',
-                        fu.status === 'overdue'
+                        fu.urgency === 'critical' || fu.urgency === 'high'
                           ? 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400'
-                          : fu.status === 'received'
-                            ? 'bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400'
-                            : 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400',
+                          : fu.urgency === 'medium'
+                            ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400'
+                            : 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400',
                       )}
                     >
-                      {fu.status === 'overdue' ? 'Lejárt' : fu.status === 'received' ? 'Válaszolt' : 'Várakozik'}
+                      {fu.urgency === 'critical' ? 'Kritikus' : fu.urgency === 'high' ? 'Sürgős' : fu.urgency === 'medium' ? 'Közepes' : 'Alacsony'}
                     </span>
                   </div>
                 </div>

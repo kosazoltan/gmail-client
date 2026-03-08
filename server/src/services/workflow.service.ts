@@ -276,8 +276,15 @@ export async function executeWorkflow(
   const stepResults: Record<string, unknown>[] = [];
 
   try {
+    const MAX_ITERATIONS = 1000;
+    let iterations = 0;
     let stepIndex = 0;
     while (stepIndex < workflow.steps.length) {
+      if (++iterations > MAX_ITERATIONS) {
+        logger.error(`Workflow ${workflow.id}: max iterations exceeded`);
+        error = `Max iterations (${MAX_ITERATIONS}) exceeded`;
+        break;
+      }
       const step = workflow.steps[stepIndex];
       const result = await executeStep(step, context);
       stepResults.push({ step: step.name, type: step.type, ...result });
@@ -406,6 +413,12 @@ export function handleFilterStep(
         return fieldValue.endsWith(matchValue);
       case 'not_contains':
         return !fieldValue.includes(matchValue);
+      case 'in_vip_list': {
+        // VIP emailek lekérése a DB-ből (vip_senders tábla)
+        const vips = queryAll<{ email: string }>('SELECT email FROM vip_senders WHERE account_id = ?', [context?.accountId ?? '']);
+        const vipEmails = vips.map(v => v.email.toLowerCase());
+        return vipEmails.includes(fieldValue.toLowerCase());
+      }
       default:
         return fieldValue.includes(matchValue);
     }
