@@ -46,6 +46,12 @@ export function useUpdateSmartFolder() {
   });
 }
 
+export function useGenerateSmartFolder() {
+  return useMutation({
+    mutationFn: (description: string) => api.smartFolders.generate(description),
+  });
+}
+
 export function useDeleteSmartFolder() {
   const queryClient = useQueryClient();
   return useMutation({

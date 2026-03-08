@@ -703,6 +703,19 @@ export const api = {
       request<{ success: boolean; relatedEmails: import('../types').RelatedEmail[] }>(
         `/intelligence/related/${emailId}`,
       ),
+    bulkAnalyze: (emailIds: string[]) =>
+      request<{
+        success: boolean;
+        results: Array<{
+          emailId: string;
+          actionItems: import('../types').ActionItem[];
+          sentiment: import('../types').SentimentResult;
+        }>;
+      }>('/intelligence/bulk-analyze', {
+        method: 'POST',
+        body: JSON.stringify({ emailIds }),
+        timeout: 120000,
+      }),
     weeklyReport: () =>
       request<{ success: boolean; report: import('../types').WeeklyReportData }>(
         '/intelligence/weekly-report',
@@ -745,6 +758,20 @@ export const api = {
       ),
     delete: (id: string) =>
       request<{ success: boolean }>(`/smart-folders/${id}`, { method: 'DELETE' }),
+    generate: (description: string) =>
+      request<{
+        success: boolean;
+        folder: {
+          name: string;
+          icon?: string;
+          description: string;
+          rules: import('../types').SmartFolderRule[];
+        };
+        method: 'ai' | 'fallback';
+      }>('/smart-folders/generate', {
+        method: 'POST',
+        body: JSON.stringify({ description }),
+      }),
   },
 
   // Smart Features

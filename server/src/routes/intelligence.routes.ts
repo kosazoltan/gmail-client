@@ -164,6 +164,59 @@ router.get('/related/:emailId', (req, res) => {
   }
 });
 
+// POST /api/intelligence/bulk-analyze
+router.post('/bulk-analyze', async (req, res) => {
+  const accountId = req.session?.activeAccountId;
+  if (!accountId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  try {
+    const { emailIds } = req.body as { emailIds: string[] };
+
+    if (!Array.isArray(emailIds) || emailIds.length === 0) {
+      return res.status(400).json({ error: 'emailIds array is required' });
+    }
+
+    if (emailIds.length > 20) {
+      return res.status(400).json({ error: 'Maximum 20 emails allowed' });
+    }
+
+    // Ownership check sync
+    const ownedEmails = emailIds.filter((id: string) => {
+      const email = queryOne<{ account_id: string }>('SELECT account_id FROM emails WHERE id = ?', [id]);
+      return email && email.account_id === accountId;
+    });
+
+    // Parallel AI calls
+    const settled = await Promise.allSettled(
+      ownedEmails.map(async (emailId: string) => {
+        const [actionItems, sentiment] = await Promise.all([
+          extractActionItems(emailId),
+          detectSentiment(emailId),
+        ]);
+        return { emailId, actionItems, sentiment };
+      }),
+    );
+
+    const results = settled
+      .filter(
+        (r): r is PromiseFulfilledResult<{
+          emailId: string;
+          actionItems: Awaited<ReturnType<typeof extractActionItems>>;
+          sentiment: Awaited<ReturnType<typeof detectSentiment>>;
+        }> => r.status === 'fulfilled',
+      )
+      .map(r => r.value);
+
+    res.json({ success: true, results });
+  } catch (err) {
+    logger.error('Bulk analyze error:', err);
+    const message = err instanceof Error ? err.message : 'Ismeretlen hiba';
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
 // GET /api/intelligence/weekly-report
 router.get('/weekly-report', async (req, res) => {
   const accountId = req.session?.activeAccountId;

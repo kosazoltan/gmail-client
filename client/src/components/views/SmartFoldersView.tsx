@@ -4,6 +4,7 @@ import {
   useSmartFolderEmails,
   useCreateSmartFolder,
   useDeleteSmartFolder,
+  useGenerateSmartFolder,
 } from '../../hooks/useSmartFolders';
 import {
   FolderSearch,
@@ -14,6 +15,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { toast } from '../../lib/toast';
@@ -45,10 +47,13 @@ export function SmartFoldersView({ onEmailSelect }: SmartFoldersViewProps) {
   const { data: foldersData, isLoading } = useSmartFolders();
   const createMutation = useCreateSmartFolder();
   const deleteMutation = useDeleteSmartFolder();
+  const generateMutation = useGenerateSmartFolder();
 
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showAIModal, setShowAIModal] = useState(false);
+  const [aiDescription, setAIDescription] = useState('');
 
   const { data: emailsData, isLoading: emailsLoading } = useSmartFolderEmails(selectedFolderId, page);
 
@@ -89,6 +94,31 @@ export function SmartFoldersView({ onEmailSelect }: SmartFoldersViewProps) {
         if (selectedFolderId === id) setSelectedFolderId(null);
       },
       onError: (err) => toast.error(err instanceof Error ? err.message : 'Hiba történt'),
+    });
+  };
+
+  const handleAIGenerate = () => {
+    if (!aiDescription.trim() || aiDescription.trim().length < 3) {
+      toast.error('Adj meg egy leírást (legalább 3 karakter)');
+      return;
+    }
+    generateMutation.mutate(aiDescription.trim(), {
+      onSuccess: (data) => {
+        const { folder } = data;
+        // Auto-create the folder with AI-generated rules
+        createMutation.mutate(
+          { name: folder.name, rules: folder.rules, icon: folder.icon || '🤖' },
+          {
+            onSuccess: () => {
+              toast.success(`Smart folder "${folder.name}" létrehozva AI segítségével`);
+              setShowAIModal(false);
+              setAIDescription('');
+            },
+            onError: (err) => toast.error(err instanceof Error ? err.message : 'Hiba a mappa létrehozásakor'),
+          },
+        );
+      },
+      onError: (err) => toast.error(err instanceof Error ? err.message : 'AI generálás sikertelen'),
     });
   };
 
@@ -201,13 +231,22 @@ export function SmartFoldersView({ onEmailSelect }: SmartFoldersViewProps) {
           <FolderSearch className="h-5 w-5 text-purple-500" />
           <h2 className="text-lg font-semibold dark:text-gray-200">Smart Folders</h2>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-purple-500 px-3 py-2 text-sm font-medium text-white hover:bg-purple-600 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Új mappa
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowAIModal(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-purple-500 px-3 py-2 text-sm font-medium text-white hover:from-violet-600 hover:to-purple-600 transition-all"
+          >
+            <Sparkles className="h-4 w-4" />
+            AI Mappa
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-purple-500 px-3 py-2 text-sm font-medium text-white hover:bg-purple-600 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Új mappa
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-auto">
@@ -264,6 +303,66 @@ export function SmartFoldersView({ onEmailSelect }: SmartFoldersViewProps) {
           </div>
         )}
       </div>
+
+      {/* AI Generate Modal */}
+      {showAIModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md rounded-xl bg-white dark:bg-gray-900 shadow-2xl mx-4">
+            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-5 py-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-violet-500" />
+                <h3 className="text-lg font-semibold dark:text-gray-200">AI Mappa Generálás</h3>
+              </div>
+              <button
+                onClick={() => { setShowAIModal(false); setAIDescription(''); }}
+                className="rounded-lg p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Írd le milyen mappát szeretnél, és az AI automatikusan generálja a szűrési szabályokat.
+              </p>
+              <textarea
+                value={aiDescription}
+                onChange={(e) => setAIDescription(e.target.value)}
+                placeholder='pl. "MNB-vel kapcsolatos levelek" vagy "Számlák és fizetési felszólítások"'
+                className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent px-3 py-2.5 text-sm dark:text-gray-200 resize-none"
+                rows={3}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleAIGenerate();
+                  }
+                }}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-gray-200 dark:border-gray-700 px-5 py-4">
+              <button
+                onClick={() => { setShowAIModal(false); setAIDescription(''); }}
+                className="rounded-lg px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                Mégse
+              </button>
+              <button
+                onClick={handleAIGenerate}
+                disabled={generateMutation.isPending || createMutation.isPending || aiDescription.trim().length < 3}
+                className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-500 to-purple-500 px-4 py-2 text-sm font-medium text-white hover:from-violet-600 hover:to-purple-600 disabled:opacity-50 transition-all"
+              >
+                {(generateMutation.isPending || createMutation.isPending) && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
+                <Sparkles className="h-4 w-4" />
+                Generálás
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create Modal */}
       {showCreateModal && (

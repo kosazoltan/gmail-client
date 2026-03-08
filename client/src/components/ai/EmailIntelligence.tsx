@@ -21,12 +21,21 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
+  Zap,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import type { SentimentResult, ReplySuggestion, RelatedEmail } from '../../types';
+import { api } from '../../lib/api';
+import type { SentimentResult, ReplySuggestion, RelatedEmail, ActionItem } from '../../types';
+
+interface BulkAnalyzeResult {
+  emailId: string;
+  actionItems: ActionItem[];
+  sentiment: SentimentResult;
+}
 
 interface EmailIntelligenceProps {
   emailId: string;
+  emailIds?: string[];
   onSelectReply?: (subject: string, body: string) => void;
   onSelectRelated?: (emailId: string) => void;
 }
@@ -47,10 +56,12 @@ function SentimentBadge({ sentiment }: { sentiment: SentimentResult['sentiment']
   );
 }
 
-export function EmailIntelligence({ emailId, onSelectReply, onSelectRelated }: EmailIntelligenceProps) {
+export function EmailIntelligence({ emailId, emailIds, onSelectReply, onSelectRelated }: EmailIntelligenceProps) {
   const [openSection, setOpenSection] = useState<string | null>(null);
   const [sentimentData, setSentimentData] = useState<SentimentResult | null>(null);
   const [replySuggestions, setReplySuggestions] = useState<ReplySuggestion[] | null>(null);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkResults, setBulkResults] = useState<BulkAnalyzeResult[] | null>(null);
 
   // Hooks
   const { data: actionItemsData } = useActionItems(emailId);
@@ -83,6 +94,22 @@ export function EmailIntelligence({ emailId, onSelectReply, onSelectRelated }: E
     });
   };
 
+  const handleBulkAnalyze = async () => {
+    const ids = emailIds || [];
+    if (ids.length === 0) return;
+
+    setBulkLoading(true);
+    setBulkResults(null);
+    try {
+      const data = await api.intelligence.bulkAnalyze(ids.slice(0, 20));
+      setBulkResults(data.results);
+    } catch {
+      // Silent fail
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   return (
     <div className="dark:border-dark-border rounded-xl border border-gray-200 bg-white dark:bg-gray-900">
       {/* Header */}
@@ -91,6 +118,61 @@ export function EmailIntelligence({ emailId, onSelectReply, onSelectRelated }: E
         <span className="text-sm font-semibold dark:text-gray-200">Email Intelligence</span>
         <Sparkles className="h-3.5 w-3.5 text-yellow-500" />
       </div>
+
+      {/* Bulk Analyze */}
+      {emailIds && emailIds.length > 1 && (
+        <div className="border-b border-gray-100 dark:border-gray-800 px-4 py-3">
+          {!bulkResults ? (
+            <button
+              onClick={handleBulkAnalyze}
+              disabled={bulkLoading}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:from-purple-600 hover:to-indigo-600 disabled:opacity-50"
+            >
+              {bulkLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Zap className="h-4 w-4" />
+              )}
+              {bulkLoading ? 'Elemzés folyamatban...' : `Összes elemzése (${emailIds.length})`}
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium dark:text-gray-200">
+                <Zap className="h-4 w-4 text-purple-500" />
+                Összefoglaló — {bulkResults.length} email elemezve
+              </div>
+              {/* Summary stats */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-lg bg-blue-50 dark:bg-blue-500/10 p-2.5">
+                  <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                    {bulkResults.reduce((sum, r) => sum + r.actionItems.length, 0)}
+                  </div>
+                  <div className="text-xs text-blue-600/70 dark:text-blue-400/70">Teendő</div>
+                </div>
+                <div className="rounded-lg bg-red-50 dark:bg-red-500/10 p-2.5">
+                  <div className="text-lg font-bold text-red-600 dark:text-red-400">
+                    {bulkResults.filter((r) => r.sentiment.sentiment === 'urgent').length}
+                  </div>
+                  <div className="text-xs text-red-600/70 dark:text-red-400/70">Sürgős</div>
+                </div>
+              </div>
+              {/* Sentiment distribution */}
+              <div className="flex flex-wrap gap-1.5">
+                {(['urgent', 'positive', 'negative', 'neutral'] as const).map((s) => {
+                  const count = bulkResults.filter((r) => r.sentiment.sentiment === s).length;
+                  if (count === 0) return null;
+                  return (
+                    <span key={s} className="flex items-center gap-1">
+                      <SentimentBadge sentiment={s} />
+                      <span className="text-xs text-gray-500">({count})</span>
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="divide-y divide-gray-100 dark:divide-gray-800">
         {/* Action Items */}

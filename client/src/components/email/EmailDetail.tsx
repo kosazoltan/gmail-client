@@ -380,6 +380,23 @@ export function EmailDetail({
             <Forward className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
 
+          {/* PDF Export közvetlen gomb */}
+          <button
+            onClick={async () => {
+              try {
+                await exportEmailToPdf(email);
+                toast.success('PDF sikeresen exportálva');
+              } catch {
+                toast.error('PDF exportálás sikertelen');
+              }
+            }}
+            className="dark:text-dark-text-secondary touch-manipulation rounded-lg p-1.5 text-gray-500 transition-all duration-200 hover:bg-purple-50 hover:text-purple-600 sm:p-2.5 dark:hover:bg-purple-500/10 dark:hover:text-purple-400"
+            aria-label="Exportálás PDF-be"
+            title="Exportálás PDF-be"
+          >
+            <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
+          </button>
+
           {/* Közvetlen törlés gomb */}
           <button
             onClick={() => setShowDeleteConfirm(true)}

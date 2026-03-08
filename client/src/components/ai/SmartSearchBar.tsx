@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Search, Sparkles, Loader2, X, Workflow, Clock } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { api } from '../../lib/api';
+import { useSavedSearches } from '../../hooks/useSavedSearches';
 import type { SearchSuggestion, SmartSearchResult } from '../../types';
 
 interface SmartSearchBarProps {
@@ -20,16 +21,29 @@ export function SmartSearchBar({ onSearch, onSaveAsWorkflowStep, className }: Sm
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  // Saved searches from API (recent searches)
+  const { data: savedSearchesData } = useSavedSearches();
+  const recentSavedSearches = useMemo<SearchSuggestion[]>(
+    () => (savedSearchesData?.searches || [])
+      .slice(0, 5)
+      .map((s) => ({
+        id: `saved-${s.id}`,
+        text: s.query,
+        type: 'recent' as const,
+      })),
+    [savedSearchesData?.searches],
+  );
+
   const fetchSuggestions = useCallback(async (text: string) => {
     if (text.length < 2) {
       setSuggestions([]);
       return;
     }
 
-    // Recent searches (local mock)
-    const recentSearches: SearchSuggestion[] = [
-      { id: 'r1', text: `${text} - korábbi keresés`, type: 'recent' },
-    ];
+    // Filter saved searches that match the current query
+    const matchingRecent = recentSavedSearches.filter((s) =>
+      s.text.toLowerCase().includes(text.toLowerCase()),
+    );
 
     try {
       const data = await api.ai.smartSearch(text, true);
@@ -40,11 +54,11 @@ export function SmartSearchBar({ onSearch, onSaveAsWorkflowStep, className }: Sm
           type: 'ai' as const,
         }),
       );
-      setSuggestions([...recentSearches, ...aiSuggestions]);
+      setSuggestions([...matchingRecent, ...aiSuggestions]);
     } catch {
-      setSuggestions(recentSearches);
+      setSuggestions(matchingRecent);
     }
-  }, []);
+  }, [recentSavedSearches]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
