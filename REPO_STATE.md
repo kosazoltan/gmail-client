@@ -1,5 +1,5 @@
-# 📋 REPO STATE — Gmail Client (ZMail)
-> Utoljára frissítve: 2026-03-08 | Commit: 0418323 | Branch: main
+﻿# 📋 REPO STATE — Gmail Client (ZMail)
+> Utoljára frissítve: 2026-03-08 | Commit: ca60e82 | Branch: main
 
 ## ⚡ GYORS ÖSSZEFOGLALÓ (olvasd ELŐSZÖR)
 - **Mi ez:** AI-vezérelt Gmail kliens (mindenes.org)
@@ -106,28 +106,15 @@ git diff HEAD~1 --stat
 git push origin main
 ```
 
-## 🔄 UTOLSÓ SESSION MUNKÁJA (frissítsd minden session végén!)
-- 5 körös audit: 5 bug javítva (categories ownership, scan progress, market null-safe)
-- Type safety: `as unknown` hack-ek eltávolítva (getEmailFieldValue helper)
-- Console→logger: db/index.ts + delete-protection.ts kész, többi folyamatban
-- Fattyú: workflows.get eltávolítva api.ts-ből
-- Security: categorization_rules DELETE ownership fix
-- Új törvények: 14 (moduláris terv), 15 (árva/fattyú audit), 16 (konzílium)
-
-## ?? BE�P�TETT AI RENDSZER (17. t�rv�ny)
-### M�r implement�lt ?
-- AI Chat (multi-turn, Anthropic Sonnet 4.6)
-- Smart Search (suggestReply, SmartSearchBar)
-- Action Items (email � feladatok, Haiku 4.5)
-- Sentiment Detection (Haiku 4.5)
-- Market Analysis (Frankfurter + AI deep analysis, Sonnet 4.6)
-- Workflow Engine (trigger � action chain, AI l�p�sek)
-- Smart Folders (AI szab�ly-alap� mapp�k)
-- Feladat Detekt�l�s (SSE scan, megv�laszolatlan/olvasatlan)
-- Heti Riport (AI gener�lt, Sonnet 4.6)
-
-### B�v�tend� ??
-- Adapt�v f�jl import emailekb�l (PDF/Excel � AI �rtelmezi � DB)
-- Felhaszn�l�i szok�s felismer�s � auto workflow javaslat
-- Term�szetes nyelv� email keres�s (nem csak keyword)
-- Kontakt intelligence b�v�t�s (kapcsolati h�l� elemz�s)
+## 🔄 UTOLSÓ SESSION MUNKÁJA (2026-03-08)
+- Tanács konzílium: 6 tag (Junior+Tamás+Eszter+Gábor+Nóra+Bence) értékelés + kutatás
+- Törvény konszolidáció: SOUL.md 52KB→39KB (-26%), 8-17 törvény → skill
+- 18. törvény: Öngyógyító, önfejlesztő rendszer
+- CI/CD pipeline: GitHub Actions (TSC+build+E2E)
+- AI SQL Security Layer: 23 tiltott keyword, parameterized user filter, audit trail
+- Severity Classifier: gépi döntési fa (CRITICAL→INFO)
+- Playwright E2E: 10 spec, 31 teszt, mock-based
+- sql.js migráció terv: better-sqlite3 + WAL mode roadmap
+- Console→logger: 100% server lefedettség
+- Type safety: as unknown hack-ek eltávolítva
+- Eszter review: 2C+3H+4M → mind javítva
