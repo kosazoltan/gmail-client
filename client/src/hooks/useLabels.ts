@@ -1,11 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 
-export function useLabels() {
+export function useLabels(enabled = true) {
   return useQuery({
     queryKey: ['labels'],
     queryFn: () => api.labels.list(),
     staleTime: 5 * 60 * 1000, // 5 perc cache
+    enabled,
   });
 }
 

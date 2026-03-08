@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Download, X, Smartphone } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -8,6 +8,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 export function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const deferredPromptRef = useRef<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -40,10 +41,11 @@ export function InstallPrompt() {
     }
 
     // beforeinstallprompt event kezelése (Chrome, Edge, Samsung Browser)
+    // Delay prompt to avoid showing immediately on page load — wait 30 seconds
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setShowPrompt(true);
+      deferredPromptRef.current = e as BeforeInstallPromptEvent;
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -51,12 +53,14 @@ export function InstallPrompt() {
     // FIX: Unified cleanup that handles both iOS and non-iOS cases
     let timer: ReturnType<typeof setTimeout> | null = null;
 
-    // iOS esetén 3 másodperc után mutatjuk a manuális telepítési útmutatót
-    if (isIOSDevice && !isInStandaloneMode) {
-      timer = setTimeout(() => {
+    // Show prompt after 30 seconds of app usage (both iOS and Chrome)
+    // This prevents the aggressive "install now!" on every page load
+    timer = setTimeout(() => {
+      // Only show prompt if iOS or Chrome install event was captured
+      if (isIOSDevice || deferredPromptRef.current) {
         setShowPrompt(true);
-      }, 3000);
-    }
+      }
+    }, 30000); // 30 másodperc várakozás
 
     // Single cleanup function that always removes the event listener
     return () => {
@@ -75,6 +79,7 @@ export function InstallPrompt() {
     void outcome;
 
     setDeferredPrompt(null);
+    deferredPromptRef.current = null;
     setShowPrompt(false);
   };
 

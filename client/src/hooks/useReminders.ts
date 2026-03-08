@@ -20,14 +20,15 @@ export function useDueReminders() {
 }
 
 // Esedékes emlékeztetők száma
-export function useDueRemindersCount() {
+export function useDueRemindersCount(enabled = true) {
   return useQuery({
     queryKey: ['reminders', 'count'],
     queryFn: async () => {
       const response = await api.reminders.count();
       return response.count;
     },
-    refetchInterval: 60000, // Poll every minute
+    refetchInterval: enabled ? 60000 : false, // Poll every minute
+    enabled,
   });
 }
 

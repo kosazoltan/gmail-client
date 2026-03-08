@@ -511,6 +511,13 @@ export function MarketAnalysisView() {
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
+        {/* AI figyelmeztetés ha nem valódi AI elemzés */}
+        {!data.isAIPowered && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3 mb-4 text-sm text-amber-700 dark:text-amber-300">
+            ⚠️ Sablon-alapú becslés — valódi AI elemzéshez API kulcs szükséges
+          </div>
+        )}
+
         {/* Fejléc */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>

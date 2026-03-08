@@ -425,6 +425,7 @@ export interface MarketBriefingData {
   newsItems: MarketNewsItem[];
   weightedConclusion: Record<string, MarketWeightedConclusion>;
   overallSentiment: string;
+  isAIPowered: boolean;
 }
 
 export interface MarketBriefingResponse {

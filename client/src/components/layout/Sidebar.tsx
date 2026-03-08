@@ -183,7 +183,8 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
   const { data: session } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
-  const { data: savedSearchesData } = useSavedSearches();
+  const isAuthenticated = !!session?.authenticated;
+  const { data: savedSearchesData } = useSavedSearches(isAuthenticated);
   const deleteSavedSearch = useDeleteSavedSearch();
   const incrementUsage = useIncrementSearchUsage();
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -192,13 +193,13 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
   const savedSearches = savedSearchesData?.searches || [];
   const currentSearchQuery =
     location.pathname === '/search' ? new URLSearchParams(location.search).get('q') : null;
-  const { data: dueRemindersCount } = useDueRemindersCount();
-  const { data: labelsData } = useLabels();
+  const { data: dueRemindersCount } = useDueRemindersCount(isAuthenticated);
+  const { data: labelsData } = useLabels(isAuthenticated);
   const { data: unreadCount } = useUnreadCount(session?.activeAccountId || undefined);
-  const { data: dashboardData } = useDashboard();
-  const { data: smartFoldersData } = useSmartFolders();
+  const { data: dashboardData } = useDashboard(isAuthenticated);
+  const { data: smartFoldersData } = useSmartFolders(isAuthenticated);
   const smartFolders = smartFoldersData?.folders || [];
-  const { data: detectedTaskStats } = useDetectedTaskStats();
+  const { data: detectedTaskStats } = useDetectedTaskStats(isAuthenticated);
   const detectedTaskCount = detectedTaskStats?.open ?? 0;
 
   // User categories for sidebar sub-items

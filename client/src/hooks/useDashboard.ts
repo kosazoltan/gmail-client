@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 
-export function useDashboard() {
+export function useDashboard(enabled = true) {
   return useQuery({
     queryKey: ['dashboard'],
     queryFn: () => api.dashboard.get(),
-    refetchInterval: 120000, // 2 percenként frissít
+    refetchInterval: enabled ? 120000 : false, // 2 percenként frissít
     staleTime: 60000,
+    enabled,
   });
 }

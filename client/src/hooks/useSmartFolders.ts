@@ -2,11 +2,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import type { SmartFolderRule } from '../types';
 
-export function useSmartFolders() {
+export function useSmartFolders(enabled = true) {
   return useQuery({
     queryKey: ['smartFolders'],
     queryFn: () => api.smartFolders.list(),
     staleTime: 60000,
+    enabled,
   });
 }
 

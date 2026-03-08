@@ -10,11 +10,12 @@ export function useDetectedTasks(params?: { status?: string; priority?: string; 
   });
 }
 
-export function useDetectedTaskStats() {
+export function useDetectedTaskStats(enabled = true) {
   return useQuery({
     queryKey: ['detected-tasks', 'stats'],
     queryFn: () => api.detectedTasks.stats(),
     staleTime: 30000,
+    enabled,
   });
 }
 

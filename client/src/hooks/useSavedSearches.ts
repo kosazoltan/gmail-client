@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 
-export function useSavedSearches() {
+export function useSavedSearches(enabled = true) {
   return useQuery({
     queryKey: ['savedSearches'],
     queryFn: () => api.savedSearches.list(),
+    enabled,
   });
 }
 
