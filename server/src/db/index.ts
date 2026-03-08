@@ -504,43 +504,54 @@ export async function initializeDatabase(): Promise<void> {
       ALTER TABLE categories ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
       ALTER TABLE categories ADD COLUMN IF NOT EXISTS created_at INTEGER DEFAULT 0;
 
-      -- Fix INTEGER → BIGINT for epoch ms columns (INTEGER max 2.1B, Date.now() ~1.77T)
-      ALTER TABLE sessions ALTER COLUMN expire TYPE BIGINT;
-      ALTER TABLE accounts ALTER COLUMN token_expiry TYPE BIGINT;
-      ALTER TABLE accounts ALTER COLUMN last_sync_at TYPE BIGINT;
-      ALTER TABLE accounts ALTER COLUMN created_at TYPE BIGINT;
-      ALTER TABLE emails ALTER COLUMN date TYPE BIGINT;
-      ALTER TABLE topics ALTER COLUMN last_message_at TYPE BIGINT;
-      ALTER TABLE sync_log ALTER COLUMN started_at TYPE BIGINT;
-      ALTER TABLE sync_log ALTER COLUMN completed_at TYPE BIGINT;
-      ALTER TABLE contacts ALTER COLUMN last_used_at TYPE BIGINT;
-      ALTER TABLE saved_searches ALTER COLUMN created_at TYPE BIGINT;
-      ALTER TABLE templates ALTER COLUMN created_at TYPE BIGINT;
-      ALTER TABLE snoozed_emails ALTER COLUMN snooze_until TYPE BIGINT;
-      ALTER TABLE snoozed_emails ALTER COLUMN created_at TYPE BIGINT;
-      ALTER TABLE reminders ALTER COLUMN remind_at TYPE BIGINT;
-      ALTER TABLE reminders ALTER COLUMN created_at TYPE BIGINT;
-      ALTER TABLE newsletter_senders ALTER COLUMN last_email_at TYPE BIGINT;
-      ALTER TABLE push_subscriptions ALTER COLUMN created_at TYPE BIGINT;
-      ALTER TABLE pinned_emails ALTER COLUMN pinned_at TYPE BIGINT;
-      ALTER TABLE user_settings ALTER COLUMN updated_at TYPE BIGINT;
-      ALTER TABLE scheduled_emails ALTER COLUMN scheduled_at TYPE BIGINT;
-      ALTER TABLE scheduled_emails ALTER COLUMN created_at TYPE BIGINT;
-      ALTER TABLE vip_senders ALTER COLUMN created_at TYPE BIGINT;
-      ALTER TABLE workflows ALTER COLUMN last_run_at TYPE BIGINT;
-      ALTER TABLE workflows ALTER COLUMN created_at TYPE BIGINT;
-      ALTER TABLE workflows ALTER COLUMN updated_at TYPE BIGINT;
-      ALTER TABLE workflow_runs ALTER COLUMN started_at TYPE BIGINT;
-      ALTER TABLE workflow_runs ALTER COLUMN completed_at TYPE BIGINT;
-      ALTER TABLE ai_conversations ALTER COLUMN created_at TYPE BIGINT;
-      ALTER TABLE ai_conversations ALTER COLUMN updated_at TYPE BIGINT;
-      ALTER TABLE smart_folders ALTER COLUMN created_at TYPE BIGINT;
-      ALTER TABLE smart_folders ALTER COLUMN updated_at TYPE BIGINT;
-      ALTER TABLE action_items ALTER COLUMN due_date TYPE BIGINT;
-      ALTER TABLE action_items ALTER COLUMN created_at TYPE BIGINT;
-      ALTER TABLE ai_messages ALTER COLUMN created_at TYPE BIGINT;
-      ALTER TABLE daily_briefs ALTER COLUMN generated_at TYPE BIGINT;
     `);
+
+    // Fix INTEGER → BIGINT for epoch ms columns (INTEGER max 2.1B, Date.now() ~1.77T)
+    const bigintMigrations = [
+      'ALTER TABLE sessions ALTER COLUMN expire TYPE BIGINT',
+      'ALTER TABLE accounts ALTER COLUMN token_expiry TYPE BIGINT',
+      'ALTER TABLE accounts ALTER COLUMN last_sync_at TYPE BIGINT',
+      'ALTER TABLE accounts ALTER COLUMN created_at TYPE BIGINT',
+      'ALTER TABLE emails ALTER COLUMN date TYPE BIGINT',
+      'ALTER TABLE topics ALTER COLUMN last_message_at TYPE BIGINT',
+      'ALTER TABLE sync_log ALTER COLUMN started_at TYPE BIGINT',
+      'ALTER TABLE sync_log ALTER COLUMN completed_at TYPE BIGINT',
+      'ALTER TABLE contacts ALTER COLUMN last_used_at TYPE BIGINT',
+      'ALTER TABLE saved_searches ALTER COLUMN created_at TYPE BIGINT',
+      'ALTER TABLE templates ALTER COLUMN created_at TYPE BIGINT',
+      'ALTER TABLE snoozed_emails ALTER COLUMN snooze_until TYPE BIGINT',
+      'ALTER TABLE snoozed_emails ALTER COLUMN created_at TYPE BIGINT',
+      'ALTER TABLE reminders ALTER COLUMN remind_at TYPE BIGINT',
+      'ALTER TABLE reminders ALTER COLUMN created_at TYPE BIGINT',
+      'ALTER TABLE newsletter_senders ALTER COLUMN last_email_at TYPE BIGINT',
+      'ALTER TABLE push_subscriptions ALTER COLUMN created_at TYPE BIGINT',
+      'ALTER TABLE pinned_emails ALTER COLUMN pinned_at TYPE BIGINT',
+      'ALTER TABLE user_settings ALTER COLUMN updated_at TYPE BIGINT',
+      'ALTER TABLE scheduled_emails ALTER COLUMN scheduled_at TYPE BIGINT',
+      'ALTER TABLE scheduled_emails ALTER COLUMN created_at TYPE BIGINT',
+      'ALTER TABLE vip_senders ALTER COLUMN created_at TYPE BIGINT',
+      'ALTER TABLE workflows ALTER COLUMN last_run_at TYPE BIGINT',
+      'ALTER TABLE workflows ALTER COLUMN created_at TYPE BIGINT',
+      'ALTER TABLE workflows ALTER COLUMN updated_at TYPE BIGINT',
+      'ALTER TABLE workflow_runs ALTER COLUMN started_at TYPE BIGINT',
+      'ALTER TABLE workflow_runs ALTER COLUMN completed_at TYPE BIGINT',
+      'ALTER TABLE ai_conversations ALTER COLUMN created_at TYPE BIGINT',
+      'ALTER TABLE ai_conversations ALTER COLUMN updated_at TYPE BIGINT',
+      'ALTER TABLE smart_folders ALTER COLUMN created_at TYPE BIGINT',
+      'ALTER TABLE smart_folders ALTER COLUMN updated_at TYPE BIGINT',
+      'ALTER TABLE action_items ALTER COLUMN due_date TYPE BIGINT',
+      'ALTER TABLE action_items ALTER COLUMN created_at TYPE BIGINT',
+      'ALTER TABLE ai_messages ALTER COLUMN created_at TYPE BIGINT',
+      'ALTER TABLE daily_briefs ALTER COLUMN generated_at TYPE BIGINT',
+    ];
+    for (const sql of bigintMigrations) {
+      try {
+        await client.query(sql);
+      } catch (err) {
+        // Already BIGINT or column doesn't exist — safe to ignore
+        logger.debug(`BIGINT migration skipped: ${sql} — ${(err as Error).message}`);
+      }
+    }
 
     logger.info('Database initialized (Neon PostgreSQL).');
   } finally {
