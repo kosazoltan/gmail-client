@@ -5,7 +5,7 @@ import helmet from 'helmet';
 import { createSessionMiddleware, getSessionStore } from './middleware/session.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { deleteProtection } from './middleware/delete-protection.js';
-import { initializeDatabase, stopAutoSave, startAutoSave } from './db/index.js';
+import { initializeDatabase, stopAutoSave, startAutoSave, queryOne } from './db/index.js';
 import { startBackgroundSync, stopAllBackgroundSyncs } from './services/sync.service.js';
 import { getAllAccounts } from './services/auth.service.js';
 import logger from './utils/logger.js';
@@ -43,6 +43,8 @@ import smartFeaturesRoutes from './routes/smart-features.routes.js';
 import intelligenceRoutes from './routes/intelligence.routes.js';
 import smartFoldersRoutes from './routes/smart-folders.routes.js';
 import aiChatRoutes from './routes/ai-chat.routes.js';
+import detectedTasksRoutes from './routes/detected-tasks.routes.js';
+import { detectUnansweredEmails, processExpiredSnoozedTasks } from './services/task-detection.service.js';
 
 const PORT = parseInt(process.env.PORT || '5000', 10);
 
@@ -50,7 +52,17 @@ const PORT = parseInt(process.env.PORT || '5000', 10);
 let snoozeInterval: NodeJS.Timeout | null = null;
 let scheduledInterval: NodeJS.Timeout | null = null;
 let workflowInterval: NodeJS.Timeout | null = null;
+let taskDetectionInterval: NodeJS.Timeout | null = null;
 let httpServer: ReturnType<typeof import('http').createServer> | null = null;
+
+/**
+ * Lekéri az utolsó detekció idejét az adatbázisból.
+ * Szerver restart után NE fusson le feleslegesen a 180 napos scan.
+ */
+function getLastDetectionRun(): number {
+  const result = queryOne<{ max_created: number }>('SELECT MAX(created_at) as max_created FROM detected_tasks');
+  return result?.max_created || 0;
+}
 
 // Szerver indítás
 async function start() {
@@ -151,6 +163,7 @@ async function start() {
   app.use('/api/intelligence', intelligenceRoutes);
   app.use('/api/smart-folders', smartFoldersRoutes);
   app.use('/api/ai', aiChatRoutes);
+  app.use('/api/detected-tasks', detectedTasksRoutes);
 
   // Health check
   app.get('/api/health', (_req, res) => {
@@ -204,6 +217,33 @@ async function start() {
       logger.error('Error processing scheduled workflows:', error);
     }
   }, 60000);
+
+  // Task detection — naponta 1×, 5 percenként ellenőrzi hogy eljött-e az idő
+  // Ha van már detected_task az adatbázisban → 30 napos scan, egyébként 180 napos (6 hónap)
+  if (taskDetectionInterval) clearInterval(taskDetectionInterval);
+  taskDetectionInterval = setInterval(() => {
+    const now = Date.now();
+    const lastRun = getLastDetectionRun();
+    if (now - lastRun > 24 * 60 * 60 * 1000) {
+      const isFirstRun = lastRun === 0;
+      const daysBack = isFirstRun ? 180 : 30;
+      const accounts = getAllAccounts();
+      for (const account of accounts) {
+        try {
+          detectUnansweredEmails(account.id, daysBack);
+        } catch (err) {
+          logger.error(`Task detection failed for ${account.email}:`, err);
+        }
+      }
+      // Snoozed taskok feloldása
+      try {
+        processExpiredSnoozedTasks();
+      } catch (err) {
+        logger.error('Snoozed task processing failed:', err);
+      }
+      logger.info(`Task detection completed for ${accounts.length} accounts (${daysBack} days back)`);
+    }
+  }, 300000); // 5 percenként check
 
   // Első futtatás 60s késleltetéssel — ne terhelje a startup-ot
   setTimeout(async () => {
@@ -263,6 +303,10 @@ function gracefulShutdown(signal: string) {
   if (workflowInterval) {
     clearInterval(workflowInterval);
     workflowInterval = null;
+  }
+  if (taskDetectionInterval) {
+    clearInterval(taskDetectionInterval);
+    taskDetectionInterval = null;
   }
 
   // Stop session store cleanup

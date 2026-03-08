@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   useTaskLists,
   useTaskListItems,
@@ -6,6 +7,15 @@ import {
   useCreateTask,
   useDeleteTask,
 } from '../../hooks/useTasks';
+import {
+  useDetectedTasks,
+  useDetectedTaskStats,
+  useScanTasks,
+  useUpdateDetectedTask,
+  useDeleteDetectedTask,
+  useSnoozeDetectedTask,
+} from '../../hooks/useDetectedTasks';
+import { api } from '../../lib/api';
 import { format } from 'date-fns';
 import { hu } from 'date-fns/locale';
 import {
@@ -17,13 +27,386 @@ import {
   Calendar,
   StickyNote,
   Filter,
+  RefreshCw,
+  Mail,
+  Clock,
+  Reply,
+  X,
+  ChevronDown,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import type { GoogleTask } from '../../types';
+import { toast } from '../../lib/toast';
+import type { GoogleTask, DetectedTask } from '../../types';
 
 type TaskFilter = 'all' | 'open' | 'completed';
+type DetectedTaskPriorityFilter = 'all' | 'high' | 'medium' | 'low';
+type TabType = 'detected' | 'google';
 
 export function TasksView() {
+  const [activeTab, setActiveTab] = useState<TabType>('detected');
+
+  return (
+    <div className="mx-auto max-w-4xl space-y-4 p-4 sm:p-6">
+      {/* Fejléc */}
+      <div className="flex items-center gap-3">
+        <CheckSquare className="h-7 w-7 text-green-500" />
+        <h1 className="dark:text-dark-text text-2xl font-bold text-gray-900">Feladatok</h1>
+      </div>
+
+      {/* Tab rendszer */}
+      <div className="dark:bg-dark-bg-tertiary flex rounded-lg bg-gray-100 p-1">
+        <button
+          onClick={() => setActiveTab('detected')}
+          className={cn(
+            'flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors',
+            activeTab === 'detected'
+              ? 'bg-white text-[#4f6ef7] shadow-sm dark:bg-dark-bg-secondary dark:text-[#6d8cff]'
+              : 'dark:text-dark-text-secondary text-gray-600 hover:text-gray-900',
+          )}
+        >
+          <span className="flex items-center justify-center gap-2">
+            <Mail className="h-4 w-4" />
+            Email Feladatok
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab('google')}
+          className={cn(
+            'flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors',
+            activeTab === 'google'
+              ? 'bg-white text-[#4f6ef7] shadow-sm dark:bg-dark-bg-secondary dark:text-[#6d8cff]'
+              : 'dark:text-dark-text-secondary text-gray-600 hover:text-gray-900',
+          )}
+        >
+          <span className="flex items-center justify-center gap-2">
+            <CheckSquare className="h-4 w-4" />
+            Google Tasks
+          </span>
+        </button>
+      </div>
+
+      {activeTab === 'detected' ? <DetectedTasksTab /> : <GoogleTasksTab />}
+    </div>
+  );
+}
+
+// ==================== DETECTED TASKS TAB ====================
+
+function DetectedTasksTab() {
+  const [priorityFilter, setPriorityFilter] = useState<DetectedTaskPriorityFilter>('all');
+  const { data: statsData } = useDetectedTaskStats();
+  const { data: tasksData, isLoading } = useDetectedTasks({
+    status: 'open',
+    priority: priorityFilter === 'all' ? undefined : priorityFilter,
+  });
+  const scanTasks = useScanTasks();
+
+  const handleScan = () => {
+    // Ha nincs még task, 180 nap; egyébként 30 nap
+    const daysBack = !tasksData?.tasks?.length ? 180 : 30;
+    scanTasks.mutate(daysBack, {
+      onSuccess: (data) => {
+        toast.success(`${data.newTasksCount} új feladat találva`);
+      },
+      onError: () => {
+        toast.error('Hiba az emailek átvizsgálásakor');
+      },
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Statisztika sáv */}
+      {statsData && (
+        <div className="dark:bg-dark-bg-secondary dark:border-dark-border flex flex-wrap items-center gap-4 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+          <span className="flex items-center gap-1.5 text-sm">
+            <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+            <span className="font-medium text-red-600 dark:text-red-400">{statsData.high}</span>
+            <span className="dark:text-dark-text-muted text-gray-500">sürgős</span>
+          </span>
+          <span className="flex items-center gap-1.5 text-sm">
+            <span className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
+            <span className="font-medium text-yellow-600 dark:text-yellow-400">{statsData.medium}</span>
+            <span className="dark:text-dark-text-muted text-gray-500">közepes</span>
+          </span>
+          <span className="flex items-center gap-1.5 text-sm">
+            <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+            <span className="font-medium text-green-600 dark:text-green-400">{statsData.low}</span>
+            <span className="dark:text-dark-text-muted text-gray-500">alacsony</span>
+          </span>
+          <span className="dark:text-dark-text-muted ml-auto text-xs text-gray-400">
+            Összesen: {statsData.open} nyitott
+          </span>
+        </div>
+      )}
+
+      {/* Szűrő + Scan gomb */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <Filter className="dark:text-dark-text-muted h-4 w-4 text-gray-400" />
+          <div className="dark:bg-dark-bg-tertiary flex rounded-lg bg-gray-100 p-1">
+            {([
+              { key: 'all', label: 'Mind' },
+              { key: 'high', label: 'Sürgős' },
+              { key: 'medium', label: 'Közepes' },
+              { key: 'low', label: 'Alacsony' },
+            ] as const).map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setPriorityFilter(f.key)}
+                className={cn(
+                  'rounded-md px-3 py-1 text-xs font-medium transition-colors',
+                  priorityFilter === f.key
+                    ? 'bg-white text-[#4f6ef7] shadow-sm dark:bg-dark-bg-secondary dark:text-[#6d8cff]'
+                    : 'dark:text-dark-text-secondary text-gray-600 hover:text-gray-900',
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button
+          onClick={handleScan}
+          disabled={scanTasks.isPending}
+          className="flex items-center gap-2 rounded-lg bg-[#4f6ef7] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#3d5ce5] disabled:opacity-50"
+        >
+          {scanTasks.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4" />
+          )}
+          Emailek átvizsgálása
+        </button>
+      </div>
+
+      {/* Task lista */}
+      {isLoading ? (
+        <div className="flex justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-[#4f6ef7]" />
+        </div>
+      ) : tasksData?.tasks && tasksData.tasks.length > 0 ? (
+        <div className="space-y-2">
+          {tasksData.tasks.map((task) => (
+            <DetectedTaskCard key={task.id} task={task} />
+          ))}
+        </div>
+      ) : (
+        <div className="dark:text-dark-text-muted py-12 text-center text-sm text-gray-500">
+          Nincs megválaszolatlan email. Minden rendben! 🎉
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DetectedTaskCard({ task }: { task: DetectedTask }) {
+  const navigate = useNavigate();
+  const updateTask = useUpdateDetectedTask();
+  const deleteDetectedTask = useDeleteDetectedTask();
+  const snoozeTask = useSnoozeDetectedTask();
+  const [showSnooze, setShowSnooze] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const priorityColor = {
+    high: 'bg-red-500',
+    medium: 'bg-yellow-500',
+    low: 'bg-green-500',
+  }[task.priority];
+
+  const priorityLabel = {
+    high: 'Sürgős',
+    medium: 'Közepes',
+    low: 'Alacsony',
+  }[task.priority];
+
+  const handleReply = () => {
+    const to = task.fromEmail ?? '';
+    if (!to) {
+      toast.error('Nincs feladó email');
+      return;
+    }
+    const subject = (task.subject ?? '').startsWith('Re:') ? task.subject! : `Re: ${task.subject ?? '(nincs tárgy)'}`;
+    const threadId = task.threadId || '';
+    navigate(
+      `/compose?reply=true&to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}`,
+    );
+  };
+
+  const handleDone = () => {
+    updateTask.mutate({ id: task.id, data: { status: 'done' } });
+  };
+
+  const handleDismiss = () => {
+    updateTask.mutate({ id: task.id, data: { status: 'dismissed' } });
+  };
+
+  const handleDeleteEmail = async () => {
+    try {
+      // Tényleges email törlés (Gmail trash-be teszi)
+      await api.emails.delete(task.emailId);
+      // Majd a detected task törlése
+      deleteDetectedTask.mutate(task.id);
+      toast.success('Email törölve');
+    } catch {
+      toast.error('Hiba az email törlésekor');
+    }
+    setShowDeleteConfirm(false);
+  };
+
+  const handleSnooze = (days: number) => {
+    snoozeTask.mutate({ id: task.id, days });
+    setShowSnooze(false);
+  };
+
+  return (
+    <div className="dark:bg-dark-bg-secondary dark:border-dark-border group rounded-xl border border-gray-200 bg-white shadow-sm transition-all">
+      <div className="flex">
+        {/* Prioritás indikátor */}
+        <div className={cn('w-1 flex-shrink-0 rounded-l-xl', priorityColor)} />
+
+        <div className="flex flex-1 flex-col gap-3 p-4 sm:flex-row sm:items-start">
+          {/* Fő tartalom */}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start gap-2">
+              <span
+                className={cn(
+                  'mt-0.5 inline-flex flex-shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase',
+                  task.priority === 'high'
+                    ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400'
+                    : task.priority === 'medium'
+                      ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400'
+                      : 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400',
+                )}
+              >
+                {priorityLabel}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="dark:text-dark-text truncate text-sm font-semibold text-gray-900">
+                  {task.fromName ?? 'Ismeretlen'}{' '}
+                  <span className="dark:text-dark-text-muted font-normal text-gray-500">
+                    &lt;{task.fromEmail ?? ''}&gt;
+                  </span>
+                </p>
+                <p className="dark:text-dark-text-secondary mt-0.5 truncate text-sm text-gray-700">
+                  {task.subject ?? '(nincs tárgy)'}
+                </p>
+                <p className="dark:text-dark-text-muted mt-1 text-xs text-gray-500 italic">
+                  {task.reason ?? ''}
+                </p>
+                <div className="dark:text-dark-text-muted mt-1 flex items-center gap-1 text-xs text-gray-400">
+                  <Clock className="h-3 w-3" />
+                  {task.emailDate ? formatRelativeDate(task.emailDate) : 'Ismeretlen dátum'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Akció gombok */}
+          <div className="flex flex-shrink-0 flex-wrap items-center gap-1.5">
+            {/* Válasz */}
+            <button
+              onClick={handleReply}
+              className="flex items-center gap-1 rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-400 dark:hover:bg-blue-500/20"
+              title="Válasz"
+            >
+              <Reply className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Válasz</span>
+            </button>
+
+            {/* Kész */}
+            <button
+              onClick={handleDone}
+              disabled={updateTask.isPending}
+              className="flex items-center gap-1 rounded-lg bg-green-50 px-2.5 py-1.5 text-xs font-medium text-green-600 transition-colors hover:bg-green-100 dark:bg-green-500/10 dark:text-green-400 dark:hover:bg-green-500/20"
+              title="Kész"
+            >
+              <CheckSquare className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Kész</span>
+            </button>
+
+            {/* Szundi */}
+            <div className="relative">
+              <button
+                onClick={() => setShowSnooze(!showSnooze)}
+                className="flex items-center gap-1 rounded-lg bg-purple-50 px-2.5 py-1.5 text-xs font-medium text-purple-600 transition-colors hover:bg-purple-100 dark:bg-purple-500/10 dark:text-purple-400 dark:hover:bg-purple-500/20"
+                title="Szundi"
+              >
+                <Clock className="h-3.5 w-3.5" />
+                <ChevronDown className="h-3 w-3" />
+              </button>
+              {showSnooze && (
+                <div className="dark:bg-dark-bg-secondary dark:border-dark-border absolute right-0 top-full z-10 mt-1 min-w-[120px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                  <button
+                    onClick={() => handleSnooze(1)}
+                    className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50"
+                  >
+                    1 nap
+                  </button>
+                  <button
+                    onClick={() => handleSnooze(3)}
+                    className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50"
+                  >
+                    3 nap
+                  </button>
+                  <button
+                    onClick={() => handleSnooze(7)}
+                    className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50"
+                  >
+                    1 hét
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Elvetés */}
+            <button
+              onClick={handleDismiss}
+              disabled={updateTask.isPending}
+              className="flex items-center gap-1 rounded-lg bg-gray-50 px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:bg-gray-500/10 dark:text-gray-400 dark:hover:bg-gray-500/20"
+              title="Elvetés"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+
+            {/* Email törlés */}
+            <div className="relative">
+              {!showDeleteConfirm ? (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="flex items-center gap-1 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
+                  title="Email törlés"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={handleDeleteEmail}
+                    className="rounded bg-red-500 px-2 py-1 text-xs text-white hover:bg-red-600"
+                  >
+                    Törlés
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="dark:bg-dark-bg-tertiary dark:text-dark-text rounded bg-gray-100 px-2 py-1 text-xs text-gray-700 hover:bg-gray-200"
+                  >
+                    Nem
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==================== GOOGLE TASKS TAB ====================
+
+function GoogleTasksTab() {
   const { data: listsData, isLoading: listsLoading, error: listsError } = useTaskLists();
   const [activeListId, setActiveListId] = useState<string | null>(null);
   const [filter, setFilter] = useState<TaskFilter>('all');
@@ -41,7 +424,6 @@ export function TasksView() {
   const createTask = useCreateTask();
   const deleteTask = useDeleteTask();
 
-  // Szűrt feladatok
   const filteredTasks = (tasksData?.tasks || []).filter((task: GoogleTask) => {
     if (filter === 'open') return task.status === 'needsAction';
     if (filter === 'completed') return task.status === 'completed';
@@ -78,7 +460,7 @@ export function TasksView() {
 
   if (listsLoading) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex h-64 items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-[#4f6ef7]" />
           <p className="dark:text-dark-text-secondary text-sm text-gray-500">
@@ -91,7 +473,7 @@ export function TasksView() {
 
   if (listsError) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex h-64 items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-center">
           <AlertCircle className="h-8 w-8 text-red-500" />
           <p className="dark:text-dark-text-secondary text-sm text-gray-500">
@@ -105,13 +487,7 @@ export function TasksView() {
   const lists = listsData?.lists || [];
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4 p-4 sm:p-6">
-      {/* Fejléc */}
-      <div className="flex items-center gap-3">
-        <CheckSquare className="h-7 w-7 text-green-500" />
-        <h1 className="dark:text-dark-text text-2xl font-bold text-gray-900">Feladatok</h1>
-      </div>
-
+    <div className="space-y-4">
       {/* Lista tab-ok */}
       {lists.length > 1 && (
         <div className="flex gap-2 overflow-x-auto pb-1">
@@ -134,7 +510,6 @@ export function TasksView() {
 
       {/* Szűrő + Új feladat */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* Szűrő */}
         <div className="flex items-center gap-2">
           <Filter className="dark:text-dark-text-muted h-4 w-4 text-gray-400" />
           <div className="dark:bg-dark-bg-tertiary flex rounded-lg bg-gray-100 p-1">
@@ -155,7 +530,6 @@ export function TasksView() {
           </div>
         </div>
 
-        {/* Statisztika */}
         <p className="dark:text-dark-text-muted text-xs text-gray-400">
           {filteredTasks.length} feladat
           {filter === 'all' && tasksData?.tasks
@@ -198,7 +572,7 @@ export function TasksView() {
       ) : filteredTasks.length > 0 ? (
         <div className="space-y-2">
           {filteredTasks.map((task: GoogleTask) => (
-            <TaskCard
+            <GoogleTaskCard
               key={task.id}
               task={task}
               onToggle={() => handleToggleTask(task)}
@@ -221,7 +595,7 @@ export function TasksView() {
   );
 }
 
-function TaskCard({
+function GoogleTaskCard({
   task,
   onToggle,
   onDelete,
@@ -300,7 +674,7 @@ function TaskCard({
             {task.notes && (
               <div className="dark:text-dark-text-muted flex items-center gap-1 text-xs text-gray-500">
                 <StickyNote className="h-3 w-3" />
-                <span className="truncate max-w-[200px]">{task.notes}</span>
+                <span className="max-w-[200px] truncate">{task.notes}</span>
               </div>
             )}
           </div>
@@ -338,6 +712,26 @@ function TaskCard({
       </div>
     </div>
   );
+}
+
+// ==================== UTILITY FUNCTIONS ====================
+
+function formatRelativeDate(timestamp: number): string {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  const weeks = Math.floor(days / 7);
+
+  if (minutes < 1) return 'most';
+  if (minutes < 60) return `${minutes} perce`;
+  if (hours < 24) return `${hours} órája`;
+  if (days === 1) return 'tegnap';
+  if (days < 7) return `${days} napja`;
+  if (weeks === 1) return '1 hete';
+  if (weeks < 4) return `${weeks} hete`;
+  return format(new Date(timestamp), 'yyyy. MMM d.', { locale: hu });
 }
 
 function formatDueDate(dateString: string): string {

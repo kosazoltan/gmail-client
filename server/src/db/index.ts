@@ -310,6 +310,24 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
       content TEXT NOT NULL,
       created_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS detected_tasks (
+      id TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL,
+      email_id TEXT NOT NULL,
+      thread_id TEXT,
+      subject TEXT,
+      from_email TEXT,
+      from_name TEXT,
+      email_date INTEGER,
+      detection_type TEXT NOT NULL,
+      reason TEXT,
+      priority TEXT DEFAULT 'medium',
+      status TEXT DEFAULT 'open',
+      snoozed_until INTEGER,
+      created_at INTEGER DEFAULT (strftime('%s','now') * 1000),
+      updated_at INTEGER DEFAULT (strftime('%s','now') * 1000)
+    );
   `);
 
   // Indexek
@@ -361,6 +379,10 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
     CREATE INDEX IF NOT EXISTS idx_action_items_done ON action_items(is_done);
     CREATE INDEX IF NOT EXISTS idx_ai_messages_conversation ON ai_messages(conversation_id);
     CREATE INDEX IF NOT EXISTS idx_ai_messages_created ON ai_messages(created_at);
+
+    -- Detected tasks indexek
+    CREATE INDEX IF NOT EXISTS idx_detected_tasks_account ON detected_tasks(account_id, status);
+    CREATE INDEX IF NOT EXISTS idx_detected_tasks_email ON detected_tasks(email_id);
 
     -- Extra indexek a teljesítmény javításához
     CREATE INDEX IF NOT EXISTS idx_emails_account_date ON emails(account_id, date DESC);

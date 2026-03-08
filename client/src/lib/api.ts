@@ -825,6 +825,22 @@ export const api = {
       request<{ success: boolean }>(`/ai/conversations/${id}`, { method: 'DELETE' }),
   },
 
+  detectedTasks: {
+    list: (params?: { status?: string; priority?: string; page?: number; limit?: number }) => {
+      const query = new URLSearchParams();
+      if (params?.status) query.set('status', params.status);
+      if (params?.priority) query.set('priority', params.priority);
+      if (params?.page) query.set('page', params.page.toString());
+      if (params?.limit) query.set('limit', params.limit.toString());
+      return request<{ tasks: import('../types').DetectedTask[]; total: number }>(`/detected-tasks?${query}`);
+    },
+    stats: () => request<{ open: number; high: number; medium: number; low: number }>('/detected-tasks/stats'),
+    scan: (daysBack: number) => request<{ newTasksCount: number; unsnoozedCount: number; tasks: import('../types').DetectedTask[] }>('/detected-tasks/scan', { method: 'POST', body: JSON.stringify({ daysBack }) }),
+    update: (id: string, data: { status: string }) => request<{ success: boolean }>(`/detected-tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    delete: (id: string) => request<{ success: boolean }>(`/detected-tasks/${id}`, { method: 'DELETE' }),
+    snooze: (id: string, days: number) => request<{ success: boolean; snoozedUntil: number }>(`/detected-tasks/${id}/snooze`, { method: 'POST', body: JSON.stringify({ days }) }),
+  },
+
   translate: {
     translate: (text: string, targetLang = 'hu', sourceLang = 'auto') =>
       request<{

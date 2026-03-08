@@ -1,3 +1,21 @@
+// --- Detected Tasks (Intelligens Feladatfelismerés) ---
+
+export interface DetectedTask {
+  id: string;
+  emailId: string;
+  threadId: string | null;
+  subject: string | null;
+  fromEmail: string | null;
+  fromName: string | null;
+  emailDate: number | null;
+  detectionType: 'unanswered' | 'action_required' | 'follow_up' | 'deadline';
+  reason: string | null;
+  priority: 'high' | 'medium' | 'low';
+  status: 'open' | 'done' | 'dismissed' | 'snoozed';
+  snoozedUntil?: number | null;
+  createdAt: number;
+}
+
 export interface Account {
   id: string;
   email: string;

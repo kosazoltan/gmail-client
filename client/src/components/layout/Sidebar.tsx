@@ -47,6 +47,7 @@ import {
 import { cn } from '../../lib/utils';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useSmartFolders } from '../../hooks/useSmartFolders';
+import { useDetectedTaskStats } from '../../hooks/useDetectedTasks';
 import { useState, useMemo } from 'react';
 
 interface SidebarProps {
@@ -109,6 +110,8 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
   const { data: dashboardData } = useDashboard();
   const { data: smartFoldersData } = useSmartFolders();
   const smartFolders = smartFoldersData?.folders || [];
+  const { data: detectedTaskStats } = useDetectedTaskStats();
+  const detectedTaskCount = detectedTaskStats?.open ?? 0;
 
   // Gyakran használt címkék (user típusúak, messagesTotal alapján rendezve)
   const frequentLabels = useMemo(() => {
@@ -186,9 +189,11 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
               ? dashboardData.todayEventsCount
               : 0;
           const tasksBadge =
-            item.path === '/tasks' && dashboardData?.openTasksCount
-              ? dashboardData.openTasksCount
-              : 0;
+            item.path === '/tasks' && detectedTaskCount > 0
+              ? detectedTaskCount
+              : item.path === '/tasks' && dashboardData?.openTasksCount
+                ? dashboardData.openTasksCount
+                : 0;
           const badgeCount = calendarBadge || tasksBadge;
 
           return (
@@ -213,7 +218,7 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
                   <span
                     className={cn(
                       'absolute -top-1 -right-1 h-2 w-2 rounded-full',
-                      item.path === '/calendar' ? 'bg-purple-500' : 'bg-green-500',
+                      item.path === '/calendar' ? 'bg-purple-500' : item.path === '/tasks' && detectedTaskCount > 0 ? 'bg-red-500' : 'bg-green-500',
                     )}
                   />
                 )}
@@ -227,7 +232,9 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
                         'rounded-full px-1.5 py-0.5 text-xs font-medium',
                         item.path === '/calendar'
                           ? 'bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400'
-                          : 'bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400',
+                          : item.path === '/tasks' && detectedTaskCount > 0
+                            ? 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400'
+                            : 'bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400',
                       )}
                     >
                       {badgeCount > 99 ? '99+' : badgeCount}
