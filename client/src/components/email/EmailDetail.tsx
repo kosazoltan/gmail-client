@@ -38,6 +38,7 @@ import { exportEmailToPdf } from '../../lib/pdfExport';
 import { toast } from '../../lib/toast';
 import { useEmailTranslation } from '../../hooks/useTranslate';
 import type { ThreadEmail } from '../../types';
+import { InlineCopilotBar } from '../ai/InlineCopilotBar';
 
 interface EmailDetailProps {
   emailId: string | null;
@@ -667,6 +668,17 @@ export function EmailDetail({
           {/* Separator between header and body */}
           <div className="my-1 flex items-center gap-3 px-2 sm:my-2">
             <div className="dark:via-dark-border h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
+          </div>
+
+          {/* AI Copilot Bar */}
+          <div className="mb-2 sm:mb-3">
+            <InlineCopilotBar
+              emailId={email.id}
+              emailSubject={email.subject}
+              emailBody={email.body}
+              emailSnippet={email.snippet}
+              emailFrom={email.from}
+            />
           </div>
 
           {/* Thread conversation nézet vagy egyedi email body */}

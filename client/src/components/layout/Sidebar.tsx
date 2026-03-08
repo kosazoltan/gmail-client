@@ -18,6 +18,8 @@ import {
   Tags,
   PenSquare,
   ChevronLeft,
+  ChevronRight,
+  ChevronDown,
   Database,
   Keyboard,
   Paperclip,
@@ -45,7 +47,7 @@ import { cn } from '../../lib/utils';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useSmartFolders } from '../../hooks/useSmartFolders';
 import { useDetectedTaskStats } from '../../hooks/useDetectedTasks';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 
@@ -55,36 +57,127 @@ interface SidebarProps {
   onShowShortcuts?: () => void;
 }
 
-// Dashboard szekció — felül, vizuálisan elkülönítve
-const dashboardItems = [
-  { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/calendar', icon: Calendar, label: 'Naptár' },
-  { path: '/tasks', icon: CheckSquare, label: 'Feladatok' },
-  { path: '/market', icon: BarChart3, label: 'Piaci Elemz\u00e9s' },
-];
+// --- Collapsible group helpers ---
 
-// AI szekció — intelligens funkciók
-const aiItems = [
-  { path: '/ai-assistant', icon: Sparkles, label: '🤖 AI Asszisztens' },
-];
+function getStoredGroupState(key: string, defaultOpen: boolean): boolean {
+  try {
+    const stored = localStorage.getItem(`sidebar-group-${key}`);
+    if (stored !== null) return stored === 'true';
+  } catch { /* ignore */ }
+  return defaultOpen;
+}
 
-// Email szekció — a megszokott menüpontok
-const emailItems = [
-  { path: '/', icon: Inbox, label: 'Beérkezett' },
-  { path: '/unified', icon: Mail, label: 'Minden levél' },
-  { path: '/by-sender', icon: Users, label: 'Küldő szerint' },
-  { path: '/by-topic', icon: MessageSquare, label: 'Téma szerint' },
-  { path: '/by-time', icon: Clock, label: 'Időszak szerint' },
-  { path: '/by-category', icon: Tags, label: 'Kategóriák' },
-  { path: '/personal', icon: User, label: 'Személyes' },
-  { path: '/invoices', icon: Receipt, label: 'Számlák' },
-  { path: '/trash', icon: Trash2, label: 'Kuka' },
-  { path: '/attachments', icon: Paperclip, label: 'Mellékletek' },
-  { path: '/newsletters', icon: Newspaper, label: 'Hírlevelek' },
-  { path: '/reminders', icon: Bell, label: 'Emlékeztetők' },
-  { path: '/scheduled', icon: CalendarClock, label: 'Ütemezett' },
-  { path: '/database', icon: Database, label: 'Adatbázis' },
-];
+function setStoredGroupState(key: string, isOpen: boolean): void {
+  try {
+    localStorage.setItem(`sidebar-group-${key}`, String(isOpen));
+  } catch { /* ignore */ }
+}
+
+function useCollapsibleGroup(key: string, defaultOpen = true) {
+  const [isOpen, setIsOpen] = useState(() => getStoredGroupState(key, defaultOpen));
+  const toggle = useCallback(() => {
+    setIsOpen((prev) => {
+      const next = !prev;
+      setStoredGroupState(key, next);
+      return next;
+    });
+  }, [key]);
+  return { isOpen, toggle };
+}
+
+// --- Navigation item component ---
+
+function NavItem({
+  path,
+  icon: Icon,
+  label,
+  badge,
+  badgeColor = 'blue',
+  sidebarOpen,
+}: {
+  path: string;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  badge?: number;
+  badgeColor?: 'blue' | 'purple' | 'green' | 'red' | 'orange';
+  sidebarOpen: boolean;
+}) {
+  const badgeColors: Record<string, string> = {
+    blue: 'bg-[#4f6ef7]/10 text-[#4f6ef7] dark:bg-[#4f6ef7]/20 dark:text-[#6d8cff]',
+    purple: 'bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400',
+    green: 'bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400',
+    red: 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400',
+    orange: 'bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400',
+  };
+
+  return (
+    <NavLink
+      to={path}
+      aria-label={label}
+      title={label}
+      className={({ isActive }) =>
+        cn(
+          'flex min-h-[40px] touch-manipulation items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
+          isActive
+            ? 'bg-[#4f6ef7]/10 font-medium text-[#4f6ef7] dark:bg-[#4f6ef7]/15 dark:text-[#6d8cff]'
+            : 'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+          !sidebarOpen && 'justify-center px-2',
+        )
+      }
+    >
+      <div className="relative">
+        <Icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+        {badge !== undefined && badge > 0 && !sidebarOpen && (
+          <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-[#4f6ef7]" />
+        )}
+      </div>
+      {sidebarOpen && (
+        <div className="flex flex-1 items-center justify-between">
+          <span>{label}</span>
+          {badge !== undefined && badge > 0 && (
+            <span className={cn('rounded-full px-1.5 py-0.5 text-xs font-medium', badgeColors[badgeColor])}>
+              {badge > 99 ? '99+' : badge}
+            </span>
+          )}
+        </div>
+      )}
+    </NavLink>
+  );
+}
+
+// --- Collapsible section header ---
+
+function SectionHeader({
+  label,
+  icon: Icon,
+  isOpen,
+  onToggle,
+  sidebarOpen,
+}: {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  isOpen: boolean;
+  onToggle: () => void;
+  sidebarOpen: boolean;
+}) {
+  if (!sidebarOpen) return null;
+
+  return (
+    <button
+      onClick={onToggle}
+      className="dark:text-dark-text-muted flex w-full items-center gap-2 px-3 pt-3 pb-1 text-xs font-medium tracking-wider text-gray-400 uppercase transition-colors hover:text-gray-600 dark:hover:text-gray-300"
+    >
+      <Icon className="h-3 w-3" aria-hidden="true" />
+      <span className="flex-1 text-left">{label}</span>
+      <ChevronDown
+        className={cn(
+          'h-3 w-3 transition-transform duration-200',
+          !isOpen && '-rotate-90',
+        )}
+      />
+    </button>
+  );
+}
 
 export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
   const { data: session } = useSession();
@@ -120,14 +213,10 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
     return categoriesData.categories.filter((c) => !c.isSystem && !c.is_system);
   }, [categoriesData?.categories]);
 
-  // Gyakran használt címkék (user típusúak, messagesTotal alapján rendezve)
-  const frequentLabels = useMemo(() => {
-    if (!labelsData?.labels) return [];
-    return labelsData.labels
-      .filter((l) => l.type === 'user' && l.messagesTotal > 0)
-      .sort((a, b) => b.messagesTotal - a.messagesTotal)
-      .slice(0, 5); // Top 5 leggyakrabban használt
-  }, [labelsData?.labels]);
+  // Collapsible groups
+  const viewsGroup = useCollapsibleGroup('views', false);
+  const aiGroup = useCollapsibleGroup('ai-views', true);
+  const savedSearchGroup = useCollapsibleGroup('saved-searches', false);
 
   const handleSavedSearchClick = (id: string, query: string) => {
     incrementUsage.mutate(id);
@@ -187,409 +276,256 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
       </div>
 
       {/* Navigáció */}
-      <nav className="flex-1 space-y-1 overflow-auto px-2 py-2" aria-label="Fő navigáció">
-        {/* Dashboard szekció */}
-        {dashboardItems.map((item) => {
-          // Badge logika: naptár → mai események, feladatok → nyitott tasks
-          const calendarBadge =
-            item.path === '/calendar' && dashboardData?.todayEventsCount
-              ? dashboardData.todayEventsCount
-              : 0;
-          const tasksBadge =
-            item.path === '/tasks' && detectedTaskCount > 0
-              ? detectedTaskCount
-              : item.path === '/tasks' && dashboardData?.openTasksCount
-                ? dashboardData.openTasksCount
-                : 0;
-          const badgeCount = calendarBadge || tasksBadge;
+      <nav className="flex-1 space-y-0.5 overflow-auto px-2 py-2" aria-label="Fő navigáció">
+        {/* === FŐ csoport: Home, Inbox, Compose === */}
+        <NavItem path="/dashboard" icon={LayoutDashboard} label="Home" sidebarOpen={isOpen} />
+        <NavItem
+          path="/"
+          icon={Inbox}
+          label="Inbox"
+          badge={unreadCount}
+          badgeColor="blue"
+          sidebarOpen={isOpen}
+        />
+        <NavItem path="/compose" icon={PenSquare} label="Compose" sidebarOpen={isOpen} />
 
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              aria-label={item.label}
-              title={item.label}
-              className={({ isActive }) =>
-                cn(
-                  'flex min-h-[44px] touch-manipulation items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors',
-                  isActive
-                    ? 'bg-[#4f6ef7]/10 font-medium text-[#4f6ef7] dark:bg-[#4f6ef7]/15 dark:text-[#6d8cff]'
-                    : 'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-                  !isOpen && 'justify-center px-2',
-                )
-              }
-            >
-              <div className="relative">
-                <item.icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
-                {badgeCount > 0 && !isOpen && (
-                  <span
-                    className={cn(
-                      'absolute -top-1 -right-1 h-2 w-2 rounded-full',
-                      item.path === '/calendar' ? 'bg-purple-500' : item.path === '/tasks' && detectedTaskCount > 0 ? 'bg-red-500' : 'bg-green-500',
-                    )}
-                  />
-                )}
-              </div>
-              {isOpen && (
-                <div className="flex flex-1 items-center justify-between">
-                  <span>{item.label}</span>
-                  {badgeCount > 0 && (
-                    <span
-                      className={cn(
-                        'rounded-full px-1.5 py-0.5 text-xs font-medium',
-                        item.path === '/calendar'
-                          ? 'bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400'
-                          : item.path === '/tasks' && detectedTaskCount > 0
-                            ? 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400'
-                            : 'bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400',
-                      )}
-                    >
-                      {badgeCount > 99 ? '99+' : badgeCount}
-                    </span>
-                  )}
-                </div>
-              )}
-            </NavLink>
-          );
-        })}
+        {/* Separator */}
+        <div className="dark:border-dark-border mx-2 border-t border-gray-200/60 my-1.5" />
 
-        {/* Elválasztó vonal a dashboard és AI szekciók között */}
-        <div className="dark:border-dark-border mx-2 border-t border-gray-200/60 my-1" />
-
-        {/* AI szekció */}
-        {aiItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            aria-label={item.label}
-            title={item.label}
-            className={({ isActive }) =>
-              cn(
-                'flex min-h-[44px] touch-manipulation items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors',
-                isActive
-                  ? 'bg-[#4f6ef7]/10 font-medium text-[#4f6ef7] dark:bg-[#4f6ef7]/15 dark:text-[#6d8cff]'
-                  : 'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-                !isOpen && 'justify-center px-2',
-              )
-            }
-          >
-            <item.icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
-            {isOpen && <span>{item.label}</span>}
-          </NavLink>
-        ))}
-
-        {/* Elválasztó vonal az AI és email szekciók között */}
-        <div className="dark:border-dark-border mx-2 border-t border-gray-200/60 my-1" />
-
-        {/* Email szekció */}
-        {emailItems.map((item) => {
-          const showBadge =
-            item.path === '/reminders' && dueRemindersCount && dueRemindersCount > 0;
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              aria-label={item.label}
-              title={item.label}
-              className={({ isActive }) =>
-                cn(
-                  'flex min-h-[44px] touch-manipulation items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors',
-                  isActive
-                    ? 'bg-[#4f6ef7]/10 font-medium text-[#4f6ef7] dark:bg-[#4f6ef7]/15 dark:text-[#6d8cff]'
-                    : 'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-                  !isOpen && 'justify-center px-2',
-                )
-              }
-            >
-              <div className="relative">
-                <item.icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
-                {showBadge && !isOpen && (
-                  <span
-                    className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-orange-500"
-                    aria-label={`${dueRemindersCount} esedékes emlékeztető`}
-                  />
-                )}
-                {item.path === '/' && !isOpen && unreadCount !== undefined && unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-[#4f6ef7]" />
-                )}
-              </div>
-              {isOpen && (
-                <div className="flex flex-1 items-center justify-between">
-                  <span>{item.label}</span>
-                  {showBadge && (
-                    <span className="rounded-full bg-orange-100 px-1.5 py-0.5 text-xs font-medium text-orange-600 dark:bg-orange-500/20 dark:text-orange-400">
-                      {dueRemindersCount}
-                    </span>
-                  )}
-                  {item.path === '/' && unreadCount !== undefined && unreadCount > 0 && (
-                    <span className="rounded-full bg-[#4f6ef7]/10 px-1.5 py-0.5 text-xs font-medium text-[#4f6ef7] dark:bg-[#4f6ef7]/20 dark:text-[#6d8cff]">
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </span>
-                  )}
-                </div>
-              )}
-            </NavLink>
-          );
-        })}
-
-        {/* 🧠 Smart Folders szekció */}
-        {smartFolders.length > 0 && (
+        {/* === NÉZETEK csoport (összecsukható) === */}
+        <SectionHeader
+          label="Nézetek"
+          icon={Mail}
+          isOpen={viewsGroup.isOpen}
+          onToggle={viewsGroup.toggle}
+          sidebarOpen={isOpen}
+        />
+        {(viewsGroup.isOpen || !isOpen) && (
           <>
-            {isOpen && (
-              <div className="px-3 pt-3 pb-1">
-                <div className="dark:text-dark-text-muted flex items-center gap-2 text-xs font-medium tracking-wider text-gray-400 uppercase">
-                  <FolderSearch className="h-3 w-3" aria-hidden="true" />
-                  🧠 Smart Folders
-                </div>
-              </div>
-            )}
-            <NavLink
-              to="/smart-folders"
-              aria-label="Smart Folders"
-              title="Smart Folders"
-              className={({ isActive }) =>
-                cn(
-                  'flex min-h-[44px] touch-manipulation items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors',
-                  isActive
-                    ? 'bg-[#4f6ef7]/10 font-medium text-[#4f6ef7] dark:bg-[#4f6ef7]/15 dark:text-[#6d8cff]'
-                    : 'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-                  !isOpen && 'justify-center px-2',
-                )
-              }
-            >
-              <FolderSearch className="h-5 w-5 flex-shrink-0 text-purple-500" aria-hidden="true" />
-              {isOpen && (
-                <div className="flex flex-1 items-center justify-between">
-                  <span>Összes mappa</span>
-                  <span className="rounded-full bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-600 dark:bg-purple-500/20 dark:text-purple-400">
-                    {smartFolders.length}
-                  </span>
-                </div>
-              )}
-            </NavLink>
-            {smartFolders.slice(0, isOpen ? 4 : 2).map((folder) => (
+            <NavItem path="/unified" icon={Mail} label="Minden levél" sidebarOpen={isOpen} />
+            <NavItem path="/by-sender" icon={Users} label="Küldő szerint" sidebarOpen={isOpen} />
+            <NavItem path="/personal" icon={User} label="Személyes" sidebarOpen={isOpen} />
+            <NavItem path="/trash" icon={Trash2} label="Trash" sidebarOpen={isOpen} />
+            <NavItem path="/newsletters" icon={Newspaper} label="Hírlevelek" sidebarOpen={isOpen} />
+            <NavItem path="/by-topic" icon={MessageSquare} label="Téma szerint" sidebarOpen={isOpen} />
+            <NavItem path="/by-time" icon={Clock} label="Időszak szerint" sidebarOpen={isOpen} />
+            <NavItem path="/by-category" icon={Tags} label="Kategóriák" sidebarOpen={isOpen} />
+            <NavItem path="/invoices" icon={Receipt} label="Számlák" sidebarOpen={isOpen} />
+            <NavItem path="/attachments" icon={Paperclip} label="Mellékletek" sidebarOpen={isOpen} />
+            <NavItem
+              path="/reminders"
+              icon={Bell}
+              label="Emlékeztetők"
+              badge={dueRemindersCount && dueRemindersCount > 0 ? dueRemindersCount : undefined}
+              badgeColor="orange"
+              sidebarOpen={isOpen}
+            />
+            <NavItem path="/scheduled" icon={CalendarClock} label="Ütemezett" sidebarOpen={isOpen} />
+          </>
+        )}
+
+        {/* Separator */}
+        <div className="dark:border-dark-border mx-2 border-t border-gray-200/60 my-1.5" />
+
+        {/* === AI NÉZETEK csoport (összecsukható) === */}
+        <SectionHeader
+          label="AI Nézetek"
+          icon={Sparkles}
+          isOpen={aiGroup.isOpen}
+          onToggle={aiGroup.toggle}
+          sidebarOpen={isOpen}
+        />
+        {(aiGroup.isOpen || !isOpen) && (
+          <>
+            <NavItem path="/ai-assistant" icon={Sparkles} label="AI Asszisztens" sidebarOpen={isOpen} />
+            <NavItem
+              path="/smart-folders"
+              icon={FolderSearch}
+              label="Smart Folders"
+              badge={smartFolders.length > 0 ? smartFolders.length : undefined}
+              badgeColor="purple"
+              sidebarOpen={isOpen}
+            />
+            <NavItem
+              path="/tasks"
+              icon={CheckSquare}
+              label="Tasks"
+              badge={detectedTaskCount > 0 ? detectedTaskCount : (dashboardData?.openTasksCount || undefined)}
+              badgeColor={detectedTaskCount > 0 ? 'red' : 'green'}
+              sidebarOpen={isOpen}
+            />
+            <NavItem
+              path="/calendar"
+              icon={Calendar}
+              label="Naptár"
+              badge={dashboardData?.todayEventsCount || undefined}
+              badgeColor="purple"
+              sidebarOpen={isOpen}
+            />
+            <NavItem path="/market" icon={BarChart3} label="Market" sidebarOpen={isOpen} />
+          </>
+        )}
+
+        {/* Smart Folders sub-items */}
+        {aiGroup.isOpen && smartFolders.length > 0 && isOpen && (
+          <>
+            {smartFolders.slice(0, 4).map((folder) => (
               <NavLink
                 key={folder.id}
                 to={`/smart-folders?id=${folder.id}`}
                 className={cn(
-                  'flex min-h-[44px] touch-manipulation items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors',
-                  'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-                  !isOpen && 'justify-center px-2',
+                  'flex min-h-[36px] touch-manipulation items-center gap-3 rounded-lg px-3 py-2 pl-8 text-sm transition-colors',
+                  'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-500 hover:bg-gray-100 hover:text-gray-900',
                 )}
                 title={`${folder.name} (${folder.emailCount ?? 0})`}
                 aria-label={`Smart Folder: ${folder.name}`}
               >
-                <span className="flex-shrink-0 text-base" aria-hidden="true">{folder.icon}</span>
-                {isOpen && (
-                  <div className="flex min-w-0 flex-1 items-center justify-between">
-                    <span className="truncate">{folder.name}</span>
-                    <span className="dark:text-dark-text-muted ml-2 text-xs text-gray-400">
-                      {folder.emailCount ?? 0}
-                    </span>
-                  </div>
-                )}
+                <span className="flex-shrink-0 text-sm" aria-hidden="true">{folder.icon}</span>
+                <div className="flex min-w-0 flex-1 items-center justify-between">
+                  <span className="truncate text-xs">{folder.name}</span>
+                  <span className="dark:text-dark-text-muted ml-2 text-[10px] text-gray-400">
+                    {folder.emailCount ?? 0}
+                  </span>
+                </div>
               </NavLink>
             ))}
           </>
         )}
 
-        {/* User Categories szekció */}
-        {userCategories.length > 0 && (
+        {/* User Categories */}
+        {userCategories.length > 0 && isOpen && aiGroup.isOpen && (
           <>
             {isOpen && (
-              <div className="px-3 pt-3 pb-1">
+              <div className="px-3 pt-2 pb-1">
                 <div className="dark:text-dark-text-muted flex items-center gap-2 text-xs font-medium tracking-wider text-gray-400 uppercase">
                   <Tags className="h-3 w-3" aria-hidden="true" />
                   Saját kategóriák
                 </div>
               </div>
             )}
-            {userCategories.slice(0, isOpen ? 6 : 3).map((cat) => {
-              const isActive = location.pathname === '/by-category' && location.search === '';
-              return (
-                <NavLink
-                  key={cat.id}
-                  to={`/by-category`}
-                  className={cn(
-                    'flex min-h-[44px] touch-manipulation items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors',
-                    'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-                    !isOpen && 'justify-center px-2',
+            {userCategories.slice(0, 5).map((cat) => (
+              <NavLink
+                key={cat.id}
+                to="/by-category"
+                className={cn(
+                  'flex min-h-[36px] touch-manipulation items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+                  'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-500 hover:bg-gray-100 hover:text-gray-900',
+                )}
+                title={`${cat.name} (${cat.emailCount ?? 0})`}
+                aria-label={`Kategória: ${cat.name}`}
+              >
+                <span
+                  className="h-3 w-3 flex-shrink-0 rounded-full"
+                  style={{ backgroundColor: cat.color }}
+                  aria-hidden="true"
+                />
+                <div className="flex min-w-0 flex-1 items-center justify-between">
+                  <span className="truncate text-xs">{cat.name}</span>
+                  {(cat.emailCount ?? 0) > 0 && (
+                    <span className="dark:text-dark-text-muted ml-2 text-[10px] text-gray-400">
+                      {cat.emailCount}
+                    </span>
                   )}
-                  title={`${cat.name} (${cat.emailCount ?? 0})`}
-                  aria-label={`Kategória: ${cat.name}`}
-                >
-                  <span
-                    className="h-3 w-3 flex-shrink-0 rounded-full"
-                    style={{ backgroundColor: cat.color }}
-                    aria-hidden="true"
-                  />
-                  {isOpen && (
-                    <div className="flex min-w-0 flex-1 items-center justify-between">
-                      <span className="truncate">{cat.name}</span>
-                      {(cat.emailCount ?? 0) > 0 && (
-                        <span className="dark:text-dark-text-muted ml-2 text-xs text-gray-400">
-                          {cat.emailCount}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </NavLink>
-              );
-            })}
-          </>
-        )}
-
-        {/* Gyakran használt címkék */}
-        {frequentLabels.length > 0 && (
-          <>
-            {isOpen && (
-              <div className="px-3 pt-3 pb-1">
-                <div className="dark:text-dark-text-muted flex items-center gap-2 text-xs font-medium tracking-wider text-gray-400 uppercase">
-                  <Tag className="h-3 w-3" aria-hidden="true" />
-                  Gyakori címkék
                 </div>
-              </div>
-            )}
-            {frequentLabels.slice(0, isOpen ? 5 : 3).map((label) => {
-              const isActive = location.pathname === `/label/${label.id}`;
-              const labelColor = label.color?.backgroundColor || '#6b7280';
-              return (
-                <NavLink
-                  key={label.id}
-                  to={`/label/${label.id}`}
-                  className={cn(
-                    'flex min-h-[44px] touch-manipulation items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors',
-                    isActive
-                      ? 'bg-[#4f6ef7]/10 font-medium text-[#4f6ef7] dark:bg-[#4f6ef7]/15 dark:text-[#6d8cff]'
-                      : 'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-                    !isOpen && 'justify-center px-2',
-                  )}
-                  title={isOpen ? `${label.name} (${label.messagesTotal})` : label.name}
-                  aria-label={`Címke: ${label.name}`}
-                >
-                  <span
-                    className="h-3 w-3 flex-shrink-0 rounded-full"
-                    style={{ backgroundColor: labelColor }}
-                    aria-hidden="true"
-                  />
-                  {isOpen && (
-                    <div className="flex min-w-0 flex-1 items-center justify-between">
-                      <span className="truncate">{label.name}</span>
-                      <span className="dark:text-dark-text-muted ml-2 text-xs text-gray-400">
-                        {label.messagesTotal}
-                      </span>
-                    </div>
-                  )}
-                </NavLink>
-              );
-            })}
+              </NavLink>
+            ))}
           </>
         )}
 
-        {/* Mentett keresések */}
+        {/* Separator */}
+        <div className="dark:border-dark-border mx-2 border-t border-gray-200/60 my-1.5" />
+
+        {/* === Mentett keresések (összecsukható) === */}
         {savedSearches.length > 0 && (
           <>
-            {isOpen && (
-              <div className="px-3 pt-3 pb-1">
-                <div className="dark:text-dark-text-muted flex items-center gap-2 text-xs font-medium tracking-wider text-gray-400 uppercase">
-                  <Bookmark className="h-3 w-3" aria-hidden="true" />
-                  Mentett keresések
-                </div>
-              </div>
-            )}
-            {savedSearches.slice(0, isOpen ? 10 : 3).map((search) => {
-              const isActive = currentSearchQuery === search.query;
-              return (
-                <div key={search.id} className="group relative">
-                  <button
-                    onClick={() => handleSavedSearchClick(search.id, search.query)}
-                    className={cn(
-                      'flex min-h-[44px] w-full touch-manipulation items-center gap-3 rounded-lg px-3 py-3 text-left text-sm transition-colors',
-                      isActive
-                        ? 'bg-[#4f6ef7]/10 font-medium text-[#4f6ef7] dark:bg-[#4f6ef7]/15 dark:text-[#6d8cff]'
-                        : 'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-                      !isOpen && 'justify-center px-2',
-                    )}
-                    title={isOpen ? search.query : `${search.name}: ${search.query}`}
-                    aria-label={`Mentett keresés: ${search.name}`}
-                  >
-                    <Search className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
-                    {isOpen && <span className="truncate">{search.name}</span>}
-                  </button>
-
-                  {/* Törlés gomb - csak ha a sidebar nyitva van */}
-                  {isOpen && (
+            <SectionHeader
+              label="Mentett keresések"
+              icon={Bookmark}
+              isOpen={savedSearchGroup.isOpen}
+              onToggle={savedSearchGroup.toggle}
+              sidebarOpen={isOpen}
+            />
+            {(savedSearchGroup.isOpen || !isOpen) &&
+              savedSearches.slice(0, isOpen ? 10 : 3).map((search) => {
+                const isActive = currentSearchQuery === search.query;
+                return (
+                  <div key={search.id} className="group relative">
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteConfirmId(search.id);
-                      }}
-                      className="absolute top-1/2 right-1 -translate-y-1/2 touch-manipulation rounded-lg p-2 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400"
-                      title="Mentett keresés törlése"
-                      aria-label={`${search.name} mentett keresés törlése`}
+                      onClick={() => handleSavedSearchClick(search.id, search.query)}
+                      className={cn(
+                        'flex min-h-[40px] w-full touch-manipulation items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors',
+                        isActive
+                          ? 'bg-[#4f6ef7]/10 font-medium text-[#4f6ef7] dark:bg-[#4f6ef7]/15 dark:text-[#6d8cff]'
+                          : 'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+                        !isOpen && 'justify-center px-2',
+                      )}
+                      title={isOpen ? search.query : `${search.name}: ${search.query}`}
+                      aria-label={`Mentett keresés: ${search.name}`}
                     >
-                      <X className="h-4 w-4" aria-hidden="true" />
+                      <Search className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+                      {isOpen && <span className="truncate">{search.name}</span>}
                     </button>
-                  )}
 
-                  {/* Törlés megerősítés */}
-                  {deleteConfirmId === search.id && (
-                    <div className="dark:bg-dark-bg-secondary dark:border-dark-border absolute top-full right-0 left-0 z-10 mt-1 rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
-                      <p className="dark:text-dark-text-secondary mb-2 text-xs text-gray-600">
-                        Biztosan törlöd?
-                      </p>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => handleDeleteSavedSearch(search.id)}
-                          className="flex-1 rounded bg-red-500 px-2 py-1 text-xs text-white hover:bg-red-600"
-                          aria-label="Igen, törlés megerősítése"
-                        >
-                          Igen
-                        </button>
-                        <button
-                          onClick={() => setDeleteConfirmId(null)}
-                          className="dark:bg-dark-bg-tertiary dark:text-dark-text dark:hover:bg-dark-bg flex-1 rounded bg-gray-100 px-2 py-1 text-xs text-gray-700 hover:bg-gray-200"
-                          aria-label="Nem, törlés megszakítása"
-                        >
-                          Nem
-                        </button>
+                    {/* Törlés gomb */}
+                    {isOpen && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteConfirmId(search.id);
+                        }}
+                        className="absolute top-1/2 right-1 -translate-y-1/2 touch-manipulation rounded-lg p-2 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+                        title="Mentett keresés törlése"
+                        aria-label={`${search.name} mentett keresés törlése`}
+                      >
+                        <X className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    )}
+
+                    {/* Törlés megerősítés */}
+                    {deleteConfirmId === search.id && (
+                      <div className="dark:bg-dark-bg-secondary dark:border-dark-border absolute top-full right-0 left-0 z-10 mt-1 rounded-lg border border-gray-200 bg-white p-2 shadow-lg">
+                        <p className="dark:text-dark-text-secondary mb-2 text-xs text-gray-600">
+                          Biztosan törlöd?
+                        </p>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleDeleteSavedSearch(search.id)}
+                            className="flex-1 rounded bg-red-500 px-2 py-1 text-xs text-white hover:bg-red-600"
+                            aria-label="Igen, törlés megerősítése"
+                          >
+                            Igen
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirmId(null)}
+                            className="dark:bg-dark-bg-tertiary dark:text-dark-text dark:hover:bg-dark-bg flex-1 rounded bg-gray-100 px-2 py-1 text-xs text-gray-700 hover:bg-gray-200"
+                            aria-label="Nem, törlés megszakítása"
+                          >
+                            Nem
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                    )}
+                  </div>
+                );
+              })}
           </>
         )}
       </nav>
 
-      {/* Bottom actions - Settings & Keyboard shortcuts */}
+      {/* Bottom actions - Settings & Accounts */}
       <div className="dark:border-dark-border space-y-1 border-t border-gray-200 px-2 py-2">
         {/* Beállítások */}
-        <NavLink
-          to="/settings"
-          aria-label="Beállítások"
-          title="Beállítások"
-          className={({ isActive }) =>
-            cn(
-              'flex min-h-[44px] touch-manipulation items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors',
-              isActive
-                ? 'bg-[#4f6ef7]/10 font-medium text-[#4f6ef7] dark:bg-[#4f6ef7]/15 dark:text-[#6d8cff]'
-                : 'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-              !isOpen && 'justify-center px-2',
-            )
-          }
-        >
-          <Settings className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
-          {isOpen && <span>Beállítások</span>}
-        </NavLink>
+        <NavItem path="/settings" icon={Settings} label="Beállítások" sidebarOpen={isOpen} />
+
+        {/* Database / Adatbázis */}
+        <NavItem path="/database" icon={Database} label="Adatbázis" sidebarOpen={isOpen} />
 
         {/* Billentyűparancsok gomb */}
         {onShowShortcuts && (
           <button
             onClick={onShowShortcuts}
             className={cn(
-              'dark:text-dark-text-muted dark:hover:bg-dark-bg-tertiary flex min-h-[44px] w-full touch-manipulation items-center gap-2 rounded-lg px-3 py-3 text-sm text-gray-500 hover:bg-gray-100',
+              'dark:text-dark-text-muted dark:hover:bg-dark-bg-tertiary flex min-h-[40px] w-full touch-manipulation items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-gray-500 hover:bg-gray-100',
               !isOpen && 'justify-center px-2',
             )}
             title="Billentyűparancsok (?)"
@@ -601,13 +537,13 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
         )}
       </div>
 
-      {/* Bejelentkezési segítség - csak ha nincs bejelentkezve */}
+      {/* Bejelentkezési segítség */}
       {!session?.authenticated && (
         <div className="dark:border-dark-border border-t border-gray-200 p-3">
           <button
             onClick={() => setShowLoginHelp(true)}
             className={cn(
-              'dark:hover:bg-dark-bg-tertiary dark:text-dark-text-muted flex min-h-[44px] w-full touch-manipulation items-center gap-2 rounded-lg px-3 py-3 text-sm text-gray-500 hover:bg-gray-100',
+              'dark:hover:bg-dark-bg-tertiary dark:text-dark-text-muted flex min-h-[40px] w-full touch-manipulation items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-gray-500 hover:bg-gray-100',
               !isOpen && 'justify-center px-2',
             )}
             aria-label="Bejelentkezési segítség"

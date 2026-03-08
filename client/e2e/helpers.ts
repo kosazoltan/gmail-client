@@ -57,10 +57,10 @@ export async function setupAuthenticatedMocks(page: Page) {
   await page.route('**/api/labels**', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ labels: [] }) })
   );
-  await page.route('**/api/saved-searches**', (route) =>
+  await page.route('**/api/searches**', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ searches: [] }) })
   );
-  await page.route('**/api/reminders/due-count**', (route) =>
+  await page.route('**/api/reminders/count**', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0 }) })
   );
   await page.route('**/api/dashboard**', (route) =>

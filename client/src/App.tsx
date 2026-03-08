@@ -7,6 +7,7 @@ import { InstallPrompt } from './components/pwa/InstallPrompt';
 import { ToastContainer } from './components/common/ToastContainer';
 import { Suspense, lazy } from 'react';
 import { LoadingSkeleton } from './components/common/LoadingSkeleton';
+import { CommandPalette } from './components/CommandPalette';
 
 // Lazy loaded views — code splitting
 const InboxView = lazy(() => import('./components/views/InboxView').then(m => ({ default: m.InboxView })));
@@ -84,6 +85,7 @@ function App() {
                 <Route path="/terms" element={<Suspense fallback={<LoadingSkeleton />}><TermsOfService /></Suspense>} />
               </Route>
             </Routes>
+            <CommandPalette />
             <InstallPrompt />
             <ToastContainer />
           </BrowserRouter>
