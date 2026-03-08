@@ -103,7 +103,22 @@ export function useScanStream() {
       signal: controller.signal,
     }).then(async (response) => {
       if (!response.ok) {
-        setScanState(prev => ({ ...prev, isScanning: false, phase: 'error' }));
+        // SSE nem elérhető — fallback a POST /scan-ra
+        console.warn('[ScanStream] SSE failed, falling back to POST /scan');
+        try {
+          const fallbackResult = await api.detectedTasks.scan(daysBack);
+          setScanState({
+            isScanning: false,
+            phase: 'done',
+            processed: fallbackResult.newTasksCount,
+            total: fallbackResult.newTasksCount,
+            found: fallbackResult.newTasksCount,
+          });
+          queryClient.invalidateQueries({ queryKey: ['detected-tasks'] });
+          queryClient.invalidateQueries({ queryKey: ['detected-tasks', 'stats'] });
+        } catch {
+          setScanState(prev => ({ ...prev, isScanning: false, phase: 'error' }));
+        }
         return;
       }
 
