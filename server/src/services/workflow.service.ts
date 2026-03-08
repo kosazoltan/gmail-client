@@ -1,7 +1,22 @@
 import { queryAll, queryOne, execute, runInTransaction } from '../db/index.js';
 import { sendPushToAccount } from './push.service.js';
+import { getOAuth2ClientForAccount } from './auth.service.js';
+import { getGmailClient, sendEmail } from './gmail.service.js';
 import { v4 as uuid } from 'uuid';
 import logger from '../utils/logger.js';
+
+// --- Anthropic client singleton ---
+
+let _anthropicClient: InstanceType<typeof import('@anthropic-ai/sdk').default> | null = null;
+
+async function getAnthropicClient() {
+  if (!process.env.ANTHROPIC_API_KEY) return null;
+  if (!_anthropicClient) {
+    const Anthropic = (await import('@anthropic-ai/sdk')).default;
+    _anthropicClient = new Anthropic();
+  }
+  return _anthropicClient;
+}
 
 // --- Interfaces ---
 
@@ -184,6 +199,14 @@ export function getWorkflows(accountId: string): Workflow[] {
   return rows.map(rowToWorkflow);
 }
 
+export function getActiveWorkflowsForAccount(accountId: string): Workflow[] {
+  const rows = queryAll<WorkflowRow>(
+    'SELECT * FROM workflows WHERE account_id = ? AND is_active = 1',
+    [accountId],
+  );
+  return rows.map(rowToWorkflow);
+}
+
 export function getWorkflow(id: string): Workflow | undefined {
   const row = queryOne<WorkflowRow>('SELECT * FROM workflows WHERE id = ?', [id]);
   return row ? rowToWorkflow(row) : undefined;
@@ -239,6 +262,35 @@ export function toggleWorkflow(id: string, isActive: boolean): void {
   ]);
 }
 
+// --- Scheduled Workflow Processing ---
+
+export function processScheduledWorkflows(): void {
+  const now = new Date();
+  const hour = now.getHours();
+  const minute = now.getMinutes();
+  const dayOfWeek = now.getDay(); // 0=Sunday
+
+  const rows = queryAll<WorkflowRow>(
+    'SELECT * FROM workflows WHERE is_active = 1 AND trigger_type = ?',
+    ['scheduled'],
+  );
+  const scheduled = rows.map(rowToWorkflow);
+
+  for (const wf of scheduled) {
+    const config = wf.triggerConfig as { hour?: number; minute?: number; days?: number[] };
+    const targetHour = config.hour ?? 7;
+    const targetMinute = config.minute ?? 0;
+    const targetDays = config.days ?? [1, 2, 3, 4, 5]; // weekdays by default
+
+    if (hour === targetHour && minute === targetMinute && targetDays.includes(dayOfWeek)) {
+      logger.info(`Executing scheduled workflow: ${wf.name} (${wf.id})`);
+      executeWorkflow(wf.id).catch((err) =>
+        logger.error(`Scheduled workflow ${wf.id} failed:`, err),
+      );
+    }
+  }
+}
+
 // --- Workflow Execution ---
 
 export async function executeWorkflow(
@@ -260,7 +312,7 @@ export async function executeWorkflow(
   // Load trigger email(s) as initial context
   let emails: EmailRow[] = [];
   if (triggerEmailId) {
-    const email = queryOne<EmailRow>('SELECT * FROM emails WHERE id = ?', [triggerEmailId]);
+    const email = queryOne<EmailRow>('SELECT * FROM emails WHERE id = ? AND account_id = ?', [triggerEmailId, workflow.accountId]);
     if (email) emails = [email];
   }
 
@@ -338,13 +390,13 @@ export async function executeStep(step: WorkflowStep, context: StepContext): Pro
       case 'filter':
         return handleFilterStep(context.emails, step.config, context);
       case 'ai_analyze':
-        return handleAIAnalyzeStep(context.emails, step.config);
+        return await handleAIAnalyzeStep(context.emails, step.config);
       case 'categorize':
         return handleCategorizeStep(context.emails, step.config);
       case 'label':
         return handleLabelStep(context.emails, step.config);
       case 'forward':
-        return handleForwardStep(context.emails, step.config);
+        return await handleForwardStep(context.emails, step.config, context);
       case 'summarize':
         return handleSummarizeStep(context.emails, step.config);
       case 'extract':
@@ -356,7 +408,7 @@ export async function executeStep(step: WorkflowStep, context: StepContext): Pro
       case 'save_report':
         return handleSaveReportStep(context.data, step.config, context);
       case 'ai_reply':
-        return handleAIReplyStep(context.emails, step.config);
+        return await handleAIReplyStep(context.emails, step.config);
       case 'condition':
         return handleConditionStep(context.data, step.config, context);
       default:
@@ -432,12 +484,42 @@ export function handleFilterStep(
   return { success: true, data: { filtered: filtered.length, total: emails.length } };
 }
 
-export function handleAIAnalyzeStep(
+export async function handleAIAnalyzeStep(
   emails: EmailRow[],
   config: Record<string, unknown>,
-): StepResult {
+): Promise<StepResult> {
   const analysisType = (config.analysisType as string) ?? 'summary';
-  // Analysis is stored as step result; actual AI call would happen in ai-assistant service
+
+  // Try AI analysis via Anthropic
+  const aiClient = await getAnthropicClient();
+  if (aiClient && emails.length > 0) {
+    try {
+      const client = aiClient;
+
+      const emailSummaries = emails.slice(0, 10).map((e) =>
+        `From: ${e.from_name ?? ''} <${e.from_email ?? ''}>\nSubject: ${e.subject ?? ''}\nSnippet: ${(e.snippet ?? '').substring(0, 200)}`,
+      ).join('\n---\n');
+
+      const response = await client.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: `Elemezd az alábbi emaileket. Adj rövid összefoglalót, prioritást, és javasolt teendőket:\n\n${emailSummaries}`,
+        }],
+      });
+
+      const analysis = response.content[0].type === 'text' ? response.content[0].text : '';
+      return {
+        success: true,
+        data: { analysisType, emailCount: emails.length, analysis },
+      };
+    } catch (err) {
+      logger.warn('AI analyze step: Anthropic call failed:', err instanceof Error ? err.message : err);
+    }
+  }
+
+  // Fallback: basic summaries without AI
   const summaries = emails.map((e) => ({
     id: e.id,
     subject: e.subject,
@@ -447,7 +529,7 @@ export function handleAIAnalyzeStep(
 
   return {
     success: true,
-    data: { analysisType, emailCount: emails.length, emails: summaries },
+    data: { analysisType, emailCount: emails.length, emails: summaries, aiAvailable: false },
   };
 }
 
@@ -477,30 +559,80 @@ function handleLabelStep(
   }
 
   for (const email of emails) {
-    const existing = email.labels ? email.labels : '';
-    const labels = existing ? `${existing},${label}` : label;
-    execute('UPDATE emails SET labels = ? WHERE id = ?', [labels, email.id]);
+    let arr: string[] = [];
+    try {
+      arr = email.labels ? JSON.parse(email.labels) : [];
+    } catch {
+      arr = [];
+    }
+    if (!arr.includes(label)) {
+      arr.push(label);
+    }
+    execute('UPDATE emails SET labels = ? WHERE id = ?', [JSON.stringify(arr), email.id]);
   }
 
   return { success: true, data: { labeled: emails.length, label } };
 }
 
-export function handleForwardStep(
+export async function handleForwardStep(
   emails: EmailRow[],
   config: Record<string, unknown>,
-): StepResult {
+  context?: StepContext,
+): Promise<StepResult> {
   const to = config.to as string | undefined;
   if (!to) {
     return { success: false, error: 'to address is required for forward step' };
   }
 
-  // Forward is recorded; actual Gmail send would need OAuth context
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(to)) {
+    return { success: false, error: `Invalid email: ${to}` };
+  }
+
+  if (!context?.accountId) {
+    logger.warn('Forward step: no accountId in context, skipping actual send');
+    return {
+      success: true,
+      data: { forwardTo: to, emailCount: emails.length, sent: false, reason: 'no account context' },
+    };
+  }
+
+  let sentCount = 0;
+  const errors: string[] = [];
+
+  try {
+    const { oauth2Client } = getOAuth2ClientForAccount(context.accountId);
+    const gmail = getGmailClient(oauth2Client);
+
+    for (const email of emails) {
+      try {
+        const subject = `Fwd: ${email.subject ?? '(no subject)'}`;
+        const body = `---------- Forwarded message ----------<br>From: ${email.from_name ?? ''} &lt;${email.from_email ?? ''}&gt;<br>Subject: ${email.subject ?? ''}<br><br>${email.body ?? email.snippet ?? ''}`;
+
+        await sendEmail(gmail, { to, subject, body });
+        sentCount++;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        logger.error(`Forward step: failed to send email ${email.id}:`, msg);
+        errors.push(`${email.id}: ${msg}`);
+      }
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.warn(`Forward step: OAuth/Gmail init failed for account ${context.accountId}: ${msg}`);
+    return {
+      success: true,
+      data: { forwardTo: to, emailCount: emails.length, sent: false, reason: msg },
+    };
+  }
+
   return {
     success: true,
     data: {
       forwardTo: to,
       emailCount: emails.length,
-      emailIds: emails.map((e) => e.id),
+      sent: sentCount,
+      errors: errors.length > 0 ? errors : undefined,
     },
   };
 }
@@ -606,17 +738,53 @@ export function handleSaveReportStep(
   return { success: true, data: { reportName, saved: true } };
 }
 
-function handleAIReplyStep(
+async function handleAIReplyStep(
   emails: EmailRow[],
   config: Record<string, unknown>,
-): StepResult {
+): Promise<StepResult> {
   const template = (config.template as string) ?? '';
-  // AI reply draft preparation — actual sending requires Gmail OAuth
+
+  // Try AI reply generation via Anthropic
+  const replyClient = await getAnthropicClient();
+  if (replyClient && emails.length > 0) {
+    try {
+      const client = replyClient;
+
+      const drafts: Array<{ emailId: string; to: string | null; subject: string; suggestedReply: string }> = [];
+
+      for (const email of emails.slice(0, 5)) {
+        const templateInstruction = template ? `\nHasználd ezt a sablont/stílust: ${template}` : '';
+        const response = await client.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 500,
+          messages: [{
+            role: 'user',
+            content: `Készíts rövid, professzionális válaszlevelet erre az emailre:\n\nFeladó: ${email.from_name ?? ''}\nTárgy: ${email.subject ?? ''}\nTartalom: ${(email.snippet ?? '').substring(0, 500)}${templateInstruction}\n\nVálasz:`,
+          }],
+        });
+
+        const reply = response.content[0].type === 'text' ? response.content[0].text : '';
+        drafts.push({
+          emailId: email.id,
+          to: email.from_email,
+          subject: `Re: ${email.subject ?? ''}`,
+          suggestedReply: reply,
+        });
+      }
+
+      return { success: true, data: { drafts } };
+    } catch (err) {
+      logger.warn('AI reply step: Anthropic call failed:', err instanceof Error ? err.message : err);
+    }
+  }
+
+  // Fallback: draft stubs without AI content
   const drafts = emails.map((e) => ({
     emailId: e.id,
     to: e.from_email,
     subject: `Re: ${e.subject ?? ''}`,
     templateUsed: template,
+    aiAvailable: false,
   }));
 
   return { success: true, data: { drafts } };
@@ -690,7 +858,7 @@ export function createDefaultWorkflows(accountId: string): Workflow[] {
 
   // 1. Napi összefoglaló — reggel 7:00
   workflows.push(
-    createWorkflow(accountId, 'Napi összefoglaló', 'Reggel 7:00-kor összefoglalja a tegnapi emaileket', 'scheduled', { cron: '0 7 * * *', timezone: 'Europe/Budapest' }, [
+    createWorkflow(accountId, 'Napi összefoglaló', 'Reggel 7:00-kor összefoglalja a tegnapi emaileket', 'scheduled', { hour: 7, minute: 0, days: [0, 1, 2, 3, 4, 5, 6] }, [
       { type: 'filter', name: 'Tegnapi emailek', config: { field: 'date', operator: 'gte', value: 'yesterday' } },
       { type: 'summarize', name: 'Összefoglalás', config: { maxLength: 300 } },
       { type: 'notify', name: 'Értesítés', config: { title: 'Napi összefoglaló', body: 'Tegnapi emailek összefoglalója elkészült' } },
@@ -718,7 +886,7 @@ export function createDefaultWorkflows(accountId: string): Workflow[] {
 
   // 4. Heti riport — weekly
   workflows.push(
-    createWorkflow(accountId, 'Heti riport', 'Heti statisztika: email mennyiség, top feladók, válaszidők', 'scheduled', { cron: '0 8 * * 1', timezone: 'Europe/Budapest' }, [
+    createWorkflow(accountId, 'Heti riport', 'Heti statisztika: email mennyiség, top feladók, válaszidők', 'scheduled', { hour: 8, minute: 0, days: [1] }, [
       { type: 'filter', name: 'Heti emailek', config: { field: 'date', operator: 'gte', value: 'last_week' } },
       { type: 'group', name: 'Feladók csoportosítása', config: { groupBy: 'from_email' } },
       { type: 'summarize', name: 'Statisztika', config: { maxLength: 500 } },

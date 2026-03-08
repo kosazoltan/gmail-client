@@ -444,7 +444,7 @@ function estimateSentimentBreakdown(
       urgent: Math.round(urgent * scale),
       positive: Math.round(positive * scale),
       negative: Math.round(negative * scale),
-      neutral: totalEmails - Math.round(urgent * scale) - Math.round(positive * scale) - Math.round(negative * scale),
+      neutral: Math.max(0, totalEmails - Math.round(urgent * scale) - Math.round(positive * scale) - Math.round(negative * scale)),
     };
   }
 

@@ -11,6 +11,7 @@ import {
 import { categorizeEmail } from './categorization.service.js';
 import { extractContactsFromEmail, autoExtractContactsIfNeeded } from './contacts.service.js';
 import { sendPushToAccount } from './push.service.js';
+import { getActiveWorkflowsForAccount, executeWorkflow } from './workflow.service.js';
 
 // Gmail üzenet interfész (getMessage visszatérési típusa)
 interface GmailMessage {
@@ -208,6 +209,22 @@ async function incrementalSync(
           }).catch((err) => {
             console.error('Push notification hiba:', err);
           });
+        }
+
+        // Workflow triggerek — on_receive típusú workflow-k aktiválása új emailnél
+        if (isNew) {
+          try {
+            const workflows = getActiveWorkflowsForAccount(accountId);
+            for (const wf of workflows) {
+              if (wf.triggerType === 'on_receive') {
+                executeWorkflow(wf.id, msg.id).catch((wfErr) =>
+                  console.error(`Workflow ${wf.id} failed for email ${msg.id}:`, wfErr),
+                );
+              }
+            }
+          } catch (wfErr) {
+            console.error('Workflow trigger error:', wfErr);
+          }
         }
       } catch (err) {
         console.error(`Hiba inkrementális szinkronizálásnál (${msgId}):`, err);

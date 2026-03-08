@@ -10,7 +10,6 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { API_BASE } from '../../lib/api';
 
 interface ActionSuggestion {
   id: string;
@@ -52,40 +51,12 @@ export function EmailActionSuggestions({
   useEffect(() => {
     if (!emailId) return;
 
-    let cancelled = false;
     setIsLoading(true);
     setError(false);
 
-    // Generate contextual suggestions based on email
-    const generateSuggestions = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/ai/email-suggestions`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ emailId, subject: emailSubject, from: emailFrom }),
-        });
-
-        if (!cancelled) {
-          if (res.ok) {
-            const data = await res.json();
-            setSuggestions(data.suggestions || []);
-          } else {
-            // Fallback: generate default suggestions
-            setSuggestions(getDefaultSuggestions());
-          }
-        }
-      } catch {
-        if (!cancelled) {
-          setSuggestions(getDefaultSuggestions());
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-
-    generateSuggestions();
-    return () => { cancelled = true; };
+    // Use default suggestions only
+    setSuggestions(getDefaultSuggestions());
+    setIsLoading(false);
   }, [emailId, emailSubject, emailFrom]);
 
   function getDefaultSuggestions(): ActionSuggestion[] {

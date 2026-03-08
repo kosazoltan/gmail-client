@@ -54,20 +54,28 @@ router.get('/:id/emails', (req, res) => {
     const { emails, total } = getSmartFolderEmails(id, page, limit);
 
     // Map to frontend format
-    const mappedEmails = emails.map(e => ({
-      id: e.id,
-      subject: e.subject,
-      from: e.from_email,
-      fromName: e.from_name,
-      to: e.to_email,
-      snippet: e.snippet,
-      date: e.date,
-      isRead: e.is_read === 1,
-      isStarred: e.is_starred === 1,
-      labels: e.labels ? JSON.parse(e.labels) : [],
-      hasAttachments: e.has_attachments === 1,
-      threadId: e.thread_id,
-    }));
+    const mappedEmails = emails.map(e => {
+      let parsedLabels: string[] = [];
+      try {
+        parsedLabels = e.labels ? JSON.parse(e.labels) : [];
+      } catch {
+        parsedLabels = [];
+      }
+      return {
+        id: e.id,
+        subject: e.subject,
+        from: e.from_email,
+        fromName: e.from_name,
+        to: e.to_email,
+        snippet: e.snippet,
+        date: e.date,
+        isRead: e.is_read === 1,
+        isStarred: e.is_starred === 1,
+        labels: parsedLabels,
+        hasAttachments: e.has_attachments === 1,
+        threadId: e.thread_id,
+      };
+    });
 
     res.json({
       success: true,

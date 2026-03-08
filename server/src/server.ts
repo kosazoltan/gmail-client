@@ -38,6 +38,7 @@ import dashboardRoutes from './routes/dashboard.routes.js';
 import teamRoutes from './routes/team.routes.js';
 import marketRoutes from './routes/market.routes.js';
 import workflowRoutes from './routes/workflow.routes.js';
+import { processScheduledWorkflows } from './services/workflow.service.js';
 import smartFeaturesRoutes from './routes/smart-features.routes.js';
 import intelligenceRoutes from './routes/intelligence.routes.js';
 import smartFoldersRoutes from './routes/smart-folders.routes.js';
@@ -48,6 +49,7 @@ const PORT = parseInt(process.env.PORT || '5000', 10);
 // Track intervals and server handle for graceful shutdown
 let snoozeInterval: NodeJS.Timeout | null = null;
 let scheduledInterval: NodeJS.Timeout | null = null;
+let workflowInterval: NodeJS.Timeout | null = null;
 let httpServer: ReturnType<typeof import('http').createServer> | null = null;
 
 // Szerver indítás
@@ -193,6 +195,16 @@ async function start() {
     }
   }, 60000);
 
+  // Ütemezett workflow-k feldolgozása percenként
+  if (workflowInterval) clearInterval(workflowInterval);
+  workflowInterval = setInterval(() => {
+    try {
+      processScheduledWorkflows();
+    } catch (error) {
+      logger.error('Error processing scheduled workflows:', error);
+    }
+  }, 60000);
+
   // Első futtatás 60s késleltetéssel — ne terhelje a startup-ot
   setTimeout(async () => {
     try {
@@ -247,6 +259,10 @@ function gracefulShutdown(signal: string) {
   if (scheduledInterval) {
     clearInterval(scheduledInterval);
     scheduledInterval = null;
+  }
+  if (workflowInterval) {
+    clearInterval(workflowInterval);
+    workflowInterval = null;
   }
 
   // Stop session store cleanup
