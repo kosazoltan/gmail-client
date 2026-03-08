@@ -245,7 +245,7 @@ KÖVETELMÉNYEK:
     const startTime = Date.now();
 
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6-20260217',
       max_tokens: 4000,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -407,7 +407,7 @@ KOVETELMENYEK:
     const startTime = Date.now();
 
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-haiku-4-5-20251015', // Haiku: rövidebb briefing, nem deep analysis
       max_tokens: 10000,
       messages: [{ role: 'user', content: prompt }],
     });

@@ -127,7 +127,7 @@ If no action items, return [].`;
 
   try {
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-haiku-4-5-20251015', // Haiku: egyszerû JSON kinyerés
       max_tokens: 1000,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -210,7 +210,7 @@ Return ONLY JSON: {"sentiment": "urgent|positive|negative|neutral", "confidence"
 
   try {
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-haiku-4-5-20251015', // Haiku: egyszerû klasszifikáció
       max_tokens: 300,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -278,7 +278,7 @@ Return ONLY JSON array:
 
   try {
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6-20260217',
       max_tokens: 2000,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -517,7 +517,7 @@ export async function generateWeeklyReport(accountId: string): Promise<WeeklyRep
 
     try {
       const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6-20260217',
         max_tokens: 500,
         messages: [{
           role: 'user',
