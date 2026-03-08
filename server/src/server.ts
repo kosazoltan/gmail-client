@@ -5,9 +5,10 @@ import helmet from 'helmet';
 import { createSessionMiddleware, getSessionStore } from './middleware/session.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { deleteProtection } from './middleware/delete-protection.js';
-import { initializeDatabase, stopAutoSave, startAutoSave, queryOne } from './db/index.js';
+import { initializeDatabase, stopAutoSave, startAutoSave, queryOne, execute } from './db/index.js';
 import { startBackgroundSync, stopAllBackgroundSyncs } from './services/sync.service.js';
 import { getAllAccounts } from './services/auth.service.js';
+import { v4 as uuidv4 } from 'uuid';
 import logger from './utils/logger.js';
 
 // Routes
@@ -43,6 +44,8 @@ import intelligenceRoutes from './routes/intelligence.routes.js';
 import smartFoldersRoutes from './routes/smart-folders.routes.js';
 import aiChatRoutes from './routes/ai-chat.routes.js';
 import detectedTasksRoutes from './routes/detected-tasks.routes.js';
+import sseRoutes from './routes/sse.routes.js';
+import briefRoutes, { generateAISummary } from './routes/brief.routes.js';
 import { detectUnansweredEmails, processExpiredSnoozedTasks } from './services/task-detection.service.js';
 
 const PORT = parseInt(process.env.PORT || '5000', 10);
@@ -52,6 +55,7 @@ let snoozeInterval: NodeJS.Timeout | null = null;
 let scheduledInterval: NodeJS.Timeout | null = null;
 let workflowInterval: NodeJS.Timeout | null = null;
 let taskDetectionInterval: NodeJS.Timeout | null = null;
+let dailyBriefInterval: NodeJS.Timeout | null = null;
 let httpServer: ReturnType<typeof import('http').createServer> | null = null;
 
 /**
@@ -162,6 +166,8 @@ async function start() {
   app.use('/api/smart-folders', smartFoldersRoutes);
   app.use('/api/ai', aiChatRoutes);
   app.use('/api/detected-tasks', detectedTasksRoutes);
+  app.use('/api/sse', sseRoutes);
+  app.use('/api/brief', briefRoutes);
 
   // Health check
   app.get('/api/health', (_req, res) => {
@@ -243,6 +249,48 @@ async function start() {
     }
   }, 300000); // 5 percenként check
 
+  // Daily brief auto-generation — 8:00 Budapest timezone, check every 5 minutes
+  if (dailyBriefInterval) clearInterval(dailyBriefInterval);
+  let lastBriefDate = (() => {
+    try {
+      const row = queryOne<{ date: string }>('SELECT date FROM daily_briefs ORDER BY generated_at DESC LIMIT 1');
+      return row?.date || '';
+    } catch { return ''; }
+  })();
+  dailyBriefInterval = setInterval(() => {
+    // Calculate Budapest time (CET/CEST)
+    const now = new Date();
+    const budapestTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Budapest' }));
+    const hour = budapestTime.getHours();
+    const todayStr = budapestTime.toISOString().slice(0, 10);
+
+    // Generate at 8:00, only once per day
+    if (hour >= 8 && lastBriefDate !== todayStr) {
+      lastBriefDate = todayStr;
+      const accounts = getAllAccounts();
+      for (const account of accounts) {
+        generateAISummary(account.id).then((result) => {
+          try {
+            execute(
+              `INSERT INTO daily_briefs (id, account_id, date, summary, highlights, action_items_count, urgent_count, total_emails, generated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(account_id, date) DO UPDATE SET
+                 summary = excluded.summary, highlights = excluded.highlights,
+                 action_items_count = excluded.action_items_count, urgent_count = excluded.urgent_count,
+                 total_emails = excluded.total_emails, generated_at = excluded.generated_at`,
+              [uuidv4(), account.id, todayStr, result.summary, JSON.stringify(result.highlights), result.actionItemsCount, result.urgentCount, result.totalEmails, Date.now()],
+            );
+            logger.info(`Daily brief generated for ${account.email}`);
+          } catch (err) {
+            logger.error(`Daily brief save failed for ${account.email}:`, err);
+          }
+        }).catch((err) => {
+          logger.error(`Daily brief generation failed for ${account.email}:`, err);
+        });
+      }
+    }
+  }, 300000); // Check every 5 minutes
+
   // Első futtatás 60s késleltetéssel — ne terhelje a startup-ot
   setTimeout(async () => {
     try {
@@ -305,6 +353,10 @@ function gracefulShutdown(signal: string) {
   if (taskDetectionInterval) {
     clearInterval(taskDetectionInterval);
     taskDetectionInterval = null;
+  }
+  if (dailyBriefInterval) {
+    clearInterval(dailyBriefInterval);
+    dailyBriefInterval = null;
   }
 
   // Stop session store cleanup

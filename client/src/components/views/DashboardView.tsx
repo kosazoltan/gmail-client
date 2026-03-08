@@ -4,6 +4,7 @@ import { useDetectedTasks, useUpdateDetectedTask } from '../../hooks/useDetected
 import { useCalendarEvents } from '../../hooks/useCalendar';
 import { useUnreadCount } from '../../hooks/useInbox';
 import { useSession } from '../../hooks/useAccounts';
+import { useLatestBrief, useGenerateBrief } from '../../hooks/useDailyBrief';
 import { format } from 'date-fns';
 import { hu } from 'date-fns/locale';
 import {
@@ -52,6 +53,8 @@ export function DashboardView() {
     timeMax: endOfDay.toISOString(),
   });
   const { data: unreadCount } = useUnreadCount(session?.activeAccountId || undefined);
+  const { data: briefData } = useLatestBrief();
+  const generateBrief = useGenerateBrief();
 
   const today = new Date();
   const formattedDate = format(today, 'yyyy. MMMM d., EEEE', { locale: hu });
@@ -126,6 +129,37 @@ export function DashboardView() {
             <Zap className="h-5 w-5 flex-shrink-0 text-yellow-300" />
             <p className="text-sm font-medium">{briefingText}</p>
           </div>
+
+          {/* AI Daily Brief */}
+          {briefData?.brief?.isFresh && briefData.brief.summary && (
+            <div className="mt-3 rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm">
+              <p className="text-sm text-white/90">{briefData.brief.summary}</p>
+              {briefData.brief.highlights.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {briefData.brief.highlights.map((h, i) => (
+                    <li key={i} className="flex items-center gap-2 text-xs text-white/75">
+                      <span className="h-1 w-1 rounded-full bg-yellow-300" />
+                      {h}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          {!briefData?.brief?.isFresh && (
+            <button
+              onClick={() => generateBrief.mutate()}
+              disabled={generateBrief.isPending}
+              className="mt-3 flex items-center gap-2 rounded-lg bg-white/15 px-3 py-1.5 text-xs font-medium text-white/80 backdrop-blur-sm transition-colors hover:bg-white/25 disabled:opacity-50"
+            >
+              {generateBrief.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5" />
+              )}
+              AI Brief generálása
+            </button>
+          )}
         </div>
       </div>
 

@@ -875,6 +875,39 @@ export const api = {
       request<{ success: boolean }>(`/ai/conversations/${id}`, { method: 'DELETE' }),
   },
 
+  sse: {
+    eventsUrl: () => `${BASE_URL}/sse/events`,
+  },
+
+  brief: {
+    generate: () =>
+      request<{
+        success: boolean;
+        brief: {
+          date: string;
+          summary: string;
+          highlights: string[];
+          actionItemsCount: number;
+          urgentCount: number;
+          totalEmails: number;
+          generatedAt: number;
+        };
+      }>('/brief/generate', { method: 'POST', timeout: 60000 }),
+    latest: () =>
+      request<{
+        brief: {
+          date: string;
+          summary: string;
+          highlights: string[];
+          actionItemsCount: number;
+          urgentCount: number;
+          totalEmails: number;
+          generatedAt: number;
+          isFresh: boolean;
+        } | null;
+      }>('/brief/latest'),
+  },
+
   detectedTasks: {
     list: (params?: { status?: string; priority?: string; page?: number; limit?: number }) => {
       const query = new URLSearchParams();

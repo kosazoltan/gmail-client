@@ -36,6 +36,7 @@ const TasksView = lazy(() => import('./components/views/TasksView').then(m => ({
 const MarketAnalysisView = lazy(() => import('./components/views/MarketAnalysisView').then(m => ({ default: m.MarketAnalysisView })));
 const SmartFoldersView = lazy(() => import('./components/views/SmartFoldersView').then(m => ({ default: m.SmartFoldersView })));
 const AIAssistantView = lazy(() => import('./components/ai/AIAssistantView').then(m => ({ default: m.AIAssistantView })));
+const ThreadView = lazy(() => import('./components/views/ThreadView').then(m => ({ default: m.ThreadView })));
 
 
 const queryClient = new QueryClient({
@@ -61,6 +62,7 @@ function App() {
                 <Route path="/market" element={<Suspense fallback={<LoadingSkeleton />}><MarketAnalysisView /></Suspense>} />
                 <Route path="/smart-folders" element={<Suspense fallback={<LoadingSkeleton />}><SmartFoldersView /></Suspense>} />
                 <Route path="/ai-assistant" element={<Suspense fallback={<LoadingSkeleton />}><AIAssistantView /></Suspense>} />
+                <Route path="/thread/:threadId" element={<Suspense fallback={<LoadingSkeleton />}><ThreadView /></Suspense>} />
 
 
                 <Route path="/" element={<Suspense fallback={<LoadingSkeleton />}><InboxView /></Suspense>} />

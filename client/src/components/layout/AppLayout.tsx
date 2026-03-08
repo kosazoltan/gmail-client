@@ -4,6 +4,8 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { KeyboardShortcutsHelp } from '../common/KeyboardShortcutsHelp';
 import { OfflineBanner } from '../common/OfflineBanner';
+import { useNewEmailNotification } from '../../hooks/useNewEmailNotification';
+import { useSession } from '../../hooks/useAccounts';
 
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -11,6 +13,10 @@ export function AppLayout() {
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const location = useLocation();
+  const { data: session } = useSession();
+
+  // Real-time new email notifications via SSE
+  useNewEmailNotification(!!session?.activeAccountId);
 
   // Reszponzív sidebar kezelés
   useEffect(() => {

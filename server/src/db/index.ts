@@ -329,6 +329,19 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
       created_at INTEGER DEFAULT (strftime('%s','now') * 1000),
       updated_at INTEGER DEFAULT (strftime('%s','now') * 1000)
     );
+
+    CREATE TABLE IF NOT EXISTS daily_briefs (
+      id TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      date TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      highlights TEXT,
+      action_items_count INTEGER DEFAULT 0,
+      urgent_count INTEGER DEFAULT 0,
+      total_emails INTEGER DEFAULT 0,
+      generated_at INTEGER NOT NULL,
+      UNIQUE(account_id, date)
+    );
   `);
 
   // Indexek
@@ -384,6 +397,9 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
     -- Detected tasks indexek
     CREATE INDEX IF NOT EXISTS idx_detected_tasks_account ON detected_tasks(account_id, status);
     CREATE INDEX IF NOT EXISTS idx_detected_tasks_email ON detected_tasks(email_id);
+
+    -- Daily briefs indexek
+    CREATE INDEX IF NOT EXISTS idx_daily_briefs_account_date ON daily_briefs(account_id, date DESC);
 
     -- Extra indexek a teljesítmény javításához
     CREATE INDEX IF NOT EXISTS idx_emails_account_date ON emails(account_id, date DESC);

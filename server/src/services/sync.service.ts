@@ -13,6 +13,7 @@ import { categorizeEmail } from './categorization.service.js';
 import { extractContactsFromEmail, autoExtractContactsIfNeeded } from './contacts.service.js';
 import { sendPushToAccount } from './push.service.js';
 import { getActiveWorkflowsForAccount, executeWorkflow } from './workflow.service.js';
+import { broadcastNewEmail } from '../routes/sse.routes.js';
 
 // Gmail üzenet interfész (getMessage visszatérési típusa)
 interface GmailMessage {
@@ -197,6 +198,18 @@ async function incrementalSync(
         const msg = await getMessage(gmail, msgId);
         const isNew = saveEmail(accountId, msg);
         processedCount++;
+
+        // SSE broadcast — küldés az összes csatlakozott kliensnek
+        if (isNew) {
+          broadcastNewEmail(accountId, {
+            emailId: msg.id,
+            subject: msg.subject,
+            from: msg.from,
+            fromName: msg.fromName,
+            date: msg.date,
+            snippet: msg.snippet || null,
+          });
+        }
 
         // Push notification küldése új, olvasatlan emailekről
         if (isNew && !msg.isRead) {
