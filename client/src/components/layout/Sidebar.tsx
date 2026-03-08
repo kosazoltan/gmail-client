@@ -38,7 +38,6 @@ import {
   Calendar,
   CheckSquare,
   BarChart3,
-  Workflow,
   Sparkles,
   FolderSearch,
 } from 'lucide-react';
@@ -67,7 +66,6 @@ const dashboardItems = [
 // AI szekció — intelligens funkciók
 const aiItems = [
   { path: '/ai-assistant', icon: Sparkles, label: '🤖 AI Asszisztens' },
-  { path: '/ai-workflows', icon: Workflow, label: '⚡ Workflow-k' },
 ];
 
 // Email szekció — a megszokott menüpontok

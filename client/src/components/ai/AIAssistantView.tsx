@@ -14,6 +14,7 @@ import {
 import { cn } from '../../lib/utils';
 import { api } from '../../lib/api';
 import type { ChatMessage, Conversation } from '../../types';
+import { WorkflowBuilder } from './WorkflowBuilder';
 
 const SUGGESTION_BUTTONS = [
   { label: 'Foglald össze', icon: Sparkles, prompt: 'Foglald össze a kijelölt emaileket röviden.' },
@@ -22,6 +23,7 @@ const SUGGESTION_BUTTONS = [
 ];
 
 export function AIAssistantView() {
+  const [activeTab, setActiveTab] = useState<'assistant' | 'workflows'>('assistant');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -156,8 +158,63 @@ export function AIAssistantView() {
 
   const activeConvTitle = conversations.find((c) => c.id === activeConversationId)?.title || 'Új beszélgetés';
 
+  if (activeTab === 'workflows') {
+    return (
+      <div className="flex h-full flex-col">
+        {/* Tab header */}
+        <div className="mx-auto w-full max-w-6xl px-6 pt-6">
+          <div className="dark:border-dark-border flex border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('assistant')}
+              className={cn(
+                'px-4 py-2 text-sm font-medium transition-colors',
+                'dark:text-dark-text-secondary text-gray-500 hover:text-gray-700 dark:hover:text-gray-300',
+              )}
+            >
+              🤖 AI Asszisztens
+            </button>
+            <button
+              onClick={() => setActiveTab('workflows')}
+              className={cn(
+                'px-4 py-2 text-sm font-medium transition-colors',
+                'border-b-2 border-[#4f6ef7] text-[#4f6ef7]',
+              )}
+            >
+              ⚡ Workflow-k
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <WorkflowBuilder />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto flex h-full max-w-4xl flex-col p-6">
+      {/* Tab header */}
+      <div className="dark:border-dark-border mb-4 flex border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab('assistant')}
+          className={cn(
+            'px-4 py-2 text-sm font-medium transition-colors',
+            'border-b-2 border-[#4f6ef7] text-[#4f6ef7]',
+          )}
+        >
+          🤖 AI Asszisztens
+        </button>
+        <button
+          onClick={() => setActiveTab('workflows')}
+          className={cn(
+            'px-4 py-2 text-sm font-medium transition-colors',
+            'dark:text-dark-text-secondary text-gray-500 hover:text-gray-700 dark:hover:text-gray-300',
+          )}
+        >
+          ⚡ Workflow-k
+        </button>
+      </div>
+
       {/* Header */}
       <div className="mb-4">
         <h1 className="dark:text-dark-text flex items-center gap-2 text-2xl font-bold text-gray-900">
