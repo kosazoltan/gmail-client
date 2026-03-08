@@ -1,5 +1,6 @@
-// @ts-expect-error pdf-parse types use export= incompatible with NodeNext ESM
-import pdfParse from 'pdf-parse';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const pdfParse = require('pdf-parse');
 import mammoth from 'mammoth';
 import logger from '../utils/logger.js';
 
