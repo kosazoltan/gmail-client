@@ -34,6 +34,11 @@ const CalendarView = lazy(() => import('./components/views/CalendarView').then(m
 const TasksView = lazy(() => import('./components/views/TasksView').then(m => ({ default: m.TasksView })));
 const TeamDashboardView = lazy(() => import('./components/views/TeamDashboardView').then(m => ({ default: m.TeamDashboardView })));
 const MarketAnalysisView = lazy(() => import('./components/views/MarketAnalysisView').then(m => ({ default: m.MarketAnalysisView })));
+const SmartFoldersView = lazy(() => import('./components/views/SmartFoldersView').then(m => ({ default: m.SmartFoldersView })));
+const AIAssistantView = lazy(() => import('./components/ai/AIAssistantView').then(m => ({ default: m.AIAssistantView })));
+const WorkflowBuilder = lazy(() => import('./components/ai/WorkflowBuilder').then(m => ({ default: m.WorkflowBuilder })));
+const DailyBriefView = lazy(() => import('./components/ai/DailyBriefView').then(m => ({ default: m.DailyBriefView })));
+const AnalyticsDashboard = lazy(() => import('./components/ai/AnalyticsDashboard').then(m => ({ default: m.AnalyticsDashboard })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -57,6 +62,11 @@ function App() {
                 <Route path="/tasks" element={<Suspense fallback={<LoadingSkeleton />}><TasksView /></Suspense>} />
                 <Route path="/team" element={<Suspense fallback={<LoadingSkeleton />}><TeamDashboardView /></Suspense>} />
                 <Route path="/market" element={<Suspense fallback={<LoadingSkeleton />}><MarketAnalysisView /></Suspense>} />
+                <Route path="/smart-folders" element={<Suspense fallback={<LoadingSkeleton />}><SmartFoldersView /></Suspense>} />
+                <Route path="/ai-assistant" element={<Suspense fallback={<LoadingSkeleton />}><AIAssistantView /></Suspense>} />
+                <Route path="/ai-workflows" element={<Suspense fallback={<LoadingSkeleton />}><WorkflowBuilder /></Suspense>} />
+                <Route path="/ai-brief" element={<Suspense fallback={<LoadingSkeleton />}><DailyBriefView /></Suspense>} />
+                <Route path="/ai-analytics" element={<Suspense fallback={<LoadingSkeleton />}><AnalyticsDashboard /></Suspense>} />
                 <Route path="/" element={<Suspense fallback={<LoadingSkeleton />}><InboxView /></Suspense>} />
                 <Route path="/unified" element={<Suspense fallback={<LoadingSkeleton />}><UnifiedInboxView /></Suspense>} />
                 <Route path="/by-sender" element={<Suspense fallback={<LoadingSkeleton />}><BySenderView /></Suspense>} />

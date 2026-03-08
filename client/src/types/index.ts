@@ -465,3 +465,101 @@ export interface MarketBriefingResponse {
   success: boolean;
   data: MarketBriefingData;
 }
+
+// --- Email Intelligence ---
+
+export interface ActionItem {
+  id: string;
+  emailId: string;
+  accountId: string;
+  text: string;
+  dueDate: number | null;
+  isDone: boolean;
+  createdAt: number;
+}
+
+export interface SentimentResult {
+  success: boolean;
+  sentiment: 'urgent' | 'positive' | 'negative' | 'neutral';
+  confidence: number;
+  reason: string;
+}
+
+export interface ReplySuggestion {
+  tone: 'short' | 'medium' | 'detailed';
+  subject: string;
+  body: string;
+}
+
+export interface RelatedEmail {
+  id: string;
+  subject: string;
+  fromEmail: string;
+  fromName: string;
+  date: number;
+  relevance: 'topic' | 'sender' | 'thread';
+}
+
+export interface WeeklyReportData {
+  period: { from: number; to: number };
+  totalEmails: number;
+  unreadCount: number;
+  topSenders: Array<{ email: string; name: string; count: number }>;
+  topTopics: Array<{ subject: string; count: number }>;
+  unansweredCount: number;
+  sentimentBreakdown: { urgent: number; positive: number; negative: number; neutral: number };
+  actionItemsPending: number;
+  summary: string;
+}
+
+// --- Smart Folders ---
+
+export interface SmartFolderRule {
+  field: 'from' | 'to' | 'subject' | 'labels' | 'has_attachments' | 'is_read' | 'date_age_days';
+  operator: 'contains' | 'equals' | 'not_contains' | 'greater_than' | 'less_than';
+  value: string;
+}
+
+export interface SmartFolder {
+  id: string;
+  accountId: string;
+  name: string;
+  icon: string;
+  rules: SmartFolderRule[];
+  isSystem: boolean;
+  sortOrder: number;
+  emailCount?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// --- Workflows ---
+
+export type WorkflowTriggerType = 'new_email' | 'schedule' | 'manual';
+
+export type WorkflowStepType =
+  | 'filter'
+  | 'ai_analyze'
+  | 'categorize'
+  | 'label'
+  | 'forward'
+  | 'summarize'
+  | 'extract'
+  | 'notify';
+
+export interface WorkflowStep {
+  id: string;
+  type: WorkflowStepType;
+  config: Record<string, string>;
+}
+
+export interface WorkflowData {
+  id?: string;
+  name: string;
+  trigger: WorkflowTriggerType;
+  triggerConfig: Record<string, string>;
+  steps: WorkflowStep[];
+  isActive: boolean;
+  createdAt?: number;
+  updatedAt?: number;
+}

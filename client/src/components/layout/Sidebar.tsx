@@ -39,9 +39,14 @@ import {
   CheckSquare,
   Bot,
   BarChart3,
+  Workflow,
+  Sun,
+  Sparkles,
+  FolderSearch,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useDashboard } from '../../hooks/useDashboard';
+import { useSmartFolders } from '../../hooks/useSmartFolders';
 import { useState, useMemo } from 'react';
 
 interface SidebarProps {
@@ -57,6 +62,14 @@ const dashboardItems = [
   { path: '/tasks', icon: CheckSquare, label: 'Feladatok' },
   { path: '/team', icon: Bot, label: 'AI Csapat' },
   { path: '/market', icon: BarChart3, label: 'Piaci Elemz\u00e9s' },
+];
+
+// AI szekció — intelligens funkciók
+const aiItems = [
+  { path: '/ai-assistant', icon: Sparkles, label: '🤖 AI Asszisztens' },
+  { path: '/ai-analytics', icon: BarChart3, label: '📊 Dashboard' },
+  { path: '/ai-workflows', icon: Workflow, label: '⚡ Workflow-k' },
+  { path: '/ai-brief', icon: Sun, label: '📋 Napi Brief' },
 ];
 
 // Email szekció — a megszokott menüpontok
@@ -94,6 +107,8 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
   const { data: labelsData } = useLabels();
   const { data: unreadCount } = useUnreadCount(session?.activeAccountId || undefined);
   const { data: dashboardData } = useDashboard();
+  const { data: smartFoldersData } = useSmartFolders();
+  const smartFolders = smartFoldersData?.folders || [];
 
   // Gyakran használt címkék (user típusúak, messagesTotal alapján rendezve)
   const frequentLabels = useMemo(() => {
@@ -224,7 +239,32 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
           );
         })}
 
-        {/* Elválasztó vonal a dashboard és email szekciók között */}
+        {/* Elválasztó vonal a dashboard és AI szekciók között */}
+        <div className="dark:border-dark-border mx-2 border-t border-gray-200/60 my-1" />
+
+        {/* AI szekció */}
+        {aiItems.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            aria-label={item.label}
+            title={item.label}
+            className={({ isActive }) =>
+              cn(
+                'flex min-h-[44px] touch-manipulation items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors',
+                isActive
+                  ? 'bg-[#4f6ef7]/10 font-medium text-[#4f6ef7] dark:bg-[#4f6ef7]/15 dark:text-[#6d8cff]'
+                  : 'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+                !isOpen && 'justify-center px-2',
+              )
+            }
+          >
+            <item.icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+            {isOpen && <span>{item.label}</span>}
+          </NavLink>
+        ))}
+
+        {/* Elválasztó vonal az AI és email szekciók között */}
         <div className="dark:border-dark-border mx-2 border-t border-gray-200/60 my-1" />
 
         {/* Email szekció */}
@@ -277,6 +317,67 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
             </NavLink>
           );
         })}
+
+        {/* 🧠 Smart Folders szekció */}
+        {smartFolders.length > 0 && (
+          <>
+            {isOpen && (
+              <div className="px-3 pt-3 pb-1">
+                <div className="dark:text-dark-text-muted flex items-center gap-2 text-xs font-medium tracking-wider text-gray-400 uppercase">
+                  <FolderSearch className="h-3 w-3" aria-hidden="true" />
+                  🧠 Smart Folders
+                </div>
+              </div>
+            )}
+            <NavLink
+              to="/smart-folders"
+              aria-label="Smart Folders"
+              title="Smart Folders"
+              className={({ isActive }) =>
+                cn(
+                  'flex min-h-[44px] touch-manipulation items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors',
+                  isActive
+                    ? 'bg-[#4f6ef7]/10 font-medium text-[#4f6ef7] dark:bg-[#4f6ef7]/15 dark:text-[#6d8cff]'
+                    : 'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+                  !isOpen && 'justify-center px-2',
+                )
+              }
+            >
+              <FolderSearch className="h-5 w-5 flex-shrink-0 text-purple-500" aria-hidden="true" />
+              {isOpen && (
+                <div className="flex flex-1 items-center justify-between">
+                  <span>Összes mappa</span>
+                  <span className="rounded-full bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-600 dark:bg-purple-500/20 dark:text-purple-400">
+                    {smartFolders.length}
+                  </span>
+                </div>
+              )}
+            </NavLink>
+            {smartFolders.slice(0, isOpen ? 4 : 2).map((folder) => (
+              <NavLink
+                key={folder.id}
+                to={`/smart-folders?id=${folder.id}`}
+                className={cn(
+                  'flex min-h-[44px] touch-manipulation items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors',
+                  'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+                  !isOpen && 'justify-center px-2',
+                )}
+                title={`${folder.name} (${folder.emailCount ?? 0})`}
+                aria-label={`Smart Folder: ${folder.name}`}
+              >
+                <span className="flex-shrink-0 text-base" aria-hidden="true">{folder.icon}</span>
+                {isOpen && (
+                  <div className="flex min-w-0 flex-1 items-center justify-between">
+                    <span className="truncate">{folder.name}</span>
+                    <span className="dark:text-dark-text-muted ml-2 text-xs text-gray-400">
+                      {folder.emailCount ?? 0}
+                    </span>
+                  </div>
+                )}
+              </NavLink>
+            ))}
+          </>
+        )}
 
         {/* Gyakran használt címkék */}
         {frequentLabels.length > 0 && (

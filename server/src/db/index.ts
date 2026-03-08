@@ -241,6 +241,67 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
       created_at INTEGER NOT NULL,
       UNIQUE(account_id, email)
     );
+
+    CREATE TABLE IF NOT EXISTS workflows (
+      id TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      description TEXT,
+      trigger_type TEXT NOT NULL,
+      trigger_config TEXT DEFAULT '{}',
+      steps TEXT DEFAULT '[]',
+      is_active INTEGER NOT NULL DEFAULT 1,
+      run_count INTEGER NOT NULL DEFAULT 0,
+      last_run_at INTEGER,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS workflow_runs (
+      id TEXT PRIMARY KEY,
+      workflow_id TEXT NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'running',
+      trigger_email_id TEXT,
+      steps_completed INTEGER NOT NULL DEFAULT 0,
+      result TEXT DEFAULT '{}',
+      started_at INTEGER NOT NULL,
+      completed_at INTEGER,
+      error TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS ai_conversations (
+      id TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      context_type TEXT,
+      context_data TEXT DEFAULT '{}',
+      messages TEXT DEFAULT '[]',
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS smart_folders (
+      id TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      icon TEXT DEFAULT '📁',
+      rules TEXT NOT NULL,
+      is_system INTEGER DEFAULT 0,
+      sort_order INTEGER DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS action_items (
+      id TEXT PRIMARY KEY,
+      email_id TEXT NOT NULL REFERENCES emails(id) ON DELETE CASCADE,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      text TEXT NOT NULL,
+      due_date INTEGER,
+      is_done INTEGER DEFAULT 0,
+      created_at INTEGER NOT NULL
+    );
   `);
 
   // Indexek
@@ -272,6 +333,23 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
     CREATE INDEX IF NOT EXISTS idx_scheduled_emails_account ON scheduled_emails(account_id);
     CREATE INDEX IF NOT EXISTS idx_scheduled_emails_scheduled_at ON scheduled_emails(scheduled_at);
     CREATE INDEX IF NOT EXISTS idx_vip_senders_account ON vip_senders(account_id);
+
+    -- Workflow indexek
+    CREATE INDEX IF NOT EXISTS idx_workflows_account ON workflows(account_id);
+    CREATE INDEX IF NOT EXISTS idx_workflows_active ON workflows(is_active);
+    CREATE INDEX IF NOT EXISTS idx_workflows_trigger ON workflows(trigger_type);
+    CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow ON workflow_runs(workflow_id);
+    CREATE INDEX IF NOT EXISTS idx_workflow_runs_account ON workflow_runs(account_id);
+    CREATE INDEX IF NOT EXISTS idx_workflow_runs_status ON workflow_runs(status);
+    CREATE INDEX IF NOT EXISTS idx_ai_conversations_account ON ai_conversations(account_id);
+    CREATE INDEX IF NOT EXISTS idx_ai_conversations_updated ON ai_conversations(updated_at DESC);
+
+    -- Smart folders & action items indexek
+    CREATE INDEX IF NOT EXISTS idx_smart_folders_account ON smart_folders(account_id);
+    CREATE INDEX IF NOT EXISTS idx_smart_folders_sort ON smart_folders(sort_order);
+    CREATE INDEX IF NOT EXISTS idx_action_items_email ON action_items(email_id);
+    CREATE INDEX IF NOT EXISTS idx_action_items_account ON action_items(account_id);
+    CREATE INDEX IF NOT EXISTS idx_action_items_done ON action_items(is_done);
 
     -- Extra indexek a teljesítmény javításához
     CREATE INDEX IF NOT EXISTS idx_emails_account_date ON emails(account_id, date DESC);

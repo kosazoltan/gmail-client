@@ -1,7 +1,8 @@
 // Build trigger: env var update 2026-03-04
 // Production: VITE_API_URL környezeti változóból, vagy /api
 // Development: /api (proxied by Vite)
-const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+export const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const BASE_URL = API_BASE;
 
 // Default request timeout (30 seconds)
 const DEFAULT_TIMEOUT = 30000;
@@ -656,6 +657,79 @@ export const api = {
 
   market: {
     briefing: (refresh?: boolean) => request<import('../types').MarketBriefingResponse>(`/market/briefing${refresh ? '?refresh=true' : ''}`),
+  },
+
+  intelligence: {
+    extractActionItems: (emailId: string) =>
+      request<{ success: boolean; actionItems: import('../types').ActionItem[] }>(
+        `/intelligence/action-items/${emailId}`,
+        { method: 'POST', timeout: 60000 },
+      ),
+    getActionItems: (emailId: string) =>
+      request<{ success: boolean; actionItems: import('../types').ActionItem[] }>(
+        `/intelligence/action-items/${emailId}`,
+      ),
+    toggleActionItem: (id: string, isDone: boolean) =>
+      request<{ success: boolean }>(`/intelligence/action-items/${id}/toggle`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isDone }),
+      }),
+    detectSentiment: (emailId: string) =>
+      request<import('../types').SentimentResult>(
+        `/intelligence/sentiment/${emailId}`,
+        { method: 'POST', timeout: 60000 },
+      ),
+    suggestReply: (emailId: string) =>
+      request<{ success: boolean; suggestions: import('../types').ReplySuggestion[] }>(
+        `/intelligence/suggest-reply/${emailId}`,
+        { method: 'POST', timeout: 60000 },
+      ),
+    findRelated: (emailId: string) =>
+      request<{ success: boolean; relatedEmails: import('../types').RelatedEmail[] }>(
+        `/intelligence/related/${emailId}`,
+      ),
+    weeklyReport: () =>
+      request<{ success: boolean; report: import('../types').WeeklyReportData }>(
+        '/intelligence/weekly-report',
+        { timeout: 60000 },
+      ),
+  },
+
+  smartFolders: {
+    list: () =>
+      request<{ success: boolean; folders: import('../types').SmartFolder[] }>('/smart-folders'),
+    getEmails: (folderId: string, page = 1) =>
+      request<{
+        success: boolean;
+        emails: import('../types').Email[];
+        total: number;
+        page: number;
+        totalPages: number;
+      }>(`/smart-folders/${folderId}/emails?page=${page}`),
+    create: (data: {
+      name: string;
+      rules: import('../types').SmartFolderRule[];
+      icon?: string;
+    }) =>
+      request<{ success: boolean; folder: import('../types').SmartFolder }>('/smart-folders', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    update: (
+      id: string,
+      data: {
+        name?: string;
+        icon?: string;
+        rules?: import('../types').SmartFolderRule[];
+        sortOrder?: number;
+      },
+    ) =>
+      request<{ success: boolean; folder: import('../types').SmartFolder }>(
+        `/smart-folders/${id}`,
+        { method: 'PUT', body: JSON.stringify(data) },
+      ),
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/smart-folders/${id}`, { method: 'DELETE' }),
   },
 
   translate: {

@@ -37,6 +37,11 @@ import tasksRoutes from './routes/tasks.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
 import teamRoutes from './routes/team.routes.js';
 import marketRoutes from './routes/market.routes.js';
+import workflowRoutes from './routes/workflow.routes.js';
+import smartFeaturesRoutes from './routes/smart-features.routes.js';
+import intelligenceRoutes from './routes/intelligence.routes.js';
+import smartFoldersRoutes from './routes/smart-folders.routes.js';
+import aiChatRoutes from './routes/ai-chat.routes.js';
 
 const PORT = parseInt(process.env.PORT || '5000', 10);
 
@@ -139,6 +144,11 @@ async function start() {
   app.use('/api/dashboard', dashboardRoutes);
   app.use('/api/team', teamRoutes);
   app.use('/api/market', marketRoutes);
+  app.use('/api/workflows', workflowRoutes);
+  app.use('/api/smart', smartFeaturesRoutes);
+  app.use('/api/intelligence', intelligenceRoutes);
+  app.use('/api/smart-folders', smartFoldersRoutes);
+  app.use('/api/ai', aiChatRoutes);
 
   // Health check
   app.get('/api/health', (_req, res) => {
