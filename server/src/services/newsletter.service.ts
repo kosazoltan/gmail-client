@@ -91,9 +91,9 @@ export function isNewsletterEmail(
 }
 
 // Hírlevél küldők szinkronizálása az adatbázisból
-export function syncNewsletterSenders(accountId: string): number {
+export async function syncNewsletterSenders(accountId: string): Promise<number> {
   // Összesítjük az emaileket küldő szerint
-  const senders = queryAll<{
+  const senders = await queryAll<{
     from_email: string;
     from_name: string | null;
     email_count: number;
@@ -125,14 +125,14 @@ export function syncNewsletterSenders(accountId: string): number {
 
     if (isNewsletter) {
       // Ellenőrizzük, hogy már létezik-e
-      const existing = queryOne(
+      const existing = await queryOne(
         'SELECT id FROM newsletter_senders WHERE account_id = ? AND sender_email = ?',
         [accountId, sender.from_email],
       );
 
       if (existing) {
         // Frissítjük a statisztikákat
-        execute(
+        await execute(
           `UPDATE newsletter_senders
            SET email_count = ?, last_email_at = ?, sender_name = COALESCE(?, sender_name)
            WHERE account_id = ? AND sender_email = ?`,
@@ -147,7 +147,7 @@ export function syncNewsletterSenders(accountId: string): number {
       } else {
         // Új hírlevél küldő
         const id = crypto.randomUUID();
-        execute(
+        await execute(
           `INSERT INTO newsletter_senders (id, account_id, sender_email, sender_name, is_newsletter, is_muted, email_count, last_email_at)
            VALUES (?, ?, ?, ?, 1, 0, ?, ?)`,
           [
@@ -168,8 +168,8 @@ export function syncNewsletterSenders(accountId: string): number {
 }
 
 // Hírlevél küldők lekérése
-export function getNewsletterSenders(accountId: string): NewsletterSender[] {
-  return queryAll<NewsletterSender>(
+export async function getNewsletterSenders(accountId: string): Promise<NewsletterSender[]> {
+  return await queryAll<NewsletterSender>(
     `SELECT * FROM newsletter_senders
      WHERE account_id = ? AND is_newsletter = 1
      ORDER BY email_count DESC`,
@@ -178,33 +178,33 @@ export function getNewsletterSenders(accountId: string): NewsletterSender[] {
 }
 
 // Küldő némítása/feloldása
-export function toggleMuteSender(accountId: string, senderId: string, muted: boolean): boolean {
-  const sender = queryOne('SELECT id FROM newsletter_senders WHERE id = ? AND account_id = ?', [
+export async function toggleMuteSender(accountId: string, senderId: string, muted: boolean): Promise<boolean> {
+  const sender = await queryOne('SELECT id FROM newsletter_senders WHERE id = ? AND account_id = ?', [
     senderId,
     accountId,
   ]);
 
   if (!sender) return false;
 
-  execute('UPDATE newsletter_senders SET is_muted = ? WHERE id = ?', [muted ? 1 : 0, senderId]);
+  await execute('UPDATE newsletter_senders SET is_muted = ? WHERE id = ?', [muted ? 1 : 0, senderId]);
   return true;
 }
 
 // Küldő eltávolítása a hírlevél listából
-export function removeSenderFromNewsletters(accountId: string, senderId: string): boolean {
-  const sender = queryOne('SELECT id FROM newsletter_senders WHERE id = ? AND account_id = ?', [
+export async function removeSenderFromNewsletters(accountId: string, senderId: string): Promise<boolean> {
+  const sender = await queryOne('SELECT id FROM newsletter_senders WHERE id = ? AND account_id = ?', [
     senderId,
     accountId,
   ]);
 
   if (!sender) return false;
 
-  execute('UPDATE newsletter_senders SET is_newsletter = 0 WHERE id = ?', [senderId]);
+  await execute('UPDATE newsletter_senders SET is_newsletter = 0 WHERE id = ?', [senderId]);
   return true;
 }
 
 // Hírlevél emailek lekérése
-export function getNewsletterEmails(
+export async function getNewsletterEmails(
   accountId: string,
   options: {
     page?: number;
@@ -229,7 +229,7 @@ export function getNewsletterEmails(
     params.push(options.senderId);
   }
 
-  const emails = queryAll(
+  const emails = await queryAll(
     `SELECT e.*, ns.sender_name as newsletter_name, ns.is_muted
      FROM emails e
      JOIN newsletter_senders ns ON e.from_email = ns.sender_email AND e.account_id = ns.account_id
@@ -239,7 +239,7 @@ export function getNewsletterEmails(
     [...params, limit, offset],
   );
 
-  const totalResult = queryOne<{ count: number }>(
+  const totalResult = await queryOne<{ count: number }>(
     `SELECT COUNT(*) as count
      FROM emails e
      JOIN newsletter_senders ns ON e.from_email = ns.sender_email AND e.account_id = ns.account_id
@@ -247,7 +247,7 @@ export function getNewsletterEmails(
     params,
   );
 
-  const total = totalResult?.count || 0;
+  const total = Number(totalResult?.count ?? 0);
 
   return {
     emails,

@@ -23,14 +23,14 @@ interface SnoozedEmail {
 }
 
 // Szundizott levelek listázása
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
       return res.status(401).json({ error: 'Nincs bejelentkezve' });
     }
 
-    const snoozed = queryAll<
+    const snoozed = await queryAll<
       SnoozedEmail & {
         subject: string | null;
         from_email: string | null;
@@ -63,7 +63,7 @@ router.get('/', (req, res) => {
 });
 
 // Email szundizása
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -91,7 +91,7 @@ router.post('/', (req, res) => {
     }
 
     // Ellenőrizzük, hogy létezik-e az email
-    const email = queryOne<{ id: string }>(
+    const email = await queryOne<{ id: string }>(
       'SELECT id FROM emails WHERE id = ? AND account_id = ?',
       [emailId, accountId],
     );
@@ -101,16 +101,16 @@ router.post('/', (req, res) => {
     }
 
     // FIX: Use transaction to prevent race condition (check-then-insert/update)
-    const result = runInTransaction(() => {
+    const result = await runInTransaction(async () => {
       // Ellenőrizzük, hogy már szundizva van-e (saját fiókban)
-      const existing = queryOne<{ id: string }>(
+      const existing = await queryOne<{ id: string }>(
         'SELECT id FROM snoozed_emails WHERE email_id = ? AND account_id = ?',
         [emailId, accountId],
       );
 
       if (existing) {
         // Frissítsük a meglévő szundit
-        execute('UPDATE snoozed_emails SET snooze_until = ? WHERE id = ? AND account_id = ?', [
+        await execute('UPDATE snoozed_emails SET snooze_until = ? WHERE id = ? AND account_id = ?', [
           snoozeTimestamp,
           existing.id,
           accountId,
@@ -127,7 +127,7 @@ router.post('/', (req, res) => {
         const id = uuid();
         const createdAt = Date.now();
 
-        execute(
+        await execute(
           `INSERT INTO snoozed_emails (id, email_id, account_id, snooze_until, created_at)
            VALUES (?, ?, ?, ?, ?)`,
           [id, emailId, accountId, snoozeTimestamp, createdAt],
@@ -150,7 +150,7 @@ router.post('/', (req, res) => {
 });
 
 // Szundi törlése (email visszahozása)
-router.delete('/:emailId', (req, res) => {
+router.delete('/:emailId', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -159,7 +159,7 @@ router.delete('/:emailId', (req, res) => {
 
     const { emailId } = req.params;
 
-    const existing = queryOne<{ id: string }>(
+    const existing = await queryOne<{ id: string }>(
       'SELECT id FROM snoozed_emails WHERE email_id = ? AND account_id = ?',
       [emailId, accountId],
     );
@@ -168,7 +168,7 @@ router.delete('/:emailId', (req, res) => {
       return res.status(404).json({ error: 'Szundizott email nem található' });
     }
 
-    execute('DELETE FROM snoozed_emails WHERE id = ? AND account_id = ?', [existing.id, accountId]);
+    await execute('DELETE FROM snoozed_emails WHERE id = ? AND account_id = ?', [existing.id, accountId]);
 
     res.json({ success: true });
   } catch (error) {
@@ -179,20 +179,20 @@ router.delete('/:emailId', (req, res) => {
 
 // Ellenőrzi és törli a lejárt szundikat - ezt a szerver induláskor és periodikusan hívja
 // FIX: Use unique instance ID to prevent race conditions across multiple server instances
-export function processExpiredSnoozes(): number {
+export async function processExpiredSnoozes(): Promise<number> {
   try {
     const now = Date.now();
     const instanceId = uuid(); // Unique ID for this processing run
 
     // Atomically claim expired snoozes with unique instance ID
     // This ensures only this instance processes these specific snoozes
-    execute(
+    await execute(
       'UPDATE snoozed_emails SET processing_instance = ? WHERE snooze_until <= ? AND processing_instance IS NULL',
       [instanceId, now],
     );
 
     // Get only the snoozes claimed by THIS instance
-    const expired = queryAll<SnoozedEmailWithProcessing>(
+    const expired = await queryAll<SnoozedEmailWithProcessing>(
       'SELECT id, email_id FROM snoozed_emails WHERE processing_instance = ?',
       [instanceId],
     );
@@ -201,7 +201,7 @@ export function processExpiredSnoozes(): number {
       // Batch delete the claimed snoozes
       const ids = expired.map((s) => s.id);
       const placeholders = ids.map(() => '?').join(',');
-      execute(`DELETE FROM snoozed_emails WHERE id IN (${placeholders})`, ids);
+      await execute(`DELETE FROM snoozed_emails WHERE id IN (${placeholders})`, ids);
       logger.info(`${expired.length} lejárt szundi törölve.`);
     }
 

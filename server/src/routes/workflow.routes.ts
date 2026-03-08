@@ -15,14 +15,14 @@ import logger from '../utils/logger.js';
 const router = Router();
 
 // GET /api/workflows — list workflows (account szűrés)
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
       return res.status(401).json({ error: 'Nincs bejelentkezve' });
     }
 
-    const workflows = getWorkflows(accountId);
+    const workflows = await getWorkflows(accountId);
     res.json({ workflows });
   } catch (error) {
     logger.error('Workflow list error:', error);
@@ -31,7 +31,7 @@ router.get('/', (req, res) => {
 });
 
 // POST /api/workflows — create workflow
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -71,7 +71,7 @@ router.post('/', (req, res) => {
 });
 
 // PUT /api/workflows/:id — update workflow
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -81,7 +81,7 @@ router.put('/:id', (req, res) => {
     const { id } = req.params;
 
     // Verify ownership
-    const existing = getWorkflow(id);
+    const existing = await getWorkflow(id);
     if (!existing || existing.accountId !== accountId) {
       return res.status(404).json({ error: 'Workflow nem található' });
     }
@@ -120,7 +120,7 @@ router.put('/:id', (req, res) => {
 });
 
 // DELETE /api/workflows/:id
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -129,7 +129,7 @@ router.delete('/:id', (req, res) => {
 
     const { id } = req.params;
 
-    const existing = getWorkflow(id);
+    const existing = await getWorkflow(id);
     if (!existing || existing.accountId !== accountId) {
       return res.status(404).json({ error: 'Workflow nem található' });
     }
@@ -152,7 +152,7 @@ router.post('/:id/run', async (req, res) => {
 
     const { id } = req.params;
 
-    const existing = getWorkflow(id);
+    const existing = await getWorkflow(id);
     if (!existing || existing.accountId !== accountId) {
       return res.status(404).json({ error: 'Workflow nem található' });
     }
@@ -172,7 +172,7 @@ router.post('/:id/run', async (req, res) => {
 });
 
 // GET /api/workflows/:id/runs — futtatási napló
-router.get('/:id/runs', (req, res) => {
+router.get('/:id/runs', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -181,7 +181,7 @@ router.get('/:id/runs', (req, res) => {
 
     const { id } = req.params;
 
-    const existing = getWorkflow(id);
+    const existing = await getWorkflow(id);
     if (!existing || existing.accountId !== accountId) {
       return res.status(404).json({ error: 'Workflow nem található' });
     }

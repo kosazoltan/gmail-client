@@ -49,7 +49,7 @@ router.get('/', async (req, res) => {
       limit: Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), 100),
     };
 
-    const result = listAttachments(filter);
+    const result = await listAttachments(filter);
     res.json(result);
   } catch (error) {
     logger.error('Melléklet listázás hiba:', error);
@@ -66,7 +66,7 @@ router.get('/:id/download', async (req, res) => {
     }
 
     // Ellenőrizzük, hogy a melléklet a felhasználó fiókjához tartozik-e
-    const attachmentOwner = getAttachmentOwner(req.params.id);
+    const attachmentOwner = await getAttachmentOwner(req.params.id);
     if (!attachmentOwner || attachmentOwner !== accountId) {
       return res.status(403).json({ error: 'Nincs jogosultság ehhez a melléklethez' });
     }

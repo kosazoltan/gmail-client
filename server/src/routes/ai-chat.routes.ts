@@ -50,7 +50,7 @@ router.post('/chat', async (req, res) => {
     // Build context from email if emailId is provided
     let emailContext = '';
     if (emailId) {
-      const email = queryOne<{
+      const email = await queryOne<{
         subject: string | null;
         from_email: string | null;
         from_name: string | null;
@@ -87,7 +87,7 @@ Tartalom: ${bodyText}`;
 
     if (activeConversationId) {
       // Verify ownership
-      const conv = queryOne<{ id: string }>(
+      const conv = await queryOne<{ id: string }>(
         'SELECT id FROM ai_conversations WHERE id = ? AND account_id = ?',
         [activeConversationId, accountId],
       );
@@ -103,14 +103,14 @@ Tartalom: ${bodyText}`;
       // Create new conversation with first ~50 chars of message as title
       activeConversationId = generateId();
       const title = message.trim().substring(0, 80) + (message.trim().length > 80 ? '...' : '');
-      execute(
+      await execute(
         'INSERT INTO ai_conversations (id, account_id, title, context_type, context_data, messages, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         [activeConversationId, accountId, title, emailId ? 'email' : null, emailId ? JSON.stringify({ emailId }) : '{}', '[]', now, now],
       );
     }
 
     // Load conversation history (last MAX_HISTORY_MESSAGES messages)
-    const historyRows = queryAll<{ role: string; content: string }>(
+    const historyRows = await queryAll<{ role: string; content: string }>(
       'SELECT role, content FROM ai_messages WHERE conversation_id = ? ORDER BY created_at ASC',
       [activeConversationId],
     );
@@ -150,17 +150,17 @@ Segíts email fogalmazásban, elemzésben, összefoglalásban és szervezésben.
     const assistantMsgId = generateId();
     const msgNow = Date.now();
 
-    execute(
+    await execute(
       'INSERT INTO ai_messages (id, conversation_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)',
       [userMsgId, activeConversationId, 'user', userContent, msgNow],
     );
-    execute(
+    await execute(
       'INSERT INTO ai_messages (id, conversation_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)',
       [assistantMsgId, activeConversationId, 'assistant', reply, msgNow + 1],
     );
 
     // Update conversation timestamp
-    execute(
+    await execute(
       'UPDATE ai_conversations SET updated_at = ? WHERE id = ?',
       [msgNow, activeConversationId],
     );
@@ -177,14 +177,14 @@ Segíts email fogalmazásban, elemzésben, összefoglalásban és szervezésben.
 });
 
 // GET /api/ai/conversations — list all conversations for active account
-router.get('/conversations', (req, res) => {
+router.get('/conversations', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
 
   try {
-    const conversations = queryAll<{
+    const conversations = await queryAll<{
       id: string;
       title: string;
       updated_at: number;
@@ -210,7 +210,7 @@ router.get('/conversations', (req, res) => {
 });
 
 // GET /api/ai/conversations/:id/messages — get messages for a conversation
-router.get('/conversations/:id/messages', (req, res) => {
+router.get('/conversations/:id/messages', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Not authenticated' });
@@ -220,7 +220,7 @@ router.get('/conversations/:id/messages', (req, res) => {
     const { id } = req.params;
 
     // Ownership check
-    const conv = queryOne<{ id: string }>(
+    const conv = await queryOne<{ id: string }>(
       'SELECT id FROM ai_conversations WHERE id = ? AND account_id = ?',
       [id, accountId],
     );
@@ -228,7 +228,7 @@ router.get('/conversations/:id/messages', (req, res) => {
       return res.status(404).json({ error: 'Beszélgetés nem található' });
     }
 
-    const messages = queryAll<{
+    const messages = await queryAll<{
       id: string;
       role: string;
       content: string;
@@ -254,7 +254,7 @@ router.get('/conversations/:id/messages', (req, res) => {
 });
 
 // DELETE /api/ai/conversations/:id — delete a conversation
-router.delete('/conversations/:id', (req, res) => {
+router.delete('/conversations/:id', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Not authenticated' });
@@ -264,7 +264,7 @@ router.delete('/conversations/:id', (req, res) => {
     const { id } = req.params;
 
     // Ownership check
-    const conv = queryOne<{ id: string }>(
+    const conv = await queryOne<{ id: string }>(
       'SELECT id FROM ai_conversations WHERE id = ? AND account_id = ?',
       [id, accountId],
     );
@@ -273,8 +273,8 @@ router.delete('/conversations/:id', (req, res) => {
     }
 
     // Delete messages first (CASCADE should handle this, but be explicit)
-    execute('DELETE FROM ai_messages WHERE conversation_id = ?', [id]);
-    execute('DELETE FROM ai_conversations WHERE id = ?', [id]);
+    await execute('DELETE FROM ai_messages WHERE conversation_id = ?', [id]);
+    await execute('DELETE FROM ai_conversations WHERE id = ?', [id]);
 
     res.json({ success: true });
   } catch (err) {
@@ -332,7 +332,7 @@ router.post('/smart-search', async (req, res) => {
     // Full search — parse query and search emails
     // Simple keyword-based search as fallback (works without AI too)
     const searchTerm = query.trim();
-    const emails = queryAll<{ id: string; subject: string; from_email: string; from_name: string; date: number }>(
+    const emails = await queryAll<{ id: string; subject: string; from_email: string; from_name: string; date: number }>(
       `SELECT id, subject, from_email, from_name, date FROM emails
        WHERE account_id = ? AND (
          subject LIKE ? COLLATE NOCASE OR

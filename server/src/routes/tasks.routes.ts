@@ -13,7 +13,7 @@ router.get('/lists', async (req, res) => {
   }
 
   try {
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const tasks = google.tasks({ version: 'v1', auth: oauth2Client });
 
     const response = await tasks.tasklists.list({ maxResults: 100 });
@@ -43,7 +43,7 @@ router.get('/list/:listId', async (req, res) => {
   const showHidden = req.query.showHidden === 'true';
 
   try {
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const tasks = google.tasks({ version: 'v1', auth: oauth2Client });
 
     const response = await tasks.tasks.list({
@@ -72,7 +72,7 @@ router.patch('/list/:listId/task/:taskId', async (req, res) => {
   const { status, title, notes, due } = req.body;
 
   try {
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const tasks = google.tasks({ version: 'v1', auth: oauth2Client });
 
     const updateData: {
@@ -123,7 +123,7 @@ router.post('/list/:listId', async (req, res) => {
   }
 
   try {
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const tasks = google.tasks({ version: 'v1', auth: oauth2Client });
 
     const requestBody: { title: string; notes?: string; due?: string } = {
@@ -154,7 +154,7 @@ router.delete('/list/:listId/task/:taskId', async (req, res) => {
   const { listId, taskId } = req.params;
 
   try {
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const tasks = google.tasks({ version: 'v1', auth: oauth2Client });
 
     await tasks.tasks.delete({

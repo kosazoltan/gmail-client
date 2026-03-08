@@ -1,6 +1,4 @@
-import { queryOne, queryAll, execute, getDb, saveDatabase } from '../db/index.js';
-import fs from 'fs';
-import path from 'path';
+import { queryOne, queryAll, execute, getPool } from '../db/index.js';
 import logger from '../utils/logger.js';
 
 // Statisztikák interfész
@@ -31,54 +29,54 @@ export interface EmailListItem {
 }
 
 // Adatbázis statisztikák lekérése
-export function getDatabaseStats(accountId?: string): DatabaseStats {
+export async function getDatabaseStats(accountId?: string): Promise<DatabaseStats> {
   const accountFilter = accountId ? 'WHERE account_id = ?' : '';
   const params = accountId ? [accountId] : [];
 
-  const emailCount = queryOne<{ count: number }>(
+  const emailCount = await queryOne<{ count: number }>(
     `SELECT COUNT(*) as count FROM emails ${accountFilter}`,
     params,
   );
 
-  const contactCount = queryOne<{ count: number }>(
+  const contactCount = await queryOne<{ count: number }>(
     `SELECT COUNT(*) as count FROM contacts ${accountFilter}`,
     params,
   );
 
-  const attachmentCount = queryOne<{ count: number }>(
+  const attachmentCount = await queryOne<{ count: number }>(
     `SELECT COUNT(*) as count FROM attachments a
      ${accountId ? 'JOIN emails e ON a.email_id = e.id WHERE e.account_id = ?' : ''}`,
     params,
   );
 
-  const categoryCount = queryOne<{ count: number }>(
+  const categoryCount = await queryOne<{ count: number }>(
     `SELECT COUNT(*) as count FROM categories ${accountFilter}`,
     params,
   );
 
-  const senderGroupCount = queryOne<{ count: number }>(
+  const senderGroupCount = await queryOne<{ count: number }>(
     `SELECT COUNT(*) as count FROM sender_groups ${accountFilter}`,
     params,
   );
 
-  const topicCount = queryOne<{ count: number }>(
+  const topicCount = await queryOne<{ count: number }>(
     `SELECT COUNT(*) as count FROM topics ${accountFilter}`,
     params,
   );
 
-  const oldestEmail = queryOne<{ date: number | null }>(
+  const oldestEmail = await queryOne<{ date: number | null }>(
     `SELECT MIN(date) as date FROM emails ${accountFilter}`,
     params,
   );
 
-  const newestEmail = queryOne<{ date: number | null }>(
+  const newestEmail = await queryOne<{ date: number | null }>(
     `SELECT MAX(date) as date FROM emails ${accountFilter}`,
     params,
   );
 
   // Emailek fiókonként - csak a kért accountId-t mutatjuk, ha meg van adva
   const emailsByAccountRaw = accountId
-    ? queryAll<{ account_id: string; email: string; count: number }>(
+    ? await queryAll<{ account_id: string; email: string; count: number }>(
         `SELECT e.account_id, a.email, COUNT(*) as count
          FROM emails e
          JOIN accounts a ON e.account_id = a.id
@@ -88,24 +86,23 @@ export function getDatabaseStats(accountId?: string): DatabaseStats {
       )
     : [];
 
-  // Adatbázis méret
-  const dbPath = process.env.DATABASE_URL || './data/gmail-client.db';
+  // Adatbázis méret (PostgreSQL)
   let databaseSizeBytes = 0;
   try {
-    if (fs.existsSync(dbPath)) {
-      databaseSizeBytes = fs.statSync(dbPath).size;
-    }
+    const pool = getPool();
+    const sizeResult = await pool.query("SELECT pg_database_size(current_database()) as size");
+    databaseSizeBytes = parseInt(sizeResult.rows[0]?.size || '0', 10);
   } catch (err) {
-    logger.debug('Failed to get database file size', { dbPath, error: err });
+    logger.debug('Failed to get database size', { error: err });
   }
 
   return {
-    totalEmails: emailCount?.count || 0,
-    totalContacts: contactCount?.count || 0,
-    totalAttachments: attachmentCount?.count || 0,
-    totalCategories: categoryCount?.count || 0,
-    totalSenderGroups: senderGroupCount?.count || 0,
-    totalTopics: topicCount?.count || 0,
+    totalEmails: Number(emailCount?.count ?? 0),
+    totalContacts: Number(contactCount?.count ?? 0),
+    totalAttachments: Number(attachmentCount?.count ?? 0),
+    totalCategories: Number(categoryCount?.count ?? 0),
+    totalSenderGroups: Number(senderGroupCount?.count ?? 0),
+    totalTopics: Number(topicCount?.count ?? 0),
     databaseSizeBytes,
     oldestEmail: oldestEmail?.date || null,
     newestEmail: newestEmail?.date || null,
@@ -118,7 +115,7 @@ export function getDatabaseStats(accountId?: string): DatabaseStats {
 }
 
 // Emailek listázása (adatbázis kezelőhöz)
-export function listEmailsForManager(
+export async function listEmailsForManager(
   accountId: string,
   options: {
     page?: number;
@@ -131,7 +128,7 @@ export function listEmailsForManager(
     hasAttachments?: boolean;
     isRead?: boolean;
   } = {},
-): { emails: EmailListItem[]; total: number; page: number; totalPages: number } {
+): Promise<{ emails: EmailListItem[]; total: number; page: number; totalPages: number }> {
   const {
     page = 1,
     limit = 50,
@@ -187,16 +184,16 @@ export function listEmailsForManager(
   const orderDirection = sortOrder === 'asc' ? 'ASC' : 'DESC';
 
   // Összes szám
-  const countResult = queryOne<{ count: number }>(
+  const countResult = await queryOne<{ count: number }>(
     `SELECT COUNT(*) as count FROM emails WHERE ${whereClause}`,
     params,
   );
-  const total = countResult?.count || 0;
+  const total = Number(countResult?.count ?? 0);
   const totalPages = Math.ceil(total / limit);
   const offset = (page - 1) * limit;
 
   // Emailek lekérése
-  const emails = queryAll<EmailListItem>(
+  const emails = await queryAll<EmailListItem>(
     `SELECT
       id, subject, from_email, from_name, to_email, date, is_read, has_attachments,
       (LENGTH(COALESCE(body, '')) + LENGTH(COALESCE(body_html, ''))) as body_size
@@ -211,21 +208,21 @@ export function listEmailsForManager(
 }
 
 // Emailek törlése (batch)
-export function deleteEmails(accountId: string, emailIds: string[]): number {
+export async function deleteEmails(accountId: string, emailIds: string[]): Promise<number> {
   if (emailIds.length === 0) return 0;
 
   let deletedCount = 0;
   for (const emailId of emailIds) {
-    const existing = queryOne<{ id: string }>(
+    const existing = await queryOne<{ id: string }>(
       'SELECT id FROM emails WHERE id = ? AND account_id = ?',
       [emailId, accountId],
     );
 
     if (existing) {
       // Csatolmányok törlése
-      execute('DELETE FROM attachments WHERE email_id = ?', [emailId]);
+      await execute('DELETE FROM attachments WHERE email_id = ?', [emailId]);
       // Email törlése
-      execute('DELETE FROM emails WHERE id = ?', [emailId]);
+      await execute('DELETE FROM emails WHERE id = ?', [emailId]);
       deletedCount++;
     }
   }
@@ -234,13 +231,13 @@ export function deleteEmails(accountId: string, emailIds: string[]): number {
 }
 
 // Emailek törlése időszak alapján
-export function deleteEmailsByDateRange(
+export async function deleteEmailsByDateRange(
   accountId: string,
   dateFrom: number,
   dateTo: number,
-): number {
+): Promise<number> {
   // Először az email id-ket gyűjtjük össze
-  const emails = queryAll<{ id: string }>(
+  const emails = await queryAll<{ id: string }>(
     'SELECT id FROM emails WHERE account_id = ? AND date >= ? AND date <= ?',
     [accountId, dateFrom, dateTo],
   );
@@ -251,10 +248,10 @@ export function deleteEmailsByDateRange(
 
   // Csatolmányok törlése
   const placeholders = emailIds.map(() => '?').join(',');
-  execute(`DELETE FROM attachments WHERE email_id IN (${placeholders})`, emailIds);
+  await execute(`DELETE FROM attachments WHERE email_id IN (${placeholders})`, emailIds);
 
   // Emailek törlése
-  execute(`DELETE FROM emails WHERE account_id = ? AND date >= ? AND date <= ?`, [
+  await execute(`DELETE FROM emails WHERE account_id = ? AND date >= ? AND date <= ?`, [
     accountId,
     dateFrom,
     dateTo,
@@ -263,91 +260,38 @@ export function deleteEmailsByDateRange(
   return emails.length;
 }
 
-// Adatbázis backup létrehozása
-export function createBackup(): { filename: string; path: string; size: number } {
-  saveDatabase(); // Először mentés
-
-  const dbPath = process.env.DATABASE_URL || './data/gmail-client.db';
-  const backupDir = path.join(path.dirname(dbPath), 'backups');
-
-  // Backup könyvtár létrehozása
-  if (!fs.existsSync(backupDir)) {
-    fs.mkdirSync(backupDir, { recursive: true });
-  }
-
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const backupFilename = `gmail-client-backup-${timestamp}.db`;
-  const backupPath = path.join(backupDir, backupFilename);
-
-  // Adatbázis másolása
-  fs.copyFileSync(dbPath, backupPath);
-
-  const size = fs.statSync(backupPath).size;
-
-  return { filename: backupFilename, path: backupPath, size };
+// Backup nem elérhető Neon PostgreSQL-nél — a platform kezeli
+export async function createBackup(): Promise<{ filename: string; path: string; size: number }> {
+  throw new Error('Backup not available for Neon PostgreSQL — managed by the platform.');
 }
 
-// Backup-ok listázása
+// Backup-ok listázása — Neon PostgreSQL platform kezeli
 export function listBackups(): Array<{
   filename: string;
   path: string;
   size: number;
   createdAt: number;
 }> {
-  const dbPath = process.env.DATABASE_URL || './data/gmail-client.db';
-  const backupDir = path.join(path.dirname(dbPath), 'backups');
-
-  if (!fs.existsSync(backupDir)) {
-    return [];
-  }
-
-  const files = fs.readdirSync(backupDir);
-  return files
-    .filter((f) => f.endsWith('.db'))
-    .map((filename) => {
-      const filePath = path.join(backupDir, filename);
-      const stats = fs.statSync(filePath);
-      return {
-        filename,
-        path: filePath,
-        size: stats.size,
-        createdAt: stats.mtimeMs,
-      };
-    })
-    .sort((a, b) => b.createdAt - a.createdAt);
+  // Neon PostgreSQL: backups managed by the platform
+  return [];
 }
 
-// Backup törlése
-export function deleteBackup(filename: string): boolean {
-  const dbPath = process.env.DATABASE_URL || './data/gmail-client.db';
-  const backupDir = path.join(path.dirname(dbPath), 'backups');
-  const backupPath = path.join(backupDir, filename);
-
-  // Biztonsági ellenőrzés - csak .db fájlok a backup könyvtárból
-  if (!filename.endsWith('.db') || !backupPath.startsWith(backupDir)) {
-    return false;
-  }
-
-  if (fs.existsSync(backupPath)) {
-    fs.unlinkSync(backupPath);
-    return true;
-  }
-
+// Backup törlése — Neon PostgreSQL platform kezeli
+export function deleteBackup(_filename: string): boolean {
   return false;
 }
 
 // Adatbázis tömörítés (VACUUM)
-export function vacuumDatabase(): void {
-  const db = getDb();
-  db.run('VACUUM');
-  saveDatabase();
+export async function vacuumDatabase(): Promise<void> {
+  const pool = getPool();
+  await pool.query('VACUUM');
 }
 
 // Régi emailek törlése (pl. 1 évnél régebbiek)
-export function deleteOldEmails(accountId: string, olderThanDays: number): number {
+export async function deleteOldEmails(accountId: string, olderThanDays: number): Promise<number> {
   const cutoffDate = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
 
-  const emails = queryAll<{ id: string }>(
+  const emails = await queryAll<{ id: string }>(
     'SELECT id FROM emails WHERE account_id = ? AND date < ?',
     [accountId, cutoffDate],
   );
@@ -357,26 +301,26 @@ export function deleteOldEmails(accountId: string, olderThanDays: number): numbe
   const emailIds = emails.map((e) => e.id);
   const placeholders = emailIds.map(() => '?').join(',');
 
-  execute(`DELETE FROM attachments WHERE email_id IN (${placeholders})`, emailIds);
-  execute('DELETE FROM emails WHERE account_id = ? AND date < ?', [accountId, cutoffDate]);
+  await execute(`DELETE FROM attachments WHERE email_id IN (${placeholders})`, emailIds);
+  await execute('DELETE FROM emails WHERE account_id = ? AND date < ?', [accountId, cutoffDate]);
 
   return emails.length;
 }
 
 // Árva rekordok törlése (kontaktok, témák, stb. amikhez nincs email)
-export function cleanupOrphanedRecords(): { topics: number; senderGroups: number } {
+export async function cleanupOrphanedRecords(): Promise<{ topics: number; senderGroups: number }> {
   // Üres témák törlése
-  execute(
+  await execute(
     `DELETE FROM topics WHERE id NOT IN (SELECT DISTINCT topic_id FROM emails WHERE topic_id IS NOT NULL)`,
   );
 
   // Üres küldő csoportok törlése
-  execute(
+  await execute(
     `DELETE FROM sender_groups WHERE email NOT IN (SELECT DISTINCT from_email FROM emails WHERE from_email IS NOT NULL)`,
   );
 
   return {
-    topics: 0, // sql.js nem ad vissza affected rows-t
+    topics: 0, // TODO: use changes() for affected rows count
     senderGroups: 0,
   };
 }

@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import logger from '../utils/logger.js';
-import { getDb } from '../db/index.js';
+import { getPool } from '../db/index.js';
 
 // --- Interfaces ---
 
@@ -203,7 +203,7 @@ export function logAIQuery(
  *
  * NOTE: This function validates and transforms the query.
  * The actual database execution should be wired up by the caller
- * using the project's existing DB connection (sql.js).
+ * using the project's existing DB connection (PostgreSQL pool).
  */
 export async function executeAISafeQuery(req: AIQueryRequest): Promise<AIQueryResult> {
   const auditId = randomUUID();
@@ -223,24 +223,19 @@ export async function executeAISafeQuery(req: AIQueryRequest): Promise<AIQueryRe
   // 2. Inject user filter for data isolation (parameterized)
   const { sql: filteredSQL, params } = injectUserFilter(generatedSQL, accountId);
 
-  // 3. Execute query via sql.js
+  // 3. Execute query via PostgreSQL pool
   logger.info('Executing AI-safe query', {
     auditId,
     accountId,
     filteredSQL: filteredSQL.slice(0, 2000),
   });
 
-  const db = getDb();
-  const stmt = db.prepare(filteredSQL);
-  const rawResult: Record<string, unknown>[] = [];
-  try {
-    stmt.bind(params);
-    while (stmt.step()) {
-      rawResult.push(stmt.getAsObject() as Record<string, unknown>);
-    }
-  } finally {
-    stmt.free();
-  }
+  const pool = getPool();
+  // Convert ? params to $1, $2... for PostgreSQL
+  let paramIdx = 0;
+  const pgSQL = filteredSQL.replace(/\?/g, () => `$${++paramIdx}`);
+  const queryResult = await pool.query(pgSQL, params);
+  const rawResult = queryResult.rows as Record<string, unknown>[];
 
   // 4. Validate and truncate results
   const validated = validateQueryResult(rawResult, DEFAULT_MAX_ROWS) as Record<string, unknown>[];

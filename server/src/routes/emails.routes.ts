@@ -89,7 +89,7 @@ function validateEmailAddresses(addressString: string): boolean {
   return true;
 }
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const accountId = validateAccountAccess(req);
     if (!accountId) {
@@ -111,12 +111,12 @@ router.get('/', (req, res) => {
     };
     const orderBy = ALLOWED_SORTS[sort] || 'date DESC';
 
-    const results = queryAll<EmailRecord>(
+    const results = await queryAll<EmailRecord>(
       'SELECT * FROM emails WHERE account_id = ? ORDER BY ' + orderBy + ' LIMIT ? OFFSET ?',
       [accountId, limit, offset],
     );
 
-    const countResult = queryOne<{ total: number }>(
+    const countResult = await queryOne<{ total: number }>(
       'SELECT COUNT(*) as total FROM emails WHERE account_id = ?',
       [accountId],
     );
@@ -146,7 +146,7 @@ router.get('/:id/thread', async (req, res) => {
     }
 
     // Először keressük meg az email thread_id-ját
-    const email = queryOne<EmailRecord>('SELECT * FROM emails WHERE id = ? AND account_id = ?', [
+    const email = await queryOne<EmailRecord>('SELECT * FROM emails WHERE id = ? AND account_id = ?', [
       emailId,
       accountId,
     ]);
@@ -158,8 +158,8 @@ router.get('/:id/thread', async (req, res) => {
 
     // Ha nincs threadId, csak ezt az egy emailt adjuk vissza
     if (!email.thread_id) {
-      const emailAttachments = getEmailAttachments(emailId);
-      const accountInfo = queryOne<{ email: string }>('SELECT email FROM accounts WHERE id = ?', [
+      const emailAttachments = await getEmailAttachments(emailId);
+      const accountInfo = await queryOne<{ email: string }>('SELECT email FROM accounts WHERE id = ?', [
         accountId,
       ]);
       res.json({
@@ -178,7 +178,7 @@ router.get('/:id/thread', async (req, res) => {
     }
 
     // Lekérjük az összes emailt ebből a thread-ből (időrendben)
-    const threadEmails = queryAll<EmailRecord>(
+    const threadEmails = await queryAll<EmailRecord>(
       `SELECT * FROM emails
        WHERE account_id = ? AND thread_id = ?
        ORDER BY date ASC`,
@@ -186,12 +186,12 @@ router.get('/:id/thread', async (req, res) => {
     );
 
     // Lekérjük az account email-jét, hogy tudjuk melyik a "saját" küldés
-    const accountInfo = queryOne<{ email: string }>('SELECT email FROM accounts WHERE id = ?', [
+    const accountInfo = await queryOne<{ email: string }>('SELECT email FROM accounts WHERE id = ?', [
       accountId,
     ]);
 
     // Ha hiányoznak body-k, megpróbáljuk letölteni a Gmail-ből
-    let oauth2Client: ReturnType<typeof getOAuth2ClientForAccount>['oauth2Client'] | null = null;
+    let oauth2Client: Awaited<ReturnType<typeof getOAuth2ClientForAccount>>['oauth2Client'] | null = null;
     let gmail: ReturnType<typeof getGmailClient> | null = null;
 
     const formattedEmails = [];
@@ -203,7 +203,7 @@ router.get('/:id/thread', async (req, res) => {
       if (!emailBody && !emailBodyHtml) {
         try {
           if (!oauth2Client) {
-            const auth = getOAuth2ClientForAccount(accountId);
+            const auth = await getOAuth2ClientForAccount(accountId);
             oauth2Client = auth.oauth2Client;
             gmail = getGmailClient(oauth2Client);
           }
@@ -211,7 +211,7 @@ router.get('/:id/thread', async (req, res) => {
           emailBody = fullMsg.body;
           emailBodyHtml = fullMsg.bodyHtml;
 
-          execute('UPDATE emails SET body = ?, body_html = ? WHERE id = ?', [
+          await execute('UPDATE emails SET body = ?, body_html = ? WHERE id = ?', [
             fullMsg.body,
             fullMsg.bodyHtml,
             threadEmail.id,
@@ -222,7 +222,7 @@ router.get('/:id/thread', async (req, res) => {
         }
       }
 
-      const emailAttachments = getEmailAttachments(threadEmail.id);
+      const emailAttachments = await getEmailAttachments(threadEmail.id);
       const labels = parseLabelsJson(threadEmail.labels, { emailId: threadEmail.id });
 
       formattedEmails.push({
@@ -256,18 +256,18 @@ router.get('/:id', async (req, res) => {
       return;
     }
 
-    let email = queryOne<EmailRecord>('SELECT * FROM emails WHERE id = ? AND account_id = ?', [
+    let email = await queryOne<EmailRecord>('SELECT * FROM emails WHERE id = ? AND account_id = ?', [
       emailId,
       accountId,
     ]);
 
     if (email && !email.body && !email.body_html) {
       try {
-        const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+        const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
         const gmail = getGmailClient(oauth2Client);
         const fullMsg = await getMessage(gmail, emailId);
 
-        execute('UPDATE emails SET body = ?, body_html = ? WHERE id = ?', [
+        await execute('UPDATE emails SET body = ?, body_html = ? WHERE id = ?', [
           fullMsg.body,
           fullMsg.bodyHtml,
           emailId,
@@ -285,7 +285,7 @@ router.get('/:id', async (req, res) => {
       return;
     }
 
-    const emailAttachments = getEmailAttachments(emailId);
+    const emailAttachments = await getEmailAttachments(emailId);
 
     res.json({
       ...formatEmail(email),
@@ -300,8 +300,8 @@ router.get('/:id', async (req, res) => {
 });
 
 // Helper: get undo send delay for an account (0 = disabled)
-function getUndoSendDelay(accountId: string): number {
-  const setting = queryOne<{ value: string }>(
+async function getUndoSendDelay(accountId: string): Promise<number> {
+  const setting = await queryOne<{ value: string }>(
     "SELECT value FROM user_settings WHERE account_id = ? AND key = 'undoSendDelay'",
     [accountId],
   );
@@ -341,7 +341,7 @@ router.post('/send', async (req, res) => {
 
   try {
     // Check undo send delay setting
-    const undoDelay = getUndoSendDelay(accountId);
+    const undoDelay = await getUndoSendDelay(accountId);
 
     if (undoDelay > 0) {
       // Schedule instead of sending immediately
@@ -349,7 +349,7 @@ router.post('/send', async (req, res) => {
       const sendAt = Date.now() + undoDelay * 1000;
       const attachmentsJson = attachments ? JSON.stringify(attachments) : null;
 
-      execute(
+      await execute(
         `INSERT INTO scheduled_emails (id, account_id, to_addresses, cc_addresses, subject, body, scheduled_at, status, created_at, attachments_json, is_undo_send)
          VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, 1)`,
         [scheduledId, accountId, to, cc || null, subject, body, sendAt, Date.now(), attachmentsJson],
@@ -368,7 +368,7 @@ router.post('/send', async (req, res) => {
     }
 
     // No undo delay — send immediately
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
     const result = await sendEmail(gmail, { to, subject, body, cc, attachments });
 
@@ -413,7 +413,7 @@ router.post('/reply', async (req, res) => {
 
   try {
     // Check undo send delay setting
-    const undoDelay = getUndoSendDelay(accountId);
+    const undoDelay = await getUndoSendDelay(accountId);
 
     if (undoDelay > 0) {
       // Schedule reply instead of sending immediately
@@ -421,7 +421,7 @@ router.post('/reply', async (req, res) => {
       const sendAt = Date.now() + undoDelay * 1000;
       const attachmentsJson = attachments ? JSON.stringify(attachments) : null;
 
-      execute(
+      await execute(
         `INSERT INTO scheduled_emails (id, account_id, to_addresses, cc_addresses, subject, body, scheduled_at, status, created_at, in_reply_to, thread_id, attachments_json, is_undo_send)
          VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, 1)`,
         [
@@ -443,7 +443,7 @@ router.post('/reply', async (req, res) => {
     }
 
     // No undo delay — send immediately
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
     const result = await sendEmail(gmail, {
       to,
@@ -480,7 +480,7 @@ router.patch('/:id/read', async (req, res) => {
   }
 
   try {
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
 
     if (isRead) {
@@ -489,7 +489,7 @@ router.patch('/:id/read', async (req, res) => {
       await modifyMessage(gmail, emailId, { addLabels: ['UNREAD'] });
     }
 
-    execute('UPDATE emails SET is_read = ? WHERE id = ? AND account_id = ?', [
+    await execute('UPDATE emails SET is_read = ? WHERE id = ? AND account_id = ?', [
       isRead ? 1 : 0,
       emailId,
       accountId,
@@ -516,7 +516,7 @@ router.patch('/:id/star', async (req, res) => {
   }
 
   try {
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
 
     if (isStarred) {
@@ -525,7 +525,7 @@ router.patch('/:id/star', async (req, res) => {
       await modifyMessage(gmail, emailId, { removeLabels: ['STARRED'] });
     }
 
-    execute('UPDATE emails SET is_starred = ? WHERE id = ? AND account_id = ?', [
+    await execute('UPDATE emails SET is_starred = ? WHERE id = ? AND account_id = ?', [
       isStarred ? 1 : 0,
       emailId,
       accountId,
@@ -563,7 +563,7 @@ router.patch('/batch-read', async (req, res) => {
     }
 
     const placeholders = emailIds.map(() => '?').join(',');
-    execute(`UPDATE emails SET is_read = ? WHERE id IN (${placeholders}) AND account_id = ?`, [
+    await execute(`UPDATE emails SET is_read = ? WHERE id IN (${placeholders}) AND account_id = ?`, [
       isRead ? 1 : 0,
       ...emailIds,
       accountId,
@@ -612,7 +612,7 @@ async function batchDeleteHandler(req: any, res: any) {
   }
 
   try {
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
 
     let successCount = 0;
@@ -623,7 +623,7 @@ async function batchDeleteHandler(req: any, res: any) {
         await trashMessage(gmail, emailId);
 
         // Frissítsük az adatbázisban is
-        const email = queryOne<{ labels: string | null }>(
+        const email = await queryOne<{ labels: string | null }>(
           'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
           [emailId, accountId],
         );
@@ -632,7 +632,7 @@ async function batchDeleteHandler(req: any, res: any) {
           const currentLabels = parseLabelsJson(email.labels, { emailId });
 
           const newLabels = [...currentLabels.filter((l: string) => l !== 'INBOX'), 'TRASH'];
-          execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
+          await execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
             JSON.stringify(newLabels),
             emailId,
             accountId,
@@ -663,13 +663,13 @@ router.delete('/:id', async (req, res) => {
   }
 
   try {
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
 
     await trashMessage(gmail, emailId);
 
     // Frissítsük az adatbázisban is - hozzáadjuk a TRASH labelt
-    const email = queryOne<{ labels: string | null }>(
+    const email = await queryOne<{ labels: string | null }>(
       'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
       [emailId, accountId],
     );
@@ -679,7 +679,7 @@ router.delete('/:id', async (req, res) => {
 
       // Hozzáadjuk a TRASH labelt és eltávolítjuk az INBOX-ot
       const newLabels = [...currentLabels.filter((l: string) => l !== 'INBOX'), 'TRASH'];
-      execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
+      await execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
         JSON.stringify(newLabels),
         emailId,
         accountId,
@@ -760,3 +760,4 @@ function parseEmailAddresses(addressString: string): Array<{ email: string; name
 }
 
 export default router;
+

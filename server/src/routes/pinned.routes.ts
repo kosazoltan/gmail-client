@@ -6,14 +6,14 @@ import { queryAll, queryOne, execute } from '../db/index.js';
 const router = Router();
 
 // Rögzített emailek listázása
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
       return res.status(401).json({ error: 'Nincs aktív fiók' });
     }
 
-    const pinnedEmails = queryAll<{ email_id: string; pinned_at: number }>(
+    const pinnedEmails = await queryAll<{ email_id: string; pinned_at: number }>(
       'SELECT email_id, pinned_at FROM pinned_emails WHERE account_id = ? ORDER BY pinned_at DESC',
       [accountId],
     );
@@ -26,7 +26,7 @@ router.get('/', (req, res) => {
 });
 
 // Email rögzítése (pin)
-router.post('/:emailId', (req, res) => {
+router.post('/:emailId', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -36,7 +36,7 @@ router.post('/:emailId', (req, res) => {
     const { emailId } = req.params;
 
     // Ellenőrizzük, hogy az email létezik és ehhez a fiókhoz tartozik
-    const email = queryOne<{ id: string }>(
+    const email = await queryOne<{ id: string }>(
       'SELECT id FROM emails WHERE id = ? AND account_id = ?',
       [emailId, accountId],
     );
@@ -46,7 +46,7 @@ router.post('/:emailId', (req, res) => {
     }
 
     // Ellenőrizzük, hogy már rögzítve van-e
-    const existing = queryOne<{ id: string }>(
+    const existing = await queryOne<{ id: string }>(
       'SELECT id FROM pinned_emails WHERE email_id = ? AND account_id = ?',
       [emailId, accountId],
     );
@@ -58,7 +58,7 @@ router.post('/:emailId', (req, res) => {
     const id = uuidv4();
     const now = Date.now();
 
-    execute('INSERT INTO pinned_emails (id, email_id, account_id, pinned_at) VALUES (?, ?, ?, ?)', [
+    await execute('INSERT INTO pinned_emails (id, email_id, account_id, pinned_at) VALUES (?, ?, ?, ?)', [
       id,
       emailId,
       accountId,
@@ -73,7 +73,7 @@ router.post('/:emailId', (req, res) => {
 });
 
 // Email rögzítés feloldása (unpin)
-router.delete('/:emailId', (req, res) => {
+router.delete('/:emailId', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -82,7 +82,7 @@ router.delete('/:emailId', (req, res) => {
 
     const { emailId } = req.params;
 
-    execute('DELETE FROM pinned_emails WHERE email_id = ? AND account_id = ?', [
+    await execute('DELETE FROM pinned_emails WHERE email_id = ? AND account_id = ?', [
       emailId,
       accountId,
     ]);
@@ -95,7 +95,7 @@ router.delete('/:emailId', (req, res) => {
 });
 
 // Pin toggle (kényelmesebb endpoint)
-router.post('/:emailId/toggle', (req, res) => {
+router.post('/:emailId/toggle', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -105,7 +105,7 @@ router.post('/:emailId/toggle', (req, res) => {
     const { emailId } = req.params;
 
     // Ellenőrizzük, hogy az email létezik
-    const email = queryOne<{ id: string }>(
+    const email = await queryOne<{ id: string }>(
       'SELECT id FROM emails WHERE id = ? AND account_id = ?',
       [emailId, accountId],
     );
@@ -114,14 +114,14 @@ router.post('/:emailId/toggle', (req, res) => {
       return res.status(404).json({ error: 'Email nem található' });
     }
 
-    const existing = queryOne<{ id: string }>(
+    const existing = await queryOne<{ id: string }>(
       'SELECT id FROM pinned_emails WHERE email_id = ? AND account_id = ?',
       [emailId, accountId],
     );
 
     if (existing) {
       // Unpin
-      execute('DELETE FROM pinned_emails WHERE id = ? AND account_id = ?', [
+      await execute('DELETE FROM pinned_emails WHERE id = ? AND account_id = ?', [
         existing.id,
         accountId,
       ]);
@@ -130,7 +130,7 @@ router.post('/:emailId/toggle', (req, res) => {
       // Pin
       const id = uuidv4();
       const now = Date.now();
-      execute(
+      await execute(
         'INSERT INTO pinned_emails (id, email_id, account_id, pinned_at) VALUES (?, ?, ?, ?)',
         [id, emailId, accountId, now],
       );

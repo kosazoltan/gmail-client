@@ -11,14 +11,14 @@ import {
 const router = Router();
 
 // Hírlevél küldők listázása
-router.get('/senders', (req, res) => {
+router.get('/senders', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
       return res.status(401).json({ error: 'Nincs bejelentkezve' });
     }
 
-    const senders = getNewsletterSenders(accountId);
+    const senders = await getNewsletterSenders(accountId);
 
     return res.json({
       senders: senders.map((s) => ({
@@ -37,7 +37,7 @@ router.get('/senders', (req, res) => {
 });
 
 // Hírlevél detektálás futtatása
-router.post('/sync', (req, res) => {
+router.post('/sync', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -58,7 +58,7 @@ router.post('/sync', (req, res) => {
 });
 
 // Küldő némítása/feloldása
-router.patch('/senders/:id/mute', (req, res) => {
+router.patch('/senders/:id/mute', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -86,7 +86,7 @@ router.patch('/senders/:id/mute', (req, res) => {
 });
 
 // Küldő eltávolítása a hírlevél listából
-router.delete('/senders/:id', (req, res) => {
+router.delete('/senders/:id', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -109,7 +109,7 @@ router.delete('/senders/:id', (req, res) => {
 });
 
 // Hírlevél emailek listázása
-router.get('/emails', (req, res) => {
+router.get('/emails', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -136,14 +136,14 @@ router.get('/emails', (req, res) => {
 });
 
 // Hírlevél statisztikák
-router.get('/stats', (req, res) => {
+router.get('/stats', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
       return res.status(401).json({ error: 'Nincs bejelentkezve' });
     }
 
-    const senders = getNewsletterSenders(accountId);
+    const senders = await getNewsletterSenders(accountId);
     const totalSenders = senders.length;
     const mutedSenders = senders.filter((s) => s.is_muted === 1).length;
     const totalEmails = senders.reduce((sum, s) => sum + s.email_count, 0);

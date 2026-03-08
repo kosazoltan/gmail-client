@@ -82,7 +82,7 @@ export function broadcastEvent(accountId: string, event: string, data: unknown) 
 }
 
 // GET /api/sse/events — SSE stream for real-time updates
-router.get('/events', (req, res) => {
+router.get('/events', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   const accountIds = req.session?.accountIds || [];
 

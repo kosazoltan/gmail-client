@@ -16,19 +16,19 @@ function validateAccountAccess(req: Request): string | null {
   return accountId;
 }
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const accountId = validateAccountAccess(req);
   if (!accountId) {
     res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
     return;
   }
 
-  const cats = queryAll('SELECT * FROM categories WHERE account_id = ?', [accountId]);
+  const cats = await queryAll('SELECT * FROM categories WHERE account_id = ?', [accountId]);
   res.json({ categories: cats });
 });
 
 // Get categories for a specific email (must be before /:id routes)
-router.get('/for-email/:emailId', (req, res) => {
+router.get('/for-email/:emailId', async (req, res) => {
   const accountId = validateAccountAccess(req);
   if (!accountId) {
     res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
@@ -36,7 +36,7 @@ router.get('/for-email/:emailId', (req, res) => {
   }
 
   const { emailId } = req.params;
-  const categories = queryAll<{ id: string; name: string; color: string; icon: string }>(
+  const categories = await queryAll<{ id: string; name: string; color: string; icon: string }>(
     `SELECT c.id, c.name, c.color, c.icon FROM categories c
      INNER JOIN email_categories ec ON ec.category_id = c.id
      WHERE ec.email_id = ? AND ec.account_id = ?`,
@@ -45,7 +45,7 @@ router.get('/for-email/:emailId', (req, res) => {
   res.json({ categories });
 });
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const accountId = validateAccountAccess(req);
   if (!accountId) {
     res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
@@ -59,14 +59,14 @@ router.post('/', (req, res) => {
   }
 
   const id = uuidv4();
-  execute(
+  await execute(
     'INSERT INTO categories (id, name, color, icon, is_system, account_id, description, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [id, name, color || '#6B7280', icon || 'folder', 0, accountId, description || null, sort_order || 0, Date.now()],
   );
   res.json({ id, name, color: color || '#6B7280', icon: icon || 'folder', is_system: 0, isSystem: false, description: description || null, sort_order: sort_order || 0 });
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   const accountId = validateAccountAccess(req);
   if (!accountId) {
     res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
@@ -77,7 +77,7 @@ router.put('/:id', (req, res) => {
   const { name, color, icon, description, sort_order } = req.body;
 
   // Ellenőrizzük, hogy a kategória a felhasználóé
-  const existing = queryOne<{ account_id: string; is_system: number }>(
+  const existing = await queryOne<{ account_id: string; is_system: number }>(
     'SELECT account_id, is_system FROM categories WHERE id = ? AND account_id = ?',
     [categoryId, accountId],
   );
@@ -117,7 +117,7 @@ router.put('/:id', (req, res) => {
 
   if (updates.length > 0) {
     params.push(categoryId, accountId);
-    execute(
+    await execute(
       'UPDATE categories SET ' + updates.join(', ') + ' WHERE id = ? AND account_id = ?',
       params,
     );
@@ -125,7 +125,7 @@ router.put('/:id', (req, res) => {
   res.json({ success: true });
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   const accountId = validateAccountAccess(req);
   if (!accountId) {
     res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
@@ -133,7 +133,7 @@ router.delete('/:id', (req, res) => {
   }
 
   const categoryId = req.params.id;
-  const cat = queryOne<{ id: string; is_system: number; account_id: string }>(
+  const cat = await queryOne<{ id: string; is_system: number; account_id: string }>(
     'SELECT id, is_system, account_id FROM categories WHERE id = ? AND account_id = ?',
     [categoryId, accountId],
   );
@@ -147,9 +147,9 @@ router.delete('/:id', (req, res) => {
     return;
   }
 
-  runInTransaction(() => {
-    execute('DELETE FROM email_categories WHERE category_id = ? AND account_id = ?', [categoryId, accountId]);
-    execute('DELETE FROM categories WHERE id = ? AND account_id = ?', [categoryId, accountId]);
+  await runInTransaction(async () => {
+    await execute('DELETE FROM email_categories WHERE category_id = ? AND account_id = ?', [categoryId, accountId]);
+    await execute('DELETE FROM categories WHERE id = ? AND account_id = ?', [categoryId, accountId]);
   });
   res.json({ success: true });
 });
@@ -157,7 +157,7 @@ router.delete('/:id', (req, res) => {
 // === Email-Category relationship endpoints ===
 
 // Add email to user category
-router.post('/:id/add-email', (req, res) => {
+router.post('/:id/add-email', async (req, res) => {
   const accountId = validateAccountAccess(req);
   if (!accountId) {
     res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
@@ -172,7 +172,7 @@ router.post('/:id/add-email', (req, res) => {
   }
 
   // Check category exists and belongs to user
-  const cat = queryOne<{ id: string; account_id: string }>(
+  const cat = await queryOne<{ id: string; account_id: string }>(
     'SELECT id, account_id FROM categories WHERE id = ? AND account_id = ?',
     [categoryId, accountId],
   );
@@ -182,7 +182,7 @@ router.post('/:id/add-email', (req, res) => {
   }
 
   // Check email exists and belongs to user
-  const email = queryOne<{ id: string }>(
+  const email = await queryOne<{ id: string }>(
     'SELECT id FROM emails WHERE id = ? AND account_id = ?',
     [emailId, accountId],
   );
@@ -192,7 +192,7 @@ router.post('/:id/add-email', (req, res) => {
   }
 
   // Check if already assigned
-  const existing = queryOne(
+  const existing = await queryOne(
     'SELECT email_id FROM email_categories WHERE email_id = ? AND category_id = ?',
     [emailId, categoryId],
   );
@@ -201,7 +201,7 @@ router.post('/:id/add-email', (req, res) => {
     return;
   }
 
-  execute(
+  await execute(
     'INSERT INTO email_categories (email_id, category_id, account_id, created_at) VALUES (?, ?, ?, ?)',
     [emailId, categoryId, accountId, Date.now()],
   );
@@ -209,7 +209,7 @@ router.post('/:id/add-email', (req, res) => {
 });
 
 // Remove email from user category
-router.post('/:id/remove-email', (req, res) => {
+router.post('/:id/remove-email', async (req, res) => {
   const accountId = validateAccountAccess(req);
   if (!accountId) {
     res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
@@ -223,7 +223,7 @@ router.post('/:id/remove-email', (req, res) => {
     return;
   }
 
-  execute(
+  await execute(
     'DELETE FROM email_categories WHERE email_id = ? AND category_id = ? AND account_id = ?',
     [emailId, categoryId, accountId],
   );
@@ -231,7 +231,7 @@ router.post('/:id/remove-email', (req, res) => {
 });
 
 // Get emails in a user category (paginated)
-router.get('/:id/emails', (req, res) => {
+router.get('/:id/emails', async (req, res) => {
   const accountId = validateAccountAccess(req);
   if (!accountId) {
     res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
@@ -244,7 +244,7 @@ router.get('/:id/emails', (req, res) => {
   const offset = (page - 1) * limit;
 
   // Check category exists
-  const cat = queryOne<{ id: string; is_system: number }>(
+  const cat = await queryOne<{ id: string; is_system: number }>(
     'SELECT id, name, color, icon, is_system, description, sort_order, created_at FROM categories WHERE id = ? AND account_id = ?',
     [categoryId, accountId],
   );
@@ -259,28 +259,28 @@ router.get('/:id/emails', (req, res) => {
   let total: number;
 
   if (cat.is_system) {
-    emails = queryAll<Record<string, unknown>>(
+    emails = await queryAll<Record<string, unknown>>(
       'SELECT * FROM emails WHERE account_id = ? AND category_id = ? ORDER BY date DESC LIMIT ? OFFSET ?',
       [accountId, categoryId, limit, offset],
     );
-    const countResult = queryOne<{ count: number }>(
+    const countResult = await queryOne<{ count: number }>(
       'SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND category_id = ?',
       [accountId, categoryId],
     );
-    total = countResult?.count || 0;
+    total = Number(countResult?.count ?? 0);
   } else {
-    emails = queryAll<Record<string, unknown>>(
+    emails = await queryAll<Record<string, unknown>>(
       `SELECT e.* FROM emails e
        INNER JOIN email_categories ec ON ec.email_id = e.id
        WHERE ec.category_id = ? AND ec.account_id = ?
        ORDER BY e.date DESC LIMIT ? OFFSET ?`,
       [categoryId, accountId, limit, offset],
     );
-    const countResult = queryOne<{ count: number }>(
+    const countResult = await queryOne<{ count: number }>(
       'SELECT COUNT(*) as count FROM email_categories WHERE category_id = ? AND account_id = ?',
       [categoryId, accountId],
     );
-    total = countResult?.count || 0;
+    total = Number(countResult?.count ?? 0);
   }
 
   const formatEmail = (email: Record<string, unknown>) => ({
@@ -310,7 +310,7 @@ router.get('/:id/emails', (req, res) => {
   });
 });
 
-router.get('/rules', (req, res) => {
+router.get('/rules', async (req, res) => {
   // FIX: Use standardized validateAccountAccess helper
   const accountId = validateAccountAccess(req);
   if (!accountId) {
@@ -318,11 +318,11 @@ router.get('/rules', (req, res) => {
     return;
   }
 
-  const rules = queryAll('SELECT * FROM categorization_rules WHERE account_id = ?', [accountId]);
+  const rules = await queryAll('SELECT * FROM categorization_rules WHERE account_id = ?', [accountId]);
   res.json({ rules });
 });
 
-router.post('/rules', (req, res) => {
+router.post('/rules', async (req, res) => {
   const accountId = validateAccountAccess(req);
   if (!accountId) {
     res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
@@ -336,14 +336,14 @@ router.post('/rules', (req, res) => {
   }
 
   const id = uuidv4();
-  execute(
+  await execute(
     'INSERT INTO categorization_rules (id, category_id, type, value, priority, account_id) VALUES (?, ?, ?, ?, ?, ?)',
     [id, categoryId, type, value, priority || 0, accountId],
   );
   res.json({ id, categoryId, type, value, priority: priority || 0 });
 });
 
-router.delete('/rules/:id', (req, res) => {
+router.delete('/rules/:id', async (req, res) => {
   const accountId = validateAccountAccess(req);
   if (!accountId) {
     res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
@@ -351,7 +351,7 @@ router.delete('/rules/:id', (req, res) => {
   }
 
   // Ellenőrizzük, hogy a szabály a felhasználóé
-  const rule = queryOne<{ account_id: string }>(
+  const rule = await queryOne<{ account_id: string }>(
     'SELECT account_id FROM categorization_rules WHERE id = ?',
     [req.params.id],
   );
@@ -360,14 +360,14 @@ router.delete('/rules/:id', (req, res) => {
     return;
   }
 
-  execute('DELETE FROM categorization_rules WHERE id = ? AND account_id = ?', [
+  await execute('DELETE FROM categorization_rules WHERE id = ? AND account_id = ?', [
     req.params.id,
     accountId,
   ]);
   res.json({ success: true });
 });
 
-router.post('/recategorize', (req, res) => {
+router.post('/recategorize', async (req, res) => {
   const accountId = validateAccountAccess(req);
   if (!accountId) {
     res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });

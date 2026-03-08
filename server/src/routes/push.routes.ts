@@ -11,7 +11,7 @@ import {
 const router = Router();
 
 // VAPID public key lekérése (subscription-höz kell)
-router.get('/vapid-public-key', (_req, res) => {
+router.get('/vapid-public-key', async (_req, res) => {
   const publicKey = getVapidPublicKey();
   if (!publicKey) {
     res.status(503).json({ error: 'Push notifications not configured' });
@@ -21,7 +21,7 @@ router.get('/vapid-public-key', (_req, res) => {
 });
 
 // Push subscription regisztráció
-router.post('/subscribe', (req, res) => {
+router.post('/subscribe', async (req, res) => {
   const accountId = req.session.activeAccountId;
   if (!accountId) {
     res.status(401).json({ error: 'Nincs bejelentkezve' });
@@ -44,7 +44,7 @@ router.post('/subscribe', (req, res) => {
 });
 
 // Push subscription törlése
-router.post('/unsubscribe', (req, res) => {
+router.post('/unsubscribe', async (req, res) => {
   const accountId = req.session.activeAccountId;
   if (!accountId) {
     res.status(401).json({ error: 'Nincs bejelentkezve' });
@@ -94,7 +94,7 @@ router.post('/test', async (req, res) => {
 });
 
 // VAPID kulcsok generálása (egyszeri admin művelet)
-router.get('/generate-vapid-keys', (_req, res) => {
+router.get('/generate-vapid-keys', async (_req, res) => {
   // Ez csak fejlesztéshez - production-ben ne legyen elérhető!
   if (process.env.NODE_ENV === 'production') {
     res.status(403).json({ error: 'Not available in production' });

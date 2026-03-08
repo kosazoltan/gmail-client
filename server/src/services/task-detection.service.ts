@@ -73,8 +73,8 @@ function rowToDetectedTask(row: DetectedTaskRow): DetectedTask {
 /**
  * Saját email cím meghatározása az accounts táblából.
  */
-function getAccountEmail(accountId: string): string | null {
-  const row = queryOne<{ email: string }>('SELECT email FROM accounts WHERE id = ?', [accountId]);
+async function getAccountEmail(accountId: string): Promise<string | null> {
+  const row = await queryOne<{ email: string }>('SELECT email FROM accounts WHERE id = ?', [accountId]);
   return row?.email ?? null;
 }
 
@@ -88,8 +88,8 @@ function getAccountEmail(accountId: string): string | null {
  * 4. Prioritás: 7+ nap = high, 3-7 = medium, 1-3 = low
  * 5. Duplikátum elkerülés email_id alapján
  */
-export function detectUnansweredEmails(accountId: string, daysBack: number = 30): DetectedTask[] {
-  const accountEmail = getAccountEmail(accountId);
+export async function detectUnansweredEmails(accountId: string, daysBack: number = 30): Promise<DetectedTask[]> {
+  const accountEmail = await getAccountEmail(accountId);
   if (!accountEmail) {
     logger.warn(`Task detection: no email found for account ${accountId}`);
     return [];
@@ -101,7 +101,7 @@ export function detectUnansweredEmails(accountId: string, daysBack: number = 30)
   const oneDayAgo = now - 1 * 24 * 60 * 60 * 1000;
 
   // 1. Bejövő emailek: nem tőlünk, elmúlt N nap, legalább 1 naposak (olvasott + olvasatlan)
-  const incomingEmails = queryAll<IncomingEmailRow>(
+  const incomingEmails = await queryAll<IncomingEmailRow>(
     `SELECT id, thread_id, subject, from_email, from_name, date, is_read
      FROM emails
      WHERE account_id = ?
@@ -116,7 +116,7 @@ export function detectUnansweredEmails(accountId: string, daysBack: number = 30)
 
   for (const email of incomingEmails) {
     // 5. Duplikátum elkerülés — ha már van detected_task erre az email_id-re → skip
-    const existing = queryOne<{ id: string }>(
+    const existing = await queryOne<{ id: string }>(
       'SELECT id FROM detected_tasks WHERE email_id = ? AND account_id = ?',
       [email.id, accountId],
     );
@@ -125,7 +125,7 @@ export function detectUnansweredEmails(accountId: string, daysBack: number = 30)
     // 2. Thread alapú válasz detekció
     let hasReply = false;
     if (email.thread_id) {
-      const reply = queryOne<{ id: string }>(
+      const reply = await queryOne<{ id: string }>(
         `SELECT id FROM emails
          WHERE thread_id = ?
            AND account_id = ?
@@ -161,7 +161,7 @@ export function detectUnansweredEmails(accountId: string, daysBack: number = 30)
       const id = crypto.randomUUID();
       const taskNow = Date.now();
 
-      execute(
+      await execute(
         `INSERT INTO detected_tasks (id, account_id, email_id, thread_id, subject, from_email, from_name, email_date, detection_type, reason, priority, status, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
         [
@@ -206,7 +206,7 @@ export function detectUnansweredEmails(accountId: string, daysBack: number = 30)
   }
 
   // Meglévő open taskok prioritás frissítése
-  const openTasks = queryAll<{ id: string; email_date: number | null }>(
+  const openTasks = await queryAll<{ id: string; email_date: number | null }>(
     "SELECT id, email_date FROM detected_tasks WHERE account_id = ? AND status = 'open'",
     [accountId],
   );
@@ -214,7 +214,7 @@ export function detectUnansweredEmails(accountId: string, daysBack: number = 30)
     if (task.email_date == null) continue;
     const daysSince = Math.floor((Date.now() - task.email_date) / 86400000);
     const newPriority = daysSince >= 7 ? 'high' : daysSince >= 3 ? 'medium' : 'low';
-    execute('UPDATE detected_tasks SET priority = ?, updated_at = ? WHERE id = ?', [
+    await execute('UPDATE detected_tasks SET priority = ?, updated_at = ? WHERE id = ?', [
       newPriority,
       Date.now(),
       task.id,
@@ -228,12 +228,12 @@ export function detectUnansweredEmails(accountId: string, daysBack: number = 30)
  * SSE progress-szel ellátott változat: detectUnansweredEmails + onProgress callback.
  * Fázisok: 'loading' → 'scanning' → 'updating' → 'done'
  */
-export function detectUnansweredEmailsWithProgress(
+export async function detectUnansweredEmailsWithProgress(
   accountId: string,
   daysBack: number,
   onProgress: (data: { phase: string; processed: number; total: number; found: number; skipped?: number }) => void,
-): { newTasksCount: number; totalProcessed: number; existingSkipped: number } {
-  const accountEmail = getAccountEmail(accountId);
+): Promise<{ newTasksCount: number; totalProcessed: number; existingSkipped: number }> {
+  const accountEmail = await getAccountEmail(accountId);
   if (!accountEmail) {
     logger.warn(`Task detection: no email found for account ${accountId}`);
     return { newTasksCount: 0, totalProcessed: 0, existingSkipped: 0 };
@@ -245,7 +245,7 @@ export function detectUnansweredEmailsWithProgress(
 
   onProgress({ phase: 'loading', processed: 0, total: 0, found: 0 });
 
-  const incomingEmails = queryAll<IncomingEmailRow>(
+  const incomingEmails = await queryAll<IncomingEmailRow>(
     `SELECT id, thread_id, subject, from_email, from_name, date, is_read
      FROM emails
      WHERE account_id = ?
@@ -265,7 +265,7 @@ export function detectUnansweredEmailsWithProgress(
     const email = incomingEmails[i];
 
     // Duplikátum elkerülés
-    const existing = queryOne<{ id: string }>(
+    const existing = await queryOne<{ id: string }>(
       'SELECT id FROM detected_tasks WHERE email_id = ? AND account_id = ?',
       [email.id, accountId],
     );
@@ -280,7 +280,7 @@ export function detectUnansweredEmailsWithProgress(
     // Thread alapú válasz detekció
     let hasReply = false;
     if (email.thread_id) {
-      const reply = queryOne<{ id: string }>(
+      const reply = await queryOne<{ id: string }>(
         `SELECT id FROM emails
          WHERE thread_id = ?
            AND account_id = ?
@@ -313,7 +313,7 @@ export function detectUnansweredEmailsWithProgress(
       const id = crypto.randomUUID();
       const taskNow = Date.now();
 
-      execute(
+      await execute(
         `INSERT INTO detected_tasks (id, account_id, email_id, thread_id, subject, from_email, from_name, email_date, detection_type, reason, priority, status, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
         [
@@ -360,7 +360,7 @@ export function detectUnansweredEmailsWithProgress(
   // Meglévő open taskok prioritás frissítése
   onProgress({ phase: 'updating', processed: incomingEmails.length, total: incomingEmails.length, found: newTasks.length, skipped: existingSkipped });
 
-  const openTasks = queryAll<{ id: string; email_date: number | null }>(
+  const openTasks = await queryAll<{ id: string; email_date: number | null }>(
     "SELECT id, email_date FROM detected_tasks WHERE account_id = ? AND status = 'open'",
     [accountId],
   );
@@ -368,7 +368,7 @@ export function detectUnansweredEmailsWithProgress(
     if (task.email_date == null) continue;
     const daysSince = Math.floor((Date.now() - task.email_date) / 86400000);
     const newPriority = daysSince >= 7 ? 'high' : daysSince >= 3 ? 'medium' : 'low';
-    execute('UPDATE detected_tasks SET priority = ?, updated_at = ? WHERE id = ?', [
+    await execute('UPDATE detected_tasks SET priority = ?, updated_at = ? WHERE id = ?', [
       newPriority,
       Date.now(),
       task.id,
@@ -385,10 +385,10 @@ export function detectUnansweredEmailsWithProgress(
 /**
  * Detected taskok listázása. Szűrés status + priority alapján, dátum DESC.
  */
-export function getDetectedTasks(
+export async function getDetectedTasks(
   accountId: string,
   options: { status?: string; priority?: string; page?: number; limit?: number } = {},
-): { tasks: DetectedTask[]; total: number } {
+): Promise<{ tasks: DetectedTask[]; total: number }> {
   const { status = 'open', priority, page = 1, limit = 50 } = options;
   const safeLimit = Math.min(Math.max(1, limit), 100);
   const offset = (Math.max(1, page) - 1) * safeLimit;
@@ -401,13 +401,13 @@ export function getDetectedTasks(
     params.push(priority);
   }
 
-  const countResult = queryOne<{ total: number }>(
+  const countResult = await queryOne<{ total: number }>(
     `SELECT COUNT(*) as total FROM detected_tasks WHERE ${whereClauses}`,
     params,
   );
   const total = countResult?.total ?? 0;
 
-  const rows = queryAll<DetectedTaskRow>(
+  const rows = await queryAll<DetectedTaskRow>(
     `SELECT * FROM detected_tasks WHERE ${whereClauses} ORDER BY email_date DESC LIMIT ? OFFSET ?`,
     [...params, safeLimit, offset],
   );
@@ -421,24 +421,24 @@ export function getDetectedTasks(
 /**
  * Task status frissítés + ownership check.
  */
-export function updateDetectedTaskStatus(
+export async function updateDetectedTaskStatus(
   taskId: string,
   accountId: string,
   newStatus: string,
   snoozedUntil?: number,
-): boolean {
+): Promise<boolean> {
   const validStatuses = ['open', 'done', 'dismissed', 'snoozed'];
   if (!validStatuses.includes(newStatus)) {
     return false;
   }
 
-  const existing = queryOne<{ id: string }>(
+  const existing = await queryOne<{ id: string }>(
     'SELECT id FROM detected_tasks WHERE id = ? AND account_id = ?',
     [taskId, accountId],
   );
   if (!existing) return false;
 
-  execute(
+  await execute(
     'UPDATE detected_tasks SET status = ?, snoozed_until = ?, updated_at = ? WHERE id = ? AND account_id = ?',
     [newStatus, snoozedUntil ?? null, Date.now(), taskId, accountId],
   );
@@ -448,39 +448,39 @@ export function updateDetectedTaskStatus(
 /**
  * Task törlés + ownership check.
  */
-export function deleteDetectedTask(taskId: string, accountId: string): boolean {
-  const existing = queryOne<{ id: string }>(
+export async function deleteDetectedTask(taskId: string, accountId: string): Promise<boolean> {
+  const existing = await queryOne<{ id: string }>(
     'SELECT id FROM detected_tasks WHERE id = ? AND account_id = ?',
     [taskId, accountId],
   );
   if (!existing) return false;
 
-  execute('DELETE FROM detected_tasks WHERE id = ? AND account_id = ?', [taskId, accountId]);
+  await execute('DELETE FROM detected_tasks WHERE id = ? AND account_id = ?', [taskId, accountId]);
   return true;
 }
 
 /**
  * Statisztika az open taskok számáról prioritás szerint.
  */
-export function getTaskStats(accountId: string): {
+export async function getTaskStats(accountId: string): Promise<{
   open: number;
   high: number;
   medium: number;
   low: number;
-} {
-  const openResult = queryOne<{ total: number }>(
+}> {
+  const openResult = await queryOne<{ total: number }>(
     "SELECT COUNT(*) as total FROM detected_tasks WHERE account_id = ? AND status = 'open'",
     [accountId],
   );
-  const highResult = queryOne<{ total: number }>(
+  const highResult = await queryOne<{ total: number }>(
     "SELECT COUNT(*) as total FROM detected_tasks WHERE account_id = ? AND status = 'open' AND priority = 'high'",
     [accountId],
   );
-  const mediumResult = queryOne<{ total: number }>(
+  const mediumResult = await queryOne<{ total: number }>(
     "SELECT COUNT(*) as total FROM detected_tasks WHERE account_id = ? AND status = 'open' AND priority = 'medium'",
     [accountId],
   );
-  const lowResult = queryOne<{ total: number }>(
+  const lowResult = await queryOne<{ total: number }>(
     "SELECT COUNT(*) as total FROM detected_tasks WHERE account_id = ? AND status = 'open' AND priority = 'low'",
     [accountId],
   );
@@ -496,15 +496,15 @@ export function getTaskStats(accountId: string): {
 /**
  * Snoozed taskok feloldása — ha snoozed_until lejárt, visszaállítjuk 'open'-re.
  */
-export function processExpiredSnoozedTasks(): number {
+export async function processExpiredSnoozedTasks(): Promise<number> {
   const now = Date.now();
-  const expired = queryAll<{ id: string }>(
+  const expired = await queryAll<{ id: string }>(
     "SELECT id FROM detected_tasks WHERE status = 'snoozed' AND snoozed_until IS NOT NULL AND snoozed_until <= ?",
     [now],
   );
 
   for (const task of expired) {
-    execute(
+    await execute(
       "UPDATE detected_tasks SET status = 'open', snoozed_until = NULL, updated_at = ? WHERE id = ?",
       [now, task.id],
     );
@@ -516,3 +516,4 @@ export function processExpiredSnoozedTasks(): number {
 
   return expired.length;
 }
+

@@ -18,7 +18,7 @@ async function generateAISummary(accountId: string): Promise<{
   const todayMs = todayStart.getTime();
 
   // Get today's emails
-  const emails = queryAll<{
+  const emails = await queryAll<{
     subject: string | null;
     from_email: string | null;
     from_name: string | null;
@@ -139,7 +139,7 @@ router.post('/generate', async (req, res) => {
     const id = uuid();
     const now = Date.now();
 
-    execute(
+    await execute(
       `INSERT INTO daily_briefs (id, account_id, date, summary, highlights, action_items_count, urgent_count, total_emails, generated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(account_id, date) DO UPDATE SET
@@ -171,7 +171,7 @@ router.post('/generate', async (req, res) => {
 });
 
 // GET /api/brief/latest — Get the latest brief for the current account
-router.get('/latest', (req, res) => {
+router.get('/latest', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     const accountIds = req.session?.accountIds || [];
@@ -180,7 +180,7 @@ router.get('/latest', (req, res) => {
       return res.status(401).json({ error: 'Nincs bejelentkezve' });
     }
 
-    const brief = queryOne<{
+    const brief = await queryOne<{
       date: string;
       summary: string;
       highlights: string;

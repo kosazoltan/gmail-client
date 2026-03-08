@@ -5,7 +5,8 @@ import helmet from 'helmet';
 import { createSessionMiddleware, getSessionStore } from './middleware/session.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { deleteProtection } from './middleware/delete-protection.js';
-import { initializeDatabase, stopAutoSave, startAutoSave, queryOne, execute } from './db/index.js';
+import { initializeDatabase, closeDatabase, queryOne, execute } from './db/index.js';
+import type { Server } from 'http';
 import { startBackgroundSync, stopAllBackgroundSyncs } from './services/sync.service.js';
 import { getAllAccounts } from './services/auth.service.js';
 import { v4 as uuidv4 } from 'uuid';
@@ -56,14 +57,14 @@ let scheduledInterval: NodeJS.Timeout | null = null;
 let workflowInterval: NodeJS.Timeout | null = null;
 let taskDetectionInterval: NodeJS.Timeout | null = null;
 let dailyBriefInterval: NodeJS.Timeout | null = null;
-let httpServer: ReturnType<typeof import('http').createServer> | null = null;
+let httpServer: Server | null = null;
 
 /**
  * Lekéri az utolsó detekció idejét az adatbázisból.
  * Szerver restart után NE fusson le feleslegesen a 180 napos scan.
  */
-function getLastDetectionRun(): number {
-  const result = queryOne<{ max_created: number }>('SELECT MAX(created_at) as max_created FROM detected_tasks');
+async function getLastDetectionRun(): Promise<number> {
+  const result = await queryOne<{ max_created: number }>('SELECT MAX(created_at) as max_created FROM detected_tasks');
   return result?.max_created || 0;
 }
 
@@ -170,7 +171,7 @@ async function start() {
   app.use('/api/brief', briefRoutes);
 
   // Health check
-  app.get('/api/health', (_req, res) => {
+  app.get('/api/health', async (_req, res) => {
     res.json({ status: 'ok', timestamp: Date.now() });
   });
 
@@ -178,12 +179,12 @@ async function start() {
   app.use(errorHandler);
 
   // Háttér szinkronizálás indítása — 30s késleltetéssel, hogy a szerver előbb stabilan elinduljon
-  const existingAccounts = getAllAccounts();
-  setTimeout(() => {
+  const existingAccounts = await getAllAccounts();
+  setTimeout(async () => {
     for (const account of existingAccounts) {
       try {
         logger.info(`Starting background sync for account: ${account.email}`);
-        startBackgroundSync(account.id);
+        await startBackgroundSync(account.id);
       } catch (err) {
         logger.error(`Failed to start background sync for ${account.email}`, err);
       }
@@ -214,9 +215,9 @@ async function start() {
 
   // Ütemezett workflow-k feldolgozása percenként
   if (workflowInterval) clearInterval(workflowInterval);
-  workflowInterval = setInterval(() => {
+  workflowInterval = setInterval(async () => {
     try {
-      processScheduledWorkflows();
+      await processScheduledWorkflows();
     } catch (error) {
       logger.error('Error processing scheduled workflows:', error);
     }
@@ -225,23 +226,23 @@ async function start() {
   // Task detection — naponta 1×, 5 percenként ellenőrzi hogy eljött-e az idő
   // Ha van már detected_task az adatbázisban → 30 napos scan, egyébként 180 napos (6 hónap)
   if (taskDetectionInterval) clearInterval(taskDetectionInterval);
-  taskDetectionInterval = setInterval(() => {
+  taskDetectionInterval = setInterval(async () => {
     const now = Date.now();
-    const lastRun = getLastDetectionRun();
+    const lastRun = await getLastDetectionRun();
     if (now - lastRun > 24 * 60 * 60 * 1000) {
       const isFirstRun = lastRun === 0;
       const daysBack = isFirstRun ? 180 : 30;
-      const accounts = getAllAccounts();
+      const accounts = await getAllAccounts();
       for (const account of accounts) {
         try {
-          detectUnansweredEmails(account.id, daysBack);
+          await detectUnansweredEmails(account.id, daysBack);
         } catch (err) {
           logger.error(`Task detection failed for ${account.email}:`, err);
         }
       }
       // Snoozed taskok feloldása
       try {
-        processExpiredSnoozedTasks();
+        await processExpiredSnoozedTasks();
       } catch (err) {
         logger.error('Snoozed task processing failed:', err);
       }
@@ -251,13 +252,13 @@ async function start() {
 
   // Daily brief auto-generation — 8:00 Budapest timezone, check every 5 minutes
   if (dailyBriefInterval) clearInterval(dailyBriefInterval);
-  let lastBriefDate = (() => {
+  let lastBriefDate = await (async () => {
     try {
-      const row = queryOne<{ date: string }>('SELECT date FROM daily_briefs ORDER BY generated_at DESC LIMIT 1');
+      const row = await queryOne<{ date: string }>('SELECT date FROM daily_briefs ORDER BY generated_at DESC LIMIT 1');
       return row?.date || '';
     } catch { return ''; }
   })();
-  dailyBriefInterval = setInterval(() => {
+  dailyBriefInterval = setInterval(async () => {
     // Calculate Budapest time (CET/CEST)
     const now = new Date();
     const budapestTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Budapest' }));
@@ -267,11 +268,11 @@ async function start() {
     // Generate at 8:00, only once per day
     if (hour >= 8 && lastBriefDate !== todayStr) {
       lastBriefDate = todayStr;
-      const accounts = getAllAccounts();
+      const accounts = await getAllAccounts();
       for (const account of accounts) {
-        generateAISummary(account.id).then((result) => {
+        await generateAISummary(account.id).then(async (result) => {
           try {
-            execute(
+            await execute(
               `INSERT INTO daily_briefs (id, account_id, date, summary, highlights, action_items_count, urgent_count, total_emails, generated_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(account_id, date) DO UPDATE SET
@@ -294,7 +295,7 @@ async function start() {
   // Első futtatás 60s késleltetéssel — ne terhelje a startup-ot
   setTimeout(async () => {
     try {
-      processExpiredSnoozes();
+      await processExpiredSnoozes();
     } catch (err) {
       logger.error('Initial snooze processing failed:', err);
     }
@@ -304,9 +305,6 @@ async function start() {
       logger.error('Initial scheduled processing failed:', err);
     }
   }, 60000);
-
-  // Automatikus mentés indítása
-  startAutoSave();
 
   // Memory monitoring — log usage every 5 minutes, force GC if over 350MB
   setInterval(() => {
@@ -331,7 +329,7 @@ async function start() {
 }
 
 // Graceful shutdown - adatbázis mentése kilépés előtt
-function gracefulShutdown(signal: string) {
+async function gracefulShutdown(signal: string) {
   logger.info(`${signal} signal received. Shutting down gracefully...`);
 
   // Stop all background syncs
@@ -365,9 +363,8 @@ function gracefulShutdown(signal: string) {
     store.stopCleanup();
   }
 
-  // Save database
-  stopAutoSave();
-  logger.info('Database saved.');
+  // Close database pool
+  await closeDatabase();
 
   // Close HTTP server to stop accepting new connections, then exit
   if (httpServer) {
@@ -396,8 +393,8 @@ process.on('unhandledRejection', (reason, promise) => {
 
 process.on('uncaughtException', (error) => {
   logger.error('Uncaught Exception - shutting down:', error);
-  // Graceful shutdown on uncaught exceptions - save database first
-  stopAutoSave();
+  // Graceful shutdown on uncaught exceptions - close database first
+  closeDatabase();
   process.exit(1);
 });
 

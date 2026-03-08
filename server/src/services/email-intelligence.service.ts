@@ -77,8 +77,8 @@ interface EmailRow {
   labels: string | null;
 }
 
-function getEmailById(emailId: string): EmailRow | undefined {
-  return queryOne<EmailRow>(
+async function getEmailById(emailId: string): Promise<EmailRow | undefined> {
+  return await queryOne<EmailRow>(
     'SELECT id, account_id, thread_id, subject, from_email, from_name, to_email, snippet, body, date, is_read, labels FROM emails WHERE id = ?',
     [emailId],
   );
@@ -94,11 +94,11 @@ function truncateBody(body: string | null, maxLength = 3000): string {
 // --- 1. Extract Action Items ---
 
 export async function extractActionItems(emailId: string): Promise<ActionItem[]> {
-  const email = getEmailById(emailId);
+  const email = await getEmailById(emailId);
   if (!email) throw new Error('Email nem található');
 
   // Check if action items already exist for this email
-  const existing = queryAll<{ id: string; emailId: string; accountId: string; text: string; dueDate: number | null; isDone: number; createdAt: number }>(
+  const existing = await queryAll<{ id: string; emailId: string; accountId: string; text: string; dueDate: number | null; isDone: number; createdAt: number }>(
     'SELECT id, email_id as emailId, account_id as accountId, text, due_date as dueDate, is_done as isDone, created_at as createdAt FROM action_items WHERE email_id = ?',
     [emailId],
   );
@@ -127,7 +127,7 @@ If no action items, return [].`;
 
   try {
     const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251015', // Haiku: egyszer� JSON kinyer�s
+      model: 'claude-haiku-4-5-20251015', // Haiku: egyszer� JSON kinyer�s
       max_tokens: 1000,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -143,7 +143,7 @@ If no action items, return [].`;
     for (const item of items) {
       const id = crypto.randomUUID();
       const dueDate = item.due_date ? new Date(item.due_date).getTime() : null;
-      execute(
+      await execute(
         'INSERT INTO action_items (id, email_id, account_id, text, due_date, is_done, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)',
         [id, emailId, email.account_id, item.text, dueDate, now],
       );
@@ -165,7 +165,7 @@ If no action items, return [].`;
   }
 }
 
-function extractActionItemsFallback(email: EmailRow): ActionItem[] {
+async function extractActionItemsFallback(email: EmailRow): Promise<ActionItem[]> {
   const bodyText = truncateBody(email.body);
   const keywords = ['kérem', 'kérlek', 'határidő', 'deadline', 'válaszolj', 'küldj', 'please', 'szükséges', 'ASAP', 'sürgős', 'urgent'];
   const sentences = bodyText.split(/[.!?\n]+/).filter(s => s.trim().length > 10);
@@ -177,7 +177,7 @@ function extractActionItemsFallback(email: EmailRow): ActionItem[] {
     if (keywords.some(kw => lower.includes(kw.toLowerCase()))) {
       const id = crypto.randomUUID();
       const text = sentence.trim();
-      execute(
+      await execute(
         'INSERT INTO action_items (id, email_id, account_id, text, due_date, is_done, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)',
         [id, email.id, email.account_id, text, null, now],
       );
@@ -191,7 +191,7 @@ function extractActionItemsFallback(email: EmailRow): ActionItem[] {
 // --- 2. Detect Sentiment ---
 
 export async function detectSentiment(emailId: string): Promise<SentimentResult> {
-  const email = getEmailById(emailId);
+  const email = await getEmailById(emailId);
   if (!email) throw new Error('Email nem található');
 
   const anthropic = getClient();
@@ -210,7 +210,7 @@ Return ONLY JSON: {"sentiment": "urgent|positive|negative|neutral", "confidence"
 
   try {
     const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251015', // Haiku: egyszer� klasszifik�ci�
+      model: 'claude-haiku-4-5-20251015', // Haiku: egyszer� klasszifik�ci�
       max_tokens: 300,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -249,7 +249,7 @@ function detectSentimentFallback(email: EmailRow): SentimentResult {
 // --- 3. Suggest Reply ---
 
 export async function suggestReply(emailId: string): Promise<ReplySuggestion[]> {
-  const email = getEmailById(emailId);
+  const email = await getEmailById(emailId);
   if (!email) throw new Error('Email nem található');
 
   const anthropic = getClient();
@@ -320,8 +320,8 @@ function suggestReplyFallback(email: EmailRow): ReplySuggestion[] {
 
 // --- 4. Find Related Emails ---
 
-export function findRelatedEmails(emailId: string): RelatedEmail[] {
-  const email = getEmailById(emailId);
+export async function findRelatedEmails(emailId: string): Promise<RelatedEmail[]> {
+  const email = await getEmailById(emailId);
   if (!email) throw new Error('Email nem található');
 
   const results: RelatedEmail[] = [];
@@ -330,7 +330,7 @@ export function findRelatedEmails(emailId: string): RelatedEmail[] {
 
   // 1. Same thread
   if (email.thread_id) {
-    const threadEmails = queryAll<EmailRow>(
+    const threadEmails = await queryAll<EmailRow>(
       'SELECT id, subject, from_email, from_name, date FROM emails WHERE thread_id = ? AND id != ? ORDER BY date DESC LIMIT 5',
       [email.thread_id, emailId],
     );
@@ -351,7 +351,7 @@ export function findRelatedEmails(emailId: string): RelatedEmail[] {
 
   // 2. Same sender
   if (email.from_email) {
-    const senderEmails = queryAll<EmailRow>(
+    const senderEmails = await queryAll<EmailRow>(
       'SELECT id, subject, from_email, from_name, date FROM emails WHERE from_email = ? AND id != ? AND account_id = ? ORDER BY date DESC LIMIT 5',
       [email.from_email, emailId, email.account_id],
     );
@@ -381,7 +381,7 @@ export function findRelatedEmails(emailId: string): RelatedEmail[] {
     if (words.length > 0) {
       const conditions = words.map(() => 'subject LIKE ? COLLATE NOCASE').join(' OR ');
       const params = words.map(w => `%${w}%`);
-      const topicEmails = queryAll<EmailRow>(
+      const topicEmails = await queryAll<EmailRow>(
         `SELECT id, subject, from_email, from_name, date FROM emails WHERE (${conditions}) AND id != ? AND account_id = ? ORDER BY date DESC LIMIT 5`,
         [...params, emailId, email.account_id],
       );
@@ -406,16 +406,16 @@ export function findRelatedEmails(emailId: string): RelatedEmail[] {
 
 // --- Sentiment Heuristic ---
 
-function estimateSentimentBreakdown(
+async function estimateSentimentBreakdown(
   accountId: string,
   since: number,
   totalEmails: number,
-): { urgent: number; positive: number; negative: number; neutral: number } {
+): Promise<{ urgent: number; positive: number; negative: number; neutral: number }> {
   const urgentKeywords = ['sürgős', 'urgent', 'asap', 'azonnal', 'kritikus', 'fontos', 'deadline', 'határidő'];
   const positiveKeywords = ['köszön', 'gratulál', 'thank', 'great', 'excellent', 'siker', 'örül'];
   const negativeKeywords = ['probléma', 'hiba', 'panasz', 'reklamáció', 'complaint', 'issue', 'error', 'fail'];
 
-  const emails = queryAll<{ subject: string | null; snippet: string | null }>(
+  const emails = await queryAll<{ subject: string | null; snippet: string | null }>(
     'SELECT subject, snippet FROM emails WHERE account_id = ? AND date >= ? LIMIT 500',
     [accountId, since],
   );
@@ -458,21 +458,21 @@ export async function generateWeeklyReport(accountId: string): Promise<WeeklyRep
   const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
 
   // Total emails this week
-  const totalResult = queryOne<{ total: number }>(
+  const totalResult = await queryOne<{ total: number }>(
     'SELECT COUNT(*) as total FROM emails WHERE account_id = ? AND date >= ?',
     [accountId, weekAgo],
   );
   const totalEmails = totalResult?.total || 0;
 
   // Unread count
-  const unreadResult = queryOne<{ total: number }>(
+  const unreadResult = await queryOne<{ total: number }>(
     'SELECT COUNT(*) as total FROM emails WHERE account_id = ? AND date >= ? AND is_read = 0',
     [accountId, weekAgo],
   );
   const unreadCount = unreadResult?.total || 0;
 
   // Top senders
-  const topSenders = queryAll<{ from_email: string; from_name: string; cnt: number }>(
+  const topSenders = await queryAll<{ from_email: string; from_name: string; cnt: number }>(
     `SELECT from_email, from_name, COUNT(*) as cnt FROM emails
      WHERE account_id = ? AND date >= ? AND from_email IS NOT NULL
      GROUP BY from_email ORDER BY cnt DESC LIMIT 10`,
@@ -480,7 +480,7 @@ export async function generateWeeklyReport(accountId: string): Promise<WeeklyRep
   );
 
   // Top topics (normalized subjects)
-  const topTopics = queryAll<{ subject: string; cnt: number }>(
+  const topTopics = await queryAll<{ subject: string; cnt: number }>(
     `SELECT REPLACE(REPLACE(REPLACE(subject, 'Re: ', ''), 'Fwd: ', ''), 'Fw: ', '') as subject, COUNT(*) as cnt
      FROM emails WHERE account_id = ? AND date >= ? AND subject IS NOT NULL
      GROUP BY 1 ORDER BY cnt DESC LIMIT 10`,
@@ -488,14 +488,14 @@ export async function generateWeeklyReport(accountId: string): Promise<WeeklyRep
   );
 
   // Unanswered: received but not replied (simplified: unread older than 24h)
-  const unansweredResult = queryOne<{ total: number }>(
+  const unansweredResult = await queryOne<{ total: number }>(
     'SELECT COUNT(*) as total FROM emails WHERE account_id = ? AND date >= ? AND date < ? AND is_read = 0',
     [accountId, weekAgo, now - 24 * 60 * 60 * 1000],
   );
   const unansweredCount = unansweredResult?.total || 0;
 
   // Pending action items
-  const pendingResult = queryOne<{ total: number }>(
+  const pendingResult = await queryOne<{ total: number }>(
     'SELECT COUNT(*) as total FROM action_items WHERE account_id = ? AND is_done = 0',
     [accountId],
   );
@@ -548,7 +548,7 @@ Adatok:
     topSenders: topSenders.map(s => ({ email: s.from_email, name: s.from_name || s.from_email, count: s.cnt })),
     topTopics: topTopics.map(t => ({ subject: t.subject, count: t.cnt })),
     unansweredCount,
-    sentimentBreakdown: estimateSentimentBreakdown(accountId, weekAgo, totalEmails),
+    sentimentBreakdown: await estimateSentimentBreakdown(accountId, weekAgo, totalEmails),
     actionItemsPending,
     summary,
   };
@@ -556,15 +556,15 @@ Adatok:
 
 // --- Action item toggle ---
 
-export function toggleActionItem(actionItemId: string, isDone: boolean): void {
-  execute('UPDATE action_items SET is_done = ? WHERE id = ?', [isDone ? 1 : 0, actionItemId]);
+export async function toggleActionItem(actionItemId: string, isDone: boolean): Promise<void> {
+  await execute('UPDATE action_items SET is_done = ? WHERE id = ?', [isDone ? 1 : 0, actionItemId]);
 }
 
-export function getActionItemsByEmail(emailId: string): ActionItem[] {
-  return queryAll<{ id: string; email_id: string; account_id: string; text: string; due_date: number | null; is_done: number; created_at: number }>(
+export async function getActionItemsByEmail(emailId: string): Promise<ActionItem[]> {
+  return (await queryAll<{ id: string; email_id: string; account_id: string; text: string; due_date: number | null; is_done: number; created_at: number }>(
     'SELECT id, email_id, account_id, text, due_date, is_done, created_at FROM action_items WHERE email_id = ?',
     [emailId],
-  ).map(row => ({
+  )).map(row => ({
     id: row.id,
     emailId: row.email_id,
     accountId: row.account_id,

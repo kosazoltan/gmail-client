@@ -64,7 +64,7 @@ router.get('/', async (req, res) => {
   }
 
   try {
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
     const labels = await listLabels(gmail);
 
@@ -102,7 +102,7 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
     const label = await createLabel(gmail, { name: trimmedName, backgroundColor, textColor });
 
@@ -124,7 +124,7 @@ router.delete('/:labelId', async (req, res) => {
   const { labelId } = req.params;
 
   try {
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
     await deleteLabel(gmail, labelId);
 
@@ -157,7 +157,7 @@ router.post('/email/:emailId/add', async (req, res) => {
   }
 
   try {
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
 
     await modifyMessage(gmail, emailId, { addLabels: labelIds });
@@ -166,7 +166,7 @@ router.post('/email/:emailId/add', async (req, res) => {
     // If DB update fails after Gmail success, log warning but return success
     // (next sync will fix the inconsistency)
     try {
-      const email = queryOne<{ labels: string | null }>(
+      const email = await queryOne<{ labels: string | null }>(
         'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
         [emailId, accountId],
       );
@@ -174,7 +174,7 @@ router.post('/email/:emailId/add', async (req, res) => {
       if (email) {
         const currentLabels = safeParseLabels(email.labels);
         const newLabels = [...new Set([...currentLabels, ...labelIds])];
-        execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
+        await execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
           JSON.stringify(newLabels),
           emailId,
           accountId,
@@ -217,7 +217,7 @@ router.post('/email/:emailId/remove', async (req, res) => {
   }
 
   try {
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
 
     await modifyMessage(gmail, emailId, { removeLabels: labelIds });
@@ -226,7 +226,7 @@ router.post('/email/:emailId/remove', async (req, res) => {
     // If DB update fails after Gmail success, log warning but return success
     // (next sync will fix the inconsistency)
     try {
-      const email = queryOne<{ labels: string | null }>(
+      const email = await queryOne<{ labels: string | null }>(
         'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
         [emailId, accountId],
       );
@@ -234,7 +234,7 @@ router.post('/email/:emailId/remove', async (req, res) => {
       if (email) {
         const currentLabels = safeParseLabels(email.labels);
         const newLabels = currentLabels.filter((l) => !labelIds.includes(l));
-        execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
+        await execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
           JSON.stringify(newLabels),
           emailId,
           accountId,
@@ -281,7 +281,7 @@ router.post('/email/:emailId/move', async (req, res) => {
   }
 
   try {
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
 
     await modifyMessage(gmail, emailId, {
@@ -290,7 +290,7 @@ router.post('/email/:emailId/move', async (req, res) => {
     });
 
     // Frissítsük az adatbázisban is (account_id validációval)
-    const email = queryOne<{ labels: string | null }>(
+    const email = await queryOne<{ labels: string | null }>(
       'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
       [emailId, accountId],
     );
@@ -308,7 +308,7 @@ router.post('/email/:emailId/move', async (req, res) => {
         currentLabels = [...new Set([...currentLabels, ...validAddLabelIds])];
       }
 
-      execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
+      await execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
         JSON.stringify(currentLabels),
         emailId,
         accountId,

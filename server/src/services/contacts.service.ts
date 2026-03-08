@@ -13,11 +13,11 @@ interface Contact {
 }
 
 // Kontakt hozzáadása vagy frissítése
-export function upsertContact(accountId: string, email: string, name?: string | null): Contact {
+export async function upsertContact(accountId: string, email: string, name?: string | null): Promise<Contact> {
   const normalizedEmail = email.toLowerCase().trim();
 
   // Ellenőrizzük, hogy létezik-e már
-  const existing = queryOne<Contact>('SELECT * FROM contacts WHERE email = ? AND account_id = ?', [
+  const existing = await queryOne<Contact>('SELECT * FROM contacts WHERE email = ? AND account_id = ?', [
     normalizedEmail,
     accountId,
   ]);
@@ -26,7 +26,7 @@ export function upsertContact(accountId: string, email: string, name?: string | 
     // Frissítjük a gyakoriságot és az utolsó használat idejét
     // Ha van új név és az régi üres, frissítjük
     const newName = name && !existing.name ? name : existing.name;
-    execute(
+    await execute(
       'UPDATE contacts SET frequency = frequency + 1, last_used_at = ?, name = ? WHERE id = ?',
       [Date.now(), newName, existing.id],
     );
@@ -41,7 +41,7 @@ export function upsertContact(accountId: string, email: string, name?: string | 
   // Új kontakt létrehozása
   const id = uuid();
   const now = Date.now();
-  execute(
+  await execute(
     'INSERT INTO contacts (id, email, name, frequency, last_used_at, account_id) VALUES (?, ?, ?, ?, ?, ?)',
     [id, normalizedEmail, name || null, 1, now, accountId],
   );
@@ -57,10 +57,10 @@ export function upsertContact(accountId: string, email: string, name?: string | 
 }
 
 // Kontaktok keresése autocomplete-hez
-export function searchContacts(accountId: string, query: string, limit = 10): Contact[] {
+export async function searchContacts(accountId: string, query: string, limit = 10): Promise<Contact[]> {
   const searchQuery = `%${query.toLowerCase()}%`;
 
-  return queryAll<Contact>(
+  return await queryAll<Contact>(
     `SELECT * FROM contacts
      WHERE account_id = ? AND (LOWER(email) LIKE ? OR LOWER(name) LIKE ?)
      ORDER BY frequency DESC, last_used_at DESC
@@ -70,8 +70,8 @@ export function searchContacts(accountId: string, query: string, limit = 10): Co
 }
 
 // Összes kontakt lekérése (gyakoriság szerinti sorrendben)
-export function getAllContacts(accountId: string): Contact[] {
-  return queryAll<Contact>(
+export async function getAllContacts(accountId: string): Promise<Contact[]> {
+  return await queryAll<Contact>(
     'SELECT * FROM contacts WHERE account_id = ? ORDER BY frequency DESC, last_used_at DESC',
     [accountId],
   );
@@ -138,46 +138,46 @@ function parseEmailAddresses(addressString: string): Array<{ email: string; name
 }
 
 // Kontakt törlése
-export function deleteContact(accountId: string, contactId: string): boolean {
-  const existing = queryOne<Contact>('SELECT * FROM contacts WHERE id = ? AND account_id = ?', [
+export async function deleteContact(accountId: string, contactId: string): Promise<boolean> {
+  const existing = await queryOne<Contact>('SELECT * FROM contacts WHERE id = ? AND account_id = ?', [
     contactId,
     accountId,
   ]);
 
   if (!existing) return false;
 
-  execute('DELETE FROM contacts WHERE id = ?', [contactId]);
+  await execute('DELETE FROM contacts WHERE id = ?', [contactId]);
   return true;
 }
 
 // Kontakt frissítése (név módosítása)
-export function updateContactName(
+export async function updateContactName(
   accountId: string,
   contactId: string,
   name: string,
-): Contact | null {
-  const existing = queryOne<Contact>('SELECT * FROM contacts WHERE id = ? AND account_id = ?', [
+): Promise<Contact | null> {
+  const existing = await queryOne<Contact>('SELECT * FROM contacts WHERE id = ? AND account_id = ?', [
     contactId,
     accountId,
   ]);
 
   if (!existing) return null;
 
-  execute('UPDATE contacts SET name = ? WHERE id = ?', [name, contactId]);
+  await execute('UPDATE contacts SET name = ? WHERE id = ?', [name, contactId]);
   return { ...existing, name };
 }
 
 // Ellenőrzés, hogy van-e már kontakt kinyerve ehhez a fiókhoz
-export function hasExtractedContacts(accountId: string): boolean {
-  const result = queryOne<{ count: number }>(
+export async function hasExtractedContacts(accountId: string): Promise<boolean> {
+  const result = await queryOne<{ count: number }>(
     'SELECT COUNT(*) as count FROM contacts WHERE account_id = ?',
     [accountId],
   );
-  return (result?.count || 0) > 0;
+  return Number(result?.count ?? 0) > 0;
 }
 
 // Meglévő emailekből kontaktok kinyerése (egyszeri migráció)
-export function extractContactsFromExistingEmails(accountId: string): number {
+export async function extractContactsFromExistingEmails(accountId: string): Promise<number> {
   interface EmailRow {
     from_email: string | null;
     from_name: string | null;
@@ -185,7 +185,7 @@ export function extractContactsFromExistingEmails(accountId: string): number {
     cc_email: string | null;
   }
 
-  const emails = queryAll<EmailRow>(
+  const emails = await queryAll<EmailRow>(
     'SELECT from_email, from_name, to_email, cc_email FROM emails WHERE account_id = ?',
     [accountId],
   );
@@ -263,8 +263,8 @@ function fixMojibake(text: string): string {
 }
 
 // Összes kontakt nevének javítása (mojibake fix)
-export function fixContactNamesEncoding(accountId: string): number {
-  const contacts = queryAll<Contact>(
+export async function fixContactNamesEncoding(accountId: string): Promise<number> {
+  const contacts = await queryAll<Contact>(
     'SELECT * FROM contacts WHERE account_id = ? AND name IS NOT NULL',
     [accountId],
   );
@@ -277,7 +277,7 @@ export function fixContactNamesEncoding(accountId: string): number {
     const fixedName = fixMojibake(contact.name);
 
     if (fixedName !== contact.name) {
-      execute('UPDATE contacts SET name = ? WHERE id = ?', [fixedName, contact.id]);
+      await execute('UPDATE contacts SET name = ? WHERE id = ?', [fixedName, contact.id]);
       logger.info(`Kontakt név javítva: "${contact.name}" -> "${fixedName}"`);
       fixedCount++;
     }
@@ -287,13 +287,13 @@ export function fixContactNamesEncoding(accountId: string): number {
 }
 
 // Összes sender_group nevének javítása (mojibake fix)
-export function fixSenderGroupNamesEncoding(accountId: string): number {
+export async function fixSenderGroupNamesEncoding(accountId: string): Promise<number> {
   interface SenderGroup {
     id: string;
     name: string | null;
   }
 
-  const groups = queryAll<SenderGroup>(
+  const groups = await queryAll<SenderGroup>(
     'SELECT id, name FROM sender_groups WHERE account_id = ? AND name IS NOT NULL',
     [accountId],
   );
@@ -306,7 +306,7 @@ export function fixSenderGroupNamesEncoding(accountId: string): number {
     const fixedName = fixMojibake(group.name);
 
     if (fixedName !== group.name) {
-      execute('UPDATE sender_groups SET name = ? WHERE id = ?', [fixedName, group.id]);
+      await execute('UPDATE sender_groups SET name = ? WHERE id = ?', [fixedName, group.id]);
       logger.info(`Sender group név javítva: "${group.name}" -> "${fixedName}"`);
       fixedCount++;
     }
@@ -316,13 +316,13 @@ export function fixSenderGroupNamesEncoding(accountId: string): number {
 }
 
 // Összes email from_name javítása (mojibake fix)
-export function fixEmailNamesEncoding(accountId: string): number {
+export async function fixEmailNamesEncoding(accountId: string): Promise<number> {
   interface EmailName {
     id: string;
     from_name: string | null;
   }
 
-  const emails = queryAll<EmailName>(
+  const emails = await queryAll<EmailName>(
     'SELECT id, from_name FROM emails WHERE account_id = ? AND from_name IS NOT NULL',
     [accountId],
   );
@@ -335,7 +335,7 @@ export function fixEmailNamesEncoding(accountId: string): number {
     const fixedName = fixMojibake(email.from_name);
 
     if (fixedName !== email.from_name) {
-      execute('UPDATE emails SET from_name = ? WHERE id = ?', [fixedName, email.id]);
+      await execute('UPDATE emails SET from_name = ? WHERE id = ?', [fixedName, email.id]);
       fixedCount++;
     }
   }
@@ -344,16 +344,16 @@ export function fixEmailNamesEncoding(accountId: string): number {
 }
 
 // Minden név javítása egyszerre
-export function fixAllNamesEncoding(accountId: string): {
+export async function fixAllNamesEncoding(accountId: string): Promise<{
   contacts: number;
   senderGroups: number;
   emails: number;
-} {
+}> {
   logger.info(`Karakterkódolás javítása a(z) ${accountId} fiókhoz...`);
 
-  const contactsFixed = fixContactNamesEncoding(accountId);
-  const senderGroupsFixed = fixSenderGroupNamesEncoding(accountId);
-  const emailsFixed = fixEmailNamesEncoding(accountId);
+  const contactsFixed = await fixContactNamesEncoding(accountId);
+  const senderGroupsFixed = await fixSenderGroupNamesEncoding(accountId);
+  const emailsFixed = await fixEmailNamesEncoding(accountId);
 
   logger.info(
     `Javítva: ${contactsFixed} kontakt, ${senderGroupsFixed} feladó csoport, ${emailsFixed} email`,
@@ -365,3 +365,4 @@ export function fixAllNamesEncoding(accountId: string): {
     emails: emailsFixed,
   };
 }
+

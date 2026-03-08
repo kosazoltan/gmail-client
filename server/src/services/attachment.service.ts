@@ -2,12 +2,12 @@ import { queryOne, queryAll } from '../db/index.js';
 import { getOAuth2ClientForAccount } from './auth.service.js';
 import { getGmailClient, getAttachment } from './gmail.service.js';
 
-export function getAttachmentInfo(attachmentId: string) {
-  return queryOne('SELECT * FROM attachments WHERE id = ?', [attachmentId]);
+export async function getAttachmentInfo(attachmentId: string) {
+  return await queryOne('SELECT * FROM attachments WHERE id = ?', [attachmentId]);
 }
 
 export async function downloadAttachment(attachmentId: string) {
-  const attachment = queryOne<{
+  const attachment = await queryOne<{
     id: string;
     email_id: string;
     filename: string;
@@ -20,7 +20,7 @@ export async function downloadAttachment(attachmentId: string) {
     throw new Error('Melléklet nem található');
   }
 
-  const email = queryOne<{ id: string; account_id: string }>(
+  const email = await queryOne<{ id: string; account_id: string }>(
     'SELECT id, account_id FROM emails WHERE id = ?',
     [attachment.email_id],
   );
@@ -29,7 +29,7 @@ export async function downloadAttachment(attachmentId: string) {
     throw new Error('Email nem található');
   }
 
-  const { oauth2Client } = getOAuth2ClientForAccount(email.account_id);
+  const { oauth2Client } = await getOAuth2ClientForAccount(email.account_id);
   const gmail = getGmailClient(oauth2Client);
 
   const data = await getAttachment(gmail, attachment.email_id, attachment.gmail_attachment_id);
@@ -42,13 +42,13 @@ export async function downloadAttachment(attachmentId: string) {
   };
 }
 
-export function getEmailAttachments(emailId: string) {
-  return queryAll('SELECT * FROM attachments WHERE email_id = ?', [emailId]);
+export async function getEmailAttachments(emailId: string) {
+  return await queryAll('SELECT * FROM attachments WHERE email_id = ?', [emailId]);
 }
 
 // Melléklet tulajdonosának (account_id) lekérdezése
-export function getAttachmentOwner(attachmentId: string): string | null {
-  const result = queryOne<{ account_id: string }>(
+export async function getAttachmentOwner(attachmentId: string): Promise<string | null> {
+  const result = await queryOne<{ account_id: string }>(
     `SELECT e.account_id
      FROM attachments a
      JOIN emails e ON a.email_id = e.id
@@ -122,7 +122,7 @@ export interface AttachmentListResult {
   typeStats: Record<string, number>;
 }
 
-export function listAttachments(filter: AttachmentFilter): AttachmentListResult {
+export async function listAttachments(filter: AttachmentFilter): Promise<AttachmentListResult> {
   const { accountId, type, search, sort = 'date', order = 'desc', page = 1, limit = 50 } = filter;
   const offset = (page - 1) * limit;
 
@@ -200,7 +200,7 @@ export function listAttachments(filter: AttachmentFilter): AttachmentListResult 
   }
 
   // Összesítés
-  const countResult = queryOne<{ count: number }>(
+  const countResult = await queryOne<{ count: number }>(
     `SELECT COUNT(*) as count
      FROM attachments a
      JOIN emails e ON a.email_id = e.id
@@ -209,10 +209,10 @@ export function listAttachments(filter: AttachmentFilter): AttachmentListResult 
      ${searchCondition}`,
     [accountId, ...typeParams, ...searchParams],
   );
-  const total = countResult?.count || 0;
+  const total = Number(countResult?.count ?? 0);
 
   // Adatok lekérése
-  const rows = queryAll<{
+  const rows = await queryAll<{
     id: string;
     email_id: string;
     filename: string;
@@ -250,7 +250,7 @@ export function listAttachments(filter: AttachmentFilter): AttachmentListResult 
   }));
 
   // Típus statisztikák
-  const typeStatsRows = queryAll<{ mime_type: string; count: number }>(
+  const typeStatsRows = await queryAll<{ mime_type: string; count: number }>(
     `SELECT a.mime_type, COUNT(*) as count
      FROM attachments a
      JOIN emails e ON a.email_id = e.id

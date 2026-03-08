@@ -25,7 +25,7 @@ function getAccountId(req: { session?: { activeAccountId?: string | null; accoun
 }
 
 // GET /api/detected-tasks — taskok listája
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const accountId = getAccountId(req);
     if (!accountId) {
@@ -37,7 +37,7 @@ router.get('/', (req, res) => {
     const page = parseInt(req.query.page as string, 10) || 1;
     const limit = parseInt(req.query.limit as string, 10) || 50;
 
-    const result = getDetectedTasks(accountId, { status, priority, page, limit });
+    const result = await getDetectedTasks(accountId, { status, priority, page, limit });
 
     return res.json({
       tasks: result.tasks,
@@ -52,7 +52,7 @@ router.get('/', (req, res) => {
 });
 
 // GET /api/detected-tasks/stats — statisztika
-router.get('/stats', (req, res) => {
+router.get('/stats', async (req, res) => {
   try {
     const accountId = getAccountId(req);
     if (!accountId) {
@@ -68,7 +68,7 @@ router.get('/stats', (req, res) => {
 });
 
 // GET /api/detected-tasks/scan-stream — SSE progress scan
-router.get('/scan-stream', (req, res) => {
+router.get('/scan-stream', async (req, res) => {
   try {
     const accountId = getAccountId(req);
     if (!accountId) {
@@ -92,10 +92,10 @@ router.get('/scan-stream', (req, res) => {
       res.write(`data: ${JSON.stringify(data)}\n\n`);
     };
 
-    const result = detectUnansweredEmailsWithProgress(accountId, daysBack, sendProgress);
+    const result = await detectUnansweredEmailsWithProgress(accountId, daysBack, sendProgress);
 
     // Snoozed taskok feloldása
-    const unsnoozed = processExpiredSnoozedTasks();
+    const unsnoozed = await processExpiredSnoozedTasks();
 
     // Végső eredmény
     res.write(`data: ${JSON.stringify({ phase: 'done', newTasksCount: result.newTasksCount, totalProcessed: result.totalProcessed, existingSkipped: result.existingSkipped, unsnoozedCount: unsnoozed })}\n\n`);
@@ -112,7 +112,7 @@ router.get('/scan-stream', (req, res) => {
 });
 
 // POST /api/detected-tasks/scan — kézi scan indítás (backwards compatible)
-router.post('/scan', (req, res) => {
+router.post('/scan', async (req, res) => {
   try {
     const accountId = getAccountId(req);
     if (!accountId) {
@@ -123,10 +123,10 @@ router.post('/scan', (req, res) => {
       ? Math.min(req.body.daysBack, 365)
       : 30;
 
-    const newTasks = detectUnansweredEmails(accountId, daysBack);
+    const newTasks = await detectUnansweredEmails(accountId, daysBack);
 
     // Snoozed taskok feloldása is
-    const unsnoozed = processExpiredSnoozedTasks();
+    const unsnoozed = await processExpiredSnoozedTasks();
 
     return res.json({
       newTasksCount: newTasks.length,
@@ -140,7 +140,7 @@ router.post('/scan', (req, res) => {
 });
 
 // PATCH /api/detected-tasks/:id — status update
-router.patch('/:id', (req, res) => {
+router.patch('/:id', async (req, res) => {
   try {
     const accountId = getAccountId(req);
     if (!accountId) {
@@ -167,7 +167,7 @@ router.patch('/:id', (req, res) => {
 });
 
 // DELETE /api/detected-tasks/:id — task törlés
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const accountId = getAccountId(req);
     if (!accountId) {
@@ -188,7 +188,7 @@ router.delete('/:id', (req, res) => {
 });
 
 // POST /api/detected-tasks/:id/snooze — szundi
-router.post('/:id/snooze', (req, res) => {
+router.post('/:id/snooze', async (req, res) => {
   try {
     const accountId = getAccountId(req);
     if (!accountId) {
@@ -214,3 +214,4 @@ router.post('/:id/snooze', (req, res) => {
 });
 
 export default router;
+

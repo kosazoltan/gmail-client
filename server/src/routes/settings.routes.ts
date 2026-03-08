@@ -13,13 +13,13 @@ interface UserSetting {
 }
 
 // Összes beállítás lekérése
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const accountId = req.session.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
   }
 
-  const settings = queryAll<UserSetting>(
+  const settings = await queryAll<UserSetting>(
     'SELECT key, value FROM user_settings WHERE account_id = ?',
     [accountId],
   );
@@ -38,13 +38,13 @@ router.get('/', (req, res) => {
 });
 
 // Egy beállítás lekérése
-router.get('/:key', (req, res) => {
+router.get('/:key', async (req, res) => {
   const accountId = req.session.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
   }
 
-  const setting = queryOne<UserSetting>(
+  const setting = await queryOne<UserSetting>(
     'SELECT value FROM user_settings WHERE account_id = ? AND key = ?',
     [accountId, req.params.key],
   );
@@ -61,7 +61,7 @@ router.get('/:key', (req, res) => {
 });
 
 // Beállítás mentése/frissítése
-router.put('/:key', (req, res) => {
+router.put('/:key', async (req, res) => {
   const accountId = req.session.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
@@ -92,19 +92,19 @@ router.put('/:key', (req, res) => {
   }
   const valueStr = typeof value === 'string' ? value : JSON.stringify(value);
 
-  const existing = queryOne<{ id: string }>(
+  const existing = await queryOne<{ id: string }>(
     'SELECT id FROM user_settings WHERE account_id = ? AND key = ?',
     [accountId, key],
   );
 
   if (existing) {
-    execute('UPDATE user_settings SET value = ?, updated_at = ? WHERE id = ?', [
+    await execute('UPDATE user_settings SET value = ?, updated_at = ? WHERE id = ?', [
       valueStr,
       Date.now(),
       existing.id,
     ]);
   } else {
-    execute(
+    await execute(
       'INSERT INTO user_settings (id, account_id, key, value, updated_at) VALUES (?, ?, ?, ?, ?)',
       [uuidv4(), accountId, key, valueStr, Date.now()],
     );
@@ -114,13 +114,13 @@ router.put('/:key', (req, res) => {
 });
 
 // Beállítás törlése
-router.delete('/:key', (req, res) => {
+router.delete('/:key', async (req, res) => {
   const accountId = req.session.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
   }
 
-  execute('DELETE FROM user_settings WHERE account_id = ? AND key = ?', [
+  await execute('DELETE FROM user_settings WHERE account_id = ? AND key = ?', [
     accountId,
     req.params.key,
   ]);

@@ -13,7 +13,7 @@ import logger from '../utils/logger.js';
 const router = Router();
 
 // GET /api/smart/priorities — auto-prioritizált emailek
-router.get('/priorities', (req, res) => {
+router.get('/priorities', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -22,20 +22,20 @@ router.get('/priorities', (req, res) => {
 
     // Utolsó 100 olvasatlan email priorizálása
     const limit = parseInt(req.query.limit as string) || 100;
-    const emailIds = queryAll<{ id: string }>(
+    const emailIds = (await queryAll<{ id: string }>(
       `SELECT id FROM emails
        WHERE account_id = ? AND is_read = 0 AND labels NOT LIKE '%TRASH%'
        ORDER BY date DESC LIMIT ?`,
       [accountId, limit],
-    ).map((e) => e.id);
+    )).map((e) => e.id);
 
-    const rawPriorities = autoPrioritize(accountId, emailIds);
+    const rawPriorities = await autoPrioritize(accountId, emailIds);
 
     // Enrich with email data for frontend PriorityEmail format
     const emailDataMap = new Map<string, { subject: string; from_email: string; from_name: string; date: number }>();
     if (rawPriorities.length > 0) {
       const pholders = rawPriorities.map(() => '?').join(',');
-      const emailData = queryAll<{ id: string; subject: string; from_email: string; from_name: string; date: number }>(
+      const emailData = await queryAll<{ id: string; subject: string; from_email: string; from_name: string; date: number }>(
         `SELECT id, subject, from_email, from_name, date FROM emails WHERE id IN (${pholders})`,
         rawPriorities.map(p => p.emailId),
       );
@@ -65,14 +65,14 @@ router.get('/priorities', (req, res) => {
 });
 
 // GET /api/smart/followups — pending follow-upok
-router.get('/followups', (req, res) => {
+router.get('/followups', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
       return res.status(401).json({ error: 'Nincs bejelentkezve' });
     }
 
-    const followups = detectPendingFollowups(accountId);
+    const followups = await detectPendingFollowups(accountId);
     res.json({ followups });
   } catch (error) {
     logger.error('Smart followups error:', error);
@@ -81,14 +81,14 @@ router.get('/followups', (req, res) => {
 });
 
 // GET /api/smart/contact-scores — contact scoring
-router.get('/contact-scores', (req, res) => {
+router.get('/contact-scores', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
       return res.status(401).json({ error: 'Nincs bejelentkezve' });
     }
 
-    const contacts = scoreContacts(accountId);
+    const contacts = await scoreContacts(accountId);
     res.json({ contacts });
   } catch (error) {
     logger.error('Smart contact scores error:', error);
@@ -97,7 +97,7 @@ router.get('/contact-scores', (req, res) => {
 });
 
 // GET /api/smart/daily-brief — napi összefoglaló
-router.get('/daily-brief', (req, res) => {
+router.get('/daily-brief', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -105,19 +105,19 @@ router.get('/daily-brief', (req, res) => {
     }
 
     // Kombináljuk az email health-et, prioritásokat, follow-upokat és smart folders-t
-    const health = getEmailHealth(accountId);
-    const followups = detectPendingFollowups(accountId);
-    const smartFolders = getSmartFolders(accountId);
+    const health = await getEmailHealth(accountId);
+    const followups = await detectPendingFollowups(accountId);
+    const smartFolders = await getSmartFolders(accountId);
 
     // Top 20 olvasatlan email priorizálása
-    const unreadIds = queryAll<{ id: string }>(
+    const unreadIds = (await queryAll<{ id: string }>(
       `SELECT id FROM emails
        WHERE account_id = ? AND is_read = 0 AND labels NOT LIKE '%TRASH%'
        ORDER BY date DESC LIMIT 20`,
       [accountId],
-    ).map((e) => e.id);
+    )).map((e) => e.id);
 
-    const priorities = autoPrioritize(accountId, unreadIds);
+    const priorities = await autoPrioritize(accountId, unreadIds);
     const urgentCount = priorities.filter((p) => p.priority === 'urgent').length;
     const highCount = priorities.filter((p) => p.priority === 'high').length;
 
@@ -126,15 +126,15 @@ router.get('/daily-brief', (req, res) => {
     todayStart.setHours(0, 0, 0, 0);
     const todayMs = todayStart.getTime();
 
-    const totalTodayResult = queryOne<{ cnt: number }>(
+    const totalTodayResult = await queryOne<{ cnt: number }>(
       'SELECT COUNT(*) as cnt FROM emails WHERE account_id = ? AND date >= ? AND labels NOT LIKE \'%TRASH%\' AND labels NOT LIKE \'%SENT%\'',
       [accountId, todayMs],
     );
-    const unreadTodayResult = queryOne<{ cnt: number }>(
+    const unreadTodayResult = await queryOne<{ cnt: number }>(
       'SELECT COUNT(*) as cnt FROM emails WHERE account_id = ? AND date >= ? AND is_read = 0 AND labels NOT LIKE \'%TRASH%\' AND labels NOT LIKE \'%SENT%\'',
       [accountId, todayMs],
     );
-    const repliedTodayResult = queryOne<{ cnt: number }>(
+    const repliedTodayResult = await queryOne<{ cnt: number }>(
       'SELECT COUNT(*) as cnt FROM emails WHERE account_id = ? AND date >= ? AND labels LIKE \'%SENT%\'',
       [accountId, todayMs],
     );
@@ -152,7 +152,7 @@ router.get('/daily-brief', (req, res) => {
     };
 
     // Contacts from scoreContacts
-    const allContacts = scoreContacts(accountId);
+    const allContacts = await scoreContacts(accountId);
     const contacts = allContacts.slice(0, 10).map(c => ({
       email: c.email,
       name: c.name,
@@ -179,7 +179,7 @@ router.get('/daily-brief', (req, res) => {
 });
 
 // GET /api/smart/analytics — email analytics dashboard
-router.get('/analytics', (req, res) => {
+router.get('/analytics', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -205,7 +205,7 @@ router.get('/analytics', (req, res) => {
     const prevStart = periodStart - previousPeriodMs;
 
     // Response time trend (daily avg in minutes)
-    const responseTimes = queryAll<{ day: string; avgMs: number }>(
+    const responseTimes = (await queryAll<{ day: string; avgMs: number }>(
       `SELECT
          DATE(sent.date / 1000, 'unixepoch') AS day,
          AVG(sent.date - incoming.date) AS avgMs
@@ -220,19 +220,19 @@ router.get('/analytics', (req, res) => {
        GROUP BY day
        ORDER BY day`,
       [accountId, periodStart],
-    ).map(r => ({
+    )).map(r => ({
       date: r.day,
       avgMinutes: Math.round((r.avgMs || 0) / (1000 * 60)),
     }));
 
     // Category distribution
-    const totalResult = queryOne<{ total: number }>(
+    const totalResult = await queryOne<{ total: number }>(
       'SELECT COUNT(*) as total FROM emails WHERE account_id = ? AND date >= ? AND labels NOT LIKE \'%TRASH%\'',
       [accountId, periodStart],
     );
     const totalEmails = totalResult?.total || 1;
 
-    const categories = queryAll<{ name: string; count: number }>(
+    const categories = (await queryAll<{ name: string; count: number }>(
       `SELECT
          COALESCE(c.name, 'Kategorizálatlan') AS name,
          COUNT(*) AS count
@@ -242,29 +242,29 @@ router.get('/analytics', (req, res) => {
        GROUP BY e.category_id
        ORDER BY count DESC`,
       [accountId, periodStart],
-    ).map(c => ({
+    )).map(c => ({
       name: c.name,
       count: c.count,
       color: '#6B7280',
     }));
 
     // Period comparison
-    const currentCount = queryOne<{ cnt: number }>(
+    const currentCount = (await queryOne<{ cnt: number }>(
       'SELECT COUNT(*) as cnt FROM emails WHERE account_id = ? AND date >= ? AND labels NOT LIKE \'%TRASH%\'',
       [accountId, periodStart],
-    )?.cnt || 0;
+    ))?.cnt || 0;
 
-    const previousCount = queryOne<{ cnt: number }>(
+    const previousCount = (await queryOne<{ cnt: number }>(
       'SELECT COUNT(*) as cnt FROM emails WHERE account_id = ? AND date >= ? AND date < ? AND labels NOT LIKE \'%TRASH%\'',
       [accountId, prevStart, periodStart],
-    )?.cnt || 0;
+    ))?.cnt || 0;
 
     const comparison = [
       { label: 'Jelenlegi', current: currentCount, previous: previousCount },
     ];
 
     // Top senders
-    const topSenders = queryAll<{ email: string; name: string; count: number }>(
+    const topSenders = (await queryAll<{ email: string; name: string; count: number }>(
       `SELECT
          from_email AS email,
          COALESCE(from_name, from_email) AS name,
@@ -278,7 +278,7 @@ router.get('/analytics', (req, res) => {
        ORDER BY count DESC
        LIMIT 10`,
       [accountId, periodStart],
-    ).map(s => ({
+    )).map(s => ({
       email: s.email,
       name: s.name || s.email,
       count: s.count,
@@ -297,7 +297,7 @@ router.get('/analytics', (req, res) => {
 });
 
 // POST /api/smart/analyze-email/:id — egyedi email elemzés
-router.post('/analyze-email/:id', (req, res) => {
+router.post('/analyze-email/:id', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -307,11 +307,11 @@ router.post('/analyze-email/:id', (req, res) => {
     const { id } = req.params;
 
     // Prioritás
-    const priorities = autoPrioritize(accountId, [id]);
+    const priorities = await autoPrioritize(accountId, [id]);
     const priority = priorities.length > 0 ? priorities[0] : null;
 
     // Hasonló emailek
-    const similar = findSimilarEmails(accountId, id);
+    const similar = await findSimilarEmails(accountId, id);
 
     res.json({
       emailId: id,
@@ -326,3 +326,4 @@ router.post('/analyze-email/:id', (req, res) => {
 });
 
 export default router;
+

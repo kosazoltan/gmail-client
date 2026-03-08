@@ -46,7 +46,7 @@ export async function syncAccount(accountId: string, fullSync = false) {
 
   // Wrap initial sync_log insert in try-catch to handle DB failures
   try {
-    execute('INSERT INTO sync_log (id, account_id, started_at, status) VALUES (?, ?, ?, ?)', [
+    await execute('INSERT INTO sync_log (id, account_id, started_at, status) VALUES (?, ?, ?, ?)', [
       logId,
       accountId,
       Date.now(),
@@ -58,7 +58,7 @@ export async function syncAccount(accountId: string, fullSync = false) {
   }
 
   try {
-    const { oauth2Client, account } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client, account } = await getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
 
     let processedCount = 0;
@@ -71,13 +71,13 @@ export async function syncAccount(accountId: string, fullSync = false) {
     }
 
     const profile = await getProfile(gmail);
-    execute('UPDATE accounts SET history_id = ?, last_sync_at = ? WHERE id = ?', [
+    await execute('UPDATE accounts SET history_id = ?, last_sync_at = ? WHERE id = ?', [
       profile.historyId ? profile.historyId.toString() : null,
       Date.now(),
       accountId,
     ]);
 
-    execute(
+    await execute(
       'UPDATE sync_log SET completed_at = ?, messages_processed = ?, status = ? WHERE id = ?',
       [Date.now(), processedCount, 'completed', logId],
     );
@@ -94,7 +94,7 @@ export async function syncAccount(accountId: string, fullSync = false) {
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Ismeretlen hiba';
     try {
-      execute('UPDATE sync_log SET completed_at = ?, status = ?, error = ? WHERE id = ?', [
+      await execute('UPDATE sync_log SET completed_at = ?, status = ?, error = ? WHERE id = ?', [
         Date.now(),
         'failed',
         errorMsg,
@@ -134,7 +134,7 @@ async function fullSyncMessages(
     for (const msg of result.messages) {
       if (!msg.id) continue;
 
-      const existing = queryOne<{ id: string }>(
+      const existing = await queryOne<{ id: string }>(
         'SELECT id FROM emails WHERE id = ? AND account_id = ?',
         [msg.id, accountId],
       );
@@ -157,7 +157,7 @@ async function fullSyncMessages(
 
       for (const msg of messages) {
         if (!msg) continue;
-        saveEmail(accountId, msg);
+        await saveEmail(accountId, msg);
         totalProcessed++;
       }
 
@@ -196,7 +196,7 @@ async function incrementalSync(
     for (const msgId of newMessageIds) {
       try {
         const msg = await getMessage(gmail, msgId);
-        const isNew = saveEmail(accountId, msg);
+        const isNew = await saveEmail(accountId, msg);
         processedCount++;
 
         // SSE broadcast — küldés az összes csatlakozott kliensnek
@@ -228,10 +228,10 @@ async function incrementalSync(
         // Workflow triggerek — on_receive típusú workflow-k aktiválása új emailnél
         if (isNew) {
           try {
-            const workflows = getActiveWorkflowsForAccount(accountId);
+            const workflows = await getActiveWorkflowsForAccount(accountId);
             for (const wf of workflows) {
               if (wf.triggerType === 'on_receive') {
-                executeWorkflow(wf.id, msg.id).catch((wfErr) =>
+                await executeWorkflow(wf.id, msg.id).catch((wfErr) =>
                   logger.error(`Workflow ${wf.id} failed for email ${msg.id}:`, wfErr),
                 );
               }
@@ -259,9 +259,9 @@ async function incrementalSync(
   return processedCount;
 }
 
-function saveEmail(accountId: string, msg: GmailMessage): boolean {
+async function saveEmail(accountId: string, msg: GmailMessage): Promise<boolean> {
   // Ellenőrizzük, hogy már létezik-e
-  const existing = queryOne<{ id: string }>(
+  const existing = await queryOne<{ id: string }>(
     'SELECT id FROM emails WHERE id = ? AND account_id = ?',
     [msg.id, accountId],
   );
@@ -270,7 +270,7 @@ function saveEmail(accountId: string, msg: GmailMessage): boolean {
     return false; // Már létezett
   }
 
-  const categoryId = categorizeEmail(accountId, {
+  const categoryId = await categorizeEmail(accountId, {
     from: msg.from,
     subject: msg.subject || '',
     labels: msg.labels,
@@ -278,11 +278,12 @@ function saveEmail(accountId: string, msg: GmailMessage): boolean {
 
   // Ha nincs tárgy, de van body, akkor body-ból próbáljuk meghatározni a témát
   const topicSubject = msg.subject || extractSubjectFromBody(msg.body);
-  const topicId = findOrCreateTopic(accountId, topicSubject, msg.threadId, msg.body);
+  const topicId = await findOrCreateTopic(accountId, topicSubject, msg.threadId, msg.body);
 
-  execute(
-    `INSERT OR IGNORE INTO emails (id, account_id, thread_id, subject, from_email, from_name, to_email, cc_email, snippet, body, body_html, date, is_read, is_starred, labels, has_attachments, category_id, topic_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  await execute(
+    `INSERT INTO emails (id, account_id, thread_id, subject, from_email, from_name, to_email, cc_email, snippet, body, body_html, date, is_read, is_starred, labels, has_attachments, category_id, topic_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO NOTHING`,
     [
       msg.id,
       accountId,
@@ -307,8 +308,8 @@ function saveEmail(accountId: string, msg: GmailMessage): boolean {
 
   if (msg.attachments && msg.attachments.length > 0) {
     for (const att of msg.attachments) {
-      execute(
-        'INSERT OR IGNORE INTO attachments (id, email_id, filename, mime_type, size, gmail_attachment_id) VALUES (?, ?, ?, ?, ?, ?)',
+      await execute(
+        'INSERT INTO attachments (id, email_id, filename, mime_type, size, gmail_attachment_id) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING',
         [uuidv4(), msg.id, att.filename, att.mimeType, att.size, att.attachmentId],
       );
     }
@@ -385,12 +386,12 @@ function extractSubjectFromBody(body: string): string {
   return firstLine || '';
 }
 
-function findOrCreateTopic(
+async function findOrCreateTopic(
   accountId: string,
   subject: string,
   threadId?: string | null,
   body?: string,
-): string | null {
+): Promise<string | null> {
   let normalized = normalizeSubject(subject);
 
   // Ha nincs subject, próbáljuk a body-ból kinyerni
@@ -401,18 +402,18 @@ function findOrCreateTopic(
 
   if (!normalized) return null;
 
-  const existing = queryOne<{ id: string; message_count: number }>(
+  const existing = await queryOne<{ id: string; message_count: number }>(
     'SELECT id, message_count FROM topics WHERE account_id = ? AND normalized_subject = ?',
     [accountId, normalized],
   );
 
   if (existing) {
-    execute('UPDATE topics SET message_count = message_count + 1 WHERE id = ?', [existing.id]);
+    await execute('UPDATE topics SET message_count = message_count + 1 WHERE id = ?', [existing.id]);
     return existing.id;
   }
 
   const topicId = uuidv4();
-  execute(
+  await execute(
     'INSERT INTO topics (id, name, normalized_subject, message_count, account_id) VALUES (?, ?, ?, ?, ?)',
     [topicId, normalized, normalized, 1, accountId],
   );
@@ -431,7 +432,7 @@ function normalizeSubject(subject: string): string {
   return normalized.trim();
 }
 
-function updateSenderGroup(
+async function updateSenderGroup(
   accountId: string,
   email: string,
   name: string | null | undefined,
@@ -440,7 +441,7 @@ function updateSenderGroup(
   if (!email) return;
 
   const domain = email.split('@')[1] || '';
-  const existing = queryOne<{
+  const existing = await queryOne<{
     id: string;
     message_count: number;
     last_message_at: number | null;
@@ -451,12 +452,12 @@ function updateSenderGroup(
   );
 
   if (existing) {
-    execute(
+    await execute(
       'UPDATE sender_groups SET message_count = message_count + 1, last_message_at = MAX(COALESCE(last_message_at, 0), ?), name = COALESCE(?, name) WHERE id = ?',
       [date, name || null, existing.id],
     );
   } else {
-    execute(
+    await execute(
       'INSERT INTO sender_groups (id, email, name, domain, message_count, last_message_at, account_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [uuidv4(), email, name || null, domain, 1, date, accountId],
     );
@@ -470,7 +471,7 @@ function sleep(ms: number) {
 const syncIntervals = new Map<string, NodeJS.Timeout>();
 const syncInProgress = new Set<string>();
 
-export function startBackgroundSync(accountId: string) {
+export async function startBackgroundSync(accountId: string) {
   if (syncIntervals.has(accountId)) return;
 
   const intervalMs = Math.max(60000, parseInt(process.env.SYNC_INTERVAL_MS || '300000', 10));
@@ -511,30 +512,30 @@ export function stopAllBackgroundSyncs() {
 }
 
 // Fiók adatainak törlése (emailek, kontaktok, stb.) - újraszinkronizálás előtt
-export function clearAccountData(accountId: string) {
+export async function clearAccountData(accountId: string) {
   logger.info(`Adatok törlése a(z) ${accountId} fiókhoz...`);
 
-  runInTransaction(() => {
+  await runInTransaction(async () => {
     // Mellékletek törlése (emailekhez kapcsolódik)
-    execute(
+    await execute(
       'DELETE FROM attachments WHERE email_id IN (SELECT id FROM emails WHERE account_id = ?)',
       [accountId],
     );
 
     // Emailek törlése
-    execute('DELETE FROM emails WHERE account_id = ?', [accountId]);
+    await execute('DELETE FROM emails WHERE account_id = ?', [accountId]);
 
     // Kontaktok törlése
-    execute('DELETE FROM contacts WHERE account_id = ?', [accountId]);
+    await execute('DELETE FROM contacts WHERE account_id = ?', [accountId]);
 
     // Feladói csoportok törlése
-    execute('DELETE FROM sender_groups WHERE account_id = ?', [accountId]);
+    await execute('DELETE FROM sender_groups WHERE account_id = ?', [accountId]);
 
     // Témák törlése
-    execute('DELETE FROM topics WHERE account_id = ?', [accountId]);
+    await execute('DELETE FROM topics WHERE account_id = ?', [accountId]);
 
     // History ID törlése, hogy teljes szinkronizálás történjen
-    execute('UPDATE accounts SET history_id = NULL WHERE id = ?', [accountId]);
+    await execute('UPDATE accounts SET history_id = NULL WHERE id = ?', [accountId]);
   });
 
   logger.info(`Adatok törölve a(z) ${accountId} fiókhoz.`);

@@ -14,14 +14,14 @@ interface VipSenderRow {
 }
 
 // Get all VIP senders
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
       return res.status(401).json({ error: 'Nincs bejelentkezve' });
     }
 
-    const vipSenders = queryAll<VipSenderRow>(
+    const vipSenders = await queryAll<VipSenderRow>(
       'SELECT * FROM vip_senders WHERE account_id = ? ORDER BY name ASC, email ASC',
       [accountId],
     );
@@ -41,14 +41,14 @@ router.get('/', (req, res) => {
 });
 
 // Get VIP emails (sender email addresses only for quick lookup)
-router.get('/emails', (req, res) => {
+router.get('/emails', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
       return res.status(401).json({ error: 'Nincs bejelentkezve' });
     }
 
-    const vipEmails = queryAll<{ email: string }>(
+    const vipEmails = await queryAll<{ email: string }>(
       'SELECT email FROM vip_senders WHERE account_id = ?',
       [accountId],
     );
@@ -63,7 +63,7 @@ router.get('/emails', (req, res) => {
 });
 
 // Add VIP sender
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -79,7 +79,7 @@ router.post('/', (req, res) => {
     const normalizedEmail = email.toLowerCase().trim();
 
     // Check if already exists
-    const existing = queryOne<{ id: string }>(
+    const existing = await queryOne<{ id: string }>(
       'SELECT id FROM vip_senders WHERE account_id = ? AND email = ?',
       [accountId, normalizedEmail],
     );
@@ -91,7 +91,7 @@ router.post('/', (req, res) => {
     const id = uuid();
     const createdAt = Date.now();
 
-    execute(
+    await execute(
       `INSERT INTO vip_senders (id, account_id, email, name, created_at)
        VALUES (?, ?, ?, ?, ?)`,
       [id, accountId, normalizedEmail, name || null, createdAt],
@@ -110,7 +110,7 @@ router.post('/', (req, res) => {
 });
 
 // Update VIP sender name
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -120,7 +120,7 @@ router.put('/:id', (req, res) => {
     const { id } = req.params;
     const { name } = req.body;
 
-    const existing = queryOne<VipSenderRow>(
+    const existing = await queryOne<VipSenderRow>(
       'SELECT * FROM vip_senders WHERE id = ? AND account_id = ?',
       [id, accountId],
     );
@@ -129,7 +129,7 @@ router.put('/:id', (req, res) => {
       return res.status(404).json({ error: 'VIP küldő nem található' });
     }
 
-    execute('UPDATE vip_senders SET name = ? WHERE id = ? AND account_id = ?', [
+    await execute('UPDATE vip_senders SET name = ? WHERE id = ? AND account_id = ?', [
       name || null,
       id,
       accountId,
@@ -143,7 +143,7 @@ router.put('/:id', (req, res) => {
 });
 
 // Remove VIP sender
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -152,7 +152,7 @@ router.delete('/:id', (req, res) => {
 
     const { id } = req.params;
 
-    const existing = queryOne<{ id: string }>(
+    const existing = await queryOne<{ id: string }>(
       'SELECT id FROM vip_senders WHERE id = ? AND account_id = ?',
       [id, accountId],
     );
@@ -161,7 +161,7 @@ router.delete('/:id', (req, res) => {
       return res.status(404).json({ error: 'VIP küldő nem található' });
     }
 
-    execute('DELETE FROM vip_senders WHERE id = ? AND account_id = ?', [id, accountId]);
+    await execute('DELETE FROM vip_senders WHERE id = ? AND account_id = ?', [id, accountId]);
 
     res.json({ success: true });
   } catch (error) {
@@ -171,7 +171,7 @@ router.delete('/:id', (req, res) => {
 });
 
 // Toggle VIP by email (add if not exists, remove if exists)
-router.post('/toggle', (req, res) => {
+router.post('/toggle', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -186,21 +186,21 @@ router.post('/toggle', (req, res) => {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    const existing = queryOne<{ id: string }>(
+    const existing = await queryOne<{ id: string }>(
       'SELECT id FROM vip_senders WHERE account_id = ? AND email = ?',
       [accountId, normalizedEmail],
     );
 
     if (existing) {
       // Remove
-      execute('DELETE FROM vip_senders WHERE id = ? AND account_id = ?', [existing.id, accountId]);
+      await execute('DELETE FROM vip_senders WHERE id = ? AND account_id = ?', [existing.id, accountId]);
       res.json({ isVip: false });
     } else {
       // Add
       const id = uuid();
       const createdAt = Date.now();
 
-      execute(
+      await execute(
         `INSERT INTO vip_senders (id, account_id, email, name, created_at)
          VALUES (?, ?, ?, ?, ?)`,
         [id, accountId, normalizedEmail, name || null, createdAt],

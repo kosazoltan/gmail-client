@@ -8,8 +8,8 @@ interface EmailForCategorization {
 }
 
 // Levél kategorizalasa a szabalyok alapjan
-export function categorizeEmail(accountId: string, email: EmailForCategorization): string | null {
-  const rules = queryAll<{
+export async function categorizeEmail(accountId: string, email: EmailForCategorization): Promise<string | null> {
+  const rules = await queryAll<{
     id: string;
     category_id: string;
     type: string;
@@ -53,7 +53,7 @@ export function categorizeEmail(accountId: string, email: EmailForCategorization
   }
 
   // Ha nincs talalat, az Egyeb kategoria
-  const otherCategory = queryOne<{ id: string }>(
+  const otherCategory = await queryOne<{ id: string }>(
     'SELECT id FROM categories WHERE account_id = ? AND name = ?',
     [accountId, 'Egyéb'],
   );
@@ -62,8 +62,8 @@ export function categorizeEmail(accountId: string, email: EmailForCategorization
 }
 
 // Minden email ujrakategorizalasa (pl. szabaly modositas utan)
-export function recategorizeAllEmails(accountId: string) {
-  const allEmails = queryAll<{
+export async function recategorizeAllEmails(accountId: string) {
+  const allEmails = await queryAll<{
     id: string;
     from_email: string;
     subject: string;
@@ -78,14 +78,14 @@ export function recategorizeAllEmails(accountId: string) {
     } catch (err) {
       logger.warn('Labels JSON parse failed', { emailId: email.id, error: err });
     }
-    const categoryId = categorizeEmail(accountId, {
+    const categoryId = await categorizeEmail(accountId, {
       from: email.from_email || '',
       subject: email.subject || '',
       labels,
     });
 
     if (categoryId) {
-      execute('UPDATE emails SET category_id = ? WHERE id = ?', [categoryId, email.id]);
+      await execute('UPDATE emails SET category_id = ? WHERE id = ?', [categoryId, email.id]);
       updated++;
     }
   }

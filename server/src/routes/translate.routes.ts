@@ -177,7 +177,7 @@ router.post('/detect', async (req, res) => {
 });
 
 // Available languages
-router.get('/languages', (_req, res) => {
+router.get('/languages', async (_req, res) => {
   // Common languages for email translation
   const languages = [
     { code: 'hu', name: 'Magyar' },

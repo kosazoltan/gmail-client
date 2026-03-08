@@ -16,14 +16,14 @@ import {
 const router = Router();
 
 // Összes hozzáadott fiók
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const accountIds = req.session.accountIds || [];
-  const accountsList = getAllAccounts().filter((a) => accountIds.includes(a.id));
+  const accountsList = (await getAllAccounts()).filter((a: { id: string }) => accountIds.includes(a.id));
   res.json({ accounts: accountsList });
 });
 
 // Fiók eltávolítása
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   const accountId = req.params.id;
 
   // Ellenőrizzük, hogy a felhasználó jogosult-e törölni ezt a fiókot
@@ -33,7 +33,7 @@ router.delete('/:id', (req, res) => {
   }
 
   stopBackgroundSync(accountId);
-  deleteAccount(accountId);
+  await deleteAccount(accountId);
 
   if (req.session.accountIds) {
     req.session.accountIds = req.session.accountIds.filter((id) => id !== accountId);
@@ -53,7 +53,7 @@ router.delete('/:id', (req, res) => {
 });
 
 // Fiók színének frissítése
-router.put('/:id/color', (req, res) => {
+router.put('/:id/color', async (req, res) => {
   const accountId = req.params.id;
   const { color } = req.body;
 

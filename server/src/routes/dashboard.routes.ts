@@ -15,14 +15,14 @@ router.get('/', async (req, res) => {
   }
 
   try {
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
 
     // Olvasatlan levelek száma (helyi DB-ből — gyorsabb)
-    const unreadResult = queryOne<{ count: number }>(
+    const unreadResult = await queryOne<{ count: number }>(
       'SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND is_read = 0',
       [accountId],
     );
-    const unreadCount = unreadResult?.count || 0;
+    const unreadCount = Number(unreadResult?.count ?? 0);
 
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
     const tasksApi = google.tasks({ version: 'v1', auth: oauth2Client });
@@ -110,8 +110,8 @@ router.get('/', async (req, res) => {
     const openTasks = taskItems.filter((t) => t.status === 'needsAction');
 
     // Detected tasks (email-alapú feladatok) integrálása
-    const detectedStats = getTaskStats(accountId);
-    const { tasks: detectedTasks } = getDetectedTasks(accountId, { status: 'open' });
+    const detectedStats = await getTaskStats(accountId);
+    const { tasks: detectedTasks } = await getDetectedTasks(accountId, { status: 'open' });
 
     // Detected tasks átalakítása dashboard formátumra
     const detectedTaskItems = detectedTasks.slice(0, 5).map((dt) => ({
@@ -153,3 +153,4 @@ router.get('/', async (req, res) => {
 });
 
 export default router;
+

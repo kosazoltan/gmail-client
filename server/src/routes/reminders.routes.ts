@@ -1,20 +1,20 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { queryAll, queryOne, execute, getDb, runInTransaction } from '../db/index.js';
+import { queryAll, queryOne, execute, runInTransaction } from '../db/index.js';
 
 const router = Router();
 
 // FONTOS: Specifikus route-ok előre, a `/` route utolsónak!
 
 // Esedékes emlékeztetők lekérése (polling endpoint)
-router.get('/due', (req, res) => {
+router.get('/due', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
   }
 
   const now = Date.now();
-  const reminders = queryAll(
+  const reminders = await queryAll(
     `SELECT r.*, e.subject, e.from_email as "from", e.from_name as "fromName"
      FROM reminders r
      JOIN emails e ON r.email_id = e.id
@@ -27,24 +27,24 @@ router.get('/due', (req, res) => {
 });
 
 // Lejárt emlékeztetők száma
-router.get('/count', (req, res) => {
+router.get('/count', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
   }
 
   const now = Date.now();
-  const result = queryOne(
+  const result = await queryOne(
     `SELECT COUNT(*) as count FROM reminders
      WHERE account_id = ? AND is_completed = 0 AND remind_at <= ?`,
     [accountId, now],
   );
 
-  return res.json({ count: (result as { count: number })?.count || 0 });
+  return res.json({ count: Number((result as { count: number })?.count ?? 0) });
 });
 
 // Emlékeztetők listázása
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
@@ -65,13 +65,13 @@ router.get('/', (req, res) => {
 
   query += ' ORDER BY r.remind_at ASC';
 
-  const reminders = queryAll(query, [accountId]);
+  const reminders = await queryAll(query, [accountId]);
 
   return res.json({ reminders });
 });
 
 // Emlékeztető létrehozása
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
@@ -92,7 +92,7 @@ router.post('/', (req, res) => {
   }
 
   // Ellenőrizzük, hogy az email létezik és ehhez a fiókhoz tartozik
-  const email = queryOne('SELECT id FROM emails WHERE id = ? AND account_id = ?', [
+  const email = await queryOne('SELECT id FROM emails WHERE id = ? AND account_id = ?', [
     emailId,
     accountId,
   ]);
@@ -107,9 +107,9 @@ router.post('/', (req, res) => {
 
   let reminder;
   try {
-    reminder = runInTransaction(() => {
+    reminder = await runInTransaction(async () => {
       // Ellenőrizzük, hogy nincs-e már aktív emlékeztető ehhez az emailhez
-      const existingReminder = queryOne(
+      const existingReminder = await queryOne(
         'SELECT id FROM reminders WHERE email_id = ? AND account_id = ? AND is_completed = 0',
         [emailId, accountId],
       );
@@ -118,13 +118,13 @@ router.post('/', (req, res) => {
         throw new Error('DUPLICATE_REMINDER');
       }
 
-      execute(
+      await execute(
         `INSERT INTO reminders (id, email_id, account_id, remind_at, note, is_completed, created_at)
          VALUES (?, ?, ?, ?, ?, 0, ?)`,
         [id, emailId, accountId, remindTimestamp, note || null, now],
       );
 
-      return queryOne('SELECT * FROM reminders WHERE id = ?', [id]);
+      return await queryOne('SELECT * FROM reminders WHERE id = ?', [id]);
     });
   } catch (err) {
     if (err instanceof Error && err.message === 'DUPLICATE_REMINDER') {
@@ -141,7 +141,7 @@ router.post('/', (req, res) => {
 });
 
 // Emlékeztető frissítése
-router.patch('/:id', (req, res) => {
+router.patch('/:id', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
@@ -150,7 +150,7 @@ router.patch('/:id', (req, res) => {
   const { id } = req.params;
   const { remindAt, note, isCompleted } = req.body;
 
-  const reminder = queryOne('SELECT * FROM reminders WHERE id = ? AND account_id = ?', [
+  const reminder = await queryOne('SELECT * FROM reminders WHERE id = ? AND account_id = ?', [
     id,
     accountId,
   ]);
@@ -179,10 +179,10 @@ router.patch('/:id', (req, res) => {
 
   if (updates.length > 0) {
     values.push(id, accountId);
-    execute(`UPDATE reminders SET ${updates.join(', ')} WHERE id = ? AND account_id = ?`, values);
+    await execute(`UPDATE reminders SET ${updates.join(', ')} WHERE id = ? AND account_id = ?`, values);
   }
 
-  const updated = queryOne('SELECT * FROM reminders WHERE id = ?', [id]);
+  const updated = await queryOne('SELECT * FROM reminders WHERE id = ?', [id]);
 
   if (!updated) {
     return res.status(500).json({ error: 'Emlékeztető frissítése sikertelen' });
@@ -192,7 +192,7 @@ router.patch('/:id', (req, res) => {
 });
 
 // Emlékeztető törlése
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
@@ -200,7 +200,7 @@ router.delete('/:id', (req, res) => {
 
   const { id } = req.params;
 
-  const reminder = queryOne('SELECT * FROM reminders WHERE id = ? AND account_id = ?', [
+  const reminder = await queryOne('SELECT * FROM reminders WHERE id = ? AND account_id = ?', [
     id,
     accountId,
   ]);
@@ -209,13 +209,13 @@ router.delete('/:id', (req, res) => {
     return res.status(404).json({ error: 'Emlékeztető nem található' });
   }
 
-  execute('DELETE FROM reminders WHERE id = ? AND account_id = ?', [id, accountId]);
+  await execute('DELETE FROM reminders WHERE id = ? AND account_id = ?', [id, accountId]);
 
   return res.json({ success: true });
 });
 
 // Emlékeztető teljesítettnek jelölése
-router.post('/:id/complete', (req, res) => {
+router.post('/:id/complete', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
@@ -223,7 +223,7 @@ router.post('/:id/complete', (req, res) => {
 
   const { id } = req.params;
 
-  const reminder = queryOne('SELECT * FROM reminders WHERE id = ? AND account_id = ?', [
+  const reminder = await queryOne('SELECT * FROM reminders WHERE id = ? AND account_id = ?', [
     id,
     accountId,
   ]);
@@ -232,9 +232,9 @@ router.post('/:id/complete', (req, res) => {
     return res.status(404).json({ error: 'Emlékeztető nem található' });
   }
 
-  execute('UPDATE reminders SET is_completed = 1 WHERE id = ? AND account_id = ?', [id, accountId]);
+  await execute('UPDATE reminders SET is_completed = 1 WHERE id = ? AND account_id = ?', [id, accountId]);
 
-  const updated = queryOne('SELECT * FROM reminders WHERE id = ?', [id]);
+  const updated = await queryOne('SELECT * FROM reminders WHERE id = ?', [id]);
 
   if (!updated) {
     return res.status(500).json({ error: 'Emlékeztető frissítése sikertelen' });

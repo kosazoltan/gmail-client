@@ -13,7 +13,7 @@ router.get('/today', async (req, res) => {
   }
 
   try {
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
     const now = new Date();
@@ -45,7 +45,7 @@ router.get('/week', async (req, res) => {
   }
 
   try {
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
     const now = new Date();
@@ -83,7 +83,7 @@ router.get('/events', async (req, res) => {
   }
 
   try {
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
     const now = new Date();
@@ -189,7 +189,7 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'A kezdés időpont kötelező' });
     }
 
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
     const eventBody = buildEventBody(req.body);
@@ -220,7 +220,7 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ error: 'A cím kötelező' });
     }
 
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
     const eventBody = buildEventBody(req.body);
@@ -248,7 +248,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const { oauth2Client } = getOAuth2ClientForAccount(accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
     await calendar.events.delete({

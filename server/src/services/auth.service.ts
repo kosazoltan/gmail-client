@@ -105,7 +105,7 @@ export async function handleAuthCallback(code: string) {
   const email = userInfo.data.email;
   const name = userInfo.data.name || email;
 
-  const existingAccount = queryOne<{ id: string }>('SELECT id FROM accounts WHERE email = ?', [
+  const existingAccount = await queryOne<{ id: string }>('SELECT id FROM accounts WHERE email = ?', [
     email,
   ]);
 
@@ -114,12 +114,12 @@ export async function handleAuthCallback(code: string) {
   const encryptedRefresh = encrypt(tokens.refresh_token);
 
   if (existingAccount) {
-    execute(
+    await execute(
       'UPDATE accounts SET access_token = ?, refresh_token = ?, token_expiry = ?, name = ? WHERE id = ?',
       [encryptedAccess, encryptedRefresh, tokens.expiry_date || 0, name, accountId],
     );
   } else {
-    execute(
+    await execute(
       `INSERT INTO accounts (id, email, name, access_token, refresh_token, token_expiry, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -139,7 +139,7 @@ export async function handleAuthCallback(code: string) {
   return { accountId, email, name };
 }
 
-function createDefaultCategories(accountId: string) {
+async function createDefaultCategories(accountId: string) {
   const defaultCategories = [
     { name: 'Munka', color: '#3B82F6', icon: 'briefcase' },
     { name: 'Személyes', color: '#10B981', icon: 'user' },
@@ -151,13 +151,13 @@ function createDefaultCategories(accountId: string) {
 
   for (const cat of defaultCategories) {
     const categoryId = uuidv4();
-    execute(
+    await execute(
       'INSERT INTO categories (id, name, color, icon, is_system, account_id) VALUES (?, ?, ?, ?, ?, ?)',
       [categoryId, cat.name, cat.color, cat.icon, 1, accountId],
     );
   }
 
-  const cats = queryAll<{ id: string; name: string }>(
+  const cats = await queryAll<{ id: string; name: string }>(
     'SELECT id, name FROM categories WHERE account_id = ?',
     [accountId],
   );
@@ -188,15 +188,15 @@ function createDefaultCategories(accountId: string) {
   ];
 
   for (const rule of defaultRules) {
-    execute(
+    await execute(
       'INSERT INTO categorization_rules (id, category_id, type, value, priority, account_id) VALUES (?, ?, ?, ?, ?, ?)',
       [uuidv4(), rule.categoryId, rule.type, rule.value, rule.priority, accountId],
     );
   }
 }
 
-export function getOAuth2ClientForAccount(accountId: string) {
-  const account = queryOne<{
+export async function getOAuth2ClientForAccount(accountId: string) {
+  const account = await queryOne<{
     id: string;
     email: string;
     name: string;
@@ -230,7 +230,7 @@ export function getOAuth2ClientForAccount(accountId: string) {
   });
 
   // Használjunk 'once'-ot 'on' helyett a memory leak elkerülésére
-  oauth2Client.once('tokens', (tokens) => {
+  oauth2Client.once('tokens', async (tokens) => {
     try {
       const updates: string[] = [];
       const params: unknown[] = [];
@@ -249,7 +249,7 @@ export function getOAuth2ClientForAccount(accountId: string) {
       }
       if (updates.length > 0) {
         params.push(accountId);
-        execute('UPDATE accounts SET ' + updates.join(', ') + ' WHERE id = ?', params);
+        await execute('UPDATE accounts SET ' + updates.join(', ') + ' WHERE id = ?', params);
       }
     } catch (error) {
       logger.error('Token frissítés mentési hiba:', error);
@@ -259,8 +259,8 @@ export function getOAuth2ClientForAccount(accountId: string) {
   return { oauth2Client, account };
 }
 
-export function getAccountById(accountId: string) {
-  return queryOne<{
+export async function getAccountById(accountId: string) {
+  return await queryOne<{
     id: string;
     email: string;
     name: string;
@@ -269,8 +269,8 @@ export function getAccountById(accountId: string) {
   }>('SELECT id, email, name, last_sync_at, color FROM accounts WHERE id = ?', [accountId]);
 }
 
-export function getAllAccounts() {
-  return queryAll<{
+export async function getAllAccounts() {
+  return await queryAll<{
     id: string;
     email: string;
     name: string;
@@ -279,12 +279,12 @@ export function getAllAccounts() {
   }>('SELECT id, email, name, last_sync_at, color FROM accounts');
 }
 
-export function updateAccountColor(accountId: string, color: string) {
-  execute('UPDATE accounts SET color = ? WHERE id = ?', [color, accountId]);
+export async function updateAccountColor(accountId: string, color: string) {
+  await execute('UPDATE accounts SET color = ? WHERE id = ?', [color, accountId]);
 }
 
-export function deleteAccount(accountId: string) {
+export async function deleteAccount(accountId: string) {
   // Stop background sync before deleting to prevent orphaned intervals
   stopBackgroundSync(accountId);
-  execute('DELETE FROM accounts WHERE id = ?', [accountId]);
+  await execute('DELETE FROM accounts WHERE id = ?', [accountId]);
 }

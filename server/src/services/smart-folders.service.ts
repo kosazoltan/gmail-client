@@ -155,69 +155,68 @@ function buildWhereClause(rules: SmartFolderRule[], accountId: string): { sql: s
 
 // --- CRUD ---
 
-export function getSmartFolders(accountId: string): SmartFolder[] {
-  const rows = queryAll<SmartFolderRow>(
+export async function getSmartFolders(accountId: string): Promise<SmartFolder[]> {
+  const rows = await queryAll<SmartFolderRow>(
     'SELECT * FROM smart_folders WHERE account_id = ? ORDER BY sort_order, name',
     [accountId],
   );
 
-  return rows.map(row => {
-    const folder = rowToSmartFolder(row);
-    // Count emails matching rules
+  const folders = rows.map(row => rowToSmartFolder(row));
+  for (const folder of folders) {
     try {
       const { sql, params } = buildWhereClause(folder.rules, accountId);
-      const countResult = queryOne<{ cnt: number }>(`SELECT COUNT(*) as cnt FROM emails WHERE ${sql}`, params);
+      const countResult = await queryOne<{ cnt: number }>(`SELECT COUNT(*) as cnt FROM emails WHERE ${sql}`, params);
       folder.emailCount = countResult?.cnt || 0;
     } catch {
       folder.emailCount = 0;
     }
-    return folder;
-  });
+  }
+  return folders;
 }
 
-export function getSmartFolderById(folderId: string): SmartFolder | undefined {
-  const row = queryOne<SmartFolderRow>('SELECT * FROM smart_folders WHERE id = ?', [folderId]);
+export async function getSmartFolderById(folderId: string): Promise<SmartFolder | undefined> {
+  const row = await queryOne<SmartFolderRow>('SELECT * FROM smart_folders WHERE id = ?', [folderId]);
   if (!row) return undefined;
   return rowToSmartFolder(row);
 }
 
-export function getSmartFolderEmails(folderId: string, page = 1, limit = 50): { emails: EmailRow[]; total: number } {
-  const folder = getSmartFolderById(folderId);
+export async function getSmartFolderEmails(folderId: string, page = 1, limit = 50): Promise<{ emails: EmailRow[]; total: number }> {
+  const folder = await getSmartFolderById(folderId);
   if (!folder) throw new Error('Smart folder nem található');
 
   const { sql, params } = buildWhereClause(folder.rules, folder.accountId);
   const offset = (page - 1) * limit;
 
-  const emails = queryAll<EmailRow>(
+  const emails = await queryAll<EmailRow>(
     `SELECT id, subject, from_email, from_name, to_email, snippet, date, is_read, is_starred, labels, has_attachments, thread_id
      FROM emails WHERE ${sql} ORDER BY date DESC LIMIT ? OFFSET ?`,
     [...params, limit, offset],
   );
 
-  const countResult = queryOne<{ cnt: number }>(`SELECT COUNT(*) as cnt FROM emails WHERE ${sql}`, params);
+  const countResult = await queryOne<{ cnt: number }>(`SELECT COUNT(*) as cnt FROM emails WHERE ${sql}`, params);
   const total = countResult?.cnt || 0;
 
   return { emails, total };
 }
 
-export function createSmartFolder(
+export async function createSmartFolder(
   accountId: string,
   name: string,
   rules: SmartFolderRule[],
   icon = '📁',
   isSystem = false,
-): SmartFolder {
+): Promise<SmartFolder> {
   const id = crypto.randomUUID();
   const now = Date.now();
 
   // Get next sort order
-  const maxOrder = queryOne<{ maxOrder: number }>(
+  const maxOrder = await queryOne<{ maxOrder: number }>(
     'SELECT COALESCE(MAX(sort_order), 0) as maxOrder FROM smart_folders WHERE account_id = ?',
     [accountId],
   );
   const sortOrder = (maxOrder?.maxOrder || 0) + 1;
 
-  execute(
+  await execute(
     'INSERT INTO smart_folders (id, account_id, name, icon, rules, is_system, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [id, accountId, name, icon, JSON.stringify(rules), isSystem ? 1 : 0, sortOrder, now, now],
   );
@@ -236,11 +235,11 @@ export function createSmartFolder(
   };
 }
 
-export function updateSmartFolder(
+export async function updateSmartFolder(
   folderId: string,
   updates: { name?: string; icon?: string; rules?: SmartFolderRule[]; sortOrder?: number },
-): SmartFolder | undefined {
-  const existing = getSmartFolderById(folderId);
+): Promise<SmartFolder | undefined> {
+  const existing = await getSmartFolderById(folderId);
   if (!existing) return undefined;
   if (existing.isSystem) throw new Error('Rendszermappa nem módosítható');
 
@@ -250,7 +249,7 @@ export function updateSmartFolder(
   const rules = updates.rules ?? existing.rules;
   const sortOrder = updates.sortOrder ?? existing.sortOrder;
 
-  execute(
+  await execute(
     'UPDATE smart_folders SET name = ?, icon = ?, rules = ?, sort_order = ?, updated_at = ? WHERE id = ?',
     [name, icon, JSON.stringify(rules), sortOrder, now, folderId],
   );
@@ -258,19 +257,19 @@ export function updateSmartFolder(
   return { ...existing, name, icon, rules, sortOrder, updatedAt: now };
 }
 
-export function deleteSmartFolder(folderId: string): boolean {
-  const existing = getSmartFolderById(folderId);
+export async function deleteSmartFolder(folderId: string): Promise<boolean> {
+  const existing = await getSmartFolderById(folderId);
   if (!existing) return false;
   if (existing.isSystem) throw new Error('Rendszermappa nem törölhető');
 
-  execute('DELETE FROM smart_folders WHERE id = ?', [folderId]);
+  await execute('DELETE FROM smart_folders WHERE id = ?', [folderId]);
   return true;
 }
 
 // --- Seed default smart folders ---
 
-export function seedDefaultSmartFolders(accountId: string): void {
-  const existing = queryOne<{ cnt: number }>(
+export async function seedDefaultSmartFolders(accountId: string): Promise<void> {
+  const existing = await queryOne<{ cnt: number }>(
     'SELECT COUNT(*) as cnt FROM smart_folders WHERE account_id = ?',
     [accountId],
   );
@@ -311,10 +310,10 @@ export function seedDefaultSmartFolders(accountId: string): void {
     },
   ];
 
-  runInTransaction(() => {
+  await runInTransaction(async () => {
     for (let i = 0; i < defaults.length; i++) {
       const d = defaults[i];
-      createSmartFolder(accountId, d.name, d.rules, d.icon, true);
+      await createSmartFolder(accountId, d.name, d.rules, d.icon, true);
     }
   });
 }

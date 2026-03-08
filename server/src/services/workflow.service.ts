@@ -158,18 +158,18 @@ function safeJsonParse<T>(json: string | null | undefined, fallback: T): T {
 
 // --- CRUD ---
 
-export function createWorkflow(
+export async function createWorkflow(
   accountId: string,
   name: string,
   description: string | null,
   triggerType: string,
   triggerConfig: Record<string, unknown>,
   steps: WorkflowStep[],
-): Workflow {
+): Promise<Workflow> {
   const id = uuid();
   const now = Date.now();
 
-  execute(
+  await execute(
     `INSERT INTO workflows (id, account_id, name, description, trigger_type, trigger_config, steps, is_active, run_count, last_run_at, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, NULL, ?, ?)`,
     [id, accountId, name, description, triggerType, JSON.stringify(triggerConfig), JSON.stringify(steps), now, now],
@@ -191,32 +191,32 @@ export function createWorkflow(
   };
 }
 
-export function getWorkflows(accountId: string): Workflow[] {
-  const rows = queryAll<WorkflowRow>(
+export async function getWorkflows(accountId: string): Promise<Workflow[]> {
+  const rows = await queryAll<WorkflowRow>(
     'SELECT * FROM workflows WHERE account_id = ? ORDER BY created_at DESC',
     [accountId],
   );
   return rows.map(rowToWorkflow);
 }
 
-export function getActiveWorkflowsForAccount(accountId: string): Workflow[] {
-  const rows = queryAll<WorkflowRow>(
+export async function getActiveWorkflowsForAccount(accountId: string): Promise<Workflow[]> {
+  const rows = await queryAll<WorkflowRow>(
     'SELECT * FROM workflows WHERE account_id = ? AND is_active = 1',
     [accountId],
   );
   return rows.map(rowToWorkflow);
 }
 
-export function getWorkflow(id: string): Workflow | undefined {
-  const row = queryOne<WorkflowRow>('SELECT * FROM workflows WHERE id = ?', [id]);
+export async function getWorkflow(id: string): Promise<Workflow | undefined> {
+  const row = await queryOne<WorkflowRow>('SELECT * FROM workflows WHERE id = ?', [id]);
   return row ? rowToWorkflow(row) : undefined;
 }
 
-export function updateWorkflow(
+export async function updateWorkflow(
   id: string,
   updates: Partial<Pick<Workflow, 'name' | 'description' | 'triggerType' | 'triggerConfig' | 'steps'>>,
-): Workflow | undefined {
-  const existing = queryOne<WorkflowRow>('SELECT * FROM workflows WHERE id = ?', [id]);
+): Promise<Workflow | undefined> {
+  const existing = await queryOne<WorkflowRow>('SELECT * FROM workflows WHERE id = ?', [id]);
   if (!existing) return undefined;
 
   const now = Date.now();
@@ -245,17 +245,17 @@ export function updateWorkflow(
   }
 
   params.push(id);
-  execute(`UPDATE workflows SET ${fields.join(', ')} WHERE id = ?`, params);
+  await execute(`UPDATE workflows SET ${fields.join(', ')} WHERE id = ?`, params);
 
-  return getWorkflow(id);
+  return await getWorkflow(id);
 }
 
-export function deleteWorkflow(id: string): void {
-  execute('DELETE FROM workflows WHERE id = ?', [id]);
+export async function deleteWorkflow(id: string): Promise<void> {
+  await execute('DELETE FROM workflows WHERE id = ?', [id]);
 }
 
-export function toggleWorkflow(id: string, isActive: boolean): void {
-  execute('UPDATE workflows SET is_active = ?, updated_at = ? WHERE id = ?', [
+export async function toggleWorkflow(id: string, isActive: boolean): Promise<void> {
+  await execute('UPDATE workflows SET is_active = ?, updated_at = ? WHERE id = ?', [
     isActive ? 1 : 0,
     Date.now(),
     id,
@@ -264,13 +264,13 @@ export function toggleWorkflow(id: string, isActive: boolean): void {
 
 // --- Scheduled Workflow Processing ---
 
-export function processScheduledWorkflows(): void {
+export async function processScheduledWorkflows(): Promise<void> {
   const now = new Date();
   const hour = now.getHours();
   const minute = now.getMinutes();
   const dayOfWeek = now.getDay(); // 0=Sunday
 
-  const rows = queryAll<WorkflowRow>(
+  const rows = await queryAll<WorkflowRow>(
     'SELECT * FROM workflows WHERE is_active = 1 AND trigger_type = ?',
     ['scheduled'],
   );
@@ -284,7 +284,7 @@ export function processScheduledWorkflows(): void {
 
     if (hour === targetHour && minute === targetMinute && targetDays.includes(dayOfWeek)) {
       logger.info(`Executing scheduled workflow: ${wf.name} (${wf.id})`);
-      executeWorkflow(wf.id).catch((err) =>
+      await executeWorkflow(wf.id).catch((err) =>
         logger.error(`Scheduled workflow ${wf.id} failed:`, err),
       );
     }
@@ -297,13 +297,13 @@ export async function executeWorkflow(
   workflowId: string,
   triggerEmailId?: string,
 ): Promise<WorkflowRun | undefined> {
-  const workflow = getWorkflow(workflowId);
+  const workflow = await getWorkflow(workflowId);
   if (!workflow) return undefined;
 
   const runId = uuid();
   const now = Date.now();
 
-  execute(
+  await execute(
     `INSERT INTO workflow_runs (id, workflow_id, account_id, status, trigger_email_id, steps_completed, result, started_at, completed_at, error)
      VALUES (?, ?, ?, 'running', ?, 0, '{}', ?, NULL, NULL)`,
     [runId, workflowId, workflow.accountId, triggerEmailId ?? null, now],
@@ -312,7 +312,7 @@ export async function executeWorkflow(
   // Load trigger email(s) as initial context
   let emails: EmailRow[] = [];
   if (triggerEmailId) {
-    const email = queryOne<EmailRow>('SELECT * FROM emails WHERE id = ? AND account_id = ?', [triggerEmailId, workflow.accountId]);
+    const email = await queryOne<EmailRow>('SELECT * FROM emails WHERE id = ? AND account_id = ?', [triggerEmailId, workflow.accountId]);
     if (email) emails = [email];
   }
 
@@ -359,13 +359,13 @@ export async function executeWorkflow(
     const status = error ? 'failed' : 'completed';
     const completedAt = Date.now();
 
-    execute(
+    await execute(
       `UPDATE workflow_runs SET status = ?, steps_completed = ?, result = ?, completed_at = ?, error = ? WHERE id = ?`,
       [status, stepsCompleted, JSON.stringify({ steps: stepResults }), completedAt, error, runId],
     );
 
     // Update workflow stats
-    execute(
+    await execute(
       `UPDATE workflows SET run_count = run_count + 1, last_run_at = ?, updated_at = ? WHERE id = ?`,
       [completedAt, completedAt, workflowId],
     );
@@ -375,7 +375,7 @@ export async function executeWorkflow(
     const errMsg = err instanceof Error ? err.message : String(err);
     logger.error(`Workflow execution error (${workflowId}):`, errMsg);
 
-    execute(
+    await execute(
       `UPDATE workflow_runs SET status = 'failed', steps_completed = ?, result = ?, completed_at = ?, error = ? WHERE id = ?`,
       [stepsCompleted, JSON.stringify({ steps: stepResults }), Date.now(), errMsg, runId],
     );
@@ -420,13 +420,13 @@ export async function executeStep(step: WorkflowStep, context: StepContext): Pro
   }
 }
 
-function getWorkflowRun(runId: string): WorkflowRun | undefined {
-  const row = queryOne<WorkflowRunRow>('SELECT * FROM workflow_runs WHERE id = ?', [runId]);
+async function getWorkflowRun(runId: string): Promise<WorkflowRun | undefined> {
+  const row = await queryOne<WorkflowRunRow>('SELECT * FROM workflow_runs WHERE id = ?', [runId]);
   return row ? rowToWorkflowRun(row) : undefined;
 }
 
-export function getWorkflowRuns(workflowId: string, limit: number = 20): WorkflowRun[] {
-  const rows = queryAll<WorkflowRunRow>(
+export async function getWorkflowRuns(workflowId: string, limit: number = 20): Promise<WorkflowRun[]> {
+  const rows = await queryAll<WorkflowRunRow>(
     'SELECT * FROM workflow_runs WHERE workflow_id = ? ORDER BY started_at DESC LIMIT ?',
     [workflowId, limit],
   );
@@ -435,11 +435,11 @@ export function getWorkflowRuns(workflowId: string, limit: number = 20): Workflo
 
 // --- Step Handlers ---
 
-export function handleFilterStep(
+export async function handleFilterStep(
   emails: EmailRow[],
   config: Record<string, unknown>,
   context?: StepContext,
-): StepResult {
+): Promise<StepResult> {
   const { field, operator, value } = config as {
     field?: string;
     operator?: string;
@@ -448,6 +448,13 @@ export function handleFilterStep(
 
   if (!field || !value) {
     return { success: true, data: { filtered: emails.length, total: emails.length } };
+  }
+
+  // Pre-fetch VIP list if needed
+  let vipEmails: string[] = [];
+  if (operator === 'in_vip_list') {
+    const vips = await queryAll<{ email: string }>('SELECT email FROM vip_senders WHERE account_id = ?', [context?.accountId ?? '']);
+    vipEmails = vips.map(v => v.email.toLowerCase());
   }
 
   const filtered = emails.filter((email) => {
@@ -465,12 +472,8 @@ export function handleFilterStep(
         return fieldValue.endsWith(matchValue);
       case 'not_contains':
         return !fieldValue.includes(matchValue);
-      case 'in_vip_list': {
-        // VIP emailek lekérése a DB-ből (vip_senders tábla)
-        const vips = queryAll<{ email: string }>('SELECT email FROM vip_senders WHERE account_id = ?', [context?.accountId ?? '']);
-        const vipEmails = vips.map(v => v.email.toLowerCase());
+      case 'in_vip_list':
         return vipEmails.includes(fieldValue.toLowerCase());
-      }
       default:
         return fieldValue.includes(matchValue);
     }
@@ -533,26 +536,26 @@ export async function handleAIAnalyzeStep(
   };
 }
 
-export function handleCategorizeStep(
+export async function handleCategorizeStep(
   emails: EmailRow[],
   config: Record<string, unknown>,
-): StepResult {
+): Promise<StepResult> {
   const categoryId = config.categoryId as string | undefined;
   if (!categoryId) {
     return { success: false, error: 'categoryId is required for categorize step' };
   }
 
   for (const email of emails) {
-    execute('UPDATE emails SET category_id = ? WHERE id = ?', [categoryId, email.id]);
+    await execute('UPDATE emails SET category_id = ? WHERE id = ?', [categoryId, email.id]);
   }
 
   return { success: true, data: { categorized: emails.length, categoryId } };
 }
 
-function handleLabelStep(
+async function handleLabelStep(
   emails: EmailRow[],
   config: Record<string, unknown>,
-): StepResult {
+): Promise<StepResult> {
   const label = config.label as string | undefined;
   if (!label) {
     return { success: false, error: 'label is required for label step' };
@@ -568,7 +571,7 @@ function handleLabelStep(
     if (!arr.includes(label)) {
       arr.push(label);
     }
-    execute('UPDATE emails SET labels = ? WHERE id = ?', [JSON.stringify(arr), email.id]);
+    await execute('UPDATE emails SET labels = ? WHERE id = ?', [JSON.stringify(arr), email.id]);
   }
 
   return { success: true, data: { labeled: emails.length, label } };
@@ -601,7 +604,7 @@ export async function handleForwardStep(
   const errors: string[] = [];
 
   try {
-    const { oauth2Client } = getOAuth2ClientForAccount(context.accountId);
+    const { oauth2Client } = await getOAuth2ClientForAccount(context.accountId);
     const gmail = getGmailClient(oauth2Client);
 
     for (const email of emails) {
@@ -714,11 +717,11 @@ export async function handleNotifyStep(
   }
 }
 
-export function handleSaveReportStep(
+export async function handleSaveReportStep(
   data: Record<string, unknown>,
   config: Record<string, unknown>,
   context: StepContext,
-): StepResult {
+): Promise<StepResult> {
   const reportName = (config.reportName as string) ?? `report_${Date.now()}`;
 
   // Save report as a user setting (JSON blob)
@@ -729,9 +732,10 @@ export function handleSaveReportStep(
     data,
   };
 
-  execute(
-    `INSERT OR REPLACE INTO user_settings (id, account_id, key, value, updated_at)
-     VALUES (?, ?, ?, ?, ?)`,
+  await execute(
+    `INSERT INTO user_settings (id, account_id, key, value, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(account_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
     [uuid(), context.accountId, `workflow_report_${reportName}`, JSON.stringify(reportData), Date.now()],
   );
 
@@ -853,12 +857,12 @@ export function handleConditionStep(
 
 // --- Preset Workflows ---
 
-export function createDefaultWorkflows(accountId: string): Workflow[] {
+export async function createDefaultWorkflows(accountId: string): Promise<Workflow[]> {
   const workflows: Workflow[] = [];
 
   // 1. Napi összefoglaló — reggel 7:00
   workflows.push(
-    createWorkflow(accountId, 'Napi összefoglaló', 'Reggel 7:00-kor összefoglalja a tegnapi emaileket', 'scheduled', { hour: 7, minute: 0, days: [0, 1, 2, 3, 4, 5, 6] }, [
+    await createWorkflow(accountId, 'Napi összefoglaló', 'Reggel 7:00-kor összefoglalja a tegnapi emaileket', 'scheduled', { hour: 7, minute: 0, days: [0, 1, 2, 3, 4, 5, 6] }, [
       { type: 'filter', name: 'Tegnapi emailek', config: { field: 'date', operator: 'gte', value: 'yesterday' } },
       { type: 'summarize', name: 'Összefoglalás', config: { maxLength: 300 } },
       { type: 'notify', name: 'Értesítés', config: { title: 'Napi összefoglaló', body: 'Tegnapi emailek összefoglalója elkészült' } },
@@ -867,7 +871,7 @@ export function createDefaultWorkflows(accountId: string): Workflow[] {
 
   // 2. VIP értesítés — on_receive
   workflows.push(
-    createWorkflow(accountId, 'VIP értesítés', 'VIP feladótól érkező emailnél azonnali push notification', 'on_receive', { checkVip: true }, [
+    await createWorkflow(accountId, 'VIP értesítés', 'VIP feladótól érkező emailnél azonnali push notification', 'on_receive', { checkVip: true }, [
       { type: 'filter', name: 'VIP szűrés', config: { field: 'from_email', operator: 'in_vip_list', value: '' } },
       { type: 'condition', name: 'Van VIP email?', config: { field: 'emailCount', operator: 'gt', value: 0, trueStep: 2, falseStep: 3 } },
       { type: 'notify', name: 'VIP értesítés', config: { title: '⭐ VIP email érkezett!', body: 'Új email egy VIP feladótól' } },
@@ -876,7 +880,7 @@ export function createDefaultWorkflows(accountId: string): Workflow[] {
 
   // 3. Számlák gyűjtő — on_receive
   workflows.push(
-    createWorkflow(accountId, 'Számlák gyűjtő', 'Számla/invoice tárgyú emailek automatikus kategorizálása és összeg kinyerése', 'on_receive', { subjectMatch: ['számla', 'invoice', 'faktura'] }, [
+    await createWorkflow(accountId, 'Számlák gyűjtő', 'Számla/invoice tárgyú emailek automatikus kategorizálása és összeg kinyerése', 'on_receive', { subjectMatch: ['számla', 'invoice', 'faktura'] }, [
       { type: 'filter', name: 'Számla szűrés', config: { field: 'subject', operator: 'contains', value: 'számla' } },
       { type: 'extract', name: 'Adatok kinyerése', config: { fields: ['subject', 'from_email', 'from_name', 'date', 'snippet'] } },
       { type: 'categorize', name: 'Kategorizálás', config: { categoryId: 'invoices' } },
@@ -886,7 +890,7 @@ export function createDefaultWorkflows(accountId: string): Workflow[] {
 
   // 4. Heti riport — weekly
   workflows.push(
-    createWorkflow(accountId, 'Heti riport', 'Heti statisztika: email mennyiség, top feladók, válaszidők', 'scheduled', { hour: 8, minute: 0, days: [1] }, [
+    await createWorkflow(accountId, 'Heti riport', 'Heti statisztika: email mennyiség, top feladók, válaszidők', 'scheduled', { hour: 8, minute: 0, days: [1] }, [
       { type: 'filter', name: 'Heti emailek', config: { field: 'date', operator: 'gte', value: 'last_week' } },
       { type: 'group', name: 'Feladók csoportosítása', config: { groupBy: 'from_email' } },
       { type: 'summarize', name: 'Statisztika', config: { maxLength: 500 } },

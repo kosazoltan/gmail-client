@@ -12,7 +12,7 @@ import {
 const router = Router();
 
 // Kontaktok keresése (autocomplete)
-router.get('/search', (req: Request, res: Response) => {
+router.get('/search', async (req: Request, res: Response) => {
   const accountId = req.session.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
@@ -25,12 +25,12 @@ router.get('/search', (req: Request, res: Response) => {
     return res.json([]);
   }
 
-  const contacts = searchContacts(accountId, query, limit);
+  const contacts = await searchContacts(accountId, query, limit);
   res.json(contacts);
 });
 
 // Összes kontakt lekérése
-router.get('/', (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   const accountId = req.session.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
@@ -41,14 +41,14 @@ router.get('/', (req: Request, res: Response) => {
 });
 
 // Kontakt törlése
-router.delete('/:id', (req: Request, res: Response) => {
+router.delete('/:id', async (req: Request, res: Response) => {
   const accountId = req.session.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
   }
 
   const contactId = req.params.id as string;
-  const success = deleteContact(accountId, contactId);
+  const success = await deleteContact(accountId, contactId);
   if (!success) {
     return res.status(404).json({ error: 'Kontakt nem található' });
   }
@@ -57,7 +57,7 @@ router.delete('/:id', (req: Request, res: Response) => {
 });
 
 // Kontakt név frissítése
-router.patch('/:id', (req: Request, res: Response) => {
+router.patch('/:id', async (req: Request, res: Response) => {
   const accountId = req.session.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
@@ -78,7 +78,7 @@ router.patch('/:id', (req: Request, res: Response) => {
 });
 
 // Meglévő emailekből kontaktok kinyerése (egyszeri migráció)
-router.post('/extract', (req: Request, res: Response) => {
+router.post('/extract', async (req: Request, res: Response) => {
   const accountId = req.session.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
@@ -89,14 +89,14 @@ router.post('/extract', (req: Request, res: Response) => {
 });
 
 // Karakterkódolás javítása (mojibake fix) - kontaktok, sender_groups és emails
-router.post('/fix-encoding', (req: Request, res: Response) => {
+router.post('/fix-encoding', async (req: Request, res: Response) => {
   const accountId = req.session.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
   }
 
   try {
-    const result = fixAllNamesEncoding(accountId);
+    const result = await fixAllNamesEncoding(accountId);
     res.json({
       success: true,
       fixed: result,
@@ -109,3 +109,4 @@ router.post('/fix-encoding', (req: Request, res: Response) => {
 });
 
 export default router;
+

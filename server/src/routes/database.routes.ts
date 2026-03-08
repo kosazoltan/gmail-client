@@ -34,17 +34,17 @@ function validateAccountAccess(req: Request): string | null {
 }
 
 // Adatbázis statisztikák
-router.get('/stats', (req: Request, res: Response) => {
+router.get('/stats', async (req: Request, res: Response) => {
   const accountId = validateAccountAccess(req);
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
   }
-  const stats = getDatabaseStats(accountId);
+  const stats = await getDatabaseStats(accountId);
   res.json(stats);
 });
 
 // Emailek listázása adatbázis kezelőhöz
-router.get('/emails', (req: Request, res: Response) => {
+router.get('/emails', async (req: Request, res: Response) => {
   const accountId = validateAccountAccess(req);
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
@@ -78,12 +78,12 @@ router.get('/emails', (req: Request, res: Response) => {
     isRead: req.query.isRead === 'true' ? true : req.query.isRead === 'false' ? false : undefined,
   };
 
-  const result = listEmailsForManager(accountId, options);
+  const result = await listEmailsForManager(accountId, options);
   res.json(result);
 });
 
 // Emailek törlése (batch)
-router.delete('/emails', (req: Request, res: Response) => {
+router.delete('/emails', async (req: Request, res: Response) => {
   const accountId = validateAccountAccess(req);
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
@@ -94,12 +94,12 @@ router.delete('/emails', (req: Request, res: Response) => {
     return res.status(400).json({ error: 'emailIds tömb szükséges' });
   }
 
-  const deletedCount = deleteEmails(accountId, emailIds);
+  const deletedCount = await deleteEmails(accountId, emailIds);
   res.json({ success: true, deletedCount });
 });
 
 // Emailek törlése időszak alapján
-router.delete('/emails/by-date', (req: Request, res: Response) => {
+router.delete('/emails/by-date', async (req: Request, res: Response) => {
   const accountId = validateAccountAccess(req);
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
@@ -110,12 +110,12 @@ router.delete('/emails/by-date', (req: Request, res: Response) => {
     return res.status(400).json({ error: 'dateFrom és dateTo szükséges' });
   }
 
-  const deletedCount = deleteEmailsByDateRange(accountId, dateFrom, dateTo);
+  const deletedCount = await deleteEmailsByDateRange(accountId, dateFrom, dateTo);
   res.json({ success: true, deletedCount });
 });
 
 // Régi emailek törlése
-router.delete('/emails/old', (req: Request, res: Response) => {
+router.delete('/emails/old', async (req: Request, res: Response) => {
   const accountId = validateAccountAccess(req);
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
@@ -126,12 +126,12 @@ router.delete('/emails/old', (req: Request, res: Response) => {
     return res.status(400).json({ error: 'olderThanDays szám szükséges' });
   }
 
-  const deletedCount = deleteOldEmails(accountId, olderThanDays);
+  const deletedCount = await deleteOldEmails(accountId, olderThanDays);
   res.json({ success: true, deletedCount });
 });
 
 // Backup létrehozása
-router.post('/backup', (req: Request, res: Response) => {
+router.post('/backup', async (req: Request, res: Response) => {
   // Jogosultság ellenőrzés backup létrehozáshoz
   const accountId = validateAccountAccess(req);
   if (!accountId) {
@@ -139,7 +139,7 @@ router.post('/backup', (req: Request, res: Response) => {
   }
 
   try {
-    const backup = createBackup();
+    const backup = await createBackup();
     res.json({ success: true, ...backup });
   } catch (error) {
     logger.error('Backup hiba:', error);
@@ -148,7 +148,7 @@ router.post('/backup', (req: Request, res: Response) => {
 });
 
 // Backup-ok listázása
-router.get('/backups', (req: Request, res: Response) => {
+router.get('/backups', async (req: Request, res: Response) => {
   // Jogosultság ellenőrzés
   const accountId = validateAccountAccess(req);
   if (!accountId) {
@@ -160,7 +160,7 @@ router.get('/backups', (req: Request, res: Response) => {
 });
 
 // Backup letöltése
-router.get('/backups/:filename', (req: Request, res: Response) => {
+router.get('/backups/:filename', async (req: Request, res: Response) => {
   // Jogosultság ellenőrzés backup letöltéshez
   const accountId = validateAccountAccess(req);
   if (!accountId) {
@@ -213,7 +213,7 @@ router.get('/backups/:filename', (req: Request, res: Response) => {
 });
 
 // Backup törlése
-router.delete('/backups/:filename', (req: Request, res: Response) => {
+router.delete('/backups/:filename', async (req: Request, res: Response) => {
   // Jogosultság ellenőrzés backup törléshez
   const accountId = validateAccountAccess(req);
   if (!accountId) {
@@ -267,7 +267,7 @@ router.delete('/backups/:filename', (req: Request, res: Response) => {
 });
 
 // Adatbázis tömörítés
-router.post('/vacuum', (req: Request, res: Response) => {
+router.post('/vacuum', async (req: Request, res: Response) => {
   // Jogosultság ellenőrzés
   const accountId = validateAccountAccess(req);
   if (!accountId) {
@@ -275,7 +275,7 @@ router.post('/vacuum', (req: Request, res: Response) => {
   }
 
   try {
-    vacuumDatabase();
+    await vacuumDatabase();
     res.json({ success: true });
   } catch (error) {
     logger.error('Vacuum hiba:', error);
@@ -284,7 +284,7 @@ router.post('/vacuum', (req: Request, res: Response) => {
 });
 
 // Árva rekordok tisztítása
-router.post('/cleanup', (req: Request, res: Response) => {
+router.post('/cleanup', async (req: Request, res: Response) => {
   // Jogosultság ellenőrzés
   const accountId = validateAccountAccess(req);
   if (!accountId) {
@@ -292,7 +292,7 @@ router.post('/cleanup', (req: Request, res: Response) => {
   }
 
   try {
-    const result = cleanupOrphanedRecords();
+    const result = await cleanupOrphanedRecords();
     res.json({ success: true, ...result });
   } catch (error) {
     logger.error('Cleanup hiba:', error);
@@ -301,7 +301,7 @@ router.post('/cleanup', (req: Request, res: Response) => {
 });
 
 // Admin: karakterkódolás javítása minden fiókra (session nélkül, csak localhost)
-router.post('/fix-encoding-all', (req: Request, res: Response) => {
+router.post('/fix-encoding-all', async (req: Request, res: Response) => {
   // Csak localhost-ról engedélyezett
   const ip = req.ip || req.socket.remoteAddress || '';
   const isLocalhost = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
@@ -311,11 +311,11 @@ router.post('/fix-encoding-all', (req: Request, res: Response) => {
   }
 
   try {
-    const accounts = getAllAccounts();
+    const accounts = await getAllAccounts();
     const results: Record<string, { contacts: number; senderGroups: number; emails: number }> = {};
 
     for (const account of accounts) {
-      const result = fixAllNamesEncoding(account.id);
+      const result = await fixAllNamesEncoding(account.id);
       results[account.email] = result;
     }
 
@@ -327,3 +327,4 @@ router.post('/fix-encoding-all', (req: Request, res: Response) => {
 });
 
 export default router;
+

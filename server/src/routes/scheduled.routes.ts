@@ -45,14 +45,14 @@ interface ScheduledEmailRow {
 }
 
 // Get all scheduled emails
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
       return res.status(401).json({ error: 'Nincs bejelentkezve' });
     }
 
-    const emails = queryAll<ScheduledEmailRow>(
+    const emails = await queryAll<ScheduledEmailRow>(
       `SELECT * FROM scheduled_emails
        WHERE account_id = ? AND status = 'pending'
        ORDER BY scheduled_at ASC`,
@@ -78,7 +78,7 @@ router.get('/', (req, res) => {
 });
 
 // Schedule a new email
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -122,7 +122,7 @@ router.post('/', (req, res) => {
     const id = uuid();
     const createdAt = Date.now();
 
-    execute(
+    await execute(
       `INSERT INTO scheduled_emails (id, account_id, to_addresses, cc_addresses, subject, body, scheduled_at, status, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
       [id, accountId, to, cc || null, subject || null, body || null, scheduledTimestamp, createdAt],
@@ -145,7 +145,7 @@ router.post('/', (req, res) => {
 });
 
 // Update scheduled email
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -173,7 +173,7 @@ router.put('/:id', (req, res) => {
       }
     }
 
-    const existing = queryOne<ScheduledEmailRow>(
+    const existing = await queryOne<ScheduledEmailRow>(
       'SELECT * FROM scheduled_emails WHERE id = ? AND account_id = ? AND status = ?',
       [id, accountId, 'pending'],
     );
@@ -191,7 +191,7 @@ router.put('/:id', (req, res) => {
       }
     }
 
-    execute(
+    await execute(
       `UPDATE scheduled_emails
        SET to_addresses = ?, cc_addresses = ?, subject = ?, body = ?, scheduled_at = ?
        WHERE id = ? AND account_id = ?`,
@@ -214,7 +214,7 @@ router.put('/:id', (req, res) => {
 });
 
 // Cancel/delete scheduled email
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -223,7 +223,7 @@ router.delete('/:id', (req, res) => {
 
     const { id } = req.params;
 
-    const existing = queryOne<{ id: string }>(
+    const existing = await queryOne<{ id: string }>(
       'SELECT id FROM scheduled_emails WHERE id = ? AND account_id = ?',
       [id, accountId],
     );
@@ -232,7 +232,7 @@ router.delete('/:id', (req, res) => {
       return res.status(404).json({ error: 'Ütemezett email nem található' });
     }
 
-    execute('DELETE FROM scheduled_emails WHERE id = ? AND account_id = ?', [id, accountId]);
+    await execute('DELETE FROM scheduled_emails WHERE id = ? AND account_id = ?', [id, accountId]);
 
     res.json({ success: true });
   } catch (error) {
@@ -251,7 +251,7 @@ router.post('/:id/send-now', async (req, res) => {
 
     const { id } = req.params;
 
-    const scheduled = queryOne<ScheduledEmailRow>(
+    const scheduled = await queryOne<ScheduledEmailRow>(
       'SELECT * FROM scheduled_emails WHERE id = ? AND account_id = ? AND status = ?',
       [id, accountId, 'pending'],
     );
@@ -263,7 +263,7 @@ router.post('/:id/send-now', async (req, res) => {
     // BUG #11 Fix: Proper auth error handling for send-now
     let oauth2Client;
     try {
-      const authResult = getOAuth2ClientForAccount(accountId);
+      const authResult = await getOAuth2ClientForAccount(accountId);
       oauth2Client = authResult.oauth2Client;
     } catch (authError) {
       logger.error('Auth error in send-now:', authError);
@@ -271,7 +271,7 @@ router.post('/:id/send-now', async (req, res) => {
     }
 
     // Mark as processing first to prevent race conditions
-    execute("UPDATE scheduled_emails SET status = 'processing' WHERE id = ? AND account_id = ?", [
+    await execute("UPDATE scheduled_emails SET status = 'processing' WHERE id = ? AND account_id = ?", [
       id,
       accountId,
     ]);
@@ -299,7 +299,7 @@ router.post('/:id/send-now', async (req, res) => {
     });
 
     // Mark as sent only after successful send
-    execute("UPDATE scheduled_emails SET status = 'sent' WHERE id = ? AND account_id = ?", [
+    await execute("UPDATE scheduled_emails SET status = 'sent' WHERE id = ? AND account_id = ?", [
       id,
       accountId,
     ]);
@@ -320,13 +320,13 @@ export async function processScheduledEmails(): Promise<number> {
 
     // Atomically claim emails with unique instance ID
     // This ensures only this instance processes these specific emails
-    execute(
+    await execute(
       "UPDATE scheduled_emails SET status = 'processing', processing_instance = ? WHERE scheduled_at <= ? AND status = 'pending'",
       [instanceId, now],
     );
 
     // Get only the emails claimed by THIS instance
-    const dueEmails = queryAll<ScheduledEmailRow>(
+    const dueEmails = await queryAll<ScheduledEmailRow>(
       "SELECT * FROM scheduled_emails WHERE status = 'processing' AND processing_instance = ?",
       [instanceId],
     );
@@ -338,11 +338,11 @@ export async function processScheduledEmails(): Promise<number> {
         // BUG #11 Fix: Wrap OAuth client retrieval in try-catch
         let oauth2Client;
         try {
-          const authResult = getOAuth2ClientForAccount(email.account_id);
+          const authResult = await getOAuth2ClientForAccount(email.account_id);
           oauth2Client = authResult.oauth2Client;
         } catch (authError) {
           logger.error(`Auth error for scheduled email ${email.id}:`, authError);
-          execute("UPDATE scheduled_emails SET status = 'failed' WHERE id = ?", [email.id]);
+          await execute("UPDATE scheduled_emails SET status = 'failed' WHERE id = ?", [email.id]);
           continue;
         }
 
@@ -369,14 +369,14 @@ export async function processScheduledEmails(): Promise<number> {
         });
 
         // Mark as sent only after successful send
-        execute("UPDATE scheduled_emails SET status = 'sent' WHERE id = ?", [email.id]);
+        await execute("UPDATE scheduled_emails SET status = 'sent' WHERE id = ?", [email.id]);
 
         sentCount++;
         logger.info(`Scheduled email ${email.id} sent successfully.`);
       } catch (error) {
         logger.error(`Failed to send scheduled email ${email.id}:`, error);
         // Mark as failed
-        execute("UPDATE scheduled_emails SET status = 'failed' WHERE id = ?", [email.id]);
+        await execute("UPDATE scheduled_emails SET status = 'failed' WHERE id = ?", [email.id]);
       }
     }
 

@@ -17,14 +17,14 @@ interface Template {
 }
 
 // Összes sablon listázása
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
       return res.status(401).json({ error: 'Nincs bejelentkezve' });
     }
 
-    const templates = queryAll<Template>(
+    const templates = await queryAll<Template>(
       `SELECT * FROM templates
        WHERE account_id = ?
        ORDER BY use_count DESC, created_at DESC`,
@@ -49,7 +49,7 @@ router.get('/', (req, res) => {
 });
 
 // Új sablon létrehozása
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -63,7 +63,7 @@ router.post('/', (req, res) => {
     }
 
     // Ellenőrizzük, hogy létezik-e már ilyen nevű
-    const existing = queryOne<{ id: string }>(
+    const existing = await queryOne<{ id: string }>(
       'SELECT id FROM templates WHERE account_id = ? AND name = ?',
       [accountId, name],
     );
@@ -75,7 +75,7 @@ router.post('/', (req, res) => {
     const id = uuid();
     const now = Date.now();
 
-    execute(
+    await execute(
       `INSERT INTO templates (id, account_id, name, subject, body, shortcut, use_count, created_at)
        VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
       [id, accountId, name, subject || null, body, shortcut || null, now],
@@ -97,7 +97,7 @@ router.post('/', (req, res) => {
 });
 
 // Sablon frissítése
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -107,7 +107,7 @@ router.put('/:id', (req, res) => {
     const { id } = req.params;
     const { name, subject, body, shortcut } = req.body;
 
-    const existing = queryOne<Template>('SELECT * FROM templates WHERE id = ? AND account_id = ?', [
+    const existing = await queryOne<Template>('SELECT * FROM templates WHERE id = ? AND account_id = ?', [
       id,
       accountId,
     ]);
@@ -118,7 +118,7 @@ router.put('/:id', (req, res) => {
 
     // Ha nevet változtatunk, ellenőrizzük az egyediséget
     if (name && name !== existing.name) {
-      const duplicate = queryOne<{ id: string }>(
+      const duplicate = await queryOne<{ id: string }>(
         'SELECT id FROM templates WHERE account_id = ? AND name = ? AND id != ?',
         [accountId, name, id],
       );
@@ -127,7 +127,7 @@ router.put('/:id', (req, res) => {
       }
     }
 
-    execute(
+    await execute(
       `UPDATE templates
        SET name = ?, subject = ?, body = ?, shortcut = ?
        WHERE id = ? AND account_id = ?`,
@@ -157,7 +157,7 @@ router.put('/:id', (req, res) => {
 });
 
 // Sablon törlése
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -166,7 +166,7 @@ router.delete('/:id', (req, res) => {
 
     const { id } = req.params;
 
-    const existing = queryOne<{ id: string }>(
+    const existing = await queryOne<{ id: string }>(
       'SELECT id FROM templates WHERE id = ? AND account_id = ?',
       [id, accountId],
     );
@@ -175,7 +175,7 @@ router.delete('/:id', (req, res) => {
       return res.status(404).json({ error: 'Sablon nem található' });
     }
 
-    execute('DELETE FROM templates WHERE id = ? AND account_id = ?', [id, accountId]);
+    await execute('DELETE FROM templates WHERE id = ? AND account_id = ?', [id, accountId]);
 
     res.json({ success: true });
   } catch (error) {
@@ -185,7 +185,7 @@ router.delete('/:id', (req, res) => {
 });
 
 // Használat számláló növelése
-router.post('/:id/use', (req, res) => {
+router.post('/:id/use', async (req, res) => {
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -194,7 +194,7 @@ router.post('/:id/use', (req, res) => {
 
     const { id } = req.params;
 
-    execute(
+    await execute(
       `UPDATE templates
        SET use_count = use_count + 1
        WHERE id = ? AND account_id = ?`,

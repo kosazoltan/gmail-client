@@ -213,7 +213,7 @@ Szabályok:
 });
 
 // GET /api/smart-folders — list all smart folders (with email counts)
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
@@ -223,7 +223,7 @@ router.get('/', (req, res) => {
     // Seed defaults if first time
     seedDefaultSmartFolders(accountId);
 
-    const folders = getSmartFolders(accountId);
+    const folders = await getSmartFolders(accountId);
     res.json({ success: true, folders });
   } catch (err) {
     logger.error('Get smart folders error:', err);
@@ -233,7 +233,7 @@ router.get('/', (req, res) => {
 });
 
 // GET /api/smart-folders/:id/emails — get emails in a smart folder
-router.get('/:id/emails', (req, res) => {
+router.get('/:id/emails', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
@@ -243,14 +243,14 @@ router.get('/:id/emails', (req, res) => {
     const { id } = req.params;
 
     // Ownership check
-    const folder = getSmartFolderById(id);
+    const folder = await getSmartFolderById(id);
     if (!folder || folder.accountId !== accountId) {
       return res.status(404).json({ error: 'Smart folder not found' });
     }
 
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 50;
-    const { emails, total } = getSmartFolderEmails(id, page, limit);
+    const { emails, total } = await getSmartFolderEmails(id, page, limit);
 
     // Map to frontend format
     const mappedEmails = emails.map(e => {
@@ -291,7 +291,7 @@ router.get('/:id/emails', (req, res) => {
 });
 
 // POST /api/smart-folders — create new smart folder
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
@@ -304,7 +304,7 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'Név és legalább egy szabály szükséges' });
     }
 
-    const folder = createSmartFolder(accountId, name, rules, icon);
+    const folder = await createSmartFolder(accountId, name, rules, icon);
     res.status(201).json({ success: true, folder });
   } catch (err) {
     logger.error('Create smart folder error:', err);
@@ -314,7 +314,7 @@ router.post('/', (req, res) => {
 });
 
 // PUT /api/smart-folders/:id — update smart folder
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Not authenticated' });
@@ -325,12 +325,12 @@ router.put('/:id', (req, res) => {
     const updates = req.body as { name?: string; icon?: string; rules?: SmartFolderRule[]; sortOrder?: number };
 
     // Ownership check
-    const existing = getSmartFolderById(id);
+    const existing = await getSmartFolderById(id);
     if (!existing || existing.accountId !== accountId) {
       return res.status(404).json({ error: 'Smart folder nem található' });
     }
 
-    const folder = updateSmartFolder(id, updates);
+    const folder = await updateSmartFolder(id, updates);
     if (!folder) {
       return res.status(404).json({ error: 'Smart folder nem található' });
     }
@@ -344,7 +344,7 @@ router.put('/:id', (req, res) => {
 });
 
 // DELETE /api/smart-folders/:id — delete smart folder
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
     return res.status(401).json({ error: 'Not authenticated' });
@@ -354,12 +354,12 @@ router.delete('/:id', (req, res) => {
     const { id } = req.params;
 
     // Ownership check
-    const existing = getSmartFolderById(id);
+    const existing = await getSmartFolderById(id);
     if (!existing || existing.accountId !== accountId) {
       return res.status(404).json({ error: 'Smart folder nem található' });
     }
 
-    const success = deleteSmartFolder(id);
+    const success = await deleteSmartFolder(id);
 
     if (!success) {
       return res.status(404).json({ error: 'Smart folder nem található' });

@@ -54,7 +54,7 @@ function validateAccountAccess(req: {
   return accountId;
 }
 
-router.get('/by-sender', (req, res) => {
+router.get('/by-sender', async (req, res) => {
   try {
     const accountId = validateAccountAccess(req);
     if (!accountId) {
@@ -66,7 +66,7 @@ router.get('/by-sender', (req, res) => {
     const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 30), MAX_LIMIT);
     const offset = (page - 1) * limit;
 
-    const senders = queryAll(
+    const senders = await queryAll(
       'SELECT * FROM sender_groups WHERE account_id = ? ORDER BY message_count DESC LIMIT ? OFFSET ?',
       [accountId, limit, offset],
     );
@@ -77,7 +77,7 @@ router.get('/by-sender', (req, res) => {
   }
 });
 
-router.get('/by-sender/:email', (req, res) => {
+router.get('/by-sender/:email', async (req, res) => {
   try {
     const accountId = validateAccountAccess(req);
     if (!accountId) {
@@ -90,7 +90,7 @@ router.get('/by-sender/:email', (req, res) => {
     const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), MAX_LIMIT);
     const offset = (page - 1) * limit;
 
-    const results = queryAll<EmailRecord>(
+    const results = await queryAll<EmailRecord>(
       'SELECT * FROM emails WHERE account_id = ? AND from_email = ? ORDER BY date DESC LIMIT ? OFFSET ?',
       [accountId, senderEmail, limit, offset],
     );
@@ -101,7 +101,7 @@ router.get('/by-sender/:email', (req, res) => {
   }
 });
 
-router.get('/by-topic', (req, res) => {
+router.get('/by-topic', async (req, res) => {
   try {
     const accountId = validateAccountAccess(req);
     if (!accountId) {
@@ -113,7 +113,7 @@ router.get('/by-topic', (req, res) => {
     const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 30), MAX_LIMIT);
     const offset = (page - 1) * limit;
 
-    const topicList = queryAll(
+    const topicList = await queryAll(
       'SELECT * FROM topics WHERE account_id = ? ORDER BY message_count DESC LIMIT ? OFFSET ?',
       [accountId, limit, offset],
     );
@@ -124,7 +124,7 @@ router.get('/by-topic', (req, res) => {
   }
 });
 
-router.get('/by-topic/:id', (req, res) => {
+router.get('/by-topic/:id', async (req, res) => {
   try {
     const accountId = validateAccountAccess(req);
     if (!accountId) {
@@ -137,17 +137,17 @@ router.get('/by-topic/:id', (req, res) => {
     const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 50), MAX_LIMIT);
     const offset = (page - 1) * limit;
 
-    const countResult = queryOne<{ count: number }>(
+    const countResult = await queryOne<{ count: number }>(
       'SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND topic_id = ?',
       [accountId, topicId],
     );
-    const total = countResult?.count || 0;
+    const total = Number(countResult?.count ?? 0);
 
-    const results = queryAll<EmailRecord>(
+    const results = await queryAll<EmailRecord>(
       'SELECT * FROM emails WHERE account_id = ? AND topic_id = ? ORDER BY date DESC LIMIT ? OFFSET ?',
       [accountId, topicId, limit, offset],
     );
-    const topic = queryOne('SELECT * FROM topics WHERE id = ? AND account_id = ?', [
+    const topic = await queryOne('SELECT * FROM topics WHERE id = ? AND account_id = ?', [
       topicId,
       accountId,
     ]);
@@ -164,7 +164,7 @@ router.get('/by-topic/:id', (req, res) => {
   }
 });
 
-router.get('/by-time', (req, res) => {
+router.get('/by-time', async (req, res) => {
   try {
     const accountId = validateAccountAccess(req);
     if (!accountId) {
@@ -178,19 +178,19 @@ router.get('/by-time', (req, res) => {
     const weekStart = todayStart - 7 * 24 * 60 * 60 * 1000;
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
-    const countByPeriod = (from: number, to: number) => {
-      const r = queryOne<{ count: number }>(
+    const countByPeriod = async (from: number, to: number) => {
+      const r = await queryOne<{ count: number }>(
         'SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND date >= ? AND date < ?',
         [accountId, from, to],
       );
-      return r?.count || 0;
+      return Number(r?.count ?? 0);
     };
 
-    const olderCount =
-      queryOne<{ count: number }>(
-        'SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND date < ?',
-        [accountId, monthStart],
-      )?.count || 0;
+    const olderResult = await queryOne<{ count: number }>(
+      'SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND date < ?',
+      [accountId, monthStart],
+    );
+    const olderCount = Number(olderResult?.count ?? 0);
 
     const timePeriods = [
       {
@@ -230,7 +230,7 @@ router.get('/by-time', (req, res) => {
   }
 });
 
-router.get('/by-time/:periodId', (req, res) => {
+router.get('/by-time/:periodId', async (req, res) => {
   try {
     const accountId = validateAccountAccess(req);
     if (!accountId) {
@@ -275,7 +275,7 @@ router.get('/by-time/:periodId', (req, res) => {
         break;
     }
 
-    const results = queryAll<EmailRecord>(
+    const results = await queryAll<EmailRecord>(
       'SELECT * FROM emails WHERE account_id = ? AND date >= ? AND date < ? ORDER BY date DESC LIMIT ? OFFSET ?',
       [accountId, from, to, limit, offset],
     );
@@ -286,7 +286,7 @@ router.get('/by-time/:periodId', (req, res) => {
   }
 });
 
-router.get('/by-category', (req, res) => {
+router.get('/by-category', async (req, res) => {
   try {
     const accountId = validateAccountAccess(req);
     if (!accountId) {
@@ -294,19 +294,19 @@ router.get('/by-category', (req, res) => {
       return;
     }
 
-    const cats = queryAll<CategoryRecord & { description?: string; sort_order?: number; created_at?: number }>('SELECT * FROM categories WHERE account_id = ? ORDER BY sort_order ASC, name ASC', [
+    const cats = await queryAll<CategoryRecord & { description?: string; sort_order?: number; created_at?: number }>('SELECT * FROM categories WHERE account_id = ? ORDER BY sort_order ASC, name ASC', [
       accountId,
     ]);
 
     // System category email counts (from emails.category_id)
-    const systemCounts = queryAll<{ category_id: string; count: number }>(
+    const systemCounts = await queryAll<{ category_id: string; count: number }>(
       'SELECT category_id, COUNT(*) as count FROM emails WHERE account_id = ? AND category_id IS NOT NULL GROUP BY category_id',
       [accountId],
     );
     const systemCountMap = new Map(systemCounts.map((c) => [c.category_id, c.count]));
 
     // User category email counts (from email_categories join table)
-    const userCounts = queryAll<{ category_id: string; count: number }>(
+    const userCounts = await queryAll<{ category_id: string; count: number }>(
       'SELECT category_id, COUNT(*) as count FROM email_categories WHERE account_id = ? GROUP BY category_id',
       [accountId],
     );
@@ -325,7 +325,7 @@ router.get('/by-category', (req, res) => {
   }
 });
 
-router.get('/by-category/:id', (req, res) => {
+router.get('/by-category/:id', async (req, res) => {
   try {
     const accountId = validateAccountAccess(req);
     if (!accountId) {
@@ -339,7 +339,7 @@ router.get('/by-category/:id', (req, res) => {
     const offset = (page - 1) * limit;
 
     // FIX: Add account_id filter to prevent cross-account category access
-    const cat = queryOne<CategoryRecord>('SELECT * FROM categories WHERE id = ? AND account_id = ?', [
+    const cat = await queryOne<CategoryRecord>('SELECT * FROM categories WHERE id = ? AND account_id = ?', [
       categoryId,
       accountId,
     ]);
@@ -347,7 +347,7 @@ router.get('/by-category/:id', (req, res) => {
     let results: EmailRecord[];
     if (cat && !cat.is_system) {
       // User-created category: emails from email_categories join table
-      results = queryAll<EmailRecord>(
+      results = await queryAll<EmailRecord>(
         `SELECT e.* FROM emails e
          INNER JOIN email_categories ec ON ec.email_id = e.id
          WHERE ec.category_id = ? AND ec.account_id = ?
@@ -356,7 +356,7 @@ router.get('/by-category/:id', (req, res) => {
       );
     } else {
       // System category: emails from emails.category_id
-      results = queryAll<EmailRecord>(
+      results = await queryAll<EmailRecord>(
         'SELECT * FROM emails WHERE account_id = ? AND category_id = ? ORDER BY date DESC LIMIT ? OFFSET ?',
         [accountId, categoryId, limit, offset],
       );
@@ -401,7 +401,7 @@ function formatEmail(email: EmailRecord) {
 }
 
 // Beérkezett levelek (INBOX label, de nem TRASH) + SENT válaszok ugyanabból a thread-ből
-router.get('/inbox', (req, res) => {
+router.get('/inbox', async (req, res) => {
   try {
     const accountId = validateAccountAccess(req);
     if (!accountId) {
@@ -415,7 +415,7 @@ router.get('/inbox', (req, res) => {
 
     // Get inbox threads first (thread IDs that have at least one INBOX email)
     // Then fetch ALL emails from those threads (including SENT replies)
-    const inboxEmails = queryAll<EmailRecord>(
+    const inboxEmails = await queryAll<EmailRecord>(
       `SELECT e.* FROM emails e
        WHERE e.account_id = ?
          AND e.labels NOT LIKE '%"TRASH"%'
@@ -435,7 +435,7 @@ router.get('/inbox', (req, res) => {
     );
 
     // Get total count for pagination (unique threads count would be more accurate but this is simpler)
-    const countResult = queryOne<{ count: number }>(
+    const countResult = await queryOne<{ count: number }>(
       `SELECT COUNT(*) as count FROM emails e
        WHERE e.account_id = ?
          AND e.labels NOT LIKE '%"TRASH"%'
@@ -449,7 +449,7 @@ router.get('/inbox', (req, res) => {
          )`,
       [accountId, accountId],
     );
-    const total = countResult?.count || 0;
+    const total = Number(countResult?.count ?? 0);
 
     res.json({
       emails: inboxEmails.map(formatEmail),
@@ -464,7 +464,7 @@ router.get('/inbox', (req, res) => {
 });
 
 // Unified Inbox - minden fiók emailjei egy helyen
-router.get('/unified', (req, res) => {
+router.get('/unified', async (req, res) => {
   try {
     const accountIds = req.session.accountIds || [];
     if (accountIds.length === 0) {
@@ -479,7 +479,7 @@ router.get('/unified', (req, res) => {
 
     // Fiók információk lekérése (email és szín)
     const accountPlaceholders = accountIds.map(() => '?').join(',');
-    const accounts = queryAll<{ id: string; email: string; color: string | null }>(
+    const accounts = await queryAll<{ id: string; email: string; color: string | null }>(
       `SELECT id, email, color FROM accounts WHERE id IN (${accountPlaceholders})`,
       accountIds,
     );
@@ -491,7 +491,7 @@ router.get('/unified', (req, res) => {
 
     // FIX: Include SENT replies from threads that have INBOX emails (same as /inbox endpoint)
     const targetPlaceholders = targetAccountIds.map(() => '?').join(',');
-    const inboxEmails = queryAll<EmailRecord & { account_id: string }>(
+    const inboxEmails = await queryAll<EmailRecord & { account_id: string }>(
       `SELECT e.* FROM emails e
        WHERE e.account_id IN (${targetPlaceholders})
          AND e.labels NOT LIKE '%"TRASH"%'
@@ -511,7 +511,7 @@ router.get('/unified', (req, res) => {
     );
 
     // Get total count for pagination
-    const countResult = queryOne<{ count: number }>(
+    const countResult = await queryOne<{ count: number }>(
       `SELECT COUNT(*) as count FROM emails e
        WHERE e.account_id IN (${targetPlaceholders})
          AND e.labels NOT LIKE '%"TRASH"%'
@@ -525,7 +525,7 @@ router.get('/unified', (req, res) => {
          )`,
       [...targetAccountIds, ...targetAccountIds],
     );
-    const total = countResult?.count || 0;
+    const total = Number(countResult?.count ?? 0);
 
     // Formázás account adatokkal
     const formattedEmails = inboxEmails.map((email) => {
@@ -539,7 +539,7 @@ router.get('/unified', (req, res) => {
     });
 
     // Fiók statisztikák - optimized with GROUP BY
-    const statsResults = queryAll<{ account_id: string; count: number }>(
+    const statsResults = await queryAll<{ account_id: string; count: number }>(
       `SELECT account_id, COUNT(*) as count FROM emails
        WHERE account_id IN (${targetPlaceholders})
          AND labels LIKE '%"INBOX"%'
@@ -573,7 +573,7 @@ router.get('/unified', (req, res) => {
 });
 
 // Kuka - törölt levelek (TRASH label)
-router.get('/trash', (req, res) => {
+router.get('/trash', async (req, res) => {
   try {
     const accountId = validateAccountAccess(req);
     if (!accountId) {
@@ -586,7 +586,7 @@ router.get('/trash', (req, res) => {
     const offset = (page - 1) * limit;
 
     // FIX: N+1 query optimization - filter in SQL instead of loading all emails
-    const trashedEmails = queryAll<EmailRecord>(
+    const trashedEmails = await queryAll<EmailRecord>(
       `SELECT * FROM emails
        WHERE account_id = ?
          AND labels LIKE '%"TRASH"%'
@@ -596,13 +596,13 @@ router.get('/trash', (req, res) => {
     );
 
     // Get total count for pagination
-    const countResult = queryOne<{ count: number }>(
+    const countResult = await queryOne<{ count: number }>(
       `SELECT COUNT(*) as count FROM emails
        WHERE account_id = ?
          AND labels LIKE '%"TRASH"%'`,
       [accountId],
     );
-    const total = countResult?.count || 0;
+    const total = Number(countResult?.count ?? 0);
 
     res.json({
       emails: trashedEmails.map(formatEmail),

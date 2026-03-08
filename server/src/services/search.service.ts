@@ -79,17 +79,17 @@ const COUNT_QUERY = `SELECT COUNT(*) as total FROM emails
        snippet LIKE ? COLLATE NOCASE
      )`;
 
-export function searchEmails(options: SearchOptions) {
+export async function searchEmails(options: SearchOptions) {
   const { accountId, query, page = 1, limit = 50 } = options;
   const offset = (page - 1) * limit;
   const pattern = `%${query}%`;
 
-  const results = queryAll<EmailRecord>(
+  const results = await queryAll<EmailRecord>(
     SEARCH_QUERY + ' ORDER BY date DESC LIMIT ? OFFSET ?',
     [accountId, pattern, pattern, pattern, pattern, pattern, limit, offset],
   );
 
-  const countResult = queryOne<{ total: number }>(
+  const countResult = await queryOne<{ total: number }>(
     COUNT_QUERY,
     [accountId, pattern, pattern, pattern, pattern, pattern],
   );
@@ -109,7 +109,7 @@ interface CrossAccountSearchOptions {
   limit?: number;
 }
 
-export function searchEmailsAllAccounts(options: CrossAccountSearchOptions) {
+export async function searchEmailsAllAccounts(options: CrossAccountSearchOptions) {
   const { accountIds, accountMap, query, limit = 50 } = options;
   const pattern = `%${query}%`;
 
@@ -124,14 +124,14 @@ export function searchEmailsAllAccounts(options: CrossAccountSearchOptions) {
 
   for (const accountId of accountIds) {
     // Count per account
-    const countResult = queryOne<{ total: number }>(
+    const countResult = await queryOne<{ total: number }>(
       COUNT_QUERY,
       [accountId, pattern, pattern, pattern, pattern, pattern],
     );
     totalCount += countResult?.total || 0;
 
     // Fetch up to limit per account (we'll sort and trim later)
-    const results = queryAll<EmailRecord>(
+    const results = await queryAll<EmailRecord>(
       SEARCH_QUERY + ' ORDER BY date DESC LIMIT ?',
       [accountId, pattern, pattern, pattern, pattern, pattern, limit],
     );

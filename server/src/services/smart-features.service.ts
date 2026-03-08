@@ -55,7 +55,7 @@ interface SimilarEmail {
   similarity: number;
 }
 
-// SmartFolder type for getSmartFolders (virtual folders, different from smart-folders.service.ts SmartFolder)
+// SmartFolder type for await getSmartFolders(virtual folders, different from smart-folders.service.ts SmartFolder)
 interface VirtualSmartFolder {
   name: string;
   query: string;
@@ -66,8 +66,8 @@ interface VirtualSmartFolder {
 // --- Segédfüggvények ---
 
 // VIP feladók lekérése
-function getVipSenders(accountId: string): Set<string> {
-  const vips = queryAll<{ email: string }>(
+async function getVipSenders(accountId: string): Promise<Set<string>> {
+  const vips = await queryAll<{ email: string }>(
     'SELECT email FROM vip_senders WHERE account_id = ?',
     [accountId],
   );
@@ -140,16 +140,16 @@ function wordOverlap(a: string, b: string): number {
 /**
  * Auto-prioritás — emailek priorizálása szabályok alapján
  */
-export function autoPrioritize(
+export async function autoPrioritize(
   accountId: string,
   emailIds: string[],
-): PrioritizedEmail[] {
+): Promise<PrioritizedEmail[]> {
   if (emailIds.length === 0) return [];
 
-  const vipSenders = getVipSenders(accountId);
+  const vipSenders = await getVipSenders(accountId);
 
   const placeholders = emailIds.map(() => '?').join(',');
-  const emails = queryAll<{
+  const emails = await queryAll<{
     id: string;
     subject: string;
     from_email: string;
@@ -238,14 +238,14 @@ export function autoPrioritize(
 /**
  * Follow-up detekció — kapott emailek amelyekre nem válaszoltunk >2 napja
  */
-export function detectPendingFollowups(accountId: string): PendingFollowup[] {
+export async function detectPendingFollowups(accountId: string): Promise<PendingFollowup[]> {
   const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000;
 
   // Bejövő levelek amelyekre nem válaszoltunk:
   // - INBOX label-lel rendelkezik
   // - Nincs kimenő levél ugyanabban a thread-ben, ami későbbi
   // - >2 napja érkezett
-  const pendingEmails = queryAll<{
+  const pendingEmails = await queryAll<{
     id: string;
     subject: string;
     from_email: string;
@@ -301,14 +301,14 @@ export function detectPendingFollowups(accountId: string): PendingFollowup[] {
 /**
  * Meeting/deadline extraction — emailekből dátumok és események kinyerése
  */
-export function extractEventsFromEmails(
+export async function extractEventsFromEmails(
   accountId: string,
   emailIds: string[],
-): EmailEvents[] {
+): Promise<EmailEvents[]> {
   if (emailIds.length === 0) return [];
 
   const placeholders = emailIds.map(() => '?').join(',');
-  const emails = queryAll<{
+  const emails = await queryAll<{
     id: string;
     subject: string;
     body: string;
@@ -390,9 +390,9 @@ export function extractEventsFromEmails(
 /**
  * Contact scoring — kapcsolati háló elemzés
  */
-export function scoreContacts(accountId: string): ContactScore[] {
+export async function scoreContacts(accountId: string): Promise<ContactScore[]> {
   // Kontaktonkénti statisztika: email szám, utolsó kapcsolat
-  const contactStats = queryAll<{
+  const contactStats = await queryAll<{
     email: string;
     name: string;
     emailCount: number;
@@ -420,7 +420,7 @@ export function scoreContacts(accountId: string): ContactScore[] {
 
   // Átlagos válaszidő kiszámítása threadek alapján
   // Egyszerűsített: thread-ben a SENT és nem-SENT üzenetek közötti idő
-  const responseTimeData = queryAll<{
+  const responseTimeData = await queryAll<{
     from_email: string;
     avgResp: number;
   }>(
@@ -482,17 +482,17 @@ export function scoreContacts(accountId: string): ContactScore[] {
 /**
  * Email health dashboard — inbox statisztika
  */
-export function getEmailHealth(accountId: string): EmailHealth {
+export async function getEmailHealth(accountId: string): Promise<EmailHealth> {
   // Olvasatlan levelek
-  const unreadResult = queryOne<{ count: number }>(
+  const unreadResult = await queryOne<{ count: number }>(
     'SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND is_read = 0 AND labels NOT LIKE \'%TRASH%\'',
     [accountId],
   );
-  const unreadCount = unreadResult?.count || 0;
+  const unreadCount = Number(unreadResult?.count ?? 0);
 
   // Válaszra váró levelek (kapott, nincs reply, >24h)
   const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-  const pendingResult = queryOne<{ count: number }>(
+  const pendingResult = await queryOne<{ count: number }>(
     `SELECT COUNT(*) as count FROM emails e
      WHERE e.account_id = ?
        AND e.date < ?
@@ -508,10 +508,10 @@ export function getEmailHealth(accountId: string): EmailHealth {
        )`,
     [accountId, oneDayAgo],
   );
-  const pendingReplies = pendingResult?.count || 0;
+  const pendingReplies = Number(pendingResult?.count ?? 0);
 
   // Átlagos válaszidő (ms) — saját válaszaink a thread-ekben
-  const avgRespResult = queryOne<{ avgResp: number }>(
+  const avgRespResult = await queryOne<{ avgResp: number }>(
     `SELECT AVG(sent.date - incoming.date) AS avgResp
      FROM emails sent
      JOIN emails incoming ON sent.thread_id = incoming.thread_id
@@ -525,7 +525,7 @@ export function getEmailHealth(accountId: string): EmailHealth {
   const avgResponseTime = Math.round(avgRespResult?.avgResp || 0);
 
   // Legrégebbi olvasatlan
-  const oldestResult = queryOne<{ oldest: number }>(
+  const oldestResult = await queryOne<{ oldest: number }>(
     'SELECT MIN(date) as oldest FROM emails WHERE account_id = ? AND is_read = 0 AND labels NOT LIKE \'%TRASH%\'',
     [accountId],
   );
@@ -533,7 +533,7 @@ export function getEmailHealth(accountId: string): EmailHealth {
 
   // Napi email szám (utolsó 30 nap)
   const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-  const dailyData = queryAll<{ day: string; count: number }>(
+  const dailyData = await queryAll<{ day: string; count: number }>(
     `SELECT
        DATE(date / 1000, 'unixepoch') AS day,
        COUNT(*) AS count
@@ -547,7 +547,7 @@ export function getEmailHealth(accountId: string): EmailHealth {
   const emailsPerDay = dailyData.map((d) => ({ date: d.day, count: d.count }));
 
   // Top feladók
-  const topSendersData = queryAll<{ email: string; name: string; count: number }>(
+  const topSendersData = await queryAll<{ email: string; name: string; count: number }>(
     `SELECT
        from_email AS email,
        COALESCE(from_name, from_email) AS name,
@@ -568,13 +568,13 @@ export function getEmailHealth(accountId: string): EmailHealth {
   }));
 
   // Kategória eloszlás
-  const totalResult = queryOne<{ total: number }>(
+  const totalResult = await queryOne<{ total: number }>(
     'SELECT COUNT(*) as total FROM emails WHERE account_id = ? AND labels NOT LIKE \'%TRASH%\'',
     [accountId],
   );
   const totalEmails = totalResult?.total || 1;
 
-  const categoryData = queryAll<{ name: string; count: number }>(
+  const categoryData = await queryAll<{ name: string; count: number }>(
     `SELECT
        COALESCE(c.name, 'Kategorizálatlan') AS name,
        COUNT(*) AS count
@@ -605,12 +605,12 @@ export function getEmailHealth(accountId: string): EmailHealth {
 /**
  * Duplikáció detekció — hasonló emailek keresése tárgy és feladó alapján
  */
-export function findSimilarEmails(
+export async function findSimilarEmails(
   accountId: string,
   emailId: string,
-): SimilarEmail[] {
+): Promise<SimilarEmail[]> {
   // Referencia email lekérése
-  const refEmail = queryOne<{
+  const refEmail = await queryOne<{
     id: string;
     subject: string;
     from_email: string;
@@ -632,7 +632,7 @@ export function findSimilarEmails(
   const likeConditions = subjectWords.map(() => 'LOWER(subject) LIKE ?').join(' AND ');
   const likeParams = subjectWords.map((w) => `%${w}%`);
 
-  const candidates = queryAll<{
+  const candidates = await queryAll<{
     id: string;
     subject: string;
   }>(
@@ -657,13 +657,13 @@ export function findSimilarEmails(
 /**
  * Smart folders — virtuális mappák intelligens lekérdezések alapján
  */
-export function getSmartFolders(accountId: string): VirtualSmartFolder[] {
+export async function getSmartFolders(accountId: string): Promise<VirtualSmartFolder[]> {
   const folders: VirtualSmartFolder[] = [];
   const now = Date.now();
 
   // 1. Válaszra vár
   const twoDaysAgo = now - 2 * 24 * 60 * 60 * 1000;
-  const pendingCount = queryOne<{ count: number }>(
+  const pendingCount = await queryOne<{ count: number }>(
     `SELECT COUNT(*) as count FROM emails e
      WHERE e.account_id = ?
        AND e.date < ?
@@ -682,7 +682,7 @@ export function getSmartFolders(accountId: string): VirtualSmartFolder[] {
   folders.push({
     name: 'Válaszra vár',
     query: 'is:inbox -is:sent older_than:2d',
-    count: pendingCount?.count || 0,
+    count: Number(pendingCount?.count ?? 0),
     icon: '⏳',
   });
 
@@ -690,7 +690,7 @@ export function getSmartFolders(accountId: string): VirtualSmartFolder[] {
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
-  const invoiceCount = queryOne<{ count: number }>(
+  const invoiceCount = await queryOne<{ count: number }>(
     `SELECT COUNT(*) as count FROM emails
      WHERE account_id = ?
        AND date >= ?
@@ -703,13 +703,13 @@ export function getSmartFolders(accountId: string): VirtualSmartFolder[] {
   folders.push({
     name: 'Számlák e hónapban',
     query: 'subject:(számla OR invoice OR fizetés) newer_than:30d',
-    count: invoiceCount?.count || 0,
+    count: Number(invoiceCount?.count ?? 0),
     icon: '🧾',
   });
 
   // 3. Csatolmányos levelek (utolsó 7 nap)
   const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
-  const attachmentCount = queryOne<{ count: number }>(
+  const attachmentCount = await queryOne<{ count: number }>(
     `SELECT COUNT(*) as count FROM emails
      WHERE account_id = ? AND has_attachments = 1 AND date >= ? AND labels NOT LIKE '%TRASH%'`,
     [accountId, weekAgo],
@@ -717,37 +717,37 @@ export function getSmartFolders(accountId: string): VirtualSmartFolder[] {
   folders.push({
     name: 'Friss csatolmányok',
     query: 'has:attachment newer_than:7d',
-    count: attachmentCount?.count || 0,
+    count: Number(attachmentCount?.count ?? 0),
     icon: '📎',
   });
 
   // 4. Olvasatlan levelek
-  const unreadCount = queryOne<{ count: number }>(
+  const unreadCount = await queryOne<{ count: number }>(
     'SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND is_read = 0 AND labels NOT LIKE \'%TRASH%\'',
     [accountId],
   );
   folders.push({
     name: 'Olvasatlan',
     query: 'is:unread',
-    count: unreadCount?.count || 0,
+    count: Number(unreadCount?.count ?? 0),
     icon: '📬',
   });
 
   // 5. Csillagozott
-  const starredCount = queryOne<{ count: number }>(
+  const starredCount = await queryOne<{ count: number }>(
     'SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND is_starred = 1 AND labels NOT LIKE \'%TRASH%\'',
     [accountId],
   );
   folders.push({
     name: 'Csillagozott',
     query: 'is:starred',
-    count: starredCount?.count || 0,
+    count: Number(starredCount?.count ?? 0),
     icon: '⭐',
   });
 
   // 6. VIP levelek (utolsó 30 nap)
   const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
-  const vipEmails = queryOne<{ count: number }>(
+  const vipEmails = await queryOne<{ count: number }>(
     `SELECT COUNT(*) as count FROM emails e
      JOIN vip_senders v ON LOWER(e.from_email) = LOWER(v.email) AND v.account_id = e.account_id
      WHERE e.account_id = ? AND e.date >= ? AND e.labels NOT LIKE '%TRASH%'`,
@@ -756,21 +756,21 @@ export function getSmartFolders(accountId: string): VirtualSmartFolder[] {
   folders.push({
     name: 'VIP levelek',
     query: 'from:vip newer_than:30d',
-    count: vipEmails?.count || 0,
+    count: Number(vipEmails?.count ?? 0),
     icon: '👑',
   });
 
   // 7. Mai levelek
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
-  const todayCount = queryOne<{ count: number }>(
+  const todayCount = await queryOne<{ count: number }>(
     'SELECT COUNT(*) as count FROM emails WHERE account_id = ? AND date >= ? AND labels NOT LIKE \'%TRASH%\'',
     [accountId, startOfToday.getTime()],
   );
   folders.push({
     name: 'Mai levelek',
     query: 'newer_than:1d',
-    count: todayCount?.count || 0,
+    count: Number(todayCount?.count ?? 0),
     icon: '📅',
   });
 

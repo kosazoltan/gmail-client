@@ -9,13 +9,13 @@ const router = Router();
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 // OAuth2 login redirect URL generálás
-router.get('/login', (req, res) => {
+router.get('/login', async (req, res) => {
   // Generate CSRF state token
   const state = crypto.randomBytes(32).toString('hex');
   req.session.oauthState = state;
 
   // Save session before generating URL to ensure state is persisted
-  req.session.save((err) => {
+  req.session.save(async (err) => {
     if (err) {
       logger.error('Session mentési hiba login előtt:', err);
       res.status(500).json({ error: 'Session hiba' });
@@ -60,7 +60,7 @@ router.get('/callback', async (req, res) => {
     req.session.activeAccountId = accountId;
 
     // Session explicit mentése mielőtt redirect
-    req.session.save((err) => {
+    req.session.save(async (err) => {
       if (err) {
         logger.error('Session mentési hiba:', err);
         res.redirect(`${frontendUrl}/?error=session_failed`);
@@ -68,7 +68,7 @@ router.get('/callback', async (req, res) => {
       }
 
       // Háttér szinkronizálás indítása
-      startBackgroundSync(accountId);
+      await startBackgroundSync(accountId);
 
       // Redirect a frontendre
       res.redirect(`${frontendUrl}/?account=${accountId}&newLogin=true`);
@@ -80,7 +80,7 @@ router.get('/callback', async (req, res) => {
 });
 
 // Kijelentkezés
-router.post('/logout', (req, res) => {
+router.post('/logout', async (req, res) => {
   const { accountId } = req.body;
   if (accountId && req.session.accountIds) {
     req.session.accountIds = req.session.accountIds.filter((id) => id !== accountId);
@@ -88,11 +88,13 @@ router.post('/logout', (req, res) => {
       req.session.activeAccountId = req.session.accountIds[0] || null;
     }
     // Push subscription-ök törlése a kijelentkezett fiókhoz
-    deleteSubscriptionsByAccount(accountId);
+    deleteSubscriptionsByAccount(accountId).catch(err =>
+      logger.warn('Push subscription cleanup error:', err)
+    );
   }
 
   // Session explicit mentése
-  req.session.save((err) => {
+  req.session.save(async (err) => {
     if (err) {
       logger.error('Session mentési hiba logout után:', err);
       res.status(500).json({ error: 'Session mentési hiba' });
@@ -103,7 +105,7 @@ router.post('/logout', (req, res) => {
 });
 
 // Session info
-router.get('/session', (req, res) => {
+router.get('/session', async (req, res) => {
   const accountIds = req.session.accountIds || [];
   const activeAccountId = req.session.activeAccountId || null;
 
@@ -112,7 +114,7 @@ router.get('/session', (req, res) => {
     return;
   }
 
-  const accountsList = getAllAccounts().filter((a) => accountIds.includes(a.id));
+  const accountsList = (await getAllAccounts()).filter((a) => accountIds.includes(a.id));
 
   res.json({
     authenticated: true,
@@ -122,13 +124,13 @@ router.get('/session', (req, res) => {
 });
 
 // Aktív fiók váltás
-router.post('/switch-account', (req, res) => {
+router.post('/switch-account', async (req, res) => {
   const { accountId } = req.body;
   if (accountId && req.session.accountIds && req.session.accountIds.includes(accountId)) {
     req.session.activeAccountId = accountId;
 
     // Session explicit mentése
-    req.session.save((err) => {
+    req.session.save(async (err) => {
       if (err) {
         logger.error('Session mentési hiba switch után:', err);
         res.status(500).json({ error: 'Session mentési hiba' });
@@ -142,3 +144,4 @@ router.post('/switch-account', (req, res) => {
 });
 
 export default router;
+

@@ -32,16 +32,16 @@ interface PushSubscription {
 }
 
 // Subscription mentése - atomi UPSERT a race condition elkerülésére
-export function saveSubscription(
+export async function saveSubscription(
   accountId: string,
   subscription: {
     endpoint: string;
     keys: { p256dh: string; auth: string };
   },
-): void {
+): Promise<void> {
   const id = crypto.randomUUID();
 
-  execute(
+  await execute(
     `INSERT INTO push_subscriptions (id, account_id, endpoint, p256dh, auth, created_at)
      VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT(endpoint, account_id) DO UPDATE SET
@@ -60,27 +60,27 @@ export function saveSubscription(
 }
 
 // Subscription törlése (opcionális accountId-val a biztonság érdekében)
-export function deleteSubscription(endpoint: string, accountId?: string): void {
+export async function deleteSubscription(endpoint: string, accountId?: string): Promise<void> {
   if (accountId) {
     // Ha accountId is meg van adva, csak azt a subscription-t törli, ami ehhez a fiókhoz tartozik
-    execute('DELETE FROM push_subscriptions WHERE endpoint = ? AND account_id = ?', [
+    await execute('DELETE FROM push_subscriptions WHERE endpoint = ? AND account_id = ?', [
       endpoint,
       accountId,
     ]);
   } else {
     // Visszafelé kompatibilitás - csak endpoint alapján törlés
-    execute('DELETE FROM push_subscriptions WHERE endpoint = ?', [endpoint]);
+    await execute('DELETE FROM push_subscriptions WHERE endpoint = ?', [endpoint]);
   }
 }
 
 // Subscription törlése account alapján
-export function deleteSubscriptionsByAccount(accountId: string): void {
-  execute('DELETE FROM push_subscriptions WHERE account_id = ?', [accountId]);
+export async function deleteSubscriptionsByAccount(accountId: string): Promise<void> {
+  await execute('DELETE FROM push_subscriptions WHERE account_id = ?', [accountId]);
 }
 
 // Check if current time is within quiet hours for an account
-function isInQuietHours(accountId: string): boolean {
-  const settings = queryAll<UserSetting>(
+async function isInQuietHours(accountId: string): Promise<boolean> {
+  const settings = await queryAll<UserSetting>(
     'SELECT key, value FROM user_settings WHERE account_id = ?',
     [accountId],
   );
@@ -157,12 +157,12 @@ export async function sendPushToAccount(
   }
 
   // Check quiet hours (unless explicitly ignored)
-  if (!options?.ignoreQuietHours && isInQuietHours(accountId)) {
+  if (!options?.ignoreQuietHours && await isInQuietHours(accountId)) {
     logger.info(`Push notification skipped for account ${accountId} - quiet hours active`);
     return { sent: 0, failed: 0 };
   }
 
-  const subscriptions = queryAll<PushSubscription>(
+  const subscriptions = await queryAll<PushSubscription>(
     'SELECT * FROM push_subscriptions WHERE account_id = ?',
     [accountId],
   );
@@ -199,7 +199,7 @@ export async function sendPushToAccount(
           ? (error as { statusCode: number }).statusCode
           : undefined;
       if (statusCode === 410 || statusCode === 404) {
-        execute('DELETE FROM push_subscriptions WHERE id = ?', [sub.id]);
+        await execute('DELETE FROM push_subscriptions WHERE id = ?', [sub.id]);
       }
       failed++;
     }
@@ -220,7 +220,7 @@ export async function sendPushToAll(payload: {
     return { sent: 0, failed: 0 };
   }
 
-  const subscriptions = queryAll<PushSubscription>('SELECT * FROM push_subscriptions', []);
+  const subscriptions = await queryAll<PushSubscription>('SELECT * FROM push_subscriptions', []);
 
   let sent = 0;
   let failed = 0;
@@ -244,7 +244,7 @@ export async function sendPushToAll(payload: {
           ? (error as { statusCode: number }).statusCode
           : undefined;
       if (statusCode === 410 || statusCode === 404) {
-        execute('DELETE FROM push_subscriptions WHERE id = ?', [sub.id]);
+        await execute('DELETE FROM push_subscriptions WHERE id = ?', [sub.id]);
       }
       failed++;
     }

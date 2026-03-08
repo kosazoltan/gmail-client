@@ -1,6 +1,6 @@
 import session from 'express-session';
 import type { RequestHandler } from 'express';
-import { SqliteSessionStore } from '../db/session-store.js';
+import { PgSessionStore } from '../db/session-store.js';
 import logger from '../utils/logger.js';
 
 // Session típus kiterjesztés
@@ -12,7 +12,7 @@ declare module 'express-session' {
   }
 }
 
-let sessionStore: SqliteSessionStore | null = null;
+let sessionStore: PgSessionStore | null = null;
 
 export function createSessionMiddleware(): RequestHandler {
   const isProduction =
@@ -23,8 +23,8 @@ export function createSessionMiddleware(): RequestHandler {
     throw new Error('SESSION_SECRET környezeti változó kötelező production módban!');
   }
 
-  // SQLite session store létrehozása (perzisztens session-ök)
-  sessionStore = new SqliteSessionStore();
+  // PostgreSQL session store létrehozása (perzisztens session-ök)
+  sessionStore = new PgSessionStore();
 
   // Cookie domain meghatározása a FRONTEND_URL és BACKEND_URL alapján
   const frontendUrl = process.env.FRONTEND_URL || '';
@@ -67,6 +67,6 @@ export function createSessionMiddleware(): RequestHandler {
   });
 }
 
-export function getSessionStore(): SqliteSessionStore | null {
+export function getSessionStore(): PgSessionStore | null {
   return sessionStore;
 }
