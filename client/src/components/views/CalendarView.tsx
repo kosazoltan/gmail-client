@@ -496,25 +496,43 @@ export function CalendarView() {
               )}
 
               {/* Gombok */}
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  onClick={() => {
-                    setModalOpen(false);
-                    setEditingEvent(null);
-                    setFormData(emptyForm);
-                  }}
-                  className="dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
-                >
-                  Mégse
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={isSaving || !formData.summary.trim() || !formData.start}
-                  className="flex items-center gap-1.5 rounded-lg bg-purple-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-purple-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {editingEvent ? 'Mentés' : 'Létrehozás'}
-                </button>
+              <div className="flex justify-between pt-2">
+                {editingEvent ? (
+                  <button
+                    onClick={() => {
+                      setModalOpen(false);
+                      setEditingEvent(null);
+                      setFormData(emptyForm);
+                      setDeleteConfirmId(editingEvent.id);
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-red-600"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Törlés
+                  </button>
+                ) : (
+                  <div />
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setModalOpen(false);
+                      setEditingEvent(null);
+                      setFormData(emptyForm);
+                    }}
+                    className="dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                  >
+                    Mégse
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={isSaving || !formData.summary.trim() || !formData.start}
+                    className="flex items-center gap-1.5 rounded-lg bg-purple-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-purple-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {editingEvent ? 'Mentés' : 'Létrehozás'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
