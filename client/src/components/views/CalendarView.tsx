@@ -613,7 +613,7 @@ function EventCard({
             </p>
 
             {/* Akció gombok */}
-            <div className="flex flex-shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="flex flex-shrink-0 items-center gap-1">
               <button
                 onClick={() => onEdit(event)}
                 className="dark:hover:bg-dark-bg-tertiary rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-purple-500"
