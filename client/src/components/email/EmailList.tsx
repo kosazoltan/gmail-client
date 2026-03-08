@@ -21,6 +21,8 @@ interface EmailListProps {
   onToggleSelect?: (emailId: string, event?: React.MouseEvent) => void;
   // Pinned emails
   pinnedEmailIds?: Set<string>;
+  // Cross-account: show account badge per email
+  showAccountBadge?: boolean;
 }
 
 export function EmailList({
@@ -36,6 +38,7 @@ export function EmailList({
   selectedIds = new Set(),
   onToggleSelect,
   pinnedEmailIds = new Set(),
+  showAccountBadge = false,
 }: EmailListProps) {
   const toggleStar = useToggleStar();
   const markRead = useMarkRead();
@@ -95,28 +98,53 @@ export function EmailList({
         </div>
       )}
       {emails.map((email) => (
-        <SwipeableEmailItem
-          key={email.id}
-          email={email}
-          isSelected={email.id === selectedEmailId}
-          onClick={() => onSelectEmail(email)}
-          onToggleStar={(e) => {
-            e.stopPropagation();
-            toggleStar.mutate({
-              emailId: email.id,
-              isStarred: !email.isStarred,
-            });
-          }}
-          onDelete={onDeleteEmail}
-          onArchive={onArchiveEmail}
-          onSnooze={handleQuickSnooze}
-          onToggleRead={handleToggleRead}
-          selectionMode={selectionMode}
-          isChecked={selectedIds.has(email.id)}
-          onToggleCheck={onToggleSelect}
-          isPinned={pinnedEmailIds.has(email.id)}
-          isVip={isVipEmail(email.from, vipEmails)}
-        />
+        <div key={email.id} className="relative">
+          {showAccountBadge && email.accountColor && (
+            <div
+              className="absolute top-0 bottom-0 left-0 z-10 w-1"
+              style={{ backgroundColor: email.accountColor }}
+              title={email.accountEmail || ''}
+            />
+          )}
+          {showAccountBadge && email.accountEmail && (
+            <div className="absolute top-1 right-2 z-10">
+              <span
+                className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                style={{
+                  backgroundColor: email.accountColor
+                    ? `${email.accountColor}20`
+                    : 'rgb(229 231 235)',
+                  color: email.accountColor || 'rgb(107 114 128)',
+                }}
+              >
+                {email.accountEmail}
+              </span>
+            </div>
+          )}
+          <div className={showAccountBadge && email.accountColor ? 'ml-1' : ''}>
+            <SwipeableEmailItem
+              email={email}
+              isSelected={email.id === selectedEmailId}
+              onClick={() => onSelectEmail(email)}
+              onToggleStar={(e) => {
+                e.stopPropagation();
+                toggleStar.mutate({
+                  emailId: email.id,
+                  isStarred: !email.isStarred,
+                });
+              }}
+              onDelete={onDeleteEmail}
+              onArchive={onArchiveEmail}
+              onSnooze={handleQuickSnooze}
+              onToggleRead={handleToggleRead}
+              selectionMode={selectionMode}
+              isChecked={selectedIds.has(email.id)}
+              onToggleCheck={onToggleSelect}
+              isPinned={pinnedEmailIds.has(email.id)}
+              isVip={isVipEmail(email.from, vipEmails)}
+            />
+          </div>
+        </div>
       ))}
     </div>
   );

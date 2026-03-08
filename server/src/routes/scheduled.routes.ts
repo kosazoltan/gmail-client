@@ -37,6 +37,10 @@ interface ScheduledEmailRow {
   scheduled_at: number;
   status: string;
   created_at: number;
+  in_reply_to: string | null;
+  thread_id: string | null;
+  attachments_json: string | null;
+  is_undo_send: number;
 }
 
 // Get all scheduled emails
@@ -273,11 +277,24 @@ router.post('/:id/send-now', async (req, res) => {
 
     const gmail = getGmailClient(oauth2Client);
 
+    // Parse attachments if present
+    let attachments: Array<{ filename: string; mimeType: string; content: string }> | undefined;
+    if (scheduled.attachments_json) {
+      try {
+        attachments = JSON.parse(scheduled.attachments_json);
+      } catch {
+        console.error(`Invalid attachments JSON for scheduled email ${scheduled.id}`);
+      }
+    }
+
     await sendEmail(gmail, {
       to: scheduled.to_addresses,
       subject: scheduled.subject || '',
       body: scheduled.body || '',
       cc: scheduled.cc_addresses || undefined,
+      inReplyTo: scheduled.in_reply_to || undefined,
+      threadId: scheduled.thread_id || undefined,
+      attachments,
     });
 
     // Mark as sent only after successful send
@@ -330,11 +347,24 @@ export async function processScheduledEmails(): Promise<number> {
 
         const gmail = getGmailClient(oauth2Client);
 
+        // Parse attachments if present
+        let attachments: Array<{ filename: string; mimeType: string; content: string }> | undefined;
+        if (email.attachments_json) {
+          try {
+            attachments = JSON.parse(email.attachments_json);
+          } catch {
+            console.error(`Invalid attachments JSON for scheduled email ${email.id}`);
+          }
+        }
+
         await sendEmail(gmail, {
           to: email.to_addresses,
           subject: email.subject || '',
           body: email.body || '',
           cc: email.cc_addresses || undefined,
+          inReplyTo: email.in_reply_to || undefined,
+          threadId: email.thread_id || undefined,
+          attachments,
         });
 
         // Mark as sent only after successful send

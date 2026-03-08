@@ -1,10 +1,12 @@
 import { Router } from 'express';
-import { searchEmails } from '../services/search.service.js';
+import { searchEmails, searchEmailsAllAccounts } from '../services/search.service.js';
+import { getAllAccounts } from '../services/auth.service.js';
 
 const router = Router();
 
 const MAX_LIMIT = 100;
 const MAX_QUERY_LENGTH = 500;
+const CROSS_ACCOUNT_LIMIT = 50;
 
 // Jogosultság ellenőrzés helper
 function validateAccountAccess(req: {
@@ -22,19 +24,64 @@ function validateAccountAccess(req: {
 
 // FTS query sanitization - speciális karakterek és operátorok eltávolítása
 function sanitizeFtsQuery(query: string): string {
-  // FTS5 speciális karakterek és operátorok eltávolítása
-  // Eltávolítjuk: " * - ( ) { } [ ] ^ ~ : az FTS operátorok ellen
-  // Valamint az SQL injection ellen is védekezünk
   return query
-    .replace(/[^\w\sáéíóöőúüű@.\-]/gi, ' ') // Csak alfanumerikus, magyar ékezetek, @, ., - marad
-    .replace(/\b(AND|OR|NOT|NEAR)\b/gi, ' ') // FTS5 operátorok eltávolítása
-    .replace(/\s+/g, ' ') // Többszörös szóközök egy szóközre
+    .replace(/[^\w\sáéíóöőúüű@.\-]/gi, ' ')
+    .replace(/\b(AND|OR|NOT|NEAR)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
     .trim()
     .substring(0, MAX_QUERY_LENGTH);
 }
 
-// Keresés
+// Keresés — opcionális cross-account mód: ?allAccounts=true
 router.get('/', (req, res) => {
+  const allAccounts = req.query.allAccounts === 'true';
+
+  // Cross-account keresés
+  if (allAccounts) {
+    const sessionAccountIds: string[] = req.session.accountIds || [];
+    if (sessionAccountIds.length === 0) {
+      res.status(400).json({ error: 'Nincs elérhető fiók a session-ben' });
+      return;
+    }
+
+    const rawQuery = req.query.q as string;
+    if (!rawQuery) {
+      res.status(400).json({ error: 'Keresési kifejezés kötelező (q paraméter)' });
+      return;
+    }
+
+    const query = sanitizeFtsQuery(rawQuery);
+    if (!query) {
+      res.status(400).json({ error: 'Érvénytelen keresési kifejezés' });
+      return;
+    }
+
+    // Build account info map for email/color enrichment
+    const accounts = getAllAccounts();
+    const accountMap = new Map<string, { email: string; color: string | null }>();
+    for (const acc of accounts) {
+      if (sessionAccountIds.includes(acc.id)) {
+        accountMap.set(acc.id, { email: acc.email, color: acc.color || null });
+      }
+    }
+
+    const authorizedIds = sessionAccountIds.filter((id) => accountMap.has(id));
+
+    const results = searchEmailsAllAccounts({
+      accountIds: authorizedIds,
+      accountMap,
+      query,
+      limit: Math.min(
+        parseInt(req.query.limit as string, 10) || CROSS_ACCOUNT_LIMIT,
+        CROSS_ACCOUNT_LIMIT,
+      ),
+    });
+
+    res.json(results);
+    return;
+  }
+
+  // Single-account keresés (meglévő logika)
   const accountId = validateAccountAccess(req);
   if (!accountId) {
     res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });

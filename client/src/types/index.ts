@@ -319,67 +319,27 @@ export interface DashboardData {
   timestamp: number;
 }
 
-// AI Team Dashboard
-export interface TeamAgent {
-  id: string;
+// Team Dashboard — email-alapú csapattagok
+export interface TeamMember {
+  email: string;
   name: string;
-  emoji: string;
-  role: string;
-  model: string;
-  tasks: number;
-  tasks7d: number;
-  successRate: number;
-  rate7d: number | null;
-  trend: number | null;
-  sparkline: (number | null)[];
+  emailCount: number;
+  lastContact: string;
+  topCategory: string | null;
+  status: 'active' | 'inactive';
+}
+
+export interface TeamStats {
+  sentCount: number;
+  receivedCount: number;
+  avgResponseTimeHours: number | null;
+  topCategories: Array<{ name: string; count: number }>;
 }
 
 export interface TeamDashboardData {
-  phase: string;
-  phaseReason: string | null;
+  members: TeamMember[];
+  stats: TeamStats;
   timestamp: string;
-  stats: {
-    facts: number;
-    trails: number;
-    delegations: number;
-    discoveries: number;
-    pheromones: number;
-    ledgerEntries: number;
-    dreams: number;
-    goals: number;
-    scaffolds: number;
-    modules: number;
-  };
-  agents: TeamAgent[];
-  intentions: {
-    achievedGoals: number;
-    activeGoals: number;
-    topGoal: { description: string; severity: number } | null;
-  };
-  dreams: {
-    totalCycles: number;
-    totalAssociations: number;
-  };
-  stigmergy: {
-    locations: number;
-    totalPheromones: number;
-  };
-  quorum: {
-    mode: string;
-    activeSignals: number;
-  };
-  modules: Array<{
-    name: string;
-    exists: boolean;
-    sizeKB: number;
-  }>;
-  recentActivity: Array<{
-    time: string;
-    from: string;
-    to: string;
-    task: string;
-    result: string;
-  }>;
 }
 
 // Thread conversation - teljes beszĂ©lgetĂ©s egy thread-ben

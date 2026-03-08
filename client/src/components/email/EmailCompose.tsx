@@ -21,7 +21,7 @@ import { ScheduleMenu, ScheduledBadge } from './ScheduleMenu';
 import { formatFileSize } from '../../lib/utils';
 import { toast } from '../../lib/toast';
 import { useSettings, defaultSettings } from '../../hooks/useSettings';
-import { useCreateScheduledEmail } from '../../hooks/useScheduledEmails';
+import { useCreateScheduledEmail, useDeleteScheduledEmail } from '../../hooks/useScheduledEmails';
 import type { Template } from '../../types';
 
 // Alapértelmezett undo send késleltetés másodpercben
@@ -77,6 +77,7 @@ export function EmailCompose() {
   const sendEmail = useSendEmail();
   const replyEmail = useReplyEmail();
   const createScheduledEmail = useCreateScheduledEmail();
+  const deleteScheduledEmail = useDeleteScheduledEmail();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bodyEditorRef = useRef<HTMLDivElement>(null);
   const sendTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -97,34 +98,19 @@ export function EmailCompose() {
 
   const threadId = searchParams.get('threadId') || undefined;
 
-  // FIX: Ref to store email data snapshot for undo send feature
-  // This prevents stale closure issues during the undo delay window
-  interface SendSnapshot {
-    to: string;
-    cc: string;
-    subject: string;
-    body: string;
-    attachments: LocalAttachment[];
-    threadId: string | undefined;
-  }
-  const sendSnapshotRef = useRef<SendSnapshot | null>(null);
-
   // Undo send késleltetés beállításból vagy alapértelmezett
   const undoSendDelay =
     settings?.undoSendDelay ?? defaultSettings.undoSendDelay ?? DEFAULT_UNDO_DELAY;
 
-  // Cleanup timeout, toast, and snapshot on unmount
+  // Cleanup on unmount — de az undo toast-ot NE dismiss-eld, az maradjon látható navigate után is
   useEffect(() => {
     return () => {
       if (sendTimeoutRef.current) {
         clearTimeout(sendTimeoutRef.current);
         sendTimeoutRef.current = null;
       }
-      if (undoToastIdRef.current) {
-        toast.dismiss(undoToastIdRef.current);
-        undoToastIdRef.current = null;
-      }
-      sendSnapshotRef.current = null;
+      // Az undo toast-ot szándékosan NEM dismiss-eljük unmount-kor,
+      // mert a user-nek látnia kell a countdown-ot és tudnia kell visszavonni
     };
   }, []);
 
@@ -240,111 +226,104 @@ export function EmailCompose() {
     });
   };
 
-  // Tényleges email küldés - FIX: Use snapshot ref to avoid stale closure issues
-  const actualSend = useCallback(async () => {
-    // Use snapshot if available (from delayed send), otherwise use current state
-    const snapshot = sendSnapshotRef.current;
-    const sendTo = snapshot?.to ?? to;
-    const sendCc = snapshot?.cc ?? cc;
-    const sendSubject = snapshot?.subject ?? subject;
-    const sendBody = snapshot?.body ?? body;
-    const sendAttachments = snapshot?.attachments ?? attachments;
-    const sendThreadId = snapshot?.threadId ?? threadId;
+  // Undo server-side scheduled email
+  const cancelScheduledSend = useCallback(
+    async (scheduledId: string) => {
+      try {
+        await deleteScheduledEmail.mutateAsync(scheduledId);
+        if (undoToastIdRef.current) {
+          toast.dismiss(undoToastIdRef.current);
+          undoToastIdRef.current = null;
+        }
+        setIsSendPending(false);
+        toast.info('Küldés visszavonva');
+      } catch {
+        toast.error('Nem sikerült visszavonni a küldést');
+      }
+    },
+    [deleteScheduledEmail],
+  );
 
-    const emailAttachments: EmailAttachment[] = sendAttachments.map((a) => ({
+  // Email küldés - server-side undo send támogatással
+  const handleSend = async () => {
+    if (!to || !body) return;
+
+    setIsSendPending(true);
+
+    const emailAttachments: EmailAttachment[] = attachments.map((a) => ({
       filename: a.filename,
       mimeType: a.mimeType,
       content: a.content,
     }));
 
     try {
+      let result: {
+        success: boolean;
+        messageId?: string;
+        scheduledId?: string;
+        undoAvailable?: boolean;
+        undoSeconds?: number;
+      };
+
       if (isReply) {
-        await replyEmail.mutateAsync({
-          to: sendTo,
-          subject: sendSubject,
-          body: sendBody,
-          cc: sendCc,
-          threadId: sendThreadId,
+        result = await replyEmail.mutateAsync({
+          to,
+          subject,
+          body,
+          cc,
+          threadId,
           attachments: emailAttachments.length > 0 ? emailAttachments : undefined,
         });
       } else {
-        await sendEmail.mutateAsync({
-          to: sendTo,
-          subject: sendSubject,
-          body: sendBody,
-          cc: sendCc,
+        result = await sendEmail.mutateAsync({
+          to,
+          subject,
+          body,
+          cc,
           attachments: emailAttachments.length > 0 ? emailAttachments : undefined,
         });
       }
-      sendSnapshotRef.current = null; // Clear snapshot after successful send
-      toast.success('Email elküldve!');
-      // navigate(-1) helyett biztonságos visszanavigálás (mobilon nincs mindig history)
-      if (window.history.length > 1) {
-        navigate(-1);
+
+      if (result.undoAvailable && result.scheduledId) {
+        // Server-side undo: show toast with countdown and undo button
+        const scheduledId = result.scheduledId;
+        const undoSeconds = result.undoSeconds || undoSendDelay;
+
+        undoToastIdRef.current = toast.undoable(
+          `Email küldése ${undoSeconds} másodperc múlva...`,
+          async () => {
+            await cancelScheduledSend(scheduledId);
+            // Visszavonás után maradj a compose-on — NE navigálj
+          },
+          undoSeconds * 1000,
+        );
+
+        // Delayed navigate: várjuk meg az undo időablak lejártát, UTÁNA navigálunk el
+        // Így a toast végig látható és a user tud visszavonni
+        sendTimeoutRef.current = setTimeout(() => {
+          sendTimeoutRef.current = null;
+          if (window.history.length > 1) {
+            navigate(-1);
+          } else {
+            navigate('/', { replace: true });
+          }
+        }, (undoSeconds + 1) * 1000);
+
+        return; // Ne fusson le a normál navigate alul
       } else {
-        navigate('/', { replace: true });
+        // Immediate send - no undo
+        toast.success('Email elküldve!');
+        if (window.history.length > 1) {
+          navigate(-1);
+        } else {
+          navigate('/', { replace: true });
+        }
       }
     } catch (error) {
       console.error('Küldési hiba:', error);
       toast.error('Nem sikerült elküldeni az emailt. Kérlek próbáld újra.');
-      sendSnapshotRef.current = null; // Clear snapshot on error too
       setIsSendPending(false);
     }
-  }, [to, subject, body, cc, threadId, attachments, isReply, replyEmail, sendEmail, navigate]);
-
-  // Küldés visszavonása
-  const cancelSend = useCallback(() => {
-    if (sendTimeoutRef.current) {
-      clearTimeout(sendTimeoutRef.current);
-      sendTimeoutRef.current = null;
-    }
-    if (undoToastIdRef.current) {
-      toast.dismiss(undoToastIdRef.current);
-      undoToastIdRef.current = null;
-    }
-    sendSnapshotRef.current = null; // FIX: Clear snapshot on cancel
-    setIsSendPending(false);
-    toast.info('Küldés visszavonva');
-  }, []);
-
-  // Küldés gomb kezelése - késleltetett küldés undo lehetőséggel
-  const handleSend = async () => {
-    if (!to || !body) return;
-
-    // Ha nincs undo delay (0), azonnal küldjük
-    if (!undoSendDelay || undoSendDelay <= 0) {
-      setIsSendPending(true);
-      await actualSend();
-      return;
-    }
-
-    // FIX: Capture state snapshot BEFORE starting the delay
-    // This ensures we send with the values at the time user clicked Send
-    sendSnapshotRef.current = {
-      to,
-      cc,
-      subject,
-      body,
-      attachments: [...attachments], // Clone array to prevent mutations
-      threadId,
-    };
-
-    // Késleltetett küldés undo lehetőséggel
-    setIsSendPending(true);
-
-    // Toast megjelenítése visszavonás lehetőséggel
-    undoToastIdRef.current = toast.undoable(
-      `Email küldése ${undoSendDelay} másodperc múlva...`,
-      cancelSend,
-      undoSendDelay * 1000,
-    );
-
-    // Időzítő beállítása a tényleges küldéshez
-    sendTimeoutRef.current = setTimeout(() => {
-      sendTimeoutRef.current = null;
-      undoToastIdRef.current = null;
-      actualSend();
-    }, undoSendDelay * 1000);
   };
 
   // Ütemezett küldés kezelése

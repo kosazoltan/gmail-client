@@ -6,7 +6,17 @@ import { useDeleteEmail, useBatchDeleteEmails, useBatchMarkRead } from '../../ho
 import { EmailList } from '../email/EmailList';
 import { EmailDetail } from '../email/EmailDetail';
 import { ResizablePanels } from '../common/ResizablePanels';
-import { Search, CheckSquare, X, Trash2, Square, CheckCheck, MailOpen, Mail } from 'lucide-react';
+import {
+  Search,
+  CheckSquare,
+  X,
+  Trash2,
+  Square,
+  CheckCheck,
+  MailOpen,
+  Mail,
+  Users,
+} from 'lucide-react';
 import type { Email } from '../../types';
 import { getNextEmailAfterDelete } from '../../lib/emailNavigation';
 
@@ -20,14 +30,21 @@ export function SearchResults() {
   const batchDeleteEmails = useBatchDeleteEmails();
   const batchMarkRead = useBatchMarkRead();
 
+  // Cross-account search toggle
+  const [allAccounts, setAllAccounts] = useState(false);
+  const hasMultipleAccounts = (session?.accounts?.length || 0) > 1;
+
   // Selection mode state
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
   const lastClickedIndexRef = useRef<number>(-1);
 
-  const accountId = session?.activeAccountId || undefined;
-  const { data, isLoading } = useSearch(query, { accountId });
+  const accountId = allAccounts ? undefined : (session?.activeAccountId || undefined);
+  const { data, isLoading } = useSearch(query, {
+    accountId,
+    allAccounts: allAccounts || undefined,
+  });
   const emails = data?.emails || [];
 
   const toggleSelectionMode = useCallback(() => {
@@ -200,10 +217,25 @@ export function SearchResults() {
               Keresés: "{query}"
               {data && (
                 <span className="dark:text-dark-text-muted ml-1 text-gray-400">
-                  ({data.total} találat)
+                  ({data.total} találat{allAccounts ? ', minden fiók' : ''})
                 </span>
               )}
             </h2>
+            <div className="flex-1" />
+            {hasMultipleAccounts && (
+              <button
+                onClick={() => setAllAccounts((prev) => !prev)}
+                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                  allAccounts
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400'
+                    : 'text-gray-500 hover:bg-gray-200 dark:text-dark-text-secondary dark:hover:bg-dark-border'
+                }`}
+                title={allAccounts ? 'Csak aktív fiókban keres' : 'Keresés minden fiókban'}
+              >
+                <Users className="h-3.5 w-3.5" />
+                Minden fiók
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -226,6 +258,7 @@ export function SearchResults() {
         selectionMode={selectionMode}
         selectedIds={selectedIds}
         onToggleSelect={toggleSelectEmail}
+        showAccountBadge={allAccounts}
       />
     </>
   );

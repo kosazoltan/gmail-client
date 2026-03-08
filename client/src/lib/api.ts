@@ -102,7 +102,14 @@ export const api = {
       body: string;
       cc?: string;
       attachments?: Array<{ filename: string; mimeType: string; content: string }>;
-    }) => request('/emails/send', { method: 'POST', body: JSON.stringify(data) }),
+    }) =>
+      request<{
+        success: boolean;
+        messageId?: string;
+        scheduledId?: string;
+        undoAvailable?: boolean;
+        undoSeconds?: number;
+      }>('/emails/send', { method: 'POST', body: JSON.stringify(data) }),
     reply: (data: {
       to: string;
       subject?: string;
@@ -111,7 +118,14 @@ export const api = {
       inReplyTo?: string;
       threadId?: string;
       attachments?: Array<{ filename: string; mimeType: string; content: string }>;
-    }) => request('/emails/reply', { method: 'POST', body: JSON.stringify(data) }),
+    }) =>
+      request<{
+        success: boolean;
+        messageId?: string;
+        scheduledId?: string;
+        undoAvailable?: boolean;
+        undoSeconds?: number;
+      }>('/emails/reply', { method: 'POST', body: JSON.stringify(data) }),
     markRead: (id: string, isRead: boolean) =>
       request(`/emails/${id}/read`, {
         method: 'PATCH',
@@ -215,10 +229,11 @@ export const api = {
   },
 
   search: {
-    query: (q: string, params?: { page?: number; accountId?: string }) => {
+    query: (q: string, params?: { page?: number; accountId?: string; allAccounts?: boolean }) => {
       const query = new URLSearchParams({ q });
       if (params?.page !== undefined) query.set('page', params.page.toString());
       if (params?.accountId) query.set('accountId', params.accountId);
+      if (params?.allAccounts) query.set('allAccounts', 'true');
       return request<import('../types').PaginatedEmails>(`/search?${query}`);
     },
   },

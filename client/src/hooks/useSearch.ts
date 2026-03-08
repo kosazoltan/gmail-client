@@ -1,7 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 
-export function useSearch(query: string, params?: { page?: number; accountId?: string }) {
+export function useSearch(
+  query: string,
+  params?: { page?: number; accountId?: string; allAccounts?: boolean },
+) {
   return useQuery({
     queryKey: ['search', query, params],
     queryFn: () => api.search.query(query, params),

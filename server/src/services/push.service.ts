@@ -99,8 +99,11 @@ function isInQuietHours(accountId: string): boolean {
   const endTime = settingsMap.get('quietHoursEnd') || '07:00';
   const weekendOnly = settingsMap.get('quietHoursWeekendOnly') === 'true';
 
+  // Use Budapest timezone for quiet hours calculation
   const now = new Date();
-  const currentDay = now.getDay(); // 0 = Sunday, 6 = Saturday
+  const budapestTimeStr = now.toLocaleString('en-US', { timeZone: 'Europe/Budapest' });
+  const budapestDate = new Date(budapestTimeStr);
+  const currentDay = budapestDate.getDay(); // 0 = Sunday, 6 = Saturday
   const isWeekend = currentDay === 0 || currentDay === 6;
 
   // If weekend only mode and it's not weekend, don't apply quiet hours
@@ -118,8 +121,8 @@ function isInQuietHours(accountId: string): boolean {
     return false;
   }
 
-  const currentHour = now.getHours();
-  const currentMin = now.getMinutes();
+  const currentHour = budapestDate.getHours();
+  const currentMin = budapestDate.getMinutes();
   const currentTimeMinutes = currentHour * 60 + currentMin;
   const startTimeMinutes = startHour * 60 + startMin;
   const endTimeMinutes = endHour * 60 + endMin;

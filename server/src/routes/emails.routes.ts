@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { v4 as uuid } from 'uuid';
 import { queryOne, queryAll, execute } from '../db/index.js';
 import { getOAuth2ClientForAccount } from '../services/auth.service.js';
 import {
@@ -298,6 +299,17 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// Helper: get undo send delay for an account (0 = disabled)
+function getUndoSendDelay(accountId: string): number {
+  const setting = queryOne<{ value: string }>(
+    "SELECT value FROM user_settings WHERE account_id = ? AND key = 'undoSendDelay'",
+    [accountId],
+  );
+  if (!setting) return 0;
+  const delay = parseInt(setting.value, 10);
+  return isNaN(delay) || delay < 0 ? 0 : delay;
+}
+
 router.post('/send', async (req, res) => {
   const accountId = validateAccountAccess(req);
   if (!accountId) {
@@ -328,6 +340,34 @@ router.post('/send', async (req, res) => {
   }
 
   try {
+    // Check undo send delay setting
+    const undoDelay = getUndoSendDelay(accountId);
+
+    if (undoDelay > 0) {
+      // Schedule instead of sending immediately
+      const scheduledId = uuid();
+      const sendAt = Date.now() + undoDelay * 1000;
+      const attachmentsJson = attachments ? JSON.stringify(attachments) : null;
+
+      execute(
+        `INSERT INTO scheduled_emails (id, account_id, to_addresses, cc_addresses, subject, body, scheduled_at, status, created_at, attachments_json, is_undo_send)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, 1)`,
+        [scheduledId, accountId, to, cc || null, subject, body, sendAt, Date.now(), attachmentsJson],
+      );
+
+      // Save recipients to contacts immediately
+      saveRecipientsToContacts(accountId, to, cc);
+
+      res.json({
+        success: true,
+        scheduledId,
+        undoAvailable: true,
+        undoSeconds: undoDelay,
+      });
+      return;
+    }
+
+    // No undo delay — send immediately
     const { oauth2Client } = getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
     const result = await sendEmail(gmail, { to, subject, body, cc, attachments });
@@ -372,6 +412,37 @@ router.post('/reply', async (req, res) => {
   }
 
   try {
+    // Check undo send delay setting
+    const undoDelay = getUndoSendDelay(accountId);
+
+    if (undoDelay > 0) {
+      // Schedule reply instead of sending immediately
+      const scheduledId = uuid();
+      const sendAt = Date.now() + undoDelay * 1000;
+      const attachmentsJson = attachments ? JSON.stringify(attachments) : null;
+
+      execute(
+        `INSERT INTO scheduled_emails (id, account_id, to_addresses, cc_addresses, subject, body, scheduled_at, status, created_at, in_reply_to, thread_id, attachments_json, is_undo_send)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, 1)`,
+        [
+          scheduledId, accountId, to, cc || null, subject || '', body,
+          sendAt, Date.now(), inReplyTo || null, threadId || null, attachmentsJson,
+        ],
+      );
+
+      // Save recipients to contacts immediately
+      saveRecipientsToContacts(accountId, to, cc);
+
+      res.json({
+        success: true,
+        scheduledId,
+        undoAvailable: true,
+        undoSeconds: undoDelay,
+      });
+      return;
+    }
+
+    // No undo delay — send immediately
     const { oauth2Client } = getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
     const result = await sendEmail(gmail, {

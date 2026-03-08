@@ -377,6 +377,27 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
     CREATE INDEX IF NOT EXISTS idx_emails_search_snippet ON emails(snippet COLLATE NOCASE);
   `);
 
+  // Add undo send columns to scheduled_emails (safe: ALTER TABLE IF NOT EXISTS not supported,
+  // so we check column existence via pragma)
+  try {
+    const cols = _db.exec("PRAGMA table_info(scheduled_emails)");
+    const colNames = cols.length > 0 ? cols[0].values.map((row: unknown[]) => row[1] as string) : [];
+    if (!colNames.includes('in_reply_to')) {
+      _db.run("ALTER TABLE scheduled_emails ADD COLUMN in_reply_to TEXT");
+    }
+    if (!colNames.includes('thread_id')) {
+      _db.run("ALTER TABLE scheduled_emails ADD COLUMN thread_id TEXT");
+    }
+    if (!colNames.includes('attachments_json')) {
+      _db.run("ALTER TABLE scheduled_emails ADD COLUMN attachments_json TEXT");
+    }
+    if (!colNames.includes('is_undo_send')) {
+      _db.run("ALTER TABLE scheduled_emails ADD COLUMN is_undo_send INTEGER DEFAULT 0");
+    }
+  } catch (err) {
+    console.error('Failed to add undo send columns:', err);
+  }
+
   console.log('Adatbázis inicializálva.');
   return _db;
 }
