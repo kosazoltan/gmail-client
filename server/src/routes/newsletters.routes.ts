@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import { Router } from 'express';
 import {
   syncNewsletterSenders,
@@ -30,7 +31,7 @@ router.get('/senders', (req, res) => {
       })),
     });
   } catch (error) {
-    console.error('Hírlevél küldők lekérése hiba:', error);
+    logger.error('Hírlevél küldők lekérése hiba:', error);
     return res.status(500).json({ error: 'Szerverhiba' });
   }
 });
@@ -51,7 +52,7 @@ router.post('/sync', (req, res) => {
       message: `${detectedCount} új hírlevél küldő detektálva`,
     });
   } catch (error) {
-    console.error('Hírlevél szinkronizálás hiba:', error);
+    logger.error('Hírlevél szinkronizálás hiba:', error);
     return res.status(500).json({ error: 'Szerverhiba' });
   }
 });
@@ -79,7 +80,7 @@ router.patch('/senders/:id/mute', (req, res) => {
 
     return res.json({ success: true, muted });
   } catch (error) {
-    console.error('Küldő némítás hiba:', error);
+    logger.error('Küldő némítás hiba:', error);
     return res.status(500).json({ error: 'Szerverhiba' });
   }
 });
@@ -102,7 +103,7 @@ router.delete('/senders/:id', (req, res) => {
 
     return res.json({ success: true });
   } catch (error) {
-    console.error('Küldő eltávolítás hiba:', error);
+    logger.error('Küldő eltávolítás hiba:', error);
     return res.status(500).json({ error: 'Szerverhiba' });
   }
 });
@@ -129,7 +130,7 @@ router.get('/emails', (req, res) => {
 
     return res.json(result);
   } catch (error) {
-    console.error('Hírlevél emailek lekérése hiba:', error);
+    logger.error('Hírlevél emailek lekérése hiba:', error);
     return res.status(500).json({ error: 'Szerverhiba' });
   }
 });
@@ -154,7 +155,7 @@ router.get('/stats', (req, res) => {
       totalEmails,
     });
   } catch (error) {
-    console.error('Hírlevél statisztikák hiba:', error);
+    logger.error('Hírlevél statisztikák hiba:', error);
     return res.status(500).json({ error: 'Szerverhiba' });
   }
 });

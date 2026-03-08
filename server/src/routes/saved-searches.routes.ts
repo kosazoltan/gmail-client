@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import { Router } from 'express';
 import { queryAll, queryOne, execute } from '../db/index.js';
 import { v4 as uuid } from 'uuid';
@@ -42,7 +43,7 @@ router.get('/', (req, res) => {
       })),
     });
   } catch (error) {
-    console.error('Mentett keresések lekérése hiba:', error);
+    logger.error('Mentett keresések lekérése hiba:', error);
     res.status(500).json({ error: 'Nem sikerült lekérni a mentett kereséseket' });
   }
 });
@@ -90,7 +91,7 @@ router.post('/', (req, res) => {
       createdAt: now,
     });
   } catch (error) {
-    console.error('Mentett keresés létrehozása hiba:', error);
+    logger.error('Mentett keresés létrehozása hiba:', error);
     res.status(500).json({ error: 'Nem sikerült létrehozni a mentett keresést' });
   }
 });
@@ -150,7 +151,7 @@ router.put('/:id', (req, res) => {
       createdAt: existing.created_at,
     });
   } catch (error) {
-    console.error('Mentett keresés frissítése hiba:', error);
+    logger.error('Mentett keresés frissítése hiba:', error);
     res.status(500).json({ error: 'Nem sikerült frissíteni a mentett keresést' });
   }
 });
@@ -178,7 +179,7 @@ router.delete('/:id', (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Mentett keresés törlése hiba:', error);
+    logger.error('Mentett keresés törlése hiba:', error);
     res.status(500).json({ error: 'Nem sikerült törölni a mentett keresést' });
   }
 });
@@ -202,7 +203,7 @@ router.post('/:id/use', (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Használat számláló hiba:', error);
+    logger.error('Használat számláló hiba:', error);
     res.status(500).json({ error: 'Hiba történt' });
   }
 });

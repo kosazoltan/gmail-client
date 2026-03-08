@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import type { Request, Response, NextFunction } from 'express';
 
 export class AppError extends Error {
@@ -15,7 +16,7 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
   const message = err instanceof Error ? err.message : String(err);
   const stack = err instanceof Error ? err.stack : undefined;
 
-  console.error(`[HIBA] ${message}`, stack || '');
+  logger.error(`[HIBA] ${message}`, stack || '');
 
   if (err instanceof AppError) {
     res.status(err.statusCode).json({ error: err.message });

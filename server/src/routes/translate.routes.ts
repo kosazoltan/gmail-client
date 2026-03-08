@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import { Router } from 'express';
 
 const router = Router();
@@ -96,7 +97,7 @@ router.post('/', async (req, res) => {
       source: 'libretranslate',
     });
   } catch (error) {
-    console.error('Translation error:', error);
+    logger.error('Translation error:', error);
 
     // Last resort fallback - try Google Translate
     try {
@@ -167,7 +168,7 @@ router.post('/detect', async (req, res) => {
       confidence: data[0]?.confidence || 0,
     });
   } catch (error) {
-    console.error('Language detection error:', error);
+    logger.error('Language detection error:', error);
     // Simple heuristic fallback
     const { text } = req.body;
     const detected = detectLanguageSimple(text || '');

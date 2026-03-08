@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import { google } from 'googleapis';
 import crypto from 'crypto';
 import { queryOne, queryAll, execute } from '../db/index.js';
@@ -217,7 +218,7 @@ export function getOAuth2ClientForAccount(accountId: string) {
     decryptedAccessToken = decrypt(account.access_token);
     decryptedRefreshToken = decrypt(account.refresh_token);
   } catch (err) {
-    console.error(
+    logger.error(
       `Token decryption failed for account ${accountId}. The encryption key may have changed.`,
     );
     throw new Error('Token decryption failed. Please re-authenticate the account.');
@@ -251,7 +252,7 @@ export function getOAuth2ClientForAccount(accountId: string) {
         execute('UPDATE accounts SET ' + updates.join(', ') + ' WHERE id = ?', params);
       }
     } catch (error) {
-      console.error('Token frissítés mentési hiba:', error);
+      logger.error('Token frissítés mentési hiba:', error);
     }
   });
 

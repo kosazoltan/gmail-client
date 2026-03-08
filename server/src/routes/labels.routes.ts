@@ -76,7 +76,7 @@ router.get('/', async (req, res) => {
 
     res.json({ labels: filteredLabels });
   } catch (error) {
-    console.error('Címkék listázás hiba:', error);
+    logger.error('Címkék listázás hiba:', error);
     res.status(500).json({ error: 'Címkék lekérése sikertelen' });
   }
 });
@@ -108,7 +108,7 @@ router.post('/', async (req, res) => {
 
     res.json({ label });
   } catch (error) {
-    console.error('Címke létrehozás hiba:', error);
+    logger.error('Címke létrehozás hiba:', error);
     res.status(500).json({ error: 'Címke létrehozása sikertelen' });
   }
 });
@@ -130,7 +130,7 @@ router.delete('/:labelId', async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Címke törlés hiba:', error);
+    logger.error('Címke törlés hiba:', error);
     res.status(500).json({ error: 'Címke törlése sikertelen' });
   }
 });
@@ -181,7 +181,7 @@ router.post('/email/:emailId/add', async (req, res) => {
         ]);
       }
     } catch (dbError) {
-      console.warn(
+      logger.warn(
         'Gmail-DB konzisztencia figyelmeztetés: DB frissítés sikertelen címke hozzáadás után',
         dbError,
       );
@@ -190,7 +190,7 @@ router.post('/email/:emailId/add', async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Címke hozzáadás hiba:', error);
+    logger.error('Címke hozzáadás hiba:', error);
     res.status(500).json({ error: 'Címke hozzáadása sikertelen' });
   }
 });
@@ -241,7 +241,7 @@ router.post('/email/:emailId/remove', async (req, res) => {
         ]);
       }
     } catch (dbError) {
-      console.warn(
+      logger.warn(
         'Gmail-DB konzisztencia figyelmeztetés: DB frissítés sikertelen címke eltávolítás után',
         dbError,
       );
@@ -250,7 +250,7 @@ router.post('/email/:emailId/remove', async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Címke eltávolítás hiba:', error);
+    logger.error('Címke eltávolítás hiba:', error);
     res.status(500).json({ error: 'Címke eltávolítása sikertelen' });
   }
 });
@@ -317,7 +317,7 @@ router.post('/email/:emailId/move', async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Email áthelyezés hiba:', error);
+    logger.error('Email áthelyezés hiba:', error);
     res.status(500).json({ error: 'Email áthelyezése sikertelen' });
   }
 });

@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, execute } from '../db/index.js';
@@ -19,7 +20,7 @@ router.get('/', (req, res) => {
 
     return res.json({ pinnedEmailIds: pinnedEmails.map((p) => p.email_id) });
   } catch (error) {
-    console.error('Pinned emails list error:', error);
+    logger.error('Pinned emails list error:', error);
     return res.status(500).json({ error: 'Nem sikerült lekérni a rögzített emaileket' });
   }
 });
@@ -66,7 +67,7 @@ router.post('/:emailId', (req, res) => {
 
     return res.json({ success: true, pinnedAt: now });
   } catch (error) {
-    console.error('Pin email error:', error);
+    logger.error('Pin email error:', error);
     return res.status(500).json({ error: 'Nem sikerült rögzíteni az emailt' });
   }
 });
@@ -88,7 +89,7 @@ router.delete('/:emailId', (req, res) => {
 
     return res.json({ success: true });
   } catch (error) {
-    console.error('Unpin email error:', error);
+    logger.error('Unpin email error:', error);
     return res.status(500).json({ error: 'Nem sikerült feloldani a rögzítést' });
   }
 });
@@ -136,7 +137,7 @@ router.post('/:emailId/toggle', (req, res) => {
       return res.json({ isPinned: true, pinnedAt: now });
     }
   } catch (error) {
-    console.error('Toggle pin error:', error);
+    logger.error('Toggle pin error:', error);
     return res.status(500).json({ error: 'Nem sikerült módosítani a rögzítést' });
   }
 });

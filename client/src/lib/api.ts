@@ -836,7 +836,6 @@ export const api = {
   // Workflows
   workflows: {
     list: () => request<{ workflows: import('../types').WorkflowData[] }>('/workflows'),
-    get: (id: string) => request<{ workflow: import('../types').WorkflowData }>(`/workflows/${id}`),
     create: (data: Partial<import('../types').WorkflowData>) =>
       request<{ workflow: import('../types').WorkflowData }>('/workflows', {
         method: 'POST',

@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import webpush from 'web-push';
 import crypto from 'crypto';
 import { queryAll, queryOne, execute } from '../db/index.js';
@@ -16,9 +17,9 @@ const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:admin@mindenes.org';
 // Web-push konfiguráció
 if (vapidPublicKey && vapidPrivateKey) {
   webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
-  console.log('Push notifications enabled');
+  logger.info('Push notifications enabled');
 } else {
-  console.log('Push notifications disabled - VAPID keys not configured');
+  logger.info('Push notifications disabled - VAPID keys not configured');
 }
 
 interface PushSubscription {
@@ -117,7 +118,7 @@ function isInQuietHours(accountId: string): boolean {
 
   // BUG #5 Fix: Validate parsed time values
   if (isNaN(startHour) || isNaN(startMin) || isNaN(endHour) || isNaN(endMin)) {
-    console.warn(`Invalid quiet hours format: start="${startTime}", end="${endTime}"`);
+    logger.warn(`Invalid quiet hours format: start="${startTime}", end="${endTime}"`);
     return false;
   }
 
@@ -151,13 +152,13 @@ export async function sendPushToAccount(
   options?: { ignoreQuietHours?: boolean },
 ): Promise<{ sent: number; failed: number }> {
   if (!vapidPublicKey || !vapidPrivateKey) {
-    console.log('Push notification skipped - VAPID keys not configured');
+    logger.info('Push notification skipped - VAPID keys not configured');
     return { sent: 0, failed: 0 };
   }
 
   // Check quiet hours (unless explicitly ignored)
   if (!options?.ignoreQuietHours && isInQuietHours(accountId)) {
-    console.log(`Push notification skipped for account ${accountId} - quiet hours active`);
+    logger.info(`Push notification skipped for account ${accountId} - quiet hours active`);
     return { sent: 0, failed: 0 };
   }
 
@@ -190,7 +191,7 @@ export async function sendPushToAccount(
       );
       sent++;
     } catch (error: unknown) {
-      console.error('Push notification failed:', error);
+      logger.error('Push notification failed:', error);
 
       // Ha a subscription érvénytelen, töröljük
       const statusCode =

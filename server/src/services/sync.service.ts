@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import { queryOne, execute, runInTransaction } from '../db/index.js';
 import { v4 as uuidv4 } from 'uuid';
 import { getOAuth2ClientForAccount } from './auth.service.js';
@@ -51,7 +52,7 @@ export async function syncAccount(accountId: string, fullSync = false) {
       'running',
     ]);
   } catch (error) {
-    console.error('Failed to create sync log:', error);
+    logger.error('Failed to create sync log:', error);
     throw new Error('Cannot start sync: database error');
   }
 
@@ -85,7 +86,7 @@ export async function syncAccount(accountId: string, fullSync = false) {
     try {
       autoExtractContactsIfNeeded(accountId);
     } catch (err) {
-      console.error(`Failed to extract contacts for account ${accountId}:`, err);
+      logger.error(`Failed to extract contacts for account ${accountId}:`, err);
     }
 
     return { success: true, messagesProcessed: processedCount };
@@ -99,7 +100,7 @@ export async function syncAccount(accountId: string, fullSync = false) {
         logId,
       ]);
     } catch (updateError) {
-      console.error('Failed to update sync log on error:', updateError);
+      logger.error('Failed to update sync log on error:', updateError);
     }
     throw error;
   }
@@ -146,7 +147,7 @@ async function fullSyncMessages(
       const chunk = batch.slice(i, i + 10);
       const messagePromises = chunk.map((id) =>
         getMessage(gmail, id).catch((err) => {
-          console.error(`Hiba üzenet letöltésekor (${id}):`, err.message);
+          logger.error(`Hiba üzenet letöltésekor (${id}):`, err.message);
           return null;
         }),
       );
@@ -207,7 +208,7 @@ async function incrementalSync(
             url: `/?email=${msg.id}`,
             tag: `email-${msg.id}`,
           }).catch((err) => {
-            console.error('Push notification hiba:', err);
+            logger.error('Push notification hiba:', err);
           });
         }
 
@@ -218,23 +219,23 @@ async function incrementalSync(
             for (const wf of workflows) {
               if (wf.triggerType === 'on_receive') {
                 executeWorkflow(wf.id, msg.id).catch((wfErr) =>
-                  console.error(`Workflow ${wf.id} failed for email ${msg.id}:`, wfErr),
+                  logger.error(`Workflow ${wf.id} failed for email ${msg.id}:`, wfErr),
                 );
               }
             }
           } catch (wfErr) {
-            console.error('Workflow trigger error:', wfErr);
+            logger.error('Workflow trigger error:', wfErr);
           }
         }
       } catch (err) {
-        console.error(`Hiba inkrementális szinkronizálásnál (${msgId}):`, err);
+        logger.error(`Hiba inkrementális szinkronizálásnál (${msgId}):`, err);
       }
     }
   } catch (err) {
     const errorCode =
       err && typeof err === 'object' && 'code' in err ? (err as { code: number }).code : undefined;
     if (errorCode === 404) {
-      console.log('HistoryId érvénytelen, teljes szinkronizálás...');
+      logger.info('HistoryId érvénytelen, teljes szinkronizálás...');
       const daysBack = Math.max(1, parseInt(process.env.SYNC_DAYS_BACK || '30', 10));
       processedCount = await fullSyncMessages(gmail, accountId, daysBack);
     } else {
@@ -463,14 +464,14 @@ export function startBackgroundSync(accountId: string) {
   const interval = setInterval(async () => {
     // Guard against overlapping syncs for the same account
     if (syncInProgress.has(accountId)) {
-      console.log(`Sync already in progress for ${accountId}, skipping`);
+      logger.info(`Sync already in progress for ${accountId}, skipping`);
       return;
     }
     syncInProgress.add(accountId);
     try {
       await syncAccount(accountId);
     } catch (err) {
-      console.error(`Háttér szinkronizálás hiba (${accountId}):`, err);
+      logger.error(`Háttér szinkronizálás hiba (${accountId}):`, err);
     } finally {
       syncInProgress.delete(accountId);
     }
@@ -498,7 +499,7 @@ export function stopAllBackgroundSyncs() {
 
 // Fiók adatainak törlése (emailek, kontaktok, stb.) - újraszinkronizálás előtt
 export function clearAccountData(accountId: string) {
-  console.log(`Adatok törlése a(z) ${accountId} fiókhoz...`);
+  logger.info(`Adatok törlése a(z) ${accountId} fiókhoz...`);
 
   runInTransaction(() => {
     // Mellékletek törlése (emailekhez kapcsolódik)
@@ -523,5 +524,5 @@ export function clearAccountData(accountId: string) {
     execute('UPDATE accounts SET history_id = NULL WHERE id = ?', [accountId]);
   });
 
-  console.log(`Adatok törölve a(z) ${accountId} fiókhoz.`);
+  logger.info(`Adatok törölve a(z) ${accountId} fiókhoz.`);
 }

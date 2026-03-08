@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import { Router, Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
@@ -141,7 +142,7 @@ router.post('/backup', (req: Request, res: Response) => {
     const backup = createBackup();
     res.json({ success: true, ...backup });
   } catch (error) {
-    console.error('Backup hiba:', error);
+    logger.error('Backup hiba:', error);
     res.status(500).json({ error: 'Backup létrehozása sikertelen' });
   }
 });
@@ -277,7 +278,7 @@ router.post('/vacuum', (req: Request, res: Response) => {
     vacuumDatabase();
     res.json({ success: true });
   } catch (error) {
-    console.error('Vacuum hiba:', error);
+    logger.error('Vacuum hiba:', error);
     res.status(500).json({ error: 'Adatbázis tömörítés sikertelen' });
   }
 });
@@ -294,7 +295,7 @@ router.post('/cleanup', (req: Request, res: Response) => {
     const result = cleanupOrphanedRecords();
     res.json({ success: true, ...result });
   } catch (error) {
-    console.error('Cleanup hiba:', error);
+    logger.error('Cleanup hiba:', error);
     res.status(500).json({ error: 'Tisztítás sikertelen' });
   }
 });
@@ -320,7 +321,7 @@ router.post('/fix-encoding-all', (req: Request, res: Response) => {
 
     res.json({ success: true, results });
   } catch (error) {
-    console.error('Fix encoding hiba:', error);
+    logger.error('Fix encoding hiba:', error);
     res.status(500).json({ error: 'Karakterkódolás javítása sikertelen' });
   }
 });

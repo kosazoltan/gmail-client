@@ -129,7 +129,7 @@ router.get('/', (req, res) => {
       totalPages: Math.ceil(total / limit),
     });
   } catch (err) {
-    console.error('Email lista lekérés hiba:', err);
+    logger.error('Email lista lekérés hiba:', err);
     res.status(500).json({ error: 'Szerver hiba az email lista lekérésekor' });
   }
 });
@@ -275,7 +275,7 @@ router.get('/:id', async (req, res) => {
 
         email = { ...email, body: fullMsg.body, body_html: fullMsg.bodyHtml };
       } catch (err) {
-        console.error('Email body letöltés hiba:', err);
+        logger.error('Email body letöltés hiba:', err);
         throw err; // Re-throw so outer handler catches it
       }
     }
@@ -294,7 +294,7 @@ router.get('/:id', async (req, res) => {
       attachments: emailAttachments,
     });
   } catch (err) {
-    console.error('Email lekérés hiba:', err);
+    logger.error('Email lekérés hiba:', err);
     res.status(500).json({ error: 'Szerver hiba az email lekérésekor' });
   }
 });
@@ -377,7 +377,7 @@ router.post('/send', async (req, res) => {
 
     res.json({ success: true, messageId: result.id });
   } catch (error) {
-    console.error('Email küldés hiba:', error);
+    logger.error('Email küldés hiba:', error);
     res.status(500).json({ error: 'Email küldés sikertelen' });
   }
 });
@@ -460,7 +460,7 @@ router.post('/reply', async (req, res) => {
 
     res.json({ success: true, messageId: result.id });
   } catch (error) {
-    console.error('Válasz küldés hiba:', error);
+    logger.error('Válasz küldés hiba:', error);
     res.status(500).json({ error: 'Válasz küldés sikertelen' });
   }
 });
@@ -496,7 +496,7 @@ router.patch('/:id/read', async (req, res) => {
     ]);
     res.json({ success: true });
   } catch (error) {
-    console.error('Olvasott jelölés hiba:', error);
+    logger.error('Olvasott jelölés hiba:', error);
     res.status(500).json({ error: 'Módosítás sikertelen' });
   }
 });
@@ -532,7 +532,7 @@ router.patch('/:id/star', async (req, res) => {
     ]);
     res.json({ success: true });
   } catch (error) {
-    console.error('Csillagozás hiba:', error);
+    logger.error('Csillagozás hiba:', error);
     res.status(500).json({ error: 'Módosítás sikertelen' });
   }
 });
@@ -571,7 +571,7 @@ router.patch('/batch-read', async (req, res) => {
 
     res.json({ updatedCount: emailIds.length });
   } catch (error) {
-    console.error('Batch mark read error:', error);
+    logger.error('Batch mark read error:', error);
     res.status(500).json({ error: 'Hiba a batch olvasottság módosítás során' });
   }
 });
@@ -688,7 +688,7 @@ router.delete('/:id', async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Törlés hiba:', error);
+    logger.error('Törlés hiba:', error);
     res.status(500).json({ error: 'Törlés sikertelen' });
   }
 });

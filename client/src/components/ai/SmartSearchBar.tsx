@@ -5,6 +5,11 @@ import { api } from '../../lib/api';
 import { useSavedSearches } from '../../hooks/useSavedSearches';
 import type { SearchSuggestion, SmartSearchResult } from '../../types';
 
+/** Response shape when suggestionsOnly=true */
+interface SmartSearchSuggestionsResponse {
+  suggestions: string[];
+}
+
 interface SmartSearchBarProps {
   onSearch?: (query: string) => void;
   onSaveAsWorkflowStep?: (query: string) => void;
@@ -46,8 +51,8 @@ export function SmartSearchBar({ onSearch, onSaveAsWorkflowStep, className }: Sm
     );
 
     try {
-      const data = await api.ai.smartSearch(text, true);
-      const aiSuggestions: SearchSuggestion[] = ((data as unknown as Record<string, unknown>).suggestions as string[] || []).map(
+      const data = await api.ai.smartSearch(text, true) as unknown as SmartSearchSuggestionsResponse;
+      const aiSuggestions: SearchSuggestion[] = (data.suggestions || []).map(
         (s: string, i: number) => ({
           id: `ai-${i}`,
           text: s,

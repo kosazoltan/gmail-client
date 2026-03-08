@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import { Router } from 'express';
 import { queryAll, queryOne, execute } from '../db/index.js';
 import { v4 as uuid } from 'uuid';
@@ -71,7 +72,7 @@ router.get('/', (req, res) => {
       })),
     });
   } catch (error) {
-    console.error('Scheduled emails fetch error:', error);
+    logger.error('Scheduled emails fetch error:', error);
     res.status(500).json({ error: 'Nem sikerült lekérni az ütemezett emaileket' });
   }
 });
@@ -138,7 +139,7 @@ router.post('/', (req, res) => {
       createdAt,
     });
   } catch (error) {
-    console.error('Schedule email error:', error);
+    logger.error('Schedule email error:', error);
     res.status(500).json({ error: 'Nem sikerült ütemezni az emailt' });
   }
 });
@@ -207,7 +208,7 @@ router.put('/:id', (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Update scheduled email error:', error);
+    logger.error('Update scheduled email error:', error);
     res.status(500).json({ error: 'Nem sikerült frissíteni az ütemezett emailt' });
   }
 });
@@ -235,7 +236,7 @@ router.delete('/:id', (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Delete scheduled email error:', error);
+    logger.error('Delete scheduled email error:', error);
     res.status(500).json({ error: 'Nem sikerült törölni az ütemezett emailt' });
   }
 });
@@ -265,7 +266,7 @@ router.post('/:id/send-now', async (req, res) => {
       const authResult = getOAuth2ClientForAccount(accountId);
       oauth2Client = authResult.oauth2Client;
     } catch (authError) {
-      console.error('Auth error in send-now:', authError);
+      logger.error('Auth error in send-now:', authError);
       return res.status(401).json({ error: 'Hitelesítési hiba - jelentkezz be újra' });
     }
 
@@ -283,7 +284,7 @@ router.post('/:id/send-now', async (req, res) => {
       try {
         attachments = JSON.parse(scheduled.attachments_json);
       } catch {
-        console.error(`Invalid attachments JSON for scheduled email ${scheduled.id}`);
+        logger.error(`Invalid attachments JSON for scheduled email ${scheduled.id}`);
       }
     }
 
@@ -305,7 +306,7 @@ router.post('/:id/send-now', async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Send now error:', error);
+    logger.error('Send now error:', error);
     res.status(500).json({ error: 'Nem sikerült elküldeni az emailt' });
   }
 });
@@ -340,7 +341,7 @@ export async function processScheduledEmails(): Promise<number> {
           const authResult = getOAuth2ClientForAccount(email.account_id);
           oauth2Client = authResult.oauth2Client;
         } catch (authError) {
-          console.error(`Auth error for scheduled email ${email.id}:`, authError);
+          logger.error(`Auth error for scheduled email ${email.id}:`, authError);
           execute("UPDATE scheduled_emails SET status = 'failed' WHERE id = ?", [email.id]);
           continue;
         }
@@ -353,7 +354,7 @@ export async function processScheduledEmails(): Promise<number> {
           try {
             attachments = JSON.parse(email.attachments_json);
           } catch {
-            console.error(`Invalid attachments JSON for scheduled email ${email.id}`);
+            logger.error(`Invalid attachments JSON for scheduled email ${email.id}`);
           }
         }
 
@@ -371,21 +372,21 @@ export async function processScheduledEmails(): Promise<number> {
         execute("UPDATE scheduled_emails SET status = 'sent' WHERE id = ?", [email.id]);
 
         sentCount++;
-        console.log(`Scheduled email ${email.id} sent successfully.`);
+        logger.info(`Scheduled email ${email.id} sent successfully.`);
       } catch (error) {
-        console.error(`Failed to send scheduled email ${email.id}:`, error);
+        logger.error(`Failed to send scheduled email ${email.id}:`, error);
         // Mark as failed
         execute("UPDATE scheduled_emails SET status = 'failed' WHERE id = ?", [email.id]);
       }
     }
 
     if (sentCount > 0) {
-      console.log(`${sentCount} scheduled email(s) sent.`);
+      logger.info(`${sentCount} scheduled email(s) sent.`);
     }
 
     return sentCount;
   } catch (error) {
-    console.error('Process scheduled emails error:', error);
+    logger.error('Process scheduled emails error:', error);
     return 0;
   }
 }

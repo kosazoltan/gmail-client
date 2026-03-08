@@ -1,6 +1,7 @@
-import initSqlJs, { Database as SqlJsDatabase } from 'sql.js';
+﻿import initSqlJs, { Database as SqlJsDatabase } from 'sql.js';
 import path from 'path';
 import fs from 'fs';
+import logger from '../utils/logger.js';
 
 // Render Persistent Disk: DATABASE_URL=/data/gmail-client.db
 // Lokális fejlesztés: DATABASE_URL=./data/gmail-client.db
@@ -417,7 +418,7 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
       _db.run("ALTER TABLE scheduled_emails ADD COLUMN is_undo_send INTEGER DEFAULT 0");
     }
   } catch (err) {
-    console.error('Failed to add undo send columns:', err);
+    logger.error('Failed to add undo send columns:', err);
   }
 
   // Add user-category columns to categories table + email_categories join table
@@ -448,10 +449,10 @@ export async function initializeDatabase(): Promise<SqlJsDatabase> {
     _db.run(`CREATE INDEX IF NOT EXISTS idx_email_categories_account ON email_categories(account_id)`);
     _db.run(`CREATE INDEX IF NOT EXISTS idx_email_categories_email ON email_categories(email_id)`);
   } catch (err) {
-    console.error('Failed to add category migration columns:', err);
+    logger.error('Failed to add category migration columns:', err);
   }
 
-  console.log('Adatbázis inicializálva.');
+  logger.info('Adatbázis inicializálva.');
   return _db;
 }
 
@@ -475,7 +476,7 @@ export function saveDatabase() {
     fs.writeFileSync(tmpPath, buffer);
     fs.renameSync(tmpPath, dbPath);
   } catch (err) {
-    console.error('Database save failed:', err);
+    logger.error('Database save failed:', err);
     // Clean up temp file if it exists
     try {
       const tmpPath = dbPath + '.tmp';
@@ -505,7 +506,7 @@ function debouncedSave() {
     try {
       saveDatabase();
     } catch (err) {
-      console.error('Debounced save failed:', err);
+      logger.error('Debounced save failed:', err);
     }
     pendingSave = null;
   }, DEBOUNCE_DELAY_MS);
@@ -585,7 +586,7 @@ export function runInTransaction<T>(fn: () => T): T {
     try {
       db.run('ROLLBACK');
     } catch (rollbackError) {
-      console.error('Transaction rollback failed:', rollbackError);
+      logger.error('Transaction rollback failed:', rollbackError);
     }
     throw error;
   }
@@ -604,7 +605,7 @@ export async function runInTransactionAsync<T>(fn: () => Promise<T>): Promise<T>
     try {
       db.run('ROLLBACK');
     } catch (rollbackError) {
-      console.error('Transaction rollback failed:', rollbackError);
+      logger.error('Transaction rollback failed:', rollbackError);
     }
     throw error;
   }

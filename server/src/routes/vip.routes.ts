@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import { Router } from 'express';
 import { queryAll, queryOne, execute } from '../db/index.js';
 import { v4 as uuid } from 'uuid';
@@ -34,7 +35,7 @@ router.get('/', (req, res) => {
       })),
     });
   } catch (error) {
-    console.error('VIP senders fetch error:', error);
+    logger.error('VIP senders fetch error:', error);
     res.status(500).json({ error: 'Nem sikerült lekérni a VIP küldőket' });
   }
 });
@@ -56,7 +57,7 @@ router.get('/emails', (req, res) => {
       emails: vipEmails.filter((v) => v.email).map((v) => v.email.toLowerCase()),
     });
   } catch (error) {
-    console.error('VIP emails fetch error:', error);
+    logger.error('VIP emails fetch error:', error);
     res.status(500).json({ error: 'Nem sikerült lekérni a VIP email címeket' });
   }
 });
@@ -103,7 +104,7 @@ router.post('/', (req, res) => {
       createdAt,
     });
   } catch (error) {
-    console.error('Add VIP sender error:', error);
+    logger.error('Add VIP sender error:', error);
     res.status(500).json({ error: 'Nem sikerült hozzáadni a VIP küldőt' });
   }
 });
@@ -136,7 +137,7 @@ router.put('/:id', (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Update VIP sender error:', error);
+    logger.error('Update VIP sender error:', error);
     res.status(500).json({ error: 'Nem sikerült frissíteni a VIP küldőt' });
   }
 });
@@ -164,7 +165,7 @@ router.delete('/:id', (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Delete VIP sender error:', error);
+    logger.error('Delete VIP sender error:', error);
     res.status(500).json({ error: 'Nem sikerült törölni a VIP küldőt' });
   }
 });
@@ -208,7 +209,7 @@ router.post('/toggle', (req, res) => {
       res.json({ isVip: true, id });
     }
   } catch (error) {
-    console.error('Toggle VIP error:', error);
+    logger.error('Toggle VIP error:', error);
     res.status(500).json({ error: 'Nem sikerült módosítani a VIP státuszt' });
   }
 });

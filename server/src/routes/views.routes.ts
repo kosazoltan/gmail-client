@@ -72,7 +72,7 @@ router.get('/by-sender', (req, res) => {
     );
     res.json({ senders });
   } catch (error) {
-    console.error('By-sender view error:', error);
+    logger.error('By-sender view error:', error);
     res.status(500).json({ error: 'Adatbázis hiba történt' });
   }
 });
@@ -96,7 +96,7 @@ router.get('/by-sender/:email', (req, res) => {
     );
     res.json({ emails: results.map(formatEmail), senderEmail });
   } catch (error) {
-    console.error('By-sender email view error:', error);
+    logger.error('By-sender email view error:', error);
     res.status(500).json({ error: 'Adatbázis hiba történt' });
   }
 });
@@ -119,7 +119,7 @@ router.get('/by-topic', (req, res) => {
     );
     res.json({ topics: topicList });
   } catch (error) {
-    console.error('By-topic view error:', error);
+    logger.error('By-topic view error:', error);
     res.status(500).json({ error: 'Adatbázis hiba történt' });
   }
 });
@@ -159,7 +159,7 @@ router.get('/by-topic/:id', (req, res) => {
       totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
-    console.error('By-topic ID view error:', error);
+    logger.error('By-topic ID view error:', error);
     res.status(500).json({ error: 'Adatbázis hiba történt' });
   }
 });
@@ -225,7 +225,7 @@ router.get('/by-time', (req, res) => {
     ];
     res.json({ periods: timePeriods });
   } catch (error) {
-    console.error('By-time view error:', error);
+    logger.error('By-time view error:', error);
     res.status(500).json({ error: 'Adatbázis hiba történt' });
   }
 });
@@ -281,7 +281,7 @@ router.get('/by-time/:periodId', (req, res) => {
     );
     res.json({ emails: results.map(formatEmail), periodId });
   } catch (error) {
-    console.error('By-time period view error:', error);
+    logger.error('By-time period view error:', error);
     res.status(500).json({ error: 'Adatbázis hiba történt' });
   }
 });
@@ -320,7 +320,7 @@ router.get('/by-category', (req, res) => {
 
     res.json({ categories: categoriesWithCount });
   } catch (error) {
-    console.error('By-category view error:', error);
+    logger.error('By-category view error:', error);
     res.status(500).json({ error: 'Adatbázis hiba történt' });
   }
 });
@@ -364,7 +364,7 @@ router.get('/by-category/:id', (req, res) => {
 
     res.json({ emails: results.map(formatEmail), category: cat });
   } catch (error) {
-    console.error('By-category ID view error:', error);
+    logger.error('By-category ID view error:', error);
     res.status(500).json({ error: 'Adatbázis hiba történt' });
   }
 });
@@ -458,7 +458,7 @@ router.get('/inbox', (req, res) => {
       totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
-    console.error('Inbox view error:', error);
+    logger.error('Inbox view error:', error);
     res.status(500).json({ error: 'Adatbázis hiba történt' });
   }
 });
@@ -567,7 +567,7 @@ router.get('/unified', (req, res) => {
       accounts: accountStats,
     });
   } catch (error) {
-    console.error('Unified inbox view error:', error);
+    logger.error('Unified inbox view error:', error);
     res.status(500).json({ error: 'Adatbázis hiba történt' });
   }
 });
@@ -611,7 +611,7 @@ router.get('/trash', (req, res) => {
       totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
-    console.error('Trash view error:', error);
+    logger.error('Trash view error:', error);
     res.status(500).json({ error: 'Adatbázis hiba történt' });
   }
 });

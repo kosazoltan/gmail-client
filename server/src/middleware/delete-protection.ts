@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Delete Protection Middleware — Torles-vedelem
  * 
  * SZABALY: TILOS BARMIT TOROLNI A GMAIL FIOKBOL!
@@ -11,6 +11,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import logger from '../utils/logger.js';
 
 // Routes that perform PERMANENT deletion via Gmail API — BLOCKED
 const BLOCKED_ROUTES: RegExp[] = [
@@ -61,7 +62,7 @@ export function deleteProtection(req: Request, res: Response, next: NextFunction
   // 1. Check BLOCKED routes — permanent Gmail deletion
   for (const pattern of BLOCKED_ROUTES) {
     if (pattern.test(path)) {
-      console.error(`[DELETE-PROTECTION] BLOCKED permanent deletion: ${req.method} ${path}`);
+      logger.error(`[DELETE-PROTECTION] BLOCKED permanent deletion: ${req.method} ${path}`);
       res.status(403).json({
         error: 'Vegleges torles TILTOTT',
         message: 'Ez a muvelet veglegesen torolne emaileket a Gmail fiokbol. Ez TILOS.',
@@ -74,7 +75,7 @@ export function deleteProtection(req: Request, res: Response, next: NextFunction
   // 2. Trash routes — allowed (not permanent)
   for (const pattern of TRASH_ROUTES) {
     if (pattern.test(path)) {
-      console.log(`[DELETE-PROTECTION] TRASH (allowed): ${req.method} ${path}`);
+      logger.info(`[DELETE-PROTECTION] TRASH (allowed): ${req.method} ${path}`);
       next();
       return;
     }
@@ -83,7 +84,7 @@ export function deleteProtection(req: Request, res: Response, next: NextFunction
   // 3. Local DB delete routes — allowed but with extra logging
   for (const pattern of LOCAL_DB_DELETE_ROUTES) {
     if (pattern.test(path)) {
-      console.warn(`[DELETE-PROTECTION] LOCAL DB DELETE: ${req.method} ${path} — body: ${JSON.stringify(req.body).substring(0, 200)}`);
+      logger.warn(`[DELETE-PROTECTION] LOCAL DB DELETE: ${req.method} ${path} — body: ${JSON.stringify(req.body).substring(0, 200)}`);
       next();
       return;
     }
@@ -98,6 +99,6 @@ export function deleteProtection(req: Request, res: Response, next: NextFunction
   }
 
   // 5. Unknown DELETE route — LOG WARNING but allow (don't break features)
-  console.warn(`[DELETE-PROTECTION] UNKNOWN DELETE route: ${req.method} ${path} — allowing but monitoring`);
+  logger.warn(`[DELETE-PROTECTION] UNKNOWN DELETE route: ${req.method} ${path} — allowing but monitoring`);
   next();
 }

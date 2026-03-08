@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import { Router } from 'express';
 import {
   getAllAccounts,
@@ -44,7 +45,7 @@ router.delete('/:id', (req, res) => {
   // Session explicit mentése
   req.session.save((err) => {
     if (err) {
-      console.error('Session mentési hiba fiók törlés után:', err);
+      logger.error('Session mentési hiba fiók törlés után:', err);
       return res.status(500).json({ error: 'Session mentési hiba' });
     }
     res.json({ success: true });
@@ -73,7 +74,7 @@ router.put('/:id/color', (req, res) => {
     updateAccountColor(accountId, color);
     res.json({ success: true, color });
   } catch (error) {
-    console.error('Szín frissítési hiba:', error);
+    logger.error('Szín frissítési hiba:', error);
     res.status(500).json({ error: 'Szín frissítése sikertelen' });
   }
 });
@@ -95,7 +96,7 @@ router.post('/:id/sync', async (req, res) => {
     const result = await syncAccount(accountId, fullSync);
     res.json(result);
   } catch (error) {
-    console.error('Szinkronizálás hiba:', error);
+    logger.error('Szinkronizálás hiba:', error);
     res.status(500).json({ error: 'Szinkronizálás sikertelen' });
   }
 });
@@ -124,7 +125,7 @@ router.post('/:id/resync', async (req, res) => {
       message: 'Adatok újraszinkronizálva',
     });
   } catch (error) {
-    console.error('Újraszinkronizálás hiba:', error);
+    logger.error('Újraszinkronizálás hiba:', error);
     res.status(500).json({ error: 'Újraszinkronizálás sikertelen' });
   }
 });

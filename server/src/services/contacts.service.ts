@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import { v4 as uuid } from 'uuid';
 import { queryOne, queryAll, execute } from '../db/index.js';
 import iconv from 'iconv-lite';
@@ -225,9 +226,9 @@ export function autoExtractContactsIfNeeded(accountId: string): void {
 
   // Ha még soha nem volt kinyerés VAGY több mint 1 napja volt
   if (!hasExtractedContacts(accountId) || !lastExtraction || now - lastExtraction > oneDayMs) {
-    console.log(`Kontaktok automatikus kinyerése: ${accountId}`);
+    logger.info(`Kontaktok automatikus kinyerése: ${accountId}`);
     const count = extractContactsFromExistingEmails(accountId);
-    console.log(`${count} email címből kontaktok kinyerve.`);
+    logger.info(`${count} email címből kontaktok kinyerve.`);
     lastExtractionTime.set(accountId, now);
   }
 }
@@ -277,7 +278,7 @@ export function fixContactNamesEncoding(accountId: string): number {
 
     if (fixedName !== contact.name) {
       execute('UPDATE contacts SET name = ? WHERE id = ?', [fixedName, contact.id]);
-      console.log(`Kontakt név javítva: "${contact.name}" -> "${fixedName}"`);
+      logger.info(`Kontakt név javítva: "${contact.name}" -> "${fixedName}"`);
       fixedCount++;
     }
   }
@@ -306,7 +307,7 @@ export function fixSenderGroupNamesEncoding(accountId: string): number {
 
     if (fixedName !== group.name) {
       execute('UPDATE sender_groups SET name = ? WHERE id = ?', [fixedName, group.id]);
-      console.log(`Sender group név javítva: "${group.name}" -> "${fixedName}"`);
+      logger.info(`Sender group név javítva: "${group.name}" -> "${fixedName}"`);
       fixedCount++;
     }
   }
@@ -348,13 +349,13 @@ export function fixAllNamesEncoding(accountId: string): {
   senderGroups: number;
   emails: number;
 } {
-  console.log(`Karakterkódolás javítása a(z) ${accountId} fiókhoz...`);
+  logger.info(`Karakterkódolás javítása a(z) ${accountId} fiókhoz...`);
 
   const contactsFixed = fixContactNamesEncoding(accountId);
   const senderGroupsFixed = fixSenderGroupNamesEncoding(accountId);
   const emailsFixed = fixEmailNamesEncoding(accountId);
 
-  console.log(
+  logger.info(
     `Javítva: ${contactsFixed} kontakt, ${senderGroupsFixed} feladó csoport, ${emailsFixed} email`,
   );
 

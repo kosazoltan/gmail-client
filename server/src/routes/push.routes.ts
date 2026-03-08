@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import { Router } from 'express';
 import {
   saveSubscription,
@@ -37,7 +38,7 @@ router.post('/subscribe', (req, res) => {
     saveSubscription(accountId, subscription);
     res.json({ success: true, message: 'Push értesítések bekapcsolva' });
   } catch (error) {
-    console.error('Push subscription error:', error);
+    logger.error('Push subscription error:', error);
     res.status(500).json({ error: 'Subscription mentése sikertelen' });
   }
 });
@@ -61,7 +62,7 @@ router.post('/unsubscribe', (req, res) => {
     deleteSubscription(endpoint, accountId);
     res.json({ success: true, message: 'Push értesítések kikapcsolva' });
   } catch (error) {
-    console.error('Push unsubscribe error:', error);
+    logger.error('Push unsubscribe error:', error);
     res.status(500).json({ error: 'Subscription törlése sikertelen' });
   }
 });
@@ -87,7 +88,7 @@ router.post('/test', async (req, res) => {
       failed: result.failed,
     });
   } catch (error) {
-    console.error('Push test error:', error);
+    logger.error('Push test error:', error);
     res.status(500).json({ error: 'Teszt küldése sikertelen' });
   }
 });

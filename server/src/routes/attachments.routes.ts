@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import { Router } from 'express';
 import {
   downloadAttachment,
@@ -51,7 +52,7 @@ router.get('/', async (req, res) => {
     const result = listAttachments(filter);
     res.json(result);
   } catch (error) {
-    console.error('Melléklet listázás hiba:', error);
+    logger.error('Melléklet listázás hiba:', error);
     res.status(500).json({ error: 'Nem sikerült lekérni a mellékleteket' });
   }
 });
@@ -83,7 +84,7 @@ router.get('/:id/download', async (req, res) => {
     res.setHeader('Content-Length', result.data.length);
     res.send(result.data);
   } catch (error: unknown) {
-    console.error('Melléklet letöltés hiba:', error);
+    logger.error('Melléklet letöltés hiba:', error);
     // Ha a hiba tartalmazza, hogy nem található, akkor 404, egyébként 500
     const isNotFound = error instanceof Error && error.message.includes('not found');
     res.status(isNotFound ? 404 : 500).json({

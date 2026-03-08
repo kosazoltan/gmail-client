@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import { Router, Request, Response } from 'express';
 import {
   searchContacts,
@@ -102,7 +103,7 @@ router.post('/fix-encoding', (req: Request, res: Response) => {
       message: `Javítva: ${result.contacts} kontakt, ${result.senderGroups} feladó csoport, ${result.emails} email`,
     });
   } catch (error) {
-    console.error('Karakterkódolás javítási hiba:', error);
+    logger.error('Karakterkódolás javítási hiba:', error);
     res.status(500).json({ error: 'Karakterkódolás javítása sikertelen' });
   }
 });

@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import { Router } from 'express';
 import { queryAll, queryOne, execute, runInTransaction } from '../db/index.js';
 import { v4 as uuid } from 'uuid';
@@ -56,7 +57,7 @@ router.get('/', (req, res) => {
       })),
     });
   } catch (error) {
-    console.error('Szundizott levelek lekérése hiba:', error);
+    logger.error('Szundizott levelek lekérése hiba:', error);
     res.status(500).json({ error: 'Nem sikerült lekérni a szundizott leveleket' });
   }
 });
@@ -143,7 +144,7 @@ router.post('/', (req, res) => {
 
     res.json(result);
   } catch (error) {
-    console.error('Email szundizása hiba:', error);
+    logger.error('Email szundizása hiba:', error);
     res.status(500).json({ error: 'Nem sikerült szundizni az emailt' });
   }
 });
@@ -171,7 +172,7 @@ router.delete('/:emailId', (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    console.error('Szundi törlése hiba:', error);
+    logger.error('Szundi törlése hiba:', error);
     res.status(500).json({ error: 'Nem sikerült törölni a szundit' });
   }
 });
@@ -201,12 +202,12 @@ export function processExpiredSnoozes(): number {
       const ids = expired.map((s) => s.id);
       const placeholders = ids.map(() => '?').join(',');
       execute(`DELETE FROM snoozed_emails WHERE id IN (${placeholders})`, ids);
-      console.log(`${expired.length} lejárt szundi törölve.`);
+      logger.info(`${expired.length} lejárt szundi törölve.`);
     }
 
     return expired.length;
   } catch (error) {
-    console.error('Lejárt szundik feldolgozása hiba:', error);
+    logger.error('Lejárt szundik feldolgozása hiba:', error);
     return 0;
   }
 }

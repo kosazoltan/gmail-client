@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import { Router } from 'express';
 import crypto from 'crypto';
 import { getAuthUrl, handleAuthCallback, getAllAccounts } from '../services/auth.service.js';
@@ -16,7 +17,7 @@ router.get('/login', (req, res) => {
   // Save session before generating URL to ensure state is persisted
   req.session.save((err) => {
     if (err) {
-      console.error('Session mentési hiba login előtt:', err);
+      logger.error('Session mentési hiba login előtt:', err);
       res.status(500).json({ error: 'Session hiba' });
       return;
     }
@@ -39,7 +40,7 @@ router.get('/callback', async (req, res) => {
     // CSRF protection - validate state parameter
     const expectedState = req.session.oauthState;
     if (!state || !expectedState || state !== expectedState) {
-      console.error('OAuth CSRF validation failed - state mismatch');
+      logger.error('OAuth CSRF validation failed - state mismatch');
       res.redirect(`${frontendUrl}/?error=csrf_validation_failed`);
       return;
     }
@@ -61,7 +62,7 @@ router.get('/callback', async (req, res) => {
     // Session explicit mentése mielőtt redirect
     req.session.save((err) => {
       if (err) {
-        console.error('Session mentési hiba:', err);
+        logger.error('Session mentési hiba:', err);
         res.redirect(`${frontendUrl}/?error=session_failed`);
         return;
       }
@@ -73,7 +74,7 @@ router.get('/callback', async (req, res) => {
       res.redirect(`${frontendUrl}/?account=${accountId}&newLogin=true`);
     });
   } catch (error) {
-    console.error('OAuth callback hiba:', error);
+    logger.error('OAuth callback hiba:', error);
     res.redirect(`${frontendUrl}/?error=auth_failed`);
   }
 });
@@ -93,7 +94,7 @@ router.post('/logout', (req, res) => {
   // Session explicit mentése
   req.session.save((err) => {
     if (err) {
-      console.error('Session mentési hiba logout után:', err);
+      logger.error('Session mentési hiba logout után:', err);
       res.status(500).json({ error: 'Session mentési hiba' });
       return;
     }
@@ -129,7 +130,7 @@ router.post('/switch-account', (req, res) => {
     // Session explicit mentése
     req.session.save((err) => {
       if (err) {
-        console.error('Session mentési hiba switch után:', err);
+        logger.error('Session mentési hiba switch után:', err);
         res.status(500).json({ error: 'Session mentési hiba' });
         return;
       }
