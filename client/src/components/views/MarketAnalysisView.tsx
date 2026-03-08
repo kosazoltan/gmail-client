@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMarketAnalysis, useDeepAnalysis, useTrendData } from '../../hooks/useMarketAnalysis';
+import { useMarketAnalysis, useDeepAnalysis, useTrendData, useNewsData, useCryptoData } from '../../hooks/useMarketAnalysis';
 import {
   RefreshCw,
   TrendingUp,
@@ -17,6 +17,8 @@ import {
   Target,
   Shield,
   Star,
+  Bitcoin,
+  Rss,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type {
@@ -26,6 +28,8 @@ import type {
   MarketNewsItem,
   MarketWeightedConclusion,
   DeepAnalysisCurrencyDetail,
+  NewsArticle,
+  CryptoPrices,
 } from '../../types';
 
 const RECOMMENDATION_PAIRS = [
@@ -354,6 +358,87 @@ function DeepCurrencyCard({ pair, detail }: { pair: string; detail: DeepAnalysis
   );
 }
 
+// --- RSS News Card ---
+function RssNewsCard({ article }: { article: NewsArticle }) {
+  const timeAgo = getTimeAgo(article.pubDate);
+
+  const handleClick = () => {
+    if (article.link) {
+      window.open(article.link, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  return (
+    <div
+      className={cn(
+        'rounded-xl border border-white/10 bg-white/5 p-2.5 transition-all',
+        article.link && 'cursor-pointer hover:border-accent/50 hover:bg-white/8'
+      )}
+      onClick={handleClick}
+      role={article.link ? 'link' : undefined}
+      tabIndex={article.link ? 0 : undefined}
+      onKeyDown={(e) => { if (article.link && (e.key === 'Enter' || e.key === ' ')) handleClick(); }}
+    >
+      <h4 className="mb-1 text-xs font-medium text-white">
+        {article.title}
+        {article.link && <ExternalLink className="ml-1 inline h-2.5 w-2.5 text-gray-500" />}
+      </h4>
+      {article.snippet && (
+        <p className="mb-1.5 text-[10px] leading-relaxed text-gray-400">{article.snippet}</p>
+      )}
+      <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
+        <span className="rounded bg-accent/20 px-1 py-0.5 text-[#6d8cff]">{article.source}</span>
+        <span>{timeAgo}</span>
+      </div>
+    </div>
+  );
+}
+
+// --- Crypto Price Card ---
+function CryptoPriceCard({ prices }: { prices: CryptoPrices }) {
+  const coins = [
+    { key: 'bitcoin' as const, label: 'Bitcoin', symbol: 'BTC' },
+    { key: 'ethereum' as const, label: 'Ethereum', symbol: 'ETH' },
+  ];
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {coins.map(({ key, label, symbol }) => {
+        const p = prices[key];
+        return (
+          <div key={key} className="rounded-xl border border-white/10 bg-white/5 p-3">
+            <div className="mb-2 flex items-center gap-2">
+              <Bitcoin className="h-5 w-5 text-orange-400" />
+              <span className="text-sm font-bold text-white">{label}</span>
+              <span className="text-xs text-gray-500">{symbol}</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <div className="text-[10px] text-gray-400">USD</div>
+                <div className="text-sm font-bold tabular-nums text-white">
+                  ${p.usd.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] text-gray-400">EUR</div>
+                <div className="text-sm font-bold tabular-nums text-white">
+                  €{p.eur.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] text-gray-400">HUF</div>
+                <div className="text-sm font-bold tabular-nums text-white">
+                  {p.huf.toLocaleString('hu-HU', { maximumFractionDigits: 0 })} Ft
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function getTimeAgo(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
   const hours = Math.floor(diff / 3600000);
@@ -372,6 +457,8 @@ export function MarketAnalysisView() {
   const { data, isLoading, error, isFetching, forceRefresh } = useMarketAnalysis();
   const deepAnalysis = useDeepAnalysis();
   const trendQuery = useTrendData(7);
+  const newsQuery = useNewsData();
+  const cryptoQuery = useCryptoData();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleDeepAnalysis = async () => {
@@ -481,6 +568,32 @@ export function MarketAnalysisView() {
             {data.rates.map(r => <RateCard key={r.pair} rate={r} />)}
           </div>
         </section>
+
+        {/* Crypto árfolyamok */}
+        {cryptoQuery.data && (
+          <section>
+            <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-white">
+              <Bitcoin className="h-5 w-5 text-orange-400" />
+              Crypto árfolyamok
+            </h2>
+            <CryptoPriceCard prices={cryptoQuery.data} />
+          </section>
+        )}
+
+        {/* Hírek (RSS) */}
+        {newsQuery.data && newsQuery.data.length > 0 && (
+          <section>
+            <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-white">
+              <Rss className="h-5 w-5 text-orange-500" />
+              Hírek
+            </h2>
+            <div className="grid gap-3 md:grid-cols-2">
+              {newsQuery.data.slice(0, 5).map((article, i) => (
+                <RssNewsCard key={`${article.source}-${i}`} article={article} />
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Deep Analysis — Deviza részletes elemzés + Support/Resistance + Ajánlás */}
         {hasCurrencies && (

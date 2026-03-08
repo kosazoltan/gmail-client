@@ -8,6 +8,7 @@ import { ToastContainer } from './components/common/ToastContainer';
 import { Suspense, lazy } from 'react';
 import { LoadingSkeleton } from './components/common/LoadingSkeleton';
 import { CommandPalette } from './components/CommandPalette';
+import { useOfflineSync } from './hooks/useOfflineSync';
 
 // Lazy loaded views — code splitting
 const InboxView = lazy(() => import('./components/views/InboxView').then(m => ({ default: m.InboxView })));
@@ -49,6 +50,8 @@ const queryClient = new QueryClient({
 });
 
 function App() {
+  useOfflineSync();
+
   return (
     <ErrorBoundary>
       <ThemeProvider>

@@ -170,6 +170,14 @@ export interface Backup {
   createdAt: number;
 }
 
+// --- Melléklet AI elemzés ---
+export interface AttachmentAnalysis {
+  summary: string;
+  keyPoints: string[];
+  documentType: string;
+  pageCount: number | null;
+}
+
 export interface AttachmentWithEmail {
   id: string;
   emailId: string;
@@ -465,6 +473,37 @@ export interface TrendDataPoint {
 export interface TrendResponse {
   success: boolean;
   data: TrendDataPoint[];
+}
+
+// --- News (RSS) ---
+export interface NewsArticle {
+  title: string;
+  link: string;
+  source: string;
+  pubDate: string;
+  snippet: string;
+}
+
+export interface NewsResponse {
+  success: boolean;
+  articles: NewsArticle[];
+}
+
+// --- Crypto (CoinGecko) ---
+export interface CryptoPriceData {
+  usd: number;
+  eur: number;
+  huf: number;
+}
+
+export interface CryptoPrices {
+  bitcoin: CryptoPriceData;
+  ethereum: CryptoPriceData;
+}
+
+export interface CryptoResponse {
+  success: boolean;
+  prices: CryptoPrices;
 }
 
 // --- Email Intelligence ---

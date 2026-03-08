@@ -20,8 +20,11 @@ import {
   ArrowUpDown,
   ChevronLeft,
   ChevronRight,
+  Sparkles,
+  X,
+  ChevronUp,
 } from 'lucide-react';
-import type { AttachmentWithEmail } from '../../types';
+import type { AttachmentWithEmail, AttachmentAnalysis } from '../../types';
 import { EmptyState } from '../common/EmptyState';
 
 const typeFilters = [
@@ -89,6 +92,18 @@ function getTypeColor(type: string) {
   }
 }
 
+// AI elemzéshez támogatott fájltípusok
+function canAnalyze(mimeType: string): boolean {
+  if (mimeType === 'application/pdf') return true;
+  if (
+    mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    mimeType === 'application/msword'
+  )
+    return true;
+  if (mimeType.startsWith('text/') || mimeType === 'application/json') return true;
+  return false;
+}
+
 export function AttachmentsView() {
   const navigate = useNavigate();
   const [selectedType, setSelectedType] = useState('all');
@@ -96,6 +111,10 @@ export function AttachmentsView() {
   const [sort, setSort] = useState<'date' | 'size' | 'name'>('date');
   const [order, setOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
+  const [analyses, setAnalyses] = useState<Record<string, AttachmentAnalysis>>({});
+  const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set());
+  const [analysisErrors, setAnalysisErrors] = useState<Record<string, string>>({});
+  const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
 
   const { data, isLoading } = useAttachments({
     type: selectedType === 'all' ? undefined : selectedType,
@@ -116,6 +135,35 @@ export function AttachmentsView() {
 
   const toggleOrder = () => {
     setOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+  };
+
+  const handleAnalyze = async (attachment: AttachmentWithEmail) => {
+    if (analyses[attachment.id]) {
+      setExpandedAnalysis(expandedAnalysis === attachment.id ? null : attachment.id);
+      return;
+    }
+    setAnalyzingIds((prev) => new Set(prev).add(attachment.id));
+    setAnalysisErrors((prev) => {
+      const next = { ...prev };
+      delete next[attachment.id];
+      return next;
+    });
+    try {
+      const result = await api.attachments.analyze(attachment.id);
+      setAnalyses((prev) => ({ ...prev, [attachment.id]: result }));
+      setExpandedAnalysis(attachment.id);
+    } catch (err) {
+      setAnalysisErrors((prev) => ({
+        ...prev,
+        [attachment.id]: err instanceof Error ? err.message : 'Elemzés sikertelen',
+      }));
+    } finally {
+      setAnalyzingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(attachment.id);
+        return next;
+      });
+    }
   };
 
   return (
@@ -227,51 +275,137 @@ export function AttachmentsView() {
             {data.attachments.map((attachment) => {
               const TypeIcon = getTypeIcon(attachment.type);
               const typeColor = getTypeColor(attachment.type);
+              const analyzable = canAnalyze(attachment.mimeType);
+              const isAnalyzing = analyzingIds.has(attachment.id);
+              const analysisResult = analyses[attachment.id];
+              const analysisError = analysisErrors[attachment.id];
+              const isExpanded = expandedAnalysis === attachment.id;
 
               return (
-                <div
-                  key={attachment.id}
-                  className="dark:hover:bg-dark-bg-tertiary flex items-center gap-4 px-4 py-3 transition-colors hover:bg-gray-50"
-                >
-                  {/* Ikon */}
-                  <div className={`rounded-lg p-2.5 ${typeColor}`}>
-                    <TypeIcon className="h-5 w-5" />
-                  </div>
+                <div key={attachment.id}>
+                  <div className="dark:hover:bg-dark-bg-tertiary flex items-center gap-4 px-4 py-3 transition-colors hover:bg-gray-50">
+                    {/* Ikon */}
+                    <div className={`rounded-lg p-2.5 ${typeColor}`}>
+                      <TypeIcon className="h-5 w-5" />
+                    </div>
 
-                  {/* Info */}
-                  <div className="min-w-0 flex-1">
-                    <div className="dark:text-dark-text truncate text-sm font-medium text-gray-900">
-                      {attachment.filename}
-                    </div>
-                    <div className="dark:text-dark-text-secondary mt-0.5 flex items-center gap-2 text-xs text-gray-500">
-                      <span>{formatFileSize(attachment.size)}</span>
-                      <span>-</span>
-                      <span>{formatRelativeTime(attachment.emailDate)}</span>
-                    </div>
-                    {attachment.emailSubject && (
-                      <div className="dark:text-dark-text-muted mt-0.5 truncate text-xs text-gray-400">
-                        {attachment.emailSubject}
+                    {/* Info */}
+                    <div className="min-w-0 flex-1">
+                      <div className="dark:text-dark-text truncate text-sm font-medium text-gray-900">
+                        {attachment.filename}
                       </div>
-                    )}
+                      <div className="dark:text-dark-text-secondary mt-0.5 flex items-center gap-2 text-xs text-gray-500">
+                        <span>{formatFileSize(attachment.size)}</span>
+                        <span>-</span>
+                        <span>{formatRelativeTime(attachment.emailDate)}</span>
+                      </div>
+                      {attachment.emailSubject && (
+                        <div className="dark:text-dark-text-muted mt-0.5 truncate text-xs text-gray-400">
+                          {attachment.emailSubject}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Műveletek */}
+                    <div className="flex items-center gap-1">
+                      {analyzable && (
+                        <button
+                          onClick={() => handleAnalyze(attachment)}
+                          disabled={isAnalyzing}
+                          className={`rounded-lg p-2 transition-colors disabled:opacity-50 ${
+                            analysisResult
+                              ? 'text-amber-500 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/10'
+                              : 'text-gray-400 hover:bg-gray-100 hover:text-amber-500 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-amber-400'
+                          }`}
+                          title={analysisResult ? 'Elemzés mutatása' : 'AI Elemzés'}
+                        >
+                          {isAnalyzing ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-4 w-4" />
+                          )}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleOpenEmail(attachment.emailId)}
+                        className="dark:hover:bg-dark-bg dark:text-dark-text-secondary rounded-lg p-2 text-gray-500 hover:bg-gray-200"
+                        title="Email megnyitása"
+                      >
+                        <Mail className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDownload(attachment)}
+                        className="rounded-lg p-2 text-[#4f6ef7] hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-500/10"
+                        title="Letöltés"
+                      >
+                        <Download className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Műveletek */}
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleOpenEmail(attachment.emailId)}
-                      className="dark:hover:bg-dark-bg dark:text-dark-text-secondary rounded-lg p-2 text-gray-500 hover:bg-gray-200"
-                      title="Email megnyitása"
-                    >
-                      <Mail className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDownload(attachment)}
-                      className="rounded-lg p-2 text-[#4f6ef7] hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-500/10"
-                      title="Letöltés"
-                    >
-                      <Download className="h-4 w-4" />
-                    </button>
-                  </div>
+                  {/* Elemzési hiba */}
+                  {analysisError && (
+                    <div className="flex items-center gap-2 bg-red-50 px-4 py-2 text-xs text-red-600 dark:bg-red-500/10 dark:text-red-400">
+                      <span className="flex-1">{analysisError}</span>
+                      <button
+                        onClick={() =>
+                          setAnalysisErrors((prev) => {
+                            const next = { ...prev };
+                            delete next[attachment.id];
+                            return next;
+                          })
+                        }
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Elemzés eredmény panel */}
+                  {analysisResult && isExpanded && (
+                    <div className="dark:bg-dark-bg-tertiary border-t border-amber-100 bg-amber-50/50 px-4 py-3 dark:border-amber-500/10">
+                      <div className="mb-2 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                          <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                            AI Elemzés
+                          </span>
+                          <span className="dark:bg-dark-bg rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                            {analysisResult.documentType}
+                          </span>
+                          {analysisResult.pageCount && (
+                            <span className="text-[10px] text-gray-400">
+                              {analysisResult.pageCount} oldal
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => setExpandedAnalysis(null)}
+                          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        >
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+
+                      <p className="dark:text-dark-text-secondary mb-2 text-xs leading-relaxed text-gray-600">
+                        {analysisResult.summary}
+                      </p>
+
+                      {analysisResult.keyPoints.length > 0 && (
+                        <ul className="space-y-1">
+                          {analysisResult.keyPoints.map((point, i) => (
+                            <li
+                              key={i}
+                              className="dark:text-dark-text-muted flex items-start gap-1.5 text-xs text-gray-500"
+                            >
+                              <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-amber-400" />
+                              {point}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}

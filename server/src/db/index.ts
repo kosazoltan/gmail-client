@@ -4,10 +4,10 @@ import logger from '../utils/logger.js';
 
 const { Pool } = pg;
 
-// Fail-closed: NEON_DATABASE_URL is required
-const connectionString = process.env.NEON_DATABASE_URL;
+// Fail-closed: Database URL is required (supports both env var names)
+const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
 if (!connectionString) {
-  logger.error('FATAL: NEON_DATABASE_URL environment variable is not set!');
+  logger.error('FATAL: NEON_DATABASE_URL or DATABASE_URL environment variable is not set!');
   process.exit(1);
 }
 

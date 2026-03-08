@@ -2,6 +2,8 @@ import { Router } from 'express';
 import logger from '../utils/logger.js';
 import { generateAIAnalysis, generateDeepAnalysis } from '../services/ai-market.service.js';
 import type { DeepAnalysisResult, TrendDataPoint } from '../services/ai-market.service.js';
+import { fetchNews } from '../services/news.service.js';
+import { fetchCryptoPrices } from '../services/crypto.service.js';
 
 const router = Router();
 
@@ -877,6 +879,38 @@ router.post('/deep-analysis', async (req, res) => {
     });
   } finally {
     isDeepAnalysisGenerating = false;
+  }
+});
+
+// --- News endpoint (RSS) ---
+router.get('/news', async (req, res) => {
+  const accountId = req.session?.activeAccountId;
+  if (!accountId) {
+    return res.status(401).json({ error: 'Nincs aktív fiók' });
+  }
+
+  try {
+    const articles = await fetchNews();
+    return res.json({ success: true, articles });
+  } catch (error) {
+    logger.error('Hírek lekérés hiba:', error);
+    return res.status(500).json({ success: false, error: 'Hírek lekérése sikertelen' });
+  }
+});
+
+// --- Crypto endpoint (CoinGecko) ---
+router.get('/crypto', async (req, res) => {
+  const accountId = req.session?.activeAccountId;
+  if (!accountId) {
+    return res.status(401).json({ error: 'Nincs aktív fiók' });
+  }
+
+  try {
+    const prices = await fetchCryptoPrices();
+    return res.json({ success: true, prices });
+  } catch (error) {
+    logger.error('Crypto lekérés hiba:', error);
+    return res.status(500).json({ success: false, error: 'Crypto árfolyamok lekérése sikertelen' });
   }
 });
 

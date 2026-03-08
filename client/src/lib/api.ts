@@ -279,6 +279,11 @@ export const api = {
       if (params.limit) query.set('limit', params.limit.toString());
       return request<import('../types').AttachmentListResult>(`/attachments?${query}`);
     },
+    analyze: (id: string) =>
+      request<import('../types').AttachmentAnalysis>(`/attachments/${id}/analyze`, {
+        method: 'POST',
+        timeout: 60000, // 60s — AI elemzés lassabb lehet
+      }),
   },
 
   contacts: {
@@ -723,6 +728,8 @@ export const api = {
       timeout: 60000, // 60 sec - AI hívás lassabb
     }),
     trend: (days: number = 7) => request<import('../types').TrendResponse>(`/market/trend?days=${days}`),
+    news: () => request<import('../types').NewsResponse>('/market/news'),
+    crypto: () => request<import('../types').CryptoResponse>('/market/crypto'),
   },
 
   intelligence: {

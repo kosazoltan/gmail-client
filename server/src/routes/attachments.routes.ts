@@ -6,6 +6,8 @@ import {
   AttachmentFilter,
   getAttachmentOwner,
 } from '../services/attachment.service.js';
+import { parseDocument, isAnalyzable } from '../services/document-parser.service.js';
+import Anthropic from '@anthropic-ai/sdk';
 
 const router = Router();
 
@@ -90,6 +92,117 @@ router.get('/:id/download', async (req, res) => {
     res.status(isNotFound ? 404 : 500).json({
       error: isNotFound ? 'Melléklet nem található' : 'Melléklet letöltése sikertelen',
     });
+  }
+});
+
+// AI elemzés - melléklet szövegkinyerés + Anthropic Haiku elemzés
+router.post('/:id/analyze', async (req, res) => {
+  try {
+    const accountId = validateAccountAccess(req);
+    if (!accountId) {
+      return res.status(401).json({ error: 'Nincs bejelentkezve vagy nincs jogosultság' });
+    }
+
+    // Jogosultság ellenőrzés
+    const attachmentOwner = await getAttachmentOwner(req.params.id);
+    if (!attachmentOwner || attachmentOwner !== accountId) {
+      return res.status(403).json({ error: 'Nincs jogosultság ehhez a melléklethez' });
+    }
+
+    // Melléklet letöltés
+    const result = await downloadAttachment(req.params.id);
+
+    // Ellenőrzés: elemezhető-e
+    if (!isAnalyzable(result.mimeType, result.filename)) {
+      return res.status(400).json({
+        error: `Ez a fájltípus nem elemezhető (${result.mimeType})`,
+      });
+    }
+
+    // Szöveg kinyerés
+    const parsed = await parseDocument(result.data, result.mimeType, result.filename);
+
+    if (!parsed.text || parsed.text.length < 10) {
+      return res.status(400).json({
+        error: 'A dokumentumból nem sikerült érdemi szöveget kinyerni',
+      });
+    }
+
+    // Anthropic API ellenőrzés
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.status(500).json({ error: 'ANTHROPIC_API_KEY nincs konfigurálva' });
+    }
+
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+    // Szöveg limitálás (max ~8000 karakter az AI-nak)
+    const truncatedText = parsed.text.length > 8000
+      ? parsed.text.substring(0, 8000) + '\n\n[...a dokumentum többi része levágva...]'
+      : parsed.text;
+
+    // Fájlnév sanitizálás (prompt injection védelem)
+    const safeFilename = result.filename
+      .replace(/[^\w.\-_() áéíóöőúüűÁÉÍÓÖŐÚÜŰ]/g, '_')
+      .substring(0, 100);
+
+    const response = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251015',
+      max_tokens: 1024,
+      messages: [
+        {
+          role: 'user',
+          content: `Elemezd az alábbi dokumentumot. Válaszolj KIZÁRÓLAG érvényes JSON formátumban, semmilyen más szöveget ne adj hozzá.
+
+A JSON struktúra:
+{
+  "summary": "Összefoglalás magyarul, maximum 200 szó",
+  "keyPoints": ["Kulcspont 1", "Kulcspont 2", "..."],
+  "documentType": "A dokumentum típusa (pl. számla, szerződés, jelentés, levél, jegyzőkönyv, ajánlat, stb.)"
+}
+
+Fájlnév: ${safeFilename}
+MIME típus: ${result.mimeType}
+
+Dokumentum szövege:
+---
+${truncatedText}
+---`,
+        },
+      ],
+    });
+
+    // Válasz feldolgozás
+    const aiText = response.content.length > 0 && response.content[0].type === 'text'
+      ? response.content[0].text
+      : '';
+
+    if (!aiText) {
+      return res.status(500).json({ error: 'Az AI nem adott vissza szöveges választ' });
+    }
+
+    let analysis: { summary: string; keyPoints: string[]; documentType: string };
+    try {
+      // Próbáljuk JSON-ként parse-olni (markdown code block is lehet)
+      const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('Nem található JSON a válaszban');
+      }
+      analysis = JSON.parse(jsonMatch[0]);
+    } catch {
+      logger.error('AI válasz parse hiba:', aiText);
+      return res.status(500).json({ error: 'Az AI elemzés eredménye nem feldolgozható' });
+    }
+
+    res.json({
+      summary: analysis.summary || '',
+      keyPoints: Array.isArray(analysis.keyPoints) ? analysis.keyPoints : [],
+      documentType: analysis.documentType || 'ismeretlen',
+      pageCount: parsed.pageCount || null,
+    });
+  } catch (error: unknown) {
+    logger.error('Melléklet AI elemzés hiba:', error);
+    const message = error instanceof Error ? error.message : 'Melléklet elemzése sikertelen';
+    res.status(500).json({ error: message });
   }
 });
 

@@ -13,6 +13,7 @@ import {
   Trash2,
   Clock,
   CalendarClock,
+  WifiOff,
 } from 'lucide-react';
 import { EmailAutocomplete } from './EmailAutocomplete';
 import { TemplateSelector } from './TemplateSelector';
@@ -22,6 +23,9 @@ import { formatFileSize } from '../../lib/utils';
 import { toast } from '../../lib/toast';
 import { useSettings, defaultSettings } from '../../hooks/useSettings';
 import { useCreateScheduledEmail, useDeleteScheduledEmail } from '../../hooks/useScheduledEmails';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { saveDraft, deleteDraft as deleteOfflineDraft } from '../../lib/offline-store';
+import type { OfflineDraft } from '../../lib/offline-store';
 import type { Template } from '../../types';
 
 // Alapértelmezett undo send késleltetés másodpercben
@@ -82,7 +86,10 @@ export function EmailCompose() {
   const bodyEditorRef = useRef<HTMLDivElement>(null);
   const sendTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const undoToastIdRef = useRef<string | null>(null);
+  const isSendingRef = useRef(false);
   const { data: settings } = useSettings();
+
+  const isOnline = useOnlineStatus();
 
   const isReply = searchParams.get('reply') === 'true';
   const isForward = searchParams.has('body') && !isReply;
@@ -95,8 +102,54 @@ export function EmailCompose() {
   const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
   const [isSendPending, setIsSendPending] = useState(false);
   const [scheduledAt, setScheduledAt] = useState<number | null>(null);
+  const [offlineDraftId] = useState(() => `draft-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
+  const [offlineSaved, setOfflineSaved] = useState(false);
 
   const threadId = searchParams.get('threadId') || undefined;
+
+  // Auto-save draft to IndexedDB every 5 seconds (debounced)
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    // Csak ha van valami tartalom
+    if (!to && !subject && !body) return;
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    autoSaveTimerRef.current = setTimeout(async () => {
+      if (isSendingRef.current) return;
+      try {
+        const draft: OfflineDraft = {
+          id: offlineDraftId,
+          to,
+          cc,
+          bcc: '',
+          subject,
+          body,
+          attachments: attachments.map((a) => ({
+            filename: a.filename,
+            mimeType: a.mimeType,
+            content: a.content,
+          })),
+          status: 'draft',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        await saveDraft(draft);
+        setOfflineSaved(true);
+      } catch (err) {
+        console.error('[AutoSave] Draft mentés hiba:', err);
+      }
+    }, 5000);
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [to, cc, subject, body, attachments, offlineDraftId]);
 
   // Undo send késleltetés beállításból vagy alapértelmezett
   const undoSendDelay =
@@ -244,9 +297,43 @@ export function EmailCompose() {
     [deleteScheduledEmail],
   );
 
-  // Email küldés - server-side undo send támogatással
+  // Email küldés - server-side undo send támogatással + offline fallback
   const handleSend = async () => {
     if (!to || !body) return;
+
+    // Offline mód: draft mentése pending státusszal
+    if (!isOnline) {
+      isSendingRef.current = true;
+      try {
+        const draft: OfflineDraft = {
+          id: offlineDraftId,
+          to,
+          cc,
+          bcc: '',
+          subject,
+          body,
+          attachments: attachments.map((a) => ({
+            filename: a.filename,
+            mimeType: a.mimeType,
+            content: a.content,
+          })),
+          status: 'pending',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        await saveDraft(draft);
+        toast.info('Mentve offline — küldés ha visszajön a net');
+        if (window.history.length > 1) {
+          navigate(-1);
+        } else {
+          navigate('/', { replace: true });
+        }
+      } catch (err) {
+        console.error('Offline mentés hiba:', err);
+        toast.error('Nem sikerült menteni a piszkozatot');
+      }
+      return;
+    }
 
     setIsSendPending(true);
 
@@ -282,6 +369,13 @@ export function EmailCompose() {
           cc,
           attachments: emailAttachments.length > 0 ? emailAttachments : undefined,
         });
+      }
+
+      // Sikeres küldés → offline draft törlése
+      try {
+        await deleteOfflineDraft(offlineDraftId);
+      } catch {
+        // Nem kritikus — IndexedDB cleanup
       }
 
       if (result.undoAvailable && result.scheduledId) {
@@ -455,6 +549,21 @@ export function EmailCompose() {
               body ? '' : 'Levél szövege... (Válaszoláskor az új szöveged kék színnel jelenik meg)'
             }
           />
+
+          {/* Offline indikátor */}
+          {!isOnline && (
+            <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+              <WifiOff className="h-4 w-4 shrink-0" />
+              <span>Mentve offline — küldés ha visszajön a net</span>
+            </div>
+          )}
+
+          {/* Auto-save jelző */}
+          {isOnline && offlineSaved && (
+            <p className="text-xs text-gray-400 dark:text-gray-500">
+              ✓ Piszkozat automatikusan mentve
+            </p>
+          )}
 
           {/* Mellékletek */}
           {attachments.length > 0 && (
