@@ -2,7 +2,18 @@ import pg from 'pg';
 import { AsyncLocalStorage } from 'async_hooks';
 import logger from '../utils/logger.js';
 
-const { Pool } = pg;
+const { Pool, types } = pg;
+
+// PostgreSQL BIGINT (OID 20) returns strings by default — parse as numbers
+// Safe for epoch ms timestamps (max ~8.6e15, well within Number.MAX_SAFE_INTEGER 9e15)
+types.setTypeParser(20, (val: string) => {
+  const num = Number(val);
+  if (num > Number.MAX_SAFE_INTEGER) {
+    logger.warn(`BIGINT value exceeds MAX_SAFE_INTEGER: ${val}`);
+    return val; // Keep as string for safety
+  }
+  return num;
+});
 
 // Fail-closed: Database URL is required (supports both env var names)
 const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
