@@ -165,7 +165,7 @@ export interface DeepAnalysisResult {
 
 export interface TrendDataPoint {
   date: string;
-  rates: Record<string, number>;
+  rates: Record<string, number | null>;
 }
 
 export async function generateDeepAnalysis(
@@ -184,7 +184,7 @@ export async function generateDeepAnalysis(
   if (trendData.length > 1) {
     const currencies = Object.keys(trendData[0].rates);
     trendText = currencies.map(cur => {
-      const values = trendData.map(d => d.rates[cur]).filter(v => v !== undefined);
+      const values = trendData.map(d => d.rates[cur]).filter((v): v is number => v != null);
       if (values.length < 2) return `${cur}: nincs elég adat`;
       const first = values[0];
       const last = values[values.length - 1];

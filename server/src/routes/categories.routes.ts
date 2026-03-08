@@ -63,7 +63,7 @@ router.post('/', (req, res) => {
     'INSERT INTO categories (id, name, color, icon, is_system, account_id, description, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [id, name, color || '#6B7280', icon || 'folder', 0, accountId, description || null, sort_order || 0, Date.now()],
   );
-  res.json({ id, name, color: color || '#6B7280', icon: icon || 'folder', isSystem: false, description: description || null, sort_order: sort_order || 0 });
+  res.json({ id, name, color: color || '#6B7280', icon: icon || 'folder', is_system: 0, isSystem: false, description: description || null, sort_order: sort_order || 0 });
 });
 
 router.put('/:id', (req, res) => {
@@ -78,10 +78,10 @@ router.put('/:id', (req, res) => {
 
   // Ellenőrizzük, hogy a kategória a felhasználóé
   const existing = queryOne<{ account_id: string; is_system: number }>(
-    'SELECT account_id, is_system FROM categories WHERE id = ?',
-    [categoryId],
+    'SELECT account_id, is_system FROM categories WHERE id = ? AND account_id = ?',
+    [categoryId, accountId],
   );
-  if (!existing || existing.account_id !== accountId) {
+  if (!existing) {
     res.status(404).json({ error: 'Kategória nem található' });
     return;
   }
@@ -134,11 +134,11 @@ router.delete('/:id', (req, res) => {
 
   const categoryId = req.params.id;
   const cat = queryOne<{ id: string; is_system: number; account_id: string }>(
-    'SELECT id, is_system, account_id FROM categories WHERE id = ?',
-    [categoryId],
+    'SELECT id, is_system, account_id FROM categories WHERE id = ? AND account_id = ?',
+    [categoryId, accountId],
   );
 
-  if (!cat || cat.account_id !== accountId) {
+  if (!cat) {
     res.status(404).json({ error: 'Kategória nem található' });
     return;
   }

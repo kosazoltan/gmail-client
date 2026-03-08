@@ -231,12 +231,12 @@ export function detectUnansweredEmails(accountId: string, daysBack: number = 30)
 export function detectUnansweredEmailsWithProgress(
   accountId: string,
   daysBack: number,
-  onProgress: (data: { phase: string; processed: number; total: number; found: number }) => void,
-): { newTasksCount: number; totalProcessed: number } {
+  onProgress: (data: { phase: string; processed: number; total: number; found: number; skipped?: number }) => void,
+): { newTasksCount: number; totalProcessed: number; existingSkipped: number } {
   const accountEmail = getAccountEmail(accountId);
   if (!accountEmail) {
     logger.warn(`Task detection: no email found for account ${accountId}`);
-    return { newTasksCount: 0, totalProcessed: 0 };
+    return { newTasksCount: 0, totalProcessed: 0, existingSkipped: 0 };
   }
 
   const now = Date.now();
@@ -256,9 +256,10 @@ export function detectUnansweredEmailsWithProgress(
     [accountId, sinceDate, oneDayAgo, accountEmail],
   );
 
-  onProgress({ phase: 'scanning', processed: 0, total: incomingEmails.length, found: 0 });
+  onProgress({ phase: 'scanning', processed: 0, total: incomingEmails.length, found: 0, skipped: 0 });
 
   const newTasks: DetectedTask[] = [];
+  let existingSkipped = 0;
 
   for (let i = 0; i < incomingEmails.length; i++) {
     const email = incomingEmails[i];
@@ -269,8 +270,9 @@ export function detectUnansweredEmailsWithProgress(
       [email.id, accountId],
     );
     if (existing) {
+      existingSkipped++;
       if (i % 10 === 0) {
-        onProgress({ phase: 'scanning', processed: i, total: incomingEmails.length, found: newTasks.length });
+        onProgress({ phase: 'scanning', processed: i, total: incomingEmails.length, found: newTasks.length, skipped: existingSkipped });
       }
       continue;
     }
@@ -351,12 +353,12 @@ export function detectUnansweredEmailsWithProgress(
     }
 
     if (i % 10 === 0) {
-      onProgress({ phase: 'scanning', processed: i, total: incomingEmails.length, found: newTasks.length });
+      onProgress({ phase: 'scanning', processed: i, total: incomingEmails.length, found: newTasks.length, skipped: existingSkipped });
     }
   }
 
   // Meglévő open taskok prioritás frissítése
-  onProgress({ phase: 'updating', processed: incomingEmails.length, total: incomingEmails.length, found: newTasks.length });
+  onProgress({ phase: 'updating', processed: incomingEmails.length, total: incomingEmails.length, found: newTasks.length, skipped: existingSkipped });
 
   const openTasks = queryAll<{ id: string; email_date: number | null }>(
     "SELECT id, email_date FROM detected_tasks WHERE account_id = ? AND status = 'open'",
@@ -377,7 +379,7 @@ export function detectUnansweredEmailsWithProgress(
     logger.info(`Task detection (progress): found ${newTasks.length} new tasks for account ${accountId}`);
   }
 
-  return { newTasksCount: newTasks.length, totalProcessed: incomingEmails.length };
+  return { newTasksCount: newTasks.length, totalProcessed: incomingEmails.length, existingSkipped };
 }
 
 /**

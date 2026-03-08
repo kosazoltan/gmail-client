@@ -88,7 +88,7 @@ router.get('/scan-stream', (req, res) => {
       'X-Accel-Buffering': 'no',
     });
 
-    const sendProgress = (data: { phase: string; processed: number; total: number; found: number }) => {
+    const sendProgress = (data: { phase: string; processed: number; total: number; found: number; skipped?: number }) => {
       res.write(`data: ${JSON.stringify(data)}\n\n`);
     };
 
@@ -98,7 +98,7 @@ router.get('/scan-stream', (req, res) => {
     const unsnoozed = processExpiredSnoozedTasks();
 
     // Végső eredmény
-    res.write(`data: ${JSON.stringify({ phase: 'done', newTasksCount: result.newTasksCount, totalProcessed: result.totalProcessed, unsnoozedCount: unsnoozed })}\n\n`);
+    res.write(`data: ${JSON.stringify({ phase: 'done', newTasksCount: result.newTasksCount, totalProcessed: result.totalProcessed, existingSkipped: result.existingSkipped, unsnoozedCount: unsnoozed })}\n\n`);
     res.end();
   } catch (err) {
     logger.error('SSE scan-stream error:', err);

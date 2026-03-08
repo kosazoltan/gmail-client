@@ -113,6 +113,7 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
     queryKey: ['views', 'by-category', session?.activeAccountId],
     queryFn: () => api.views.byCategory(),
     enabled: !!session?.activeAccountId,
+    staleTime: 60000,
   });
   const userCategories = useMemo(() => {
     if (!categoriesData?.categories) return [];

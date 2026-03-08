@@ -744,26 +744,26 @@ async function fetchTrendData(days: number = 7): Promise<TrendDataPoint[]> {
     }
 
     const data = await resp.json() as {
-      rates: Record<string, Record<string, number>>;
+      rates: Record<string, Record<string, number | undefined>>;
     };
 
     const result: TrendDataPoint[] = Object.entries(data.rates)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, rates]) => {
-        // Calculate cross rates for HUF pairs
-        const eurUsd = rates['USD'] ?? 1;
-        const eurHuf = rates['HUF'] ?? 395;
-        const eurGbp = rates['GBP'] ?? 0.86;
-        const eurChf = rates['CHF'] ?? 0.95;
+        // Calculate cross rates for HUF pairs with null safety
+        const eurUsd = rates['USD'];
+        const eurHuf = rates['HUF'];
+        const eurGbp = rates['GBP'];
+        const eurChf = rates['CHF'];
 
         return {
           date,
           rates: {
-            EUR_HUF: eurHuf,
-            USD_HUF: Math.round((eurHuf / eurUsd) * 100) / 100,
-            GBP_HUF: Math.round((eurHuf / eurGbp) * 100) / 100,
-            CHF_HUF: Math.round((eurHuf / eurChf) * 100) / 100,
-            EUR_USD: eurUsd,
+            EUR_HUF: eurHuf ?? null,
+            USD_HUF: eurHuf && eurUsd ? Math.round((eurHuf / eurUsd) * 100) / 100 : null,
+            GBP_HUF: eurHuf && eurGbp ? Math.round((eurHuf / eurGbp) * 100) / 100 : null,
+            CHF_HUF: eurHuf && eurChf ? Math.round((eurHuf / eurChf) * 100) / 100 : null,
+            EUR_USD: eurUsd ?? null,
           },
         };
       });

@@ -143,11 +143,11 @@ function DetectedTasksTab() {
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="font-medium">
               {scanState.phase === 'loading' && '📨 Emailek betöltése...'}
-              {scanState.phase === 'scanning' && `🔍 Elemzés: ${scanState.processed}/${scanState.total} email`}
+              {scanState.phase === 'scanning' && `🔍 Elemzés: ${scanState.processed}/${scanState.total} email (${scanState.found} új)`}
               {scanState.phase === 'updating' && '📊 Prioritások frissítése...'}
             </span>
             <span className="text-blue-600 dark:text-blue-400">
-              {scanState.found} feladat találva
+              {scanState.found} új feladat{scanState.skipped > 0 ? ` (${scanState.skipped} korábban feldolgozott)` : ''}
             </span>
           </div>
           <div className="h-2 w-full rounded-full bg-blue-200 dark:bg-blue-800">

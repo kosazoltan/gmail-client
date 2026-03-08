@@ -72,6 +72,7 @@ export interface ScanState {
   processed: number;
   total: number;
   found: number;
+  skipped: number;
 }
 
 const INITIAL_SCAN_STATE: ScanState = {
@@ -80,6 +81,7 @@ const INITIAL_SCAN_STATE: ScanState = {
   processed: 0,
   total: 0,
   found: 0,
+  skipped: 0,
 };
 
 export function useScanStream() {
@@ -96,7 +98,7 @@ export function useScanStream() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    setScanState({ isScanning: true, phase: 'loading', processed: 0, total: 0, found: 0 });
+    setScanState({ isScanning: true, phase: 'loading', processed: 0, total: 0, found: 0, skipped: 0 });
 
     fetch(`${API_BASE}/detected-tasks/scan-stream?daysBack=${daysBack}`, {
       credentials: 'include',
@@ -113,6 +115,7 @@ export function useScanStream() {
             processed: fallbackResult.newTasksCount,
             total: fallbackResult.newTasksCount,
             found: fallbackResult.newTasksCount,
+            skipped: 0,
           });
           queryClient.invalidateQueries({ queryKey: ['detected-tasks'] });
           queryClient.invalidateQueries({ queryKey: ['detected-tasks', 'stats'] });
@@ -144,6 +147,7 @@ export function useScanStream() {
                 processed: data.processed ?? data.totalProcessed ?? prev.processed,
                 total: data.total ?? data.totalProcessed ?? prev.total,
                 found: data.found ?? data.newTasksCount ?? prev.found,
+                skipped: data.skipped ?? data.existingSkipped ?? prev.skipped,
               }));
 
               if (data.phase === 'done' || data.phase === 'error') {
