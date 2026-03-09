@@ -44,7 +44,7 @@ router.post('/sync', async (req, res) => {
       return res.status(401).json({ error: 'Nincs bejelentkezve' });
     }
 
-    const detectedCount = syncNewsletterSenders(accountId);
+    const detectedCount = await syncNewsletterSenders(accountId);
 
     return res.json({
       success: true,
@@ -72,7 +72,7 @@ router.patch('/senders/:id/mute', async (req, res) => {
       return res.status(400).json({ error: 'muted mező kötelező (boolean)' });
     }
 
-    const success = toggleMuteSender(accountId, id, muted);
+    const success = await toggleMuteSender(accountId, id, muted);
 
     if (!success) {
       return res.status(404).json({ error: 'Küldő nem található' });
@@ -95,7 +95,7 @@ router.delete('/senders/:id', async (req, res) => {
 
     const { id } = req.params;
 
-    const success = removeSenderFromNewsletters(accountId, id);
+    const success = await removeSenderFromNewsletters(accountId, id);
 
     if (!success) {
       return res.status(404).json({ error: 'Küldő nem található' });
@@ -107,6 +107,36 @@ router.delete('/senders/:id', async (req, res) => {
     return res.status(500).json({ error: 'Szerverhiba' });
   }
 });
+
+// snake_case DB record → camelCase frontend format
+function formatNewsletterEmail(email: Record<string, unknown>) {
+  return {
+    id: email.id,
+    threadId: email.thread_id,
+    subject: email.subject,
+    from: email.from_email,
+    fromName: email.from_name,
+    to: email.to_email,
+    cc: email.cc_email,
+    snippet: email.snippet,
+    date: email.date,
+    isRead: email.is_read,
+    isStarred: email.is_starred,
+    labels: (() => {
+      try {
+        return email.labels ? JSON.parse(email.labels as string) : [];
+      } catch (err) {
+        logger.warn('Labels JSON parse failed in formatNewsletterEmail', { emailId: email.id, error: err });
+        return [];
+      }
+    })(),
+    hasAttachments: email.has_attachments,
+    categoryId: email.category_id,
+    topicId: email.topic_id,
+    newsletter_name: email.newsletter_name,
+    isMuted: email.is_muted,
+  };
+}
 
 // Hírlevél emailek listázása
 router.get('/emails', async (req, res) => {
@@ -121,14 +151,17 @@ router.get('/emails', async (req, res) => {
     const senderId = req.query.senderId as string | undefined;
     const includeMuted = req.query.includeMuted === 'true';
 
-    const result = getNewsletterEmails(accountId, {
+    const result = await getNewsletterEmails(accountId, {
       page,
       limit,
       senderId,
       includeMuted,
     });
 
-    return res.json(result);
+    return res.json({
+      ...result,
+      emails: result.emails.map(formatNewsletterEmail),
+    });
   } catch (error) {
     logger.error('Hírlevél emailek lekérése hiba:', error);
     return res.status(500).json({ error: 'Szerverhiba' });
