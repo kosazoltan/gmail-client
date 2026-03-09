@@ -79,14 +79,14 @@ export function HeaderAccountSwitcher() {
         <>
           {/* Overlay */}
           <div
-            className="fixed inset-0 z-40"
+            className="fixed inset-0 z-[998]"
             onClick={() => {
               setShowDropdown(false);
               setDropdownAccountId(null);
             }}
           />
 
-          <div className="dark:bg-dark-bg-secondary dark:border-dark-border absolute top-full right-0 z-50 mt-2 min-w-[200px] rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
+          <div className="dark:bg-dark-bg-secondary dark:border-dark-border absolute top-full right-0 z-[999] mt-2 min-w-[200px] rounded-xl border border-gray-200 bg-white py-2 shadow-lg">
             {/* Fiók info */}
             {(() => {
               const account = session.accounts.find((a) => a.id === dropdownAccountId);
