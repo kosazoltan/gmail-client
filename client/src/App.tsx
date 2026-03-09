@@ -5,10 +5,11 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { AppLayout } from './components/layout/AppLayout';
 import { InstallPrompt } from './components/pwa/InstallPrompt';
 import { ToastContainer } from './components/common/ToastContainer';
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { LoadingSkeleton } from './components/common/LoadingSkeleton';
 import { CommandPalette } from './components/CommandPalette';
 import { useOfflineSync } from './hooks/useOfflineSync';
+import { warmUpBackend } from './lib/api';
 
 // Lazy loaded views — code splitting
 const InboxView = lazy(() => import('./components/views/InboxView').then(m => ({ default: m.InboxView })));
@@ -51,6 +52,11 @@ const queryClient = new QueryClient({
 
 function App() {
   useOfflineSync();
+
+  // Warm up backend on app load (wakes Render cold start)
+  useEffect(() => {
+    warmUpBackend();
+  }, []);
 
   return (
     <ErrorBoundary>

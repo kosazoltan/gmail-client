@@ -1,12 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../lib/api';
+import { api, getFailureCount } from '../lib/api';
 
 export function useSession() {
   return useQuery({
     queryKey: ['session'],
     queryFn: () => api.auth.getSession(),
-    refetchInterval: 60000, // 60 másodperc
-    staleTime: 30000, // 30 másodpercig friss marad
+    refetchInterval: (query) => {
+      // Adaptive polling: double interval on error, max 5 minutes
+      if (query.state.status === 'error') {
+        const failures = getFailureCount('/auth/session');
+        return Math.min(120000 * Math.pow(2, Math.min(failures, 3)), 300000);
+      }
+      return 120000; // 120 seconds normal
+    },
+    staleTime: 60000, // 60 másodpercig friss marad
     retry: 2, // 2x próbálkozás hiba esetén
     refetchOnWindowFocus: true, // Ablak fókuszra frissít
     refetchOnReconnect: true, // Újracsatlakozáskor frissít

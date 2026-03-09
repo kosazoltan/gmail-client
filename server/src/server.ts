@@ -48,6 +48,7 @@ import detectedTasksRoutes from './routes/detected-tasks.routes.js';
 import sseRoutes from './routes/sse.routes.js';
 import briefRoutes, { generateAISummary } from './routes/brief.routes.js';
 import { detectUnansweredEmails, processExpiredSnoozedTasks } from './services/task-detection.service.js';
+import { buildAllowedOrigins } from './utils/cors-config.js';
 
 const PORT = parseInt(process.env.PORT || '5000', 10);
 
@@ -90,15 +91,8 @@ async function start() {
     }),
   );
 
-  // CORS - több frontend origin támogatása
-  // Trim whitespace and filter empty values
-  const allowedOrigins = [
-    frontendUrl?.trim(),
-    'https://mindenes.org',
-    'https://mail.mindenes.org',
-    'http://localhost:5173',
-    'http://localhost:5000'
-  ].filter((x): x is string => Boolean(x?.trim()));
+  // CORS - több frontend origin támogatása (H1: shared config)
+  const allowedOrigins = buildAllowedOrigins();
 
   // Log allowed origins at startup for debugging
   logger.info(`CORS allowed origins: ${JSON.stringify(allowedOrigins)}`);

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../lib/api';
+import { api, getFailureCount } from '../lib/api';
 import type { Reminder } from '../types';
 
 // Emlékeztetők listázása
@@ -15,7 +15,13 @@ export function useDueReminders() {
   return useQuery({
     queryKey: ['reminders', 'due'],
     queryFn: () => api.reminders.due(),
-    refetchInterval: 60000, // Poll every minute
+    refetchInterval: (query) => {
+      if (query.state.status === 'error') {
+        const failures = getFailureCount('/reminders/due');
+        return Math.min(60000 * Math.pow(2, Math.min(failures, 3)), 300000);
+      }
+      return 60000; // 60 seconds
+    },
   });
 }
 
@@ -27,7 +33,14 @@ export function useDueRemindersCount(enabled = true) {
       const response = await api.reminders.count();
       return response.count;
     },
-    refetchInterval: enabled ? 60000 : false, // Poll every minute
+    refetchInterval: (query) => {
+      if (!enabled) return false;
+      if (query.state.status === 'error') {
+        const failures = getFailureCount('/reminders/count');
+        return Math.min(60000 * Math.pow(2, Math.min(failures, 3)), 300000);
+      }
+      return 60000; // 60 seconds
+    },
     enabled,
   });
 }

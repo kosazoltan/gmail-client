@@ -1,5 +1,5 @@
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
-import { api } from '../lib/api';
+import { api, getFailureCount } from '../lib/api';
 
 export function useInbox(params: { accountId?: string; page?: number } = {}) {
   return useQuery({
@@ -30,6 +30,12 @@ export function useUnreadCount(accountId?: string) {
     queryFn: () => api.views.inbox({ accountId, page: 1 }),
     enabled: !!accountId,
     select: (data) => data.emails.filter((e) => !e.isRead).length,
-    refetchInterval: 60000, // Refresh every 60 seconds
+    refetchInterval: (query) => {
+      if (query.state.status === 'error') {
+        const failures = getFailureCount('/views/inbox');
+        return Math.min(60000 * Math.pow(2, Math.min(failures, 3)), 300000);
+      }
+      return 60000; // 60 seconds
+    },
   });
 }

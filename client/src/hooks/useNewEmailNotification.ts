@@ -23,7 +23,9 @@ export function useNewEmailNotification(enabled: boolean) {
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const isMountedRef = useRef(true);
-  const MAX_RECONNECT_ATTEMPTS = 10;
+  const MAX_RECONNECT_ATTEMPTS = 8; // 8 attempts with 5s base = 5s→10s→20s→40s→60s→60s→60s→60s
+  const SSE_BASE_DELAY = 5000; // Start at 5 seconds
+  const SSE_MAX_DELAY = 60000; // Cap at 60 seconds
 
   // Request browser notification permission on mount
   useEffect(() => {
@@ -89,18 +91,33 @@ export function useNewEmailNotification(enabled: boolean) {
       es.close();
       eventSourceRef.current = null;
 
-      // Exponential backoff reconnect
+      // Exponential backoff reconnect: 5s → 10s → 20s → 40s → max 60s
       if (!isMountedRef.current) return;
       if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
-        const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 60000);
+        const delay = Math.min(SSE_BASE_DELAY * Math.pow(2, reconnectAttemptsRef.current), SSE_MAX_DELAY);
         reconnectAttemptsRef.current++;
         reconnectTimeoutRef.current = setTimeout(connect, delay);
       }
     };
   }, [handleNewEmail]);
 
+  // H2: Window focus SSE recovery — reset after max reconnect attempts exhausted
+  useEffect(() => {
+    const onFocus = () => {
+      if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS && isMountedRef.current) {
+        reconnectAttemptsRef.current = 0;
+        connect();
+      }
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [connect]);
+
   useEffect(() => {
     if (!enabled) return;
+
+    // C1: Reset isMountedRef on re-mount (StrictMode / enabled toggle)
+    isMountedRef.current = true;
 
     connect();
 

@@ -4,41 +4,116 @@
 export const API_BASE = import.meta.env.VITE_API_URL || '/api';
 const BASE_URL = API_BASE;
 
+// H3: Typed TimeoutError — replaces fragile string-match on magyar message
+class TimeoutError extends Error {
+  constructor() {
+    super('Request timed out');
+    this.name = 'TimeoutError';
+  }
+}
+
 // Default request timeout (30 seconds)
 const DEFAULT_TIMEOUT = 30000;
 
-async function request<T>(url: string, options?: RequestInit & { timeout?: number }): Promise<T> {
-  const { timeout = DEFAULT_TIMEOUT, ...fetchOptions } = options || {};
+// Exponential backoff retry configuration
+const MAX_RETRIES = 5;
+const INITIAL_RETRY_DELAY = 1000; // 1s
+const MAX_RETRY_DELAY = 30000; // 30s
 
-  // FIX: Add timeout using AbortController
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
+/** Track consecutive failures per endpoint prefix for adaptive polling */
+const _failureCounters = new Map<string, number>();
 
-  try {
-    const response = await fetch(`${BASE_URL}${url}`, {
-      ...fetchOptions,
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        ...fetchOptions?.headers,
-      },
-      signal: controller.signal,
-    });
+export function getFailureCount(endpointPrefix: string): number {
+  return _failureCounters.get(endpointPrefix) ?? 0;
+}
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Hálózati hiba' }));
-      throw new Error(error.error || `HTTP ${response.status}`);
+export function resetFailureCount(endpointPrefix: string): void {
+  _failureCounters.delete(endpointPrefix);
+}
+
+/** Check if an error is retryable (network/server errors, not client errors) */
+function isRetryableError(err: unknown): boolean {
+  if (err instanceof TypeError) return true; // Network error (fetch failed)
+  if (err instanceof TimeoutError) return true;
+  if (err instanceof Error) {
+    // HTTP 5xx or 0 (network) are retryable; 4xx are not
+    const httpMatch = err.message.match(/HTTP (\d+)/);
+    if (httpMatch) {
+      const status = parseInt(httpMatch[1], 10);
+      return status >= 500 || status === 0;
     }
-
-    return response.json();
-  } catch (err) {
-    if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error('A kérés időtúllépés miatt megszakadt');
-    }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
+    // CORS errors and network failures
+    if (err.message === 'Failed to fetch' || err.message.includes('NetworkError')) return true;
   }
+  return false;
+}
+
+async function request<T>(url: string, options?: RequestInit & { timeout?: number; retries?: number }): Promise<T> {
+  const { timeout = DEFAULT_TIMEOUT, retries = MAX_RETRIES, ...fetchOptions } = options || {};
+  const endpointPrefix = url.split('?')[0];
+
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    // Wait before retry (not on first attempt)
+    if (attempt > 0) {
+      const delay = Math.min(INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1), MAX_RETRY_DELAY);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const response = await fetch(`${BASE_URL}${url}`, {
+        ...fetchOptions,
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...fetchOptions?.headers,
+        },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Hálózati hiba' }));
+        throw new Error(error.error || `HTTP ${response.status}`);
+      }
+
+      // Success — reset failure counter
+      _failureCounters.delete(endpointPrefix);
+      return response.json();
+    } catch (err) {
+      lastError = err;
+
+      if (err instanceof Error && err.name === 'AbortError') {
+        lastError = new TimeoutError();
+      }
+
+      // Only retry on retryable errors
+      if (!isRetryableError(lastError) || attempt === retries) {
+        break;
+      }
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  // Track failure for adaptive polling
+  const currentFailures = _failureCounters.get(endpointPrefix) ?? 0;
+  _failureCounters.set(endpointPrefix, currentFailures + 1);
+
+  throw lastError;
+}
+
+/**
+ * Fire a lightweight warm-up ping on app load.
+ * Wakes up the Render cold-start without blocking the UI.
+ */
+export function warmUpBackend(): void {
+  fetch(`${BASE_URL}/health`, { credentials: 'include', method: 'GET' }).catch(() => {
+    // Silent — just warming up the server
+  });
 }
 
 // Auth
