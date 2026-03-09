@@ -469,6 +469,14 @@ function generateOverallSentiment(conclusion: Record<string, WeightedConclusion>
 
 // --- Élő árfolyam lekérés ---
 async function fetchLiveRates(): Promise<RateInfo[]> {
+  // Global timeout: abort everything if fetchLiveRates exceeds 12s total
+  const globalTimeout = 12000;
+  const startTime = Date.now();
+
+  function remainingMs(): number {
+    return Math.max(1000, globalTimeout - (Date.now() - startTime));
+  }
+
   const now = new Date().toISOString();
 
   // ECB-alapú árfolyamok (frankfurter.app - ingyenes, megbízható)
@@ -476,7 +484,7 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
   let latestDate: string | undefined; // The actual business date of the "latest" rates
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+    const timeout = setTimeout(() => controller.abort(), Math.min(5000, remainingMs()));
     const resp = await fetch('https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD,HUF,GBP,CHF', {
       signal: controller.signal,
     });
@@ -502,106 +510,101 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
   const gbphuf = eurhuf / eurgbp;
   const chfhuf = eurhuf / eurchf;
 
-  // Arany árfolyam - több forrás próbálása (nincs statikus fallback)
+  // Arany árfolyam - PÁRHUZAMOS lekérdezés (Promise.any) a gyorsabb válaszért
   let xauusd = 0;
   let goldFetched = false;
 
-  // 1. próba: Swissquote (élő bróker feed, nincs API key, real-time)
-  if (!goldFetched) {
+  const goldTimeoutMs = Math.min(5000, remainingMs());
+
+  // Helper for fetching with timeout
+  async function fetchWithTimeout(url: string, ms: number): Promise<Response> {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), ms);
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-      const goldResp = await fetch('https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/XAU/USD', {
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-      if (goldResp.ok) {
+      const resp = await fetch(url, { signal: controller.signal });
+      return resp;
+    } finally {
+      clearTimeout(t);
+    }
+  }
+
+  // Promise.any polyfill for ES2020 target
+  function promiseAny<T>(promises: Promise<T>[]): Promise<T> {
+    if (promises.length === 0) return Promise.reject(new Error('No promises provided'));
+    return new Promise((resolve, reject) => {
+      let rejections = 0;
+      const errors: unknown[] = [];
+      for (const p of promises) {
+        p.then(resolve).catch((err) => {
+          errors.push(err);
+          rejections++;
+          if (rejections === promises.length) reject(new Error('All gold API sources failed'));
+        });
+      }
+    });
+  }
+
+  try {
+    const goldResult = await promiseAny([
+      // 1. Swissquote (élő bróker feed, real-time)
+      (async (): Promise<{ source: string; price: number }> => {
+        const goldResp = await fetchWithTimeout(
+          'https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/XAU/USD',
+          goldTimeoutMs,
+        );
+        if (!goldResp.ok) throw new Error('Swissquote not ok');
         const goldData = await goldResp.json() as Array<{
           spreadProfilePrices: Array<{ bid: number; ask: number }>;
         }>;
         if (Array.isArray(goldData) && goldData[0]?.spreadProfilePrices?.[0]) {
           const { bid, ask } = goldData[0].spreadProfilePrices[0];
           if (bid > 1000 && ask > 1000) {
-            xauusd = Math.round(((bid + ask) / 2) * 100) / 100;
-            goldFetched = true;
-            logger.info(`Arany árfolyam betöltve (Swissquote): ${xauusd} USD/oz`);
+            return { source: 'Swissquote', price: Math.round(((bid + ask) / 2) * 100) / 100 };
           }
         }
-      }
-    } catch (err) {
-      logger.warn('Swissquote API hiba:', err instanceof Error ? err.message : err);
-    }
-  }
+        throw new Error('Swissquote invalid data');
+      })(),
 
-  // 2. próba: NBP (Lengyel Nemzeti Bank - hivatalos, napi frissítés, PLN/g → USD/oz konverzió)
-  if (!goldFetched) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-      const nbpResp = await fetch('https://api.nbp.pl/api/cenyzlota?format=json', {
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-      if (nbpResp.ok) {
+      // 2. NBP (Lengyel Nemzeti Bank, napi frissítés)
+      (async (): Promise<{ source: string; price: number }> => {
+        const nbpResp = await fetchWithTimeout('https://api.nbp.pl/api/cenyzlota?format=json', goldTimeoutMs);
+        if (!nbpResp.ok) throw new Error('NBP not ok');
         const nbpData = await nbpResp.json() as Array<{ cena: number }>;
-        if (Array.isArray(nbpData) && nbpData[0]?.cena > 0) {
-          // NBP returns PLN per gram; convert to USD per troy ounce
-          // 1 troy ounce = 31.1035 grams; need PLN/USD rate from Frankfurter
-          const plnPerGram = nbpData[0].cena;
-          const plnPerOz = plnPerGram * 31.1035;
-          // Get EUR/PLN from Frankfurter for conversion
-          try {
-            const plnController = new AbortController();
-            const plnTimeout = setTimeout(() => plnController.abort(), 5000);
-            const plnResp = await fetch('https://api.frankfurter.dev/v1/latest?base=EUR&symbols=PLN', {
-              signal: plnController.signal,
-            });
-            clearTimeout(plnTimeout);
-            if (plnResp.ok) {
-              const plnRates = await plnResp.json() as { rates: { PLN?: number } };
-              const eurpln = plnRates.rates.PLN ?? 4.30;
-              const usdpln = eurpln / eurusd;
-              const nbpXau = Math.round((plnPerOz / usdpln) * 100) / 100;
-              if (nbpXau > 1000) {
-                xauusd = nbpXau;
-                goldFetched = true;
-                logger.info(`Arany árfolyam betöltve (NBP): ${xauusd} USD/oz (${plnPerGram} PLN/g)`);
-              }
-            }
-          } catch (err) {
-            logger.warn('NBP PLN konverzió sikertelen:', err instanceof Error ? err.message : err);
-          }
-        }
-      }
-    } catch (err) {
-      logger.warn('NBP API hiba:', err instanceof Error ? err.message : err);
-    }
-  }
+        if (!Array.isArray(nbpData) || !nbpData[0]?.cena) throw new Error('NBP invalid data');
+        const plnPerGram = nbpData[0].cena;
+        const plnPerOz = plnPerGram * 31.1035;
+        // Get EUR/PLN for conversion
+        const plnResp = await fetchWithTimeout(
+          'https://api.frankfurter.dev/v1/latest?base=EUR&symbols=PLN',
+          Math.min(3000, remainingMs()),
+        );
+        if (!plnResp.ok) throw new Error('Frankfurter PLN not ok');
+        const plnRates = await plnResp.json() as { rates: { PLN?: number } };
+        const eurpln = plnRates.rates.PLN ?? 4.30;
+        const usdpln = eurpln / eurusd;
+        const nbpXau = Math.round((plnPerOz / usdpln) * 100) / 100;
+        if (nbpXau <= 1000) throw new Error('NBP gold price too low');
+        return { source: `NBP (${plnPerGram} PLN/g)`, price: nbpXau };
+      })(),
 
-  // 3. próba: fawazahmed0 Currency API (CDN, napi frissítés, nincs API key)
-  if (!goldFetched) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-      const resp = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/xau.json', {
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-      if (resp.ok) {
+      // 3. fawazahmed0 Currency API (CDN, napi frissítés)
+      (async (): Promise<{ source: string; price: number }> => {
+        const resp = await fetchWithTimeout(
+          'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/xau.json',
+          goldTimeoutMs,
+        );
+        if (!resp.ok) throw new Error('Currency-API CDN not ok');
         const data = await resp.json() as { xau?: Record<string, number> };
-        if (data.xau?.usd && data.xau.usd > 1000) {
-          xauusd = Math.round(data.xau.usd * 100) / 100;
-          goldFetched = true;
-          logger.info(`Arany árfolyam betöltve (Currency-API CDN): ${xauusd} USD/oz`);
-        }
-      }
-    } catch (err) {
-      logger.warn('Currency-API CDN hiba:', err instanceof Error ? err.message : err);
-    }
-  }
+        if (!data.xau?.usd || data.xau.usd <= 1000) throw new Error('Currency-API CDN invalid data');
+        return { source: 'Currency-API CDN', price: Math.round(data.xau.usd * 100) / 100 };
+      })(),
+    ]);
 
-  if (!goldFetched) {
-    logger.error('FIGYELEM: Minden arany API forrás sikertelen! Az arany árfolyam nem elérhető.');
+    xauusd = goldResult.price;
+    goldFetched = true;
+    logger.info(`Arany árfolyam betöltve (${goldResult.source}): ${xauusd} USD/oz`);
+  } catch (err) {
+    logger.error('FIGYELEM: Minden arany API forrás sikertelen! Az arany árfolyam nem elérhető.', err);
   }
 
   const xaueur = xauusd / eurusd;
@@ -642,27 +645,20 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
   let prevXauusd = 0;
   if (goldFetched) {
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-      // NBP last/2 returns the 2 most recent gold price entries
-      const nbpHistResp = await fetch('https://api.nbp.pl/api/cenyzlota/last/2/?format=json', {
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
+      const nbpHistResp = await fetchWithTimeout(
+        'https://api.nbp.pl/api/cenyzlota/last/2/?format=json',
+        Math.min(4000, remainingMs()),
+      );
       if (nbpHistResp.ok) {
         const nbpHistData = await nbpHistResp.json() as Array<{ data: string; cena: number }>;
         if (Array.isArray(nbpHistData) && nbpHistData.length >= 2) {
-          // First entry = older, second = newer. Use the older one as "previous".
           const prevPlnPerGram = nbpHistData[0].cena;
           const prevPlnPerOz = prevPlnPerGram * 31.1035;
-          // Need PLN/USD for conversion - use historical EUR rates + EUR/PLN
           try {
-            const plnController2 = new AbortController();
-            const plnTimeout2 = setTimeout(() => plnController2.abort(), 5000);
-            const plnResp2 = await fetch('https://api.frankfurter.dev/v1/latest?base=EUR&symbols=PLN', {
-              signal: plnController2.signal,
-            });
-            clearTimeout(plnTimeout2);
+            const plnResp2 = await fetchWithTimeout(
+              'https://api.frankfurter.dev/v1/latest?base=EUR&symbols=PLN',
+              Math.min(3000, remainingMs()),
+            );
             if (plnResp2.ok) {
               const plnRates2 = await plnResp2.json() as { rates: { PLN?: number } };
               const eurpln2 = plnRates2.rates.PLN ?? 4.30;

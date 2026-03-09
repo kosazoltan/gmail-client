@@ -28,63 +28,68 @@ export interface EmailListItem {
   body_size: number;
 }
 
+// Safe count helper — returns 0 if table doesn't exist or query fails
+async function safeCount(sql: string, params: unknown[]): Promise<number> {
+  try {
+    const result = await queryOne<{ count: number }>(sql, params);
+    return Number(result?.count ?? 0);
+  } catch (err) {
+    logger.warn('safeCount query failed (table may not exist):', { sql, error: err });
+    return 0;
+  }
+}
+
 // Adatbázis statisztikák lekérése
 export async function getDatabaseStats(accountId?: string): Promise<DatabaseStats> {
   const accountFilter = accountId ? 'WHERE account_id = ?' : '';
   const params = accountId ? [accountId] : [];
 
-  const emailCount = await queryOne<{ count: number }>(
-    `SELECT COUNT(*) as count FROM emails ${accountFilter}`,
-    params,
-  );
+  const [totalEmails, totalContacts, totalAttachments, totalCategories, totalSenderGroups, totalTopics] =
+    await Promise.all([
+      safeCount(`SELECT COUNT(*) as count FROM emails ${accountFilter}`, params),
+      safeCount(`SELECT COUNT(*) as count FROM contacts ${accountFilter}`, params),
+      safeCount(
+        `SELECT COUNT(*) as count FROM attachments a ${accountId ? 'JOIN emails e ON a.email_id = e.id WHERE e.account_id = ?' : ''}`,
+        params,
+      ),
+      safeCount(`SELECT COUNT(*) as count FROM categories ${accountFilter}`, params),
+      safeCount(`SELECT COUNT(*) as count FROM sender_groups ${accountFilter}`, params),
+      safeCount(`SELECT COUNT(*) as count FROM topics ${accountFilter}`, params),
+    ]);
 
-  const contactCount = await queryOne<{ count: number }>(
-    `SELECT COUNT(*) as count FROM contacts ${accountFilter}`,
-    params,
-  );
-
-  const attachmentCount = await queryOne<{ count: number }>(
-    `SELECT COUNT(*) as count FROM attachments a
-     ${accountId ? 'JOIN emails e ON a.email_id = e.id WHERE e.account_id = ?' : ''}`,
-    params,
-  );
-
-  const categoryCount = await queryOne<{ count: number }>(
-    `SELECT COUNT(*) as count FROM categories ${accountFilter}`,
-    params,
-  );
-
-  const senderGroupCount = await queryOne<{ count: number }>(
-    `SELECT COUNT(*) as count FROM sender_groups ${accountFilter}`,
-    params,
-  );
-
-  const topicCount = await queryOne<{ count: number }>(
-    `SELECT COUNT(*) as count FROM topics ${accountFilter}`,
-    params,
-  );
-
-  const oldestEmail = await queryOne<{ date: number | null }>(
-    `SELECT MIN(date) as date FROM emails ${accountFilter}`,
-    params,
-  );
-
-  const newestEmail = await queryOne<{ date: number | null }>(
-    `SELECT MAX(date) as date FROM emails ${accountFilter}`,
-    params,
-  );
+  let oldestEmailDate: number | null = null;
+  let newestEmailDate: number | null = null;
+  try {
+    const oldest = await queryOne<{ date: number | null }>(
+      `SELECT MIN(date) as date FROM emails ${accountFilter}`,
+      params,
+    );
+    oldestEmailDate = oldest?.date || null;
+    const newest = await queryOne<{ date: number | null }>(
+      `SELECT MAX(date) as date FROM emails ${accountFilter}`,
+      params,
+    );
+    newestEmailDate = newest?.date || null;
+  } catch (err) {
+    logger.debug('Failed to get email date range', { error: err });
+  }
 
   // Emailek fiókonként - csak a kért accountId-t mutatjuk, ha meg van adva
-  const emailsByAccountRaw = accountId
-    ? await queryAll<{ account_id: string; email: string; count: number }>(
+  let emailsByAccountRaw: Array<{ account_id: string; email: string; count: number }> = [];
+  try {
+    if (accountId) {
+      emailsByAccountRaw = await queryAll<{ account_id: string; email: string; count: number }>(
         `SELECT e.account_id, a.email, COUNT(*) as count
          FROM emails e
          JOIN accounts a ON e.account_id = a.id
          WHERE e.account_id = ?
          GROUP BY e.account_id`,
         [accountId],
-      )
-    : [];
+      );
+    }
+  } catch (err) {
+    logger.debug('Failed to get emails by account', { error: err });
+  }
 
   // Adatbázis méret (PostgreSQL)
   let databaseSizeBytes = 0;
@@ -97,15 +102,15 @@ export async function getDatabaseStats(accountId?: string): Promise<DatabaseStat
   }
 
   return {
-    totalEmails: Number(emailCount?.count ?? 0),
-    totalContacts: Number(contactCount?.count ?? 0),
-    totalAttachments: Number(attachmentCount?.count ?? 0),
-    totalCategories: Number(categoryCount?.count ?? 0),
-    totalSenderGroups: Number(senderGroupCount?.count ?? 0),
-    totalTopics: Number(topicCount?.count ?? 0),
+    totalEmails,
+    totalContacts,
+    totalAttachments,
+    totalCategories,
+    totalSenderGroups,
+    totalTopics,
     databaseSizeBytes,
-    oldestEmail: oldestEmail?.date || null,
-    newestEmail: newestEmail?.date || null,
+    oldestEmail: oldestEmailDate,
+    newestEmail: newestEmailDate,
     emailsByAccount: emailsByAccountRaw.map((row) => ({
       accountId: row.account_id,
       email: row.email,

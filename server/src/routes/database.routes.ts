@@ -39,8 +39,13 @@ router.get('/stats', async (req: Request, res: Response) => {
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
   }
-  const stats = await getDatabaseStats(accountId);
-  res.json(stats);
+  try {
+    const stats = await getDatabaseStats(accountId);
+    res.json(stats);
+  } catch (error) {
+    logger.error('Database stats lekérdezés hiba:', error);
+    res.status(500).json({ error: 'Adatbázis statisztikák lekérdezése sikertelen' });
+  }
 });
 
 // Emailek listázása adatbázis kezelőhöz
