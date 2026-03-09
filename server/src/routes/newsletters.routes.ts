@@ -108,7 +108,7 @@ router.delete('/senders/:id', async (req, res) => {
   }
 });
 
-// snake_case DB record → camelCase frontend format
+// snake_case DB record → camelCase frontend format (consistent with views.routes.ts formatEmail)
 function formatNewsletterEmail(email: Record<string, unknown>) {
   return {
     id: email.id,
@@ -120,21 +120,22 @@ function formatNewsletterEmail(email: Record<string, unknown>) {
     cc: email.cc_email,
     snippet: email.snippet,
     date: email.date,
-    isRead: email.is_read,
-    isStarred: email.is_starred,
+    isRead: email.is_read === 1,
+    isStarred: email.is_starred === 1,
     labels: (() => {
       try {
+        if (Array.isArray(email.labels)) return email.labels;
         return email.labels ? JSON.parse(email.labels as string) : [];
       } catch (err) {
         logger.warn('Labels JSON parse failed in formatNewsletterEmail', { emailId: email.id, error: err });
         return [];
       }
     })(),
-    hasAttachments: email.has_attachments,
+    hasAttachments: email.has_attachments === 1,
     categoryId: email.category_id,
     topicId: email.topic_id,
-    newsletter_name: email.newsletter_name,
-    isMuted: email.is_muted,
+    newsletterName: email.newsletter_name,  // camelCase
+    isMuted: email.is_muted === 1,           // boolean
   };
 }
 

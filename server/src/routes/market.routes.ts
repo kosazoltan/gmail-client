@@ -45,6 +45,7 @@ async function fetchHistoricalEurRates(excludeDate?: string): Promise<Record<str
 
     try {
       const controller = new AbortController();
+      // Use remainingMs() if available (called from within fetchLiveRates context), else 5s
       const timeout = setTimeout(() => controller.abort(), 5000);
       const resp = await fetch(`https://api.frankfurter.dev/v1/${dateStr}?base=EUR&symbols=USD,HUF,GBP,CHF`, {
         signal: controller.signal,
@@ -472,9 +473,13 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
   // Global timeout: abort everything if fetchLiveRates exceeds 12s total
   const globalTimeout = 12000;
   const startTime = Date.now();
+  // Shared AbortController for the entire fetchLiveRates lifecycle
+  const globalAbort = new AbortController();
+  const globalTimer = setTimeout(() => globalAbort.abort(), globalTimeout);
 
   function remainingMs(): number {
-    return Math.max(1000, globalTimeout - (Date.now() - startTime));
+    const elapsed = Date.now() - startTime;
+    return Math.max(0, globalTimeout - elapsed);
   }
 
   const now = new Date().toISOString();
@@ -515,28 +520,35 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
   let goldFetched = false;
 
   const goldTimeoutMs = Math.min(5000, remainingMs());
+  // Shared AbortController for gold parallel requests — first success cancels the rest
+  const goldAbort = new AbortController();
 
-  // Helper for fetching with timeout
+  // Helper for fetching with timeout + global abort signal
   async function fetchWithTimeout(url: string, ms: number): Promise<Response> {
     const controller = new AbortController();
+    // Abort on either local timeout OR global budget expiry
+    const onGlobalAbort = () => controller.abort();
+    globalAbort.signal.addEventListener('abort', onGlobalAbort, { once: true });
     const t = setTimeout(() => controller.abort(), ms);
     try {
       const resp = await fetch(url, { signal: controller.signal });
       return resp;
     } finally {
       clearTimeout(t);
+      globalAbort.signal.removeEventListener('abort', onGlobalAbort);
     }
   }
 
-  // Promise.any polyfill for ES2020 target
-  function promiseAny<T>(promises: Promise<T>[]): Promise<T> {
+  // Promise.any polyfill for ES2020 target — first success cancels the rest
+  function promiseAny<T>(promises: Promise<T>[], abortOnSuccess?: AbortController): Promise<T> {
     if (promises.length === 0) return Promise.reject(new Error('No promises provided'));
     return new Promise((resolve, reject) => {
       let rejections = 0;
-      const errors: unknown[] = [];
       for (const p of promises) {
-        p.then(resolve).catch((err) => {
-          errors.push(err);
+        p.then((val) => {
+          abortOnSuccess?.abort(); // cancel losing requests
+          resolve(val);
+        }).catch(() => {
           rejections++;
           if (rejections === promises.length) reject(new Error('All gold API sources failed'));
         });
@@ -598,7 +610,7 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
         if (!data.xau?.usd || data.xau.usd <= 1000) throw new Error('Currency-API CDN invalid data');
         return { source: 'Currency-API CDN', price: Math.round(data.xau.usd * 100) / 100 };
       })(),
-    ]);
+    ], goldAbort);  // pass goldAbort so first success cancels losing requests
 
     xauusd = goldResult.price;
     goldFetched = true;
@@ -612,7 +624,13 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
 
   // --- Valós 24h változás historikus adatból ---
   // Pass latestDate so we skip the same business day on weekends
-  const histRates = await fetchHistoricalEurRates(latestDate);
+  // Check remaining budget before historical fetch (skip if budget nearly exhausted)
+  let histRates: Record<string, number> | null = null;
+  if (remainingMs() > 2000) {
+    histRates = await fetchHistoricalEurRates(latestDate);
+  } else {
+    logger.warn('fetchLiveRates: skipping historical fetch, global budget nearly exhausted', { remainingMs: remainingMs() });
+  }
 
   // Yesterday's EUR-based rates (fallback to today if historical unavailable)
   const prevEurusd = histRates?.['USD'] ?? eurusd;
@@ -683,8 +701,17 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
       { pair: 'XAUEUR', label: 'Arany (EUR)', rate: Math.round(xaueur * 100) / 100, ...calcChange(xaueur, prevXaueur || xaueur), timestamp: now },
       { pair: 'XAUHUF', label: 'Arany (HUF)', rate: Math.round(xauhuf), ...calcChange(xauhuf, prevXauhuf || xauhuf), timestamp: now },
     );
+  } else {
+    // Gold unavailable — push placeholder rates so frontend doesn't crash on missing XAU entries
+    logger.warn('Gold rates unavailable — returning goldUnavailable placeholder');
+    rates.push(
+      { pair: 'XAUUSD', label: 'Arany (USD)', rate: 0, change24h: 0, changePercent: 0, timestamp: now, goldUnavailable: true } as RateInfo,
+      { pair: 'XAUEUR', label: 'Arany (EUR)', rate: 0, change24h: 0, changePercent: 0, timestamp: now, goldUnavailable: true } as RateInfo,
+      { pair: 'XAUHUF', label: 'Arany (HUF)', rate: 0, change24h: 0, changePercent: 0, timestamp: now, goldUnavailable: true } as RateInfo,
+    );
   }
 
+  clearTimeout(globalTimer); // cleanup global budget timer
   return rates;
 }
 

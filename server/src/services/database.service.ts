@@ -28,14 +28,20 @@ export interface EmailListItem {
   body_size: number;
 }
 
-// Safe count helper — returns 0 if table doesn't exist or query fails
+// Safe count helper — returns 0 ONLY if table doesn't exist (schema not ready yet)
+// Rethrows on connection errors so /stats correctly returns 500 when DB is down
 async function safeCount(sql: string, params: unknown[]): Promise<number> {
   try {
     const result = await queryOne<{ count: number }>(sql, params);
     return Number(result?.count ?? 0);
   } catch (err) {
-    logger.warn('safeCount query failed (table may not exist):', { sql, error: err });
-    return 0;
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/no such table|relation .* does not exist|undefined table/i.test(msg)) {
+      logger.warn('safeCount: table missing (schema not ready):', { sql, error: msg });
+      return 0;
+    }
+    // DB connection error, timeout, permission error → rethrow → /stats returns 500
+    throw err;
   }
 }
 
@@ -71,7 +77,7 @@ export async function getDatabaseStats(accountId?: string): Promise<DatabaseStat
     );
     newestEmailDate = newest?.date || null;
   } catch (err) {
-    logger.debug('Failed to get email date range', { error: err });
+    logger.warn('Database stats: failed to get email date range', { accountId, error: err });
   }
 
   // Emailek fiókonként - csak a kért accountId-t mutatjuk, ha meg van adva
@@ -88,7 +94,7 @@ export async function getDatabaseStats(accountId?: string): Promise<DatabaseStat
       );
     }
   } catch (err) {
-    logger.debug('Failed to get emails by account', { error: err });
+    logger.warn('Database stats: failed to get emails by account', { accountId, error: err });
   }
 
   // Adatbázis méret (PostgreSQL)
@@ -98,7 +104,7 @@ export async function getDatabaseStats(accountId?: string): Promise<DatabaseStat
     const sizeResult = await pool.query("SELECT pg_database_size(current_database()) as size");
     databaseSizeBytes = parseInt(sizeResult.rows[0]?.size || '0', 10);
   } catch (err) {
-    logger.debug('Failed to get database size', { error: err });
+    logger.warn('Database stats: failed to get database size', { error: err });
   }
 
   return {
