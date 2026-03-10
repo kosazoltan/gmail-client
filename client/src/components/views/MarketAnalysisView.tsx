@@ -48,6 +48,30 @@ const DEEP_CURRENCY_LABELS: Record<string, string> = {
   CHF_HUF: 'CHF/HUF',
 };
 
+const LEGACY_BRIEFING_FALLBACK_TEXT = 'Ez sablon-alapú becslés, nem valódi AI elemzés. Az ANTHROPIC_API_KEY beállításával valós AI elemzés érhető el.';
+const LEGACY_DEEP_ANALYSIS_FALLBACK_TEXT = 'Sablon alapu elemzes - Az AI mely elemzes atmenetileg nem elerheto. Az alabbi adatok az elo arfolyamok alapjan keszultek.';
+
+function getFallbackBannerText(
+  reason?: 'missing_api_key' | 'timeout' | 'generation_failed',
+  message?: string,
+): string {
+  if (message) return message;
+  switch (reason) {
+    case 'missing_api_key':
+      return 'Sablon-alapú becslés fut, mert a market AI API kulcs nincs beállítva a szerveren.';
+    case 'timeout':
+      return 'Sablon-alapú becslés fut, mert a market AI elemzés időtúllépés miatt fallbackre váltott.';
+    default:
+      return 'Sablon-alapú becslés fut, mert a market AI elemzés átmenetileg nem adott használható választ.';
+  }
+}
+
+function replaceLegacyFallbackText(text: string, replacement: string): string {
+  return text
+    .replace(LEGACY_BRIEFING_FALLBACK_TEXT, replacement)
+    .replace(LEGACY_DEEP_ANALYSIS_FALLBACK_TEXT, `Sablon alapu elemzes - ${replacement}`);
+}
+
 function DirectionIcon({ direction, className }: { direction: string; className?: string }) {
   if (direction === 'bullish') return <TrendingUp className={cn('h-5 w-5 text-green-400', className)} />;
   if (direction === 'bearish') return <TrendingDown className={cn('h-5 w-5 text-red-400', className)} />;
@@ -526,6 +550,14 @@ export function MarketAnalysisView() {
 
   const deepData = deepAnalysis.data;
   const hasCurrencies = deepData && Object.keys(deepData.currencies).length > 0;
+  const fallbackBannerText = getFallbackBannerText(data.fallbackReason, data.fallbackMessage);
+  const deepFallbackText = getFallbackBannerText(deepData?.fallbackReason, deepData?.fallbackMessage);
+  const overallSentimentText = data.isAIPowered
+    ? data.overallSentiment
+    : replaceLegacyFallbackText(data.overallSentiment, fallbackBannerText);
+  const deepSummaryText = deepData?.summary
+    ? replaceLegacyFallbackText(deepData.summary, deepFallbackText)
+    : '';
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
@@ -533,7 +565,7 @@ export function MarketAnalysisView() {
         {/* AI figyelmeztetés ha nem valódi AI elemzés */}
         {!data.isAIPowered && (
           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3 mb-4 text-sm text-amber-700 dark:text-amber-300">
-            ⚠️ Sablon-alapú becslés — valódi AI elemzéshez API kulcs szükséges
+            ⚠️ {fallbackBannerText}
           </div>
         )}
 
@@ -583,7 +615,7 @@ export function MarketAnalysisView() {
               AI Összefoglaló
               {deepData.cached && <span className="text-xs text-yellow-400">(gyorsítótárazott)</span>}
             </h2>
-            <p className="leading-relaxed text-gray-200">{deepData.summary}</p>
+            <p className="leading-relaxed text-gray-200">{deepSummaryText}</p>
             {deepData.generatedAt && (
               <p className="mt-2 text-[10px] text-gray-500">
                 Generálva: {new Date(deepData.generatedAt).toLocaleString('hu-HU')}
@@ -793,7 +825,7 @@ export function MarketAnalysisView() {
             <Scale className="h-5 w-5 text-[#4f6ef7]" />
             Általános piaci hangulat
           </h2>
-          <p className="leading-relaxed text-gray-300">{data.overallSentiment}</p>
+          <p className="leading-relaxed text-gray-300">{overallSentimentText}</p>
         </section>
 
         {/* Friss hírek */}

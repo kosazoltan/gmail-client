@@ -41,6 +41,7 @@ html.dark ::-webkit-scrollbar-thumb:hover { background: #4a4d54; }
 
 /* Email content */
 .prose img, .email-content img { max-width: 100%; height: auto; }
+.email-content { color: #111827; }
 .email-content table { max-width: 100%; border-collapse: collapse; }
 .email-content td, .email-content th { vertical-align: top; }
 .prose a { color: #2563eb; text-decoration: underline; }
@@ -50,6 +51,43 @@ html.dark .prose a { color: #60a5fa; }
 html.dark .prose td, html.dark .prose th { border-color: #373a40; }
 
 /* Dark mode email content fixes */
+html.dark .email-content { color: #d1d5db; }
+html.dark .email-content :is(
+  p,
+  div,
+  span,
+  td,
+  th,
+  li,
+  ul,
+  ol,
+  strong,
+  b,
+  em,
+  i,
+  u,
+  small,
+  big,
+  blockquote,
+  code,
+  pre,
+  label,
+  font,
+  center,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6
+) {
+  color: inherit !important;
+}
+html.dark .email-content [color] { color: inherit !important; }
+html.dark .email-content a { color: #60a5fa !important; }
+html.dark .email-content blockquote { color: #9ca3af !important; }
+html.dark .email-content :is(td, th, table) { border-color: #373a40 !important; }
+
 html.dark .email-content [style*='color: #000'],
 html.dark .email-content [style*='color:#000'],
 html.dark .email-content [style*='color: rgb(0, 0, 0)'],

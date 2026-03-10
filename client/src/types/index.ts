@@ -426,6 +426,8 @@ export interface MarketBriefingData {
   weightedConclusion: Record<string, MarketWeightedConclusion>;
   overallSentiment: string;
   isAIPowered: boolean;
+  fallbackReason?: 'missing_api_key' | 'timeout' | 'generation_failed';
+  fallbackMessage?: string;
 }
 
 export interface MarketBriefingResponse {
@@ -459,6 +461,9 @@ export interface DeepAnalysisData {
   cached?: boolean;
   trendData?: TrendDataPoint[];
   rates?: MarketRateInfo[];
+  isAIPowered?: boolean;
+  fallbackReason?: 'missing_api_key' | 'timeout' | 'generation_failed';
+  fallbackMessage?: string;
 }
 
 export interface DeepAnalysisResponse {

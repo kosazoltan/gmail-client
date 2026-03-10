@@ -72,12 +72,27 @@ interface MarketBriefingData {
   generatedAt: string;
   cached: boolean;
   isAIPowered: boolean;
+  fallbackReason?: 'missing_api_key' | 'timeout' | 'generation_failed';
+  fallbackMessage?: string;
   rates: RateInfo[];
   analyses: AnalysisItem[];
   positioning: PositioningItem[];
   newsItems: NewsItem[];
   weightedConclusion: Record<string, WeightedConclusion>;
   overallSentiment: string;
+}
+
+type MarketFallbackReason = 'missing_api_key' | 'timeout' | 'generation_failed';
+
+function getBriefingFallbackMessage(reason: MarketFallbackReason): string {
+  switch (reason) {
+    case 'missing_api_key':
+      return 'Sablon-alapú becslés fut, mert a market AI API kulcs nincs beállítva a szerveren.';
+    case 'timeout':
+      return 'Sablon-alapú becslés fut, mert a market AI elemzés időtúllépés miatt fallbackre váltott.';
+    default:
+      return 'Sablon-alapú becslés fut, mert a market AI elemzés hibára futott vagy érvénytelen választ adott.';
+  }
 }
 
 // --- Institutional Sources ---
@@ -448,9 +463,9 @@ router.get('/briefing', async (req, res) => {
     const t1 = Date.now();
     const aiResult = await Promise.race([
       generateAIAnalysis(rates, marketNews),
-      new Promise<null>((resolve) => setTimeout(() => {
+      new Promise<'timeout'>((resolve) => setTimeout(() => {
         logger.warn('generateAIAnalysis hard timeout (45s) — falling back to template');
-        resolve(null);
+        resolve('timeout');
       }, 45_000)),
     ]);
     logger.info(`[BRIEFING] Step 2 done: AI=${!!aiResult} in ${Date.now() - t1}ms`);
@@ -462,8 +477,10 @@ router.get('/briefing', async (req, res) => {
     let overallSentiment: string;
 
     let isAIPowered = false;
+    let fallbackReason: MarketFallbackReason | undefined;
+    let fallbackMessage: string | undefined;
 
-    if (aiResult) {
+    if (aiResult && aiResult !== 'timeout') {
       logger.info('AI-alapu piaci elemzes hasznalata');
       isAIPowered = true;
       analyses = aiResult.analyses;
@@ -473,12 +490,18 @@ router.get('/briefing', async (req, res) => {
       overallSentiment = aiResult.overallSentiment;
     } else {
       logger.info('[BRIEFING] Step 3: generating template fallback...');
+      fallbackReason = !process.env.ANTHROPIC_API_KEY
+        ? 'missing_api_key'
+        : aiResult === 'timeout'
+          ? 'timeout'
+          : 'generation_failed';
+      fallbackMessage = getBriefingFallbackMessage(fallbackReason);
       analyses = generateAnalyses(rates);
       positioning = generatePositioning(rates);
       newsItems = generateNewsItems(rates);
       weightedConclusion = computeWeightedConclusion(analyses, rates);
       overallSentiment = generateOverallSentiment(weightedConclusion) +
-        '\n\n⚠️ Ez sablon-alapú becslés, nem valódi AI elemzés. Az ANTHROPIC_API_KEY beállításával valós AI elemzés érhető el.';
+        `\n\n⚠️ ${fallbackMessage}`;
       // Mark template-based analyses clearly
       analyses = analyses.map(a => ({
         ...a,
@@ -492,6 +515,8 @@ router.get('/briefing', async (req, res) => {
       generatedAt: new Date().toISOString(),
       cached: false,
       isAIPowered,
+      fallbackReason,
+      fallbackMessage,
       rates,
       analyses,
       positioning,
@@ -575,10 +600,22 @@ router.post('/deep-analysis', async (req, res) => {
       fetchTrendData(7),
     ]);
 
-    const result = await generateDeepAnalysis(rates, trendData);
+    const result = await Promise.race([
+      generateDeepAnalysis(rates, trendData),
+      new Promise<'timeout'>((resolve) => setTimeout(() => {
+        logger.warn('generateDeepAnalysis hard timeout (45s) — falling back to template');
+        resolve('timeout');
+      }, 45_000)),
+    ]);
 
-    if (!result) {
+    if (!result || result === 'timeout') {
       // Template-based fallback when AI is unavailable
+      const fallbackReason: MarketFallbackReason = !process.env.ANTHROPIC_API_KEY
+        ? 'missing_api_key'
+        : result === 'timeout'
+          ? 'timeout'
+          : 'generation_failed';
+      const fallbackMessage = getBriefingFallbackMessage(fallbackReason);
       const fallbackCurrencies: Record<string, { trend: string; support: number; resistance: number; forecast: string; recommendation: string; confidence: number }> = {};
       for (const r of rates) {
         if (r.pair.startsWith('XAU')) continue;
@@ -597,7 +634,7 @@ router.post('/deep-analysis', async (req, res) => {
       return res.json({
         success: true,
         data: {
-          summary: 'Sablon alapu elemzes - Az AI mely elemzes atmenetileg nem elerheto. Az alabbi adatok az elo arfolyamok alapjan keszultek.',
+          summary: `Sablon alapu elemzes - ${fallbackMessage}`,
           currencies: fallbackCurrencies,
           gold: {
             trend: rates.find(r => r.pair === 'XAUUSD') ? 'Adatok alapjan' : 'Nem elerheto',
@@ -610,6 +647,9 @@ router.post('/deep-analysis', async (req, res) => {
           cached: false,
           trendData,
           rates,
+          isAIPowered: false,
+          fallbackReason,
+          fallbackMessage,
         },
       });
     }
@@ -625,6 +665,7 @@ router.post('/deep-analysis', async (req, res) => {
         cached: false,
         trendData,
         rates,
+        isAIPowered: true,
       },
     });
   } catch (error) {
