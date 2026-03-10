@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import logger from '../utils/logger.js';
 import { generateAIAnalysis, generateDeepAnalysis } from '../services/ai-market.service.js';
-import type { DeepAnalysisResult, TrendDataPoint } from '../services/ai-market.service.js';
+import type { DeepAnalysisResult } from '../services/ai-market.service.js';
+import { fetchMarketRates, fetchMarketNews, fetchTrendData } from '../services/market-data.service.js';
+import type { RateInfo, TrendDataPoint } from '../services/market-data.service.js';
 import { fetchNews } from '../services/news.service.js';
 import { fetchCryptoPrices } from '../services/crypto.service.js';
 
@@ -11,77 +13,15 @@ const router = Router();
 let cachedBriefing: MarketBriefingData | null = null;
 let cachedAt = 0;
 let isGenerating = false; // BUG3 FIX: prevent duplicate AI calls on concurrent requests
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 perc (árfolyam cache)
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 perc
 
-// Deep analysis cache (15 perc - drága AI hívás)
+// Deep analysis cache (15 perc - draga AI hivas)
 let cachedDeepAnalysis: DeepAnalysisResult | null = null;
 let deepAnalysisCachedAt = 0;
 let isDeepAnalysisGenerating = false;
 const DEEP_ANALYSIS_CACHE_TTL_MS = 15 * 60 * 1000;
 
-// Trend cache (1 óra - lassan változik)
-let cachedTrend: { data: TrendDataPoint[]; days: number } | null = null;
-let trendCachedAt = 0;
-const TREND_CACHE_TTL_MS = 60 * 60 * 1000;
-
-// --- Historical rate cache for real 24h change calculation ---
-const historicalEurRatesCache = new Map<string, Record<string, number>>();
-
-async function fetchHistoricalEurRates(excludeDate?: string): Promise<Record<string, number> | null> {
-  // Try dates going back from yesterday (handles weekends/holidays when no data)
-  // If excludeDate is provided (the date of "latest"), skip it to ensure we get a genuinely different business day
-  for (let daysBack = 1; daysBack <= 7; daysBack++) {
-    const d = new Date();
-    d.setDate(d.getDate() - daysBack);
-    const dateStr = d.toISOString().split('T')[0];
-
-    // Check in-memory cache (yesterday's rate doesn't change)
-    const cached = historicalEurRatesCache.get(dateStr);
-    if (cached) {
-      // Skip if this cached entry's date matches the current "latest" date
-      if (excludeDate && dateStr >= excludeDate) continue;
-      return cached;
-    }
-
-    try {
-      const controller = new AbortController();
-      // Use remainingMs() if available (called from within fetchLiveRates context), else 5s
-      const timeout = setTimeout(() => controller.abort(), 5000);
-      const resp = await fetch(`https://api.frankfurter.dev/v1/${dateStr}?base=EUR&symbols=USD,HUF,GBP,CHF`, {
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-
-      if (resp.ok) {
-        const data = await resp.json() as { date: string; rates: Record<string, number> };
-        if (data.rates && Object.keys(data.rates).length > 0) {
-          historicalEurRatesCache.set(data.date, data.rates);
-          // Skip if the API resolved this to the same business day as "latest"
-          if (excludeDate && data.date >= excludeDate) {
-            logger.info(`Historikus dátum ${data.date} megegyezik a latest-tel (${excludeDate}), továbblépés...`);
-            continue;
-          }
-          logger.info(`Historikus árfolyamok betöltve (${data.date}, latest: ${excludeDate ?? 'N/A'})`);
-          return data.rates;
-        }
-      }
-    } catch (err) {
-      logger.warn(`Frankfurter historikus lekérés sikertelen (${dateStr}):`, err instanceof Error ? err.message : err);
-    }
-  }
-  return null;
-}
-
-// --- Típusok ---
-interface RateInfo {
-  pair: string;
-  label: string;
-  rate: number;
-  change24h: number;
-  changePercent: number;
-  timestamp: string;
-}
-
+// --- Tipusok ---
 interface AnalysisItem {
   sourceId: string;
   source: string;
@@ -154,10 +94,10 @@ const SOURCES: Array<{
   { sourceId: 'JPM', source: 'J.P. Morgan', weight: 1.4, speciality: 'FX + arany forecast', pairs: ['EURUSD', 'XAUUSD', 'XAUEUR'], url: 'https://www.jpmorgan.com/insights/global-research/currencies', lang: 'en' },
   { sourceId: 'MUFG', source: 'MUFG Research', weight: 1.3, speciality: 'FX forecasts', pairs: ['EURUSD', 'GBPHUF', 'CHFHUF'], url: 'https://www.mufgamericas.com/insight/fx-weekly', lang: 'en' },
   { sourceId: 'Monex', source: 'Monex Global', weight: 1.3, speciality: 'Bloomberg FX Accuracy #1', pairs: ['EURUSD', 'GBPHUF', 'EURHUF'], url: 'https://www.monexeurope.com/news-analysis/', lang: 'en' },
-  { sourceId: 'Erste', source: 'Erste Group', weight: 1.3, speciality: 'EUR/HUF, közép-európai FX', pairs: ['EURHUF', 'CHFHUF', 'EURUSD'], url: 'https://www.erstegroup.com/en/research/report', lang: 'en' },
-  { sourceId: 'Ebury', source: 'Ebury Insights', weight: 1.2, speciality: 'GBP/HUF elemzés', pairs: ['GBPHUF', 'EURUSD', 'EURHUF'], url: 'https://www.ebury.com/insights/', lang: 'en' },
+  { sourceId: 'Erste', source: 'Erste Group', weight: 1.3, speciality: 'EUR/HUF, kozep-europai FX', pairs: ['EURHUF', 'CHFHUF', 'EURUSD'], url: 'https://www.erstegroup.com/en/research/report', lang: 'en' },
+  { sourceId: 'Ebury', source: 'Ebury Insights', weight: 1.2, speciality: 'GBP/HUF elemzes', pairs: ['GBPHUF', 'EURUSD', 'EURHUF'], url: 'https://www.ebury.com/insights/', lang: 'en' },
   { sourceId: 'FXStreet', source: 'FXStreet', weight: 1.1, speciality: 'Napi FX + Gold', pairs: ['EURUSD', 'XAUUSD', 'GBPHUF'], url: 'https://www.fxstreet.com/analysis', lang: 'en' },
-  { sourceId: 'ForexCom', source: 'FOREX.com', weight: 1.0, speciality: 'Napi FX elemzés', pairs: ['EURUSD', 'GBPHUF', 'CHFHUF'], url: 'https://www.forex.com/en/market-analysis/', lang: 'en' },
+  { sourceId: 'ForexCom', source: 'FOREX.com', weight: 1.0, speciality: 'Napi FX elemzes', pairs: ['EURUSD', 'GBPHUF', 'CHFHUF'], url: 'https://www.forex.com/en/market-analysis/', lang: 'en' },
 ];
 
 // --- Helpers ---
@@ -176,10 +116,10 @@ function generateAnalyses(rates: RateInfo[]): AnalysisItem[] {
   const isAsianSession = !isEuropeanSession && !isUSSession;
 
   const sessionContext = isUSSession
-    ? 'az amerikai kereskedési session'
+    ? 'az amerikai kereskedesi session'
     : isEuropeanSession
-      ? 'az európai kereskedési session'
-      : 'az ázsiai kereskedési session';
+      ? 'az europai kereskedesi session'
+      : 'az azsiai kereskedesi session';
 
   return SOURCES.map(src => {
     const primaryPair = src.pairs[0];
@@ -193,36 +133,36 @@ function generateAnalyses(rates: RateInfo[]): AnalysisItem[] {
 
     const summaryTemplates: Record<string, string[]> = {
       ING: [
-        `Az ING elemzői ${dirHu} kilátást látnak az EUR-ra. A ${primaryPair} ${rateStr} környékén mozog, ${sessionContext} során fokozott volumen mellett.`,
-        `Az ING FX Daily szerint a forint ${change > 0 ? 'gyengülése' : 'erősödése'} folytatódhat. A ${primaryPair} pár technikai szintjei meghatározóak.`,
+        `Az ING elemzoi ${dirHu} kilatast latnak az EUR-ra. A ${primaryPair} ${rateStr} kornyeken mozog, ${sessionContext} soran fokozott volumen mellett.`,
+        `Az ING FX Daily szerint a forint ${change > 0 ? 'gyengulese' : 'erosodese'} folytatodhat. A ${primaryPair} par technikai szintjei meghatarozoak.`,
       ],
       JPM: [
-        `A J.P. Morgan ${dirHu} pozíciót javasol. Az arany ${rateMap.get('XAUUSD')?.rate?.toFixed(2) ?? 'N/A'} USD/oz szinten kereskedik, ${change > 0 ? 'erősödő' : 'gyengülő'} momentum mellett.`,
-        `A JPM FX és arany előrejelzése ${dirHu} irányú. A dollár ${change > 0 ? 'gyengülése' : 'erősödése'} hatással van a fő devizapárokra.`,
+        `A J.P. Morgan ${dirHu} poziciot javasol. Az arany ${rateMap.get('XAUUSD')?.rate?.toFixed(2) ?? 'N/A'} USD/oz szinten kereskedik, ${change > 0 ? 'erosodo' : 'gyengulo'} momentum mellett.`,
+        `A JPM FX es arany elorejelzese ${dirHu} iranyu. A dollar ${change > 0 ? 'gyengulese' : 'erosodese'} hatassal van a fo devizaparokra.`,
       ],
       MUFG: [
-        `A MUFG Research ${dirHu} irányt jelez a ${primaryPair} párra. A ${rateStr} szint fontos technikai referenciapontként szolgál.`,
-        `Az MUFG elemzői szerint ${sessionContext} dominálja a piaci hangulatot. A ${primaryPair} ${dirHu} irányba mozdulhat.`,
+        `A MUFG Research ${dirHu} iranyt jelez a ${primaryPair} parra. A ${rateStr} szint fontos technikai referenciapontkent szolgal.`,
+        `Az MUFG elemzoi szerint ${sessionContext} dominalja a piaci hangulatot. A ${primaryPair} ${dirHu} iranyba mozdulhat.`,
       ],
       Monex: [
-        `A Monex Global - Bloomberg FX pontossági rangsor első helyezettje - ${dirHu} vélemény mellett érvel. A ${primaryPair} ${rateStr} környékén stabilizálódott.`,
-        `A Monex szerint a ${primaryPair} ${change > 0 ? 'további emelkedés' : 'korrekció'} előtt áll. A technikai szintek támogatják a ${dirHu} forgatókönyvet.`,
+        `A Monex Global - Bloomberg FX pontossagi rangsor elso helyezettje - ${dirHu} velemeny mellett ervel. A ${primaryPair} ${rateStr} kornyeken stabilizalodott.`,
+        `A Monex szerint a ${primaryPair} ${change > 0 ? 'tovabbi emelkedes' : 'korrekcio'} elott all. A technikai szintek tamogatjak a ${dirHu} forgatkonyvet.`,
       ],
       Erste: [
-        `Az Erste Group közép-európai elemzése ${dirHu} a forint számára. A regionális kötvénypiaci mozgások hatással vannak az EUR/HUF-ra.`,
-        `Az Erste szerint a magyar jegybanki kommunikáció ${dirHu} irányú nyomást gyakorol a forintra. Az EUR/HUF ${rateStr} környékén mozog.`,
+        `Az Erste Group kozep-europai elemzese ${dirHu} a forint szamara. A regionalis kotvenypiaci mozgasok hatassal vannak az EUR/HUF-ra.`,
+        `Az Erste szerint a magyar jegybanki kommunikacio ${dirHu} iranyu nyomast gyakorol a forintra. Az EUR/HUF ${rateStr} kornyeken mozog.`,
       ],
       Ebury: [
-        `Az Ebury Insights - GBP elemzés piacvezető - ${dirHu} irányt lát a fő devizapárokban. A ${primaryPair} ${rateStr}-nél kereskedik.`,
-        `Az Ebury szerint a Bank of England kommunikációja ${dirHu} irányú. A ${primaryPair} következő célár-szintje ${change > 0 ? 'magasabb' : 'alacsonyabb'} lehet.`,
+        `Az Ebury Insights - GBP elemzes piacvezeto - ${dirHu} iranyt lat a fo devizaparokban. A ${primaryPair} ${rateStr}-nel kereskedik.`,
+        `Az Ebury szerint a Bank of England kommunikacioja ${dirHu} iranyu. A ${primaryPair} kovetkezo celar-szintje ${change > 0 ? 'magasabb' : 'alacsonyabb'} lehet.`,
       ],
       FXStreet: [
-        `Az FXStreet technikai elemzése ${dirHu} jelzést ad. A ${primaryPair} ${rateStr} szinten áll, az RSI és MACD indikátorok ${direction === 'bullish' ? 'pozitív' : direction === 'bearish' ? 'negatív' : 'semleges'} divergenciát mutatnak.`,
-        `Az FXStreet szerint az arany és devizapiacok ${dirHu} trendet követnek. A napi pivot szintek fontosak a ${primaryPair} számára.`,
+        `Az FXStreet technikai elemzese ${dirHu} jelzest ad. A ${primaryPair} ${rateStr} szinten all, az RSI es MACD indikatorok ${direction === 'bullish' ? 'pozitiv' : direction === 'bearish' ? 'negativ' : 'semleges'} divergenciat mutatnak.`,
+        `Az FXStreet szerint az arany es devizapiacok ${dirHu} trendet kovetnek. A napi pivot szintek fontosak a ${primaryPair} szamara.`,
       ],
       ForexCom: [
-        `A FOREX.com napi elemzése ${dirHu} hangulatú. A ${primaryPair} ${rateStr} szinten kereskedik, a volumen ${change > 0 ? 'növekszik' : 'csökken'}.`,
-        `A FOREX.com szerint a ${primaryPair} pár ${dirHu} irányú mozgásra számíthat ${sessionContext} maradékában.`,
+        `A FOREX.com napi elemzese ${dirHu} hangulatu. A ${primaryPair} ${rateStr} szinten kereskedik, a volumen ${change > 0 ? 'novekszik' : 'csokken'}.`,
+        `A FOREX.com szerint a ${primaryPair} par ${dirHu} iranyu mozgasra szamithat ${sessionContext} maradekaban.`,
       ],
     };
 
@@ -230,20 +170,20 @@ function generateAnalyses(rates: RateInfo[]): AnalysisItem[] {
     const summary = templates[hour % templates.length];
 
     const keyLevelMap: Record<string, string> = {
-      EURUSD: `${(rateInfo?.rate ?? 1.08).toFixed(4)} (pivot), ${((rateInfo?.rate ?? 1.08) - 0.005).toFixed(4)} (támasz)`,
-      EURHUF: `${(rateInfo?.rate ?? 395).toFixed(2)} (pivot), ${((rateInfo?.rate ?? 395) + 2).toFixed(2)} (ellenállás)`,
-      GBPHUF: `${(rateInfo?.rate ?? 460).toFixed(2)} (pivot), ${((rateInfo?.rate ?? 460) + 2).toFixed(2)} (ellenállás)`,
-      CHFHUF: `${(rateInfo?.rate ?? 415).toFixed(2)} (pivot), ${((rateInfo?.rate ?? 415) + 2).toFixed(2)} (ellenállás)`,
+      EURUSD: `${(rateInfo?.rate ?? 1.08).toFixed(4)} (pivot), ${((rateInfo?.rate ?? 1.08) - 0.005).toFixed(4)} (tamasz)`,
+      EURHUF: `${(rateInfo?.rate ?? 395).toFixed(2)} (pivot), ${((rateInfo?.rate ?? 395) + 2).toFixed(2)} (ellenallas)`,
+      GBPHUF: `${(rateInfo?.rate ?? 460).toFixed(2)} (pivot), ${((rateInfo?.rate ?? 460) + 2).toFixed(2)} (ellenallas)`,
+      CHFHUF: `${(rateInfo?.rate ?? 415).toFixed(2)} (pivot), ${((rateInfo?.rate ?? 415) + 2).toFixed(2)} (ellenallas)`,
       XAUUSD: `${(rateMap.get('XAUUSD')?.rate ?? 2650).toFixed(2)} USD/oz (pivot)`,
       XAUEUR: `${(rateMap.get('XAUEUR')?.rate ?? 2450).toFixed(2)} EUR/oz (pivot)`,
     };
 
-    const keyLevel = keyLevelMap[primaryPair] ?? `${rateStr} (aktuális szint)`;
+    const keyLevel = keyLevelMap[primaryPair] ?? `${rateStr} (aktualis szint)`;
 
     const outlookTemplates = [
-      `Rövid távon ${dirHu}, a következő 48 órában ${direction === 'bullish' ? 'emelkedés' : direction === 'bearish' ? 'esés' : 'oldalazás'} várható.`,
-      `A heti kilátások ${dirHu} irányt sugallnak, különösen ${sessionContext} aktivitását figyelembe véve.`,
-      `A következő jegybanki kommunikáció fordulópontot hozhat. Jelenleg ${dirHu} a hangulat.`,
+      `Rovid tavon ${dirHu}, a kovetkezo 48 oraban ${direction === 'bullish' ? 'emelkedes' : direction === 'bearish' ? 'eses' : 'oldalazas'} varhato.`,
+      `A heti kilatasok ${dirHu} iranyt sugallnak, kulonosen ${sessionContext} aktivitasat figyelembe veve.`,
+      `A kovetkezo jegybanki kommunikacio fordulopontot hozhat. Jelenleg ${dirHu} a hangulat.`,
     ];
 
     return {
@@ -267,7 +207,7 @@ function generatePositioning(rates: RateInfo[]): PositioningItem[] {
   return rates.map(r => {
     // Derive positioning from actual changePercent (no randomness)
     const clampedChange = Math.max(-2, Math.min(2, r.changePercent));
-    const longPct = Math.round(50 + clampedChange * 8); // ±2% → 34-66 range
+    const longPct = Math.round(50 + clampedChange * 8); // +-2% -> 34-66 range
     const shortPct = 100 - longPct;
     const bias = longPct > 55 ? 'Long' : shortPct > 55 ? 'Short' : 'Vegyes';
     const isGold = r.pair.startsWith('XAU');
@@ -291,14 +231,14 @@ function generatePositioning(rates: RateInfo[]): PositioningItem[] {
 
 function generateCatalyst(pair: string): string {
   const catalysts: Record<string, string[]> = {
-    EURUSD: ['Fed beszéd / FOMC jegyzőkönyv', 'Eurózónás PMI adatok', 'US foglalkoztatási adat (NFP)'],
-    EURHUF: ['MNB kamatdöntés / kommunikáció', 'Regionális kötvénypiaci mozgás', 'EU források kiutalása'],
-    GBPHUF: ['BoE kamatdöntés', 'UK CPI infláció adat', 'MNB monetáris politika'],
-    CHFHUF: ['SNB monetáris politika', 'MNB kamatdöntés', 'Svájci infláció adat'],
-    XAUUSD: ['Fed kamatváltozási várakozások', 'Geopolitikai feszültség', 'US reálhozamok változása'],
-    XAUEUR: ['ECB kamatpálya', 'Európai infláció', 'Safe-haven keresleti sokk'],
+    EURUSD: ['Fed beszed / FOMC jegyzokonyv', 'Eurozonás PMI adatok', 'US foglalkoztatasi adat (NFP)'],
+    EURHUF: ['MNB kamatdontes / kommunikacio', 'Regionalis kotvenypiaci mozgas', 'EU forrasok kiutalasa'],
+    GBPHUF: ['BoE kamatdontes', 'UK CPI inflacio adat', 'MNB monetaris politika'],
+    CHFHUF: ['SNB monetaris politika', 'MNB kamatdontes', 'Svajci inflacio adat'],
+    XAUUSD: ['Fed kamatvaltozasi varakozasok', 'Geopolitikai feszultseg', 'US realhozamok valtozasa'],
+    XAUEUR: ['ECB kamatpalya', 'Europai inflacio', 'Safe-haven keresleti sokk'],
   };
-  const list = catalysts[pair] ?? ['Makrogazdasági adat megjelenés'];
+  const list = catalysts[pair] ?? ['Makrogazdasagi adat megjelenes'];
   // Deterministic selection based on current day of week
   const dayOfWeek = new Date().getDay();
   return list[dayOfWeek % list.length];
@@ -308,18 +248,18 @@ function generateBullScenario(pair: string, rate: number): string {
   const isGold = pair.startsWith('XAU');
   const target = isGold ? (rate * 1.02).toFixed(2) : (rate * 1.01).toFixed(4);
   if (pair === 'EURHUF') {
-    return `Ha az EUR erősödik, az EUR/HUF ${(rate + 3).toFixed(2)} felé mozdulhat. Forint gyengülés a regionális kockázati étvágy romlása esetén.`;
+    return `Ha az EUR erosodik, az EUR/HUF ${(rate + 3).toFixed(2)} fele mozdulhat. Forint gyengules a regionalis kockazati etvaggy romlasa eseten.`;
   }
-  return `Bika forgatókönyvben a ${pair} elérheti a ${target} szintet, ha a piaci momentum fenntartódik.`;
+  return `Bika forgatkonyv ben a ${pair} elerheti a ${target} szintet, ha a piaci momentum fenntartodik.`;
 }
 
 function generateBearScenario(pair: string, rate: number): string {
   const isGold = pair.startsWith('XAU');
   const target = isGold ? (rate * 0.98).toFixed(2) : (rate * 0.99).toFixed(4);
   if (pair === 'EURHUF') {
-    return `Forint erősödési forgatókönyvben az EUR/HUF ${(rate - 3).toFixed(2)} alá eshet. Pozitív regionális hangulat és EU források támogatják.`;
+    return `Forint erosodesi forgatkonyv ben az EUR/HUF ${(rate - 3).toFixed(2)} ala eshet. Pozitiv regionalis hangulat es EU forrasok tamogatjak.`;
   }
-  return `Medve forgatókönyvben a ${pair} a ${target} szintig korrigálhat, ha a nyomás fokozódik.`;
+  return `Medve forgatkonyv ben a ${pair} a ${target} szintig korrigalhat, ha a nyomas fokozodik.`;
 }
 
 function generateNewsItems(rates: RateInfo[]): NewsItem[] {
@@ -424,7 +364,7 @@ function computeWeightedConclusion(analyses: AnalysisItem[], rates: RateInfo[]):
   for (const pair of pairs) {
     const relevantAnalyses = analyses.filter(a => a.pairs.includes(pair));
     if (relevantAnalyses.length === 0) {
-      result[pair] = { direction: 'neutral', score: 50, summary: 'Nincs elég adat az értékeléshez.' };
+      result[pair] = { direction: 'neutral', score: 50, summary: 'Nincs eleg adat az ertekeleshez.' };
       continue;
     }
 
@@ -446,7 +386,7 @@ function computeWeightedConclusion(analyses: AnalysisItem[], rates: RateInfo[]):
     result[pair] = {
       direction,
       score,
-      summary: `${dirHu} hangulat (${score}%). A ${pair} ${rateStr} szinten, ${relevantAnalyses.length} intézmény egyező elemzése alapján.`,
+      summary: `${dirHu} hangulat (${score}%). A ${pair} ${rateStr} szinten, ${relevantAnalyses.length} intezmeny egyezo elemzese alapjan.`,
     };
   }
 
@@ -460,266 +400,19 @@ function generateOverallSentiment(conclusion: Record<string, WeightedConclusion>
   const bearCount = Object.values(conclusion).filter(c => c.direction === 'bearish').length;
 
   if (bullCount >= 4) {
-    return `Összességében BIKA hangulat dominál a deviza- és aranypiacokon (átlag: ${avg}%). ${bullCount} devizapárból ${bullCount} mutat pozitív irányt. A kockázati étvágy javult, az EUR erősödése jellemző.`;
+    return `Osszessegeben BIKA hangulat dominal a deviza- es aranypiacokon (atlag: ${avg}%). ${bullCount} devizaparbol ${bullCount} mutat pozitiv iranyt. A kockazati etvaggy javult, az EUR erosodese jellmezo.`;
   }
   if (bearCount >= 4) {
-    return `Összességében MEDVE hangulat uralja a piacot (átlag: ${avg}%). ${bearCount} devizapár mutat negatív irányt. A kockázatkerülés erősödött, a menedékdevizák és az arany iránti kereslet növekedhet.`;
+    return `Osszessegeben MEDVE hangulat uralja a piacot (atlag: ${avg}%). ${bearCount} devizapar mutat negativ iranyt. A kockazatkerules erosodott, a menedekdevizak es az arany iranti kereslet novekedhet.`;
   }
-  return `VEGYES piaci hangulat (átlag: ${avg}%). A devizapárok ${bullCount} bika és ${bearCount} medve irányt mutatnak. A piac várakozik a következő makroadatokra és jegybanki kommunikációra.`;
+  return `VEGYES piaci hangulat (atlag: ${avg}%). A devizaparok ${bullCount} bika es ${bearCount} medve iranyt mutatnak. A piac varakozik a kovetkezo makroadatokra es jegybanki kommunikaciora.`;
 }
 
-// --- Élő árfolyam lekérés ---
-async function fetchLiveRates(): Promise<RateInfo[]> {
-  // Global timeout: abort everything if fetchLiveRates exceeds 12s total
-  const globalTimeout = 12000;
-  const startTime = Date.now();
-  // Shared AbortController for the entire fetchLiveRates lifecycle
-  const globalAbort = new AbortController();
-  const globalTimer = setTimeout(() => globalAbort.abort(), globalTimeout);
-
-  function remainingMs(): number {
-    const elapsed = Date.now() - startTime;
-    return Math.max(0, globalTimeout - elapsed);
-  }
-
-  const now = new Date().toISOString();
-
-  // ECB-alapú árfolyamok (frankfurter.app - ingyenes, megbízható)
-  let eurRates: Record<string, number> = {};
-  let latestDate: string | undefined; // The actual business date of the "latest" rates
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), Math.min(5000, remainingMs()));
-    const resp = await fetch('https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD,HUF,GBP,CHF', {
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-
-    if (resp.ok) {
-      const data = await resp.json() as { date: string; rates: Record<string, number> };
-      eurRates = data.rates;
-      latestDate = data.date; // e.g. "2026-03-06" (Friday) even if today is Sunday
-      logger.info(`Frankfurter árfolyamok betöltve (dátum: ${latestDate})`);
-    }
-  } catch (err) {
-    logger.warn('Frankfurter API hiba, fallback árfolyamok használata:', err instanceof Error ? err.message : err);
-  }
-
-  const eurusd = eurRates['USD'] ?? 1.0850;
-  const eurhuf = eurRates['HUF'] ?? 395.50;
-  const eurgbp = eurRates['GBP'] ?? 0.8580;
-  const eurchf = eurRates['CHF'] ?? 0.9520;
-
-  // Keresztárfolyamok kiszámítása
-  const usdhuf = eurhuf / eurusd;
-  const gbphuf = eurhuf / eurgbp;
-  const chfhuf = eurhuf / eurchf;
-
-  // Arany árfolyam - PÁRHUZAMOS lekérdezés (Promise.any) a gyorsabb válaszért
-  let xauusd = 0;
-  let goldFetched = false;
-
-  const goldTimeoutMs = Math.min(5000, remainingMs());
-  // Shared AbortController for gold parallel requests — first success cancels the rest
-  const goldAbort = new AbortController();
-
-  // Helper for fetching with timeout + global abort signal
-  async function fetchWithTimeout(url: string, ms: number): Promise<Response> {
-    const controller = new AbortController();
-    // Abort on either local timeout OR global budget expiry
-    const onGlobalAbort = () => controller.abort();
-    globalAbort.signal.addEventListener('abort', onGlobalAbort, { once: true });
-    const t = setTimeout(() => controller.abort(), ms);
-    try {
-      const resp = await fetch(url, { signal: controller.signal });
-      return resp;
-    } finally {
-      clearTimeout(t);
-      globalAbort.signal.removeEventListener('abort', onGlobalAbort);
-    }
-  }
-
-  // Promise.any polyfill for ES2020 target — first success cancels the rest
-  function promiseAny<T>(promises: Promise<T>[], abortOnSuccess?: AbortController): Promise<T> {
-    if (promises.length === 0) return Promise.reject(new Error('No promises provided'));
-    return new Promise((resolve, reject) => {
-      let rejections = 0;
-      for (const p of promises) {
-        p.then((val) => {
-          abortOnSuccess?.abort(); // cancel losing requests
-          resolve(val);
-        }).catch(() => {
-          rejections++;
-          if (rejections === promises.length) reject(new Error('All gold API sources failed'));
-        });
-      }
-    });
-  }
-
-  try {
-    const goldResult = await promiseAny([
-      // 1. Swissquote (élő bróker feed, real-time)
-      (async (): Promise<{ source: string; price: number }> => {
-        const goldResp = await fetchWithTimeout(
-          'https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/XAU/USD',
-          goldTimeoutMs,
-        );
-        if (!goldResp.ok) throw new Error('Swissquote not ok');
-        const goldData = await goldResp.json() as Array<{
-          spreadProfilePrices: Array<{ bid: number; ask: number }>;
-        }>;
-        if (Array.isArray(goldData) && goldData[0]?.spreadProfilePrices?.[0]) {
-          const { bid, ask } = goldData[0].spreadProfilePrices[0];
-          if (bid > 1000 && ask > 1000) {
-            return { source: 'Swissquote', price: Math.round(((bid + ask) / 2) * 100) / 100 };
-          }
-        }
-        throw new Error('Swissquote invalid data');
-      })(),
-
-      // 2. NBP (Lengyel Nemzeti Bank, napi frissítés)
-      (async (): Promise<{ source: string; price: number }> => {
-        const nbpResp = await fetchWithTimeout('https://api.nbp.pl/api/cenyzlota?format=json', goldTimeoutMs);
-        if (!nbpResp.ok) throw new Error('NBP not ok');
-        const nbpData = await nbpResp.json() as Array<{ cena: number }>;
-        if (!Array.isArray(nbpData) || !nbpData[0]?.cena) throw new Error('NBP invalid data');
-        const plnPerGram = nbpData[0].cena;
-        const plnPerOz = plnPerGram * 31.1035;
-        // Get EUR/PLN for conversion
-        const plnResp = await fetchWithTimeout(
-          'https://api.frankfurter.dev/v1/latest?base=EUR&symbols=PLN',
-          Math.min(3000, remainingMs()),
-        );
-        if (!plnResp.ok) throw new Error('Frankfurter PLN not ok');
-        const plnRates = await plnResp.json() as { rates: { PLN?: number } };
-        const eurpln = plnRates.rates.PLN ?? 4.30;
-        const usdpln = eurpln / eurusd;
-        const nbpXau = Math.round((plnPerOz / usdpln) * 100) / 100;
-        if (nbpXau <= 1000) throw new Error('NBP gold price too low');
-        return { source: `NBP (${plnPerGram} PLN/g)`, price: nbpXau };
-      })(),
-
-      // 3. fawazahmed0 Currency API (CDN, napi frissítés)
-      (async (): Promise<{ source: string; price: number }> => {
-        const resp = await fetchWithTimeout(
-          'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/xau.json',
-          goldTimeoutMs,
-        );
-        if (!resp.ok) throw new Error('Currency-API CDN not ok');
-        const data = await resp.json() as { xau?: Record<string, number> };
-        if (!data.xau?.usd || data.xau.usd <= 1000) throw new Error('Currency-API CDN invalid data');
-        return { source: 'Currency-API CDN', price: Math.round(data.xau.usd * 100) / 100 };
-      })(),
-    ], goldAbort);  // pass goldAbort so first success cancels losing requests
-
-    xauusd = goldResult.price;
-    goldFetched = true;
-    logger.info(`Arany árfolyam betöltve (${goldResult.source}): ${xauusd} USD/oz`);
-  } catch (err) {
-    logger.error('FIGYELEM: Minden arany API forrás sikertelen! Az arany árfolyam nem elérhető.', err);
-  }
-
-  const xaueur = xauusd / eurusd;
-  const xauhuf = xauusd * usdhuf;
-
-  // --- Valós 24h változás historikus adatból ---
-  // Pass latestDate so we skip the same business day on weekends
-  // Check remaining budget before historical fetch (skip if budget nearly exhausted)
-  let histRates: Record<string, number> | null = null;
-  if (remainingMs() > 2000) {
-    histRates = await fetchHistoricalEurRates(latestDate);
-  } else {
-    logger.warn('fetchLiveRates: skipping historical fetch, global budget nearly exhausted', { remainingMs: remainingMs() });
-  }
-
-  // Yesterday's EUR-based rates (fallback to today if historical unavailable)
-  const prevEurusd = histRates?.['USD'] ?? eurusd;
-  const prevEurhuf = histRates?.['HUF'] ?? eurhuf;
-  const prevEurgbp = histRates?.['GBP'] ?? eurgbp;
-  const prevEurchf = histRates?.['CHF'] ?? eurchf;
-
-  // Yesterday's cross rates
-  const prevUsdhuf = prevEurhuf / prevEurusd;
-  const prevGbphuf = prevEurhuf / prevEurgbp;
-  const prevChfhuf = prevEurhuf / prevEurchf;
-
-  // Calculate real change (current vs historical)
-  const calcChange = (current: number, previous: number): { change24h: number; changePercent: number } => {
-    if (previous === 0 || current === previous) return { change24h: 0, changePercent: 0 };
-    const change24h = Math.round((current - previous) * 10000) / 10000;
-    const changePercent = Math.round(((current - previous) / previous) * 10000) / 100;
-    return { change24h, changePercent };
-  };
-
-  const rates: RateInfo[] = [
-    { pair: 'EURUSD', label: 'EUR/USD', rate: eurusd, ...calcChange(eurusd, prevEurusd), timestamp: now },
-    { pair: 'EURHUF', label: 'EUR/HUF', rate: eurhuf, ...calcChange(eurhuf, prevEurhuf), timestamp: now },
-    { pair: 'USDHUF', label: 'USD/HUF', rate: Math.round(usdhuf * 100) / 100, ...calcChange(usdhuf, prevUsdhuf), timestamp: now },
-    { pair: 'GBPHUF', label: 'GBP/HUF', rate: Math.round(gbphuf * 100) / 100, ...calcChange(gbphuf, prevGbphuf), timestamp: now },
-    { pair: 'CHFHUF', label: 'CHF/HUF', rate: Math.round(chfhuf * 100) / 100, ...calcChange(chfhuf, prevChfhuf), timestamp: now },
-  ];
-
-  // Arany ráták - historikus arany ár lekérése NBP-ből a 24h változáshoz
-  let prevXauusd = 0;
-  if (goldFetched) {
-    try {
-      const nbpHistResp = await fetchWithTimeout(
-        'https://api.nbp.pl/api/cenyzlota/last/2/?format=json',
-        Math.min(4000, remainingMs()),
-      );
-      if (nbpHistResp.ok) {
-        const nbpHistData = await nbpHistResp.json() as Array<{ data: string; cena: number }>;
-        if (Array.isArray(nbpHistData) && nbpHistData.length >= 2) {
-          const prevPlnPerGram = nbpHistData[0].cena;
-          const prevPlnPerOz = prevPlnPerGram * 31.1035;
-          try {
-            const plnResp2 = await fetchWithTimeout(
-              'https://api.frankfurter.dev/v1/latest?base=EUR&symbols=PLN',
-              Math.min(3000, remainingMs()),
-            );
-            if (plnResp2.ok) {
-              const plnRates2 = await plnResp2.json() as { rates: { PLN?: number } };
-              const eurpln2 = plnRates2.rates.PLN ?? 4.30;
-              const usdpln2 = eurpln2 / eurusd;
-              prevXauusd = Math.round((prevPlnPerOz / usdpln2) * 100) / 100;
-              logger.info(`Historikus arany ár betöltve (NBP): ${prevXauusd} USD/oz (${nbpHistData[0].data})`);
-            }
-          } catch (err) {
-            logger.warn('NBP historikus PLN konverzió sikertelen:', err instanceof Error ? err.message : err);
-          }
-        }
-      }
-    } catch (err) {
-      logger.warn('NBP historikus arany lekérés sikertelen:', err instanceof Error ? err.message : err);
-    }
-
-    const prevXaueur = prevXauusd > 0 ? prevXauusd / prevEurusd : 0;
-    const prevXauhuf = prevXauusd > 0 ? prevXauusd * prevUsdhuf : 0;
-
-    rates.push(
-      { pair: 'XAUUSD', label: 'Arany (USD)', rate: Math.round(xauusd * 100) / 100, ...calcChange(xauusd, prevXauusd || xauusd), timestamp: now },
-      { pair: 'XAUEUR', label: 'Arany (EUR)', rate: Math.round(xaueur * 100) / 100, ...calcChange(xaueur, prevXaueur || xaueur), timestamp: now },
-      { pair: 'XAUHUF', label: 'Arany (HUF)', rate: Math.round(xauhuf), ...calcChange(xauhuf, prevXauhuf || xauhuf), timestamp: now },
-    );
-  } else {
-    // Gold unavailable — push placeholder rates so frontend doesn't crash on missing XAU entries
-    logger.warn('Gold rates unavailable — returning goldUnavailable placeholder');
-    rates.push(
-      { pair: 'XAUUSD', label: 'Arany (USD)', rate: 0, change24h: 0, changePercent: 0, timestamp: now, goldUnavailable: true } as RateInfo,
-      { pair: 'XAUEUR', label: 'Arany (EUR)', rate: 0, change24h: 0, changePercent: 0, timestamp: now, goldUnavailable: true } as RateInfo,
-      { pair: 'XAUHUF', label: 'Arany (HUF)', rate: 0, change24h: 0, changePercent: 0, timestamp: now, goldUnavailable: true } as RateInfo,
-    );
-  }
-
-  clearTimeout(globalTimer); // cleanup global budget timer
-  return rates;
-}
-
-// --- Fő endpoint ---
+// --- Fo endpoint ---
 router.get('/briefing', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
-    return res.status(401).json({ error: 'Nincs aktív fiók' });
+    return res.status(401).json({ error: 'Nincs aktiv fiok' });
   }
 
   const forceRefresh = req.query.refresh === 'true';
@@ -736,22 +429,25 @@ router.get('/briefing', async (req, res) => {
     if (cachedBriefing) {
       return res.json({ success: true, data: { ...cachedBriefing, cached: true } });
     }
-    return res.status(503).json({ success: false, error: 'Elemzés folyamatban, kérlek próbáld újra 30 másodperc múlva.' });
+    return res.status(503).json({ success: false, error: 'Elemzes folyamatban, kerlek probald ujra 30 masodperc mulva.' });
   }
 
   isGenerating = true;
   const t0 = Date.now();
   try {
-    logger.info('[BRIEFING] Step 1: fetchLiveRates starting...');
-    const rates = await fetchLiveRates();
-    logger.info(`[BRIEFING] Step 1 done: ${rates.length} rates in ${Date.now() - t0}ms`);
+    logger.info('[BRIEFING] Step 1: fetchMarketRates + fetchMarketNews starting...');
+    const [rates, marketNews] = await Promise.all([
+      fetchMarketRates(),
+      fetchMarketNews(),
+    ]);
+    logger.info(`[BRIEFING] Step 1 done: ${rates.length} rates, ${marketNews.length} news in ${Date.now() - t0}ms`);
 
-    // AI elemzés (ha van API kulcs), egyébként sablon fallback
+    // AI elemzes (ha van API kulcs), egyebkent sablon fallback
     // Promise.race: hard 45s timeout — if AI hangs, fall back to template
     logger.info('[BRIEFING] Step 2: generateAIAnalysis starting...');
     const t1 = Date.now();
     const aiResult = await Promise.race([
-      generateAIAnalysis(rates),
+      generateAIAnalysis(rates, marketNews),
       new Promise<null>((resolve) => setTimeout(() => {
         logger.warn('generateAIAnalysis hard timeout (45s) — falling back to template');
         resolve(null);
@@ -768,7 +464,7 @@ router.get('/briefing', async (req, res) => {
     let isAIPowered = false;
 
     if (aiResult) {
-      logger.info('AI-alapú piaci elemzés használata');
+      logger.info('AI-alapu piaci elemzes hasznalata');
       isAIPowered = true;
       analyses = aiResult.analyses;
       positioning = aiResult.positioning;
@@ -814,83 +510,18 @@ router.get('/briefing', async (req, res) => {
     logger.error(`[BRIEFING] FAILED after ${Date.now() - t0}ms:`, error);
     return res.status(500).json({
       success: false,
-      error: 'Piaci elemzés generálása sikertelen',
+      error: 'Piaci elemzes generalasa sikertelen',
     });
   } finally {
     isGenerating = false; // BUG3 FIX: always release the lock
   }
 });
 
-// --- 7 napos trend lekérés ---
-async function fetchTrendData(days: number = 7): Promise<TrendDataPoint[]> {
-  const now = Date.now();
-  if (cachedTrend && cachedTrend.days === days && (now - trendCachedAt) < TREND_CACHE_TTL_MS) {
-    return cachedTrend.data;
-  }
-
-  const endDate = new Date();
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - days);
-
-  const startStr = startDate.toISOString().split('T')[0];
-  const endStr = endDate.toISOString().split('T')[0];
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    const resp = await fetch(
-      `https://api.frankfurter.dev/v1/${startStr}..${endStr}?base=EUR&symbols=USD,HUF,GBP,CHF`,
-      { signal: controller.signal }
-    );
-    clearTimeout(timeout);
-
-    if (!resp.ok) {
-      logger.warn(`Frankfurter trend API hiba: ${resp.status}`);
-      return [];
-    }
-
-    const data = await resp.json() as {
-      rates: Record<string, Record<string, number | undefined>>;
-    };
-
-    const result: TrendDataPoint[] = Object.entries(data.rates)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, rates]) => {
-        // Calculate cross rates for HUF pairs with null safety
-        const eurUsd = rates['USD'];
-        const eurHuf = rates['HUF'];
-        const eurGbp = rates['GBP'];
-        const eurChf = rates['CHF'];
-
-        return {
-          date,
-          rates: {
-            EUR_HUF: eurHuf ?? null,
-            USD_HUF: eurHuf && eurUsd ? Math.round((eurHuf / eurUsd) * 100) / 100 : null,
-            GBP_HUF: eurHuf && eurGbp ? Math.round((eurHuf / eurGbp) * 100) / 100 : null,
-            CHF_HUF: eurHuf && eurChf ? Math.round((eurHuf / eurChf) * 100) / 100 : null,
-            EUR_USD: eurUsd ?? null,
-          },
-        };
-      });
-
-    // Update cache
-    cachedTrend = { data: result, days };
-    trendCachedAt = now;
-
-    logger.info(`Trend adatok betöltve: ${result.length} nap (${startStr}..${endStr})`);
-    return result;
-  } catch (err) {
-    logger.warn('Trend API hiba:', err instanceof Error ? err.message : err);
-    return [];
-  }
-}
-
 // --- Trend endpoint ---
 router.get('/trend', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
-    return res.status(401).json({ error: 'Nincs aktív fiók' });
+    return res.status(401).json({ error: 'Nincs aktiv fiok' });
   }
 
   const days = Math.min(30, Math.max(1, parseInt(req.query.days as string) || 7));
@@ -899,8 +530,8 @@ router.get('/trend', async (req, res) => {
     const trendData = await fetchTrendData(days);
     return res.json({ success: true, data: trendData });
   } catch (error) {
-    logger.error('Trend lekérés hiba:', error);
-    return res.status(500).json({ success: false, error: 'Trend adatok lekérése sikertelen' });
+    logger.error('Trend lekeres hiba:', error);
+    return res.status(500).json({ success: false, error: 'Trend adatok lekerese sikertelen' });
   }
 });
 
@@ -908,7 +539,7 @@ router.get('/trend', async (req, res) => {
 router.post('/deep-analysis', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
-    return res.status(401).json({ error: 'Nincs aktív fiók' });
+    return res.status(401).json({ error: 'Nincs aktiv fiok' });
   }
 
   const now = Date.now();
@@ -931,7 +562,7 @@ router.post('/deep-analysis', async (req, res) => {
     }
     return res.status(503).json({
       success: false,
-      error: 'Mély elemzés folyamatban, kérlek próbáld újra 30 másodperc múlva.',
+      error: 'Mely elemzes folyamatban, kerlek probald ujra 30 masodperc mulva.',
     });
   }
 
@@ -939,7 +570,7 @@ router.post('/deep-analysis', async (req, res) => {
   try {
     // Fetch live rates + 7 day trend in parallel
     const [rates, trendData] = await Promise.all([
-      fetchLiveRates(),
+      fetchMarketRates(),
       fetchTrendData(7),
     ]);
 
@@ -956,7 +587,7 @@ router.post('/deep-analysis', async (req, res) => {
           trend,
           support: Math.round((r.rate - spread) * 100) / 100,
           resistance: Math.round((r.rate + spread) * 100) / 100,
-          forecast: `Sablon alapú elemzés: a ${r.label} ${r.changePercent >= 0 ? 'emelkedik' : 'csökken'} (${r.changePercent.toFixed(2)}%).`,
+          forecast: `Sablon alapu elemzes: a ${r.label} ${r.changePercent >= 0 ? 'emelkedik' : 'csokken'} (${r.changePercent.toFixed(2)}%).`,
           recommendation: r.changePercent > 0.3 ? 'buy' : r.changePercent < -0.3 ? 'sell' : 'hold',
           confidence: 3,
         };
@@ -965,15 +596,15 @@ router.post('/deep-analysis', async (req, res) => {
       return res.json({
         success: true,
         data: {
-          summary: 'Sablon alapú elemzés - Az AI mély elemzés átmenetileg nem elérhető. Az alábbi adatok az élő árfolyamok alapján készültek.',
+          summary: 'Sablon alapu elemzes - Az AI mely elemzes atmenetileg nem elerheto. Az alabbi adatok az elo arfolyamok alapjan keszultek.',
           currencies: fallbackCurrencies,
           gold: {
-            trend: rates.find(r => r.pair === 'XAUUSD') ? 'Adatok alapján' : 'Nem elérhető',
-            forecast: 'Sablon alapú elemzés - nincs AI előrejelzés.',
-            recommendation: 'Kézi elemzés javasolt.',
+            trend: rates.find(r => r.pair === 'XAUUSD') ? 'Adatok alapjan' : 'Nem elerheto',
+            forecast: 'Sablon alapu elemzes - nincs AI elorejelzes.',
+            recommendation: 'Kezi elemzes javasolt.',
           },
-          overallRecommendation: 'Sablon alapú elemzés - az AI átmenetileg nem elérhető. Az élő árfolyamok és trend adatok alapján hozzon döntést.',
-          risks: ['Az elemzés sablon alapú, nem AI-generált - körültekintő döntéshozatal javasolt.'],
+          overallRecommendation: 'Sablon alapu elemzes - az AI atmenetileg nem elerheto. Az elo arfolyamok es trend adatok alapjan hozzon dontest.',
+          risks: ['Az elemzes sablon alapu, nem AI-generalt - korultekinto donteshozatal javasolt.'],
           generatedAt: new Date().toISOString(),
           cached: false,
           trendData,
@@ -999,7 +630,7 @@ router.post('/deep-analysis', async (req, res) => {
     logger.error('Deep analysis hiba:', error);
     return res.status(500).json({
       success: false,
-      error: 'Mély elemzés generálása sikertelen',
+      error: 'Mely elemzes generalasa sikertelen',
     });
   } finally {
     isDeepAnalysisGenerating = false;
@@ -1010,15 +641,15 @@ router.post('/deep-analysis', async (req, res) => {
 router.get('/news', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
-    return res.status(401).json({ error: 'Nincs aktív fiók' });
+    return res.status(401).json({ error: 'Nincs aktiv fiok' });
   }
 
   try {
     const articles = await fetchNews();
     return res.json({ success: true, articles });
   } catch (error) {
-    logger.error('Hírek lekérés hiba:', error);
-    return res.status(500).json({ success: false, error: 'Hírek lekérése sikertelen' });
+    logger.error('Hirek lekeres hiba:', error);
+    return res.status(500).json({ success: false, error: 'Hirek lekerese sikertelen' });
   }
 });
 
@@ -1026,15 +657,15 @@ router.get('/news', async (req, res) => {
 router.get('/crypto', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
-    return res.status(401).json({ error: 'Nincs aktív fiók' });
+    return res.status(401).json({ error: 'Nincs aktiv fiok' });
   }
 
   try {
     const prices = await fetchCryptoPrices();
     return res.json({ success: true, prices });
   } catch (error) {
-    logger.error('Crypto lekérés hiba:', error);
-    return res.status(500).json({ success: false, error: 'Crypto árfolyamok lekérése sikertelen' });
+    logger.error('Crypto lekeres hiba:', error);
+    return res.status(500).json({ success: false, error: 'Crypto arfolyamok lekerese sikertelen' });
   }
 });
 

@@ -352,7 +352,7 @@ export async function initializeDatabase(): Promise<void> {
         workflow_id TEXT NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
         account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
         status TEXT NOT NULL DEFAULT 'running',
-        trigger_email_id TEXT,
+        trigger_email_id TEXT REFERENCES emails(id) ON DELETE SET NULL,
         steps_completed INTEGER NOT NULL DEFAULT 0,
         result TEXT DEFAULT '{}',
         started_at INTEGER NOT NULL,
@@ -403,8 +403,8 @@ export async function initializeDatabase(): Promise<void> {
 
       CREATE TABLE IF NOT EXISTS detected_tasks (
         id TEXT PRIMARY KEY,
-        account_id TEXT NOT NULL,
-        email_id TEXT NOT NULL,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        email_id TEXT NOT NULL REFERENCES emails(id) ON DELETE CASCADE,
         thread_id TEXT,
         subject TEXT,
         from_email TEXT,
@@ -433,9 +433,9 @@ export async function initializeDatabase(): Promise<void> {
       );
 
       CREATE TABLE IF NOT EXISTS email_categories (
-        email_id TEXT NOT NULL,
-        category_id TEXT NOT NULL,
-        account_id TEXT NOT NULL,
+        email_id TEXT NOT NULL REFERENCES emails(id) ON DELETE CASCADE,
+        category_id TEXT NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
         created_at INTEGER DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT,
         PRIMARY KEY (email_id, category_id)
       );
@@ -562,6 +562,59 @@ export async function initializeDatabase(): Promise<void> {
         // Already BIGINT or column doesn't exist — safe to ignore
         logger.debug(`BIGINT migration skipped: ${sql} — ${(err as Error).message}`);
       }
+    }
+
+    // FK migrations for existing tables (idempotent — skips if constraint already exists)
+    const fkMigrations = [
+      // detected_tasks: add FK to accounts and emails
+      `DO $$ BEGIN
+        ALTER TABLE detected_tasks ADD CONSTRAINT fk_detected_tasks_account
+          FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+      `DO $$ BEGIN
+        ALTER TABLE detected_tasks ADD CONSTRAINT fk_detected_tasks_email
+          FOREIGN KEY (email_id) REFERENCES emails(id) ON DELETE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+      // email_categories: add FK to emails, categories, accounts
+      `DO $$ BEGIN
+        ALTER TABLE email_categories ADD CONSTRAINT fk_email_categories_email
+          FOREIGN KEY (email_id) REFERENCES emails(id) ON DELETE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+      `DO $$ BEGIN
+        ALTER TABLE email_categories ADD CONSTRAINT fk_email_categories_category
+          FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+      `DO $$ BEGIN
+        ALTER TABLE email_categories ADD CONSTRAINT fk_email_categories_account
+          FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+      // workflow_runs.trigger_email_id: add FK to emails (SET NULL on delete)
+      `DO $$ BEGIN
+        ALTER TABLE workflow_runs ADD CONSTRAINT fk_workflow_runs_trigger_email
+          FOREIGN KEY (trigger_email_id) REFERENCES emails(id) ON DELETE SET NULL;
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+    ];
+
+    for (const sql of fkMigrations) {
+      try {
+        await client.query(sql);
+      } catch (err) {
+        logger.debug(`FK migration skipped: ${(err as Error).message}`);
+      }
+    }
+
+    // Clean orphan records that violate the new FK constraints
+    try {
+      await client.query(`
+        DELETE FROM detected_tasks WHERE email_id NOT IN (SELECT id FROM emails);
+        DELETE FROM detected_tasks WHERE account_id NOT IN (SELECT id FROM accounts);
+        DELETE FROM email_categories WHERE email_id NOT IN (SELECT id FROM emails);
+        DELETE FROM email_categories WHERE category_id NOT IN (SELECT id FROM categories);
+        DELETE FROM email_categories WHERE account_id NOT IN (SELECT id FROM accounts);
+        UPDATE workflow_runs SET trigger_email_id = NULL WHERE trigger_email_id IS NOT NULL AND trigger_email_id NOT IN (SELECT id FROM emails);
+      `);
+    } catch (err) {
+      logger.debug(`Orphan cleanup skipped: ${(err as Error).message}`);
     }
 
     logger.info('Database initialized (Neon PostgreSQL).');

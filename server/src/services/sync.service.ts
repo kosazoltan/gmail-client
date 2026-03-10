@@ -516,23 +516,30 @@ export async function clearAccountData(accountId: string) {
   logger.info(`Adatok törlése a(z) ${accountId} fiókhoz...`);
 
   await runInTransaction(async () => {
-    // Mellékletek törlése (emailekhez kapcsolódik)
-    await execute(
-      'DELETE FROM attachments WHERE email_id IN (SELECT id FROM emails WHERE account_id = ?)',
-      [accountId],
-    );
-
-    // Emailek törlése
+    // Emailek törlése — ON DELETE CASCADE automatikusan törli:
+    // attachments, action_items, snoozed_emails, reminders,
+    // pinned_emails, detected_tasks, email_categories
+    // workflow_runs.trigger_email_id → SET NULL
     await execute('DELETE FROM emails WHERE account_id = ?', [accountId]);
 
-    // Kontaktok törlése
+    // Account-szintű táblák (nem email-függők)
     await execute('DELETE FROM contacts WHERE account_id = ?', [accountId]);
-
-    // Feladói csoportok törlése
     await execute('DELETE FROM sender_groups WHERE account_id = ?', [accountId]);
-
-    // Témák törlése
     await execute('DELETE FROM topics WHERE account_id = ?', [accountId]);
+    await execute('DELETE FROM categories WHERE account_id = ?', [accountId]);
+    await execute('DELETE FROM categorization_rules WHERE account_id = ?', [accountId]);
+    await execute('DELETE FROM saved_searches WHERE account_id = ?', [accountId]);
+    await execute('DELETE FROM templates WHERE account_id = ?', [accountId]);
+    await execute('DELETE FROM newsletter_senders WHERE account_id = ?', [accountId]);
+    await execute('DELETE FROM push_subscriptions WHERE account_id = ?', [accountId]);
+    await execute('DELETE FROM user_settings WHERE account_id = ?', [accountId]);
+    await execute('DELETE FROM scheduled_emails WHERE account_id = ?', [accountId]);
+    await execute('DELETE FROM vip_senders WHERE account_id = ?', [accountId]);
+    await execute('DELETE FROM workflows WHERE account_id = ?', [accountId]);
+    await execute('DELETE FROM ai_conversations WHERE account_id = ?', [accountId]);
+    await execute('DELETE FROM smart_folders WHERE account_id = ?', [accountId]);
+    await execute('DELETE FROM daily_briefs WHERE account_id = ?', [accountId]);
+    await execute('DELETE FROM sync_log WHERE account_id = ?', [accountId]);
 
     // History ID törlése, hogy teljes szinkronizálás történjen
     await execute('UPDATE accounts SET history_id = NULL WHERE id = ?', [accountId]);

@@ -230,9 +230,10 @@ export async function deleteEmails(accountId: string, emailIds: string[]): Promi
     );
 
     if (existing) {
-      // Csatolmányok törlése
-      await execute('DELETE FROM attachments WHERE email_id = ?', [emailId]);
-      // Email törlése
+      // Email törlése — ON DELETE CASCADE automatikusan törli:
+      // attachments, action_items, snoozed_emails, reminders,
+      // pinned_emails, detected_tasks, email_categories
+      // workflow_runs.trigger_email_id → SET NULL
       await execute('DELETE FROM emails WHERE id = ?', [emailId]);
       deletedCount++;
     }
@@ -255,13 +256,7 @@ export async function deleteEmailsByDateRange(
 
   if (emails.length === 0) return 0;
 
-  const emailIds = emails.map((e) => e.id);
-
-  // Csatolmányok törlése
-  const placeholders = emailIds.map(() => '?').join(',');
-  await execute(`DELETE FROM attachments WHERE email_id IN (${placeholders})`, emailIds);
-
-  // Emailek törlése
+  // Emailek törlése — ON DELETE CASCADE automatikusan törli az összes függő rekordot
   await execute(`DELETE FROM emails WHERE account_id = ? AND date >= ? AND date <= ?`, [
     accountId,
     dateFrom,

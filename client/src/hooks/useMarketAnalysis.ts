@@ -18,8 +18,8 @@ export function useMarketAnalysis() {
       const resp = await api.market.briefing();
       return resp.data;
     },
-    staleTime: 5 * 60 * 1000, // 5 perc
-    refetchInterval: 5 * 60 * 1000,
+    staleTime: 30 * 60 * 1000, // 30 perc — egyezik a backend cache TTL-lel
+    refetchInterval: 30 * 60 * 1000,
     retry: 1,
   });
 

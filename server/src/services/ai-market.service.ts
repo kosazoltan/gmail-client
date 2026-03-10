@@ -8,11 +8,12 @@ interface RateInfo {
   changePercent: number;
 }
 
-interface RSSNewsItem {
+export interface NewsItemInput {
   title: string;
   source: string;
   url: string;
   publishedAt: string;
+  summary?: string;
 }
 
 interface AIAnalysisResult {
@@ -71,72 +72,8 @@ function getClient(): Anthropic | null {
   return client;
 }
 
-// --- RSS hírgyűjtés valós forrásokból ---
-async function fetchRSSNews(): Promise<RSSNewsItem[]> {
-  const feeds = [
-    { url: 'https://news.google.com/rss/search?q=EUR+USD+forex+market&hl=en&gl=US&ceid=US:en', source: 'Google News (FX)' },
-    { url: 'https://news.google.com/rss/search?q=gold+price+XAU&hl=en&gl=US&ceid=US:en', source: 'Google News (Gold)' },
-    { url: 'https://news.google.com/rss/search?q=forint+HUF+Hungary+economy&hl=en&gl=US&ceid=US:en', source: 'Google News (HUF)' },
-    { url: 'https://news.google.com/rss/search?q=ECB+Fed+interest+rate&hl=en&gl=US&ceid=US:en', source: 'Google News (CB)' },
-    { url: 'https://www.portfolio.hu/rss/all.xml', source: 'Portfolio.hu' },
-  ];
-
-  const allItems: RSSNewsItem[] = [];
-
-  await Promise.allSettled(feeds.map(async (feed) => {
-    try {
-      const controller = new AbortController();
-      // BUG1 FIX: timeout covers the FULL fetch + body read (8s total), not just connection
-      const timeout = setTimeout(() => controller.abort(), 8000);
-      const resp = await fetch(feed.url, {
-        signal: controller.signal,
-        headers: { 'User-Agent': 'ZMail-MarketAnalysis/1.0' },
-      });
-
-      if (!resp.ok) { clearTimeout(timeout); return; }
-      const xml = await resp.text(); // controller still active during body read
-      clearTimeout(timeout);         // cancel only after body is fully read
-
-      // Simple RSS XML parsing (no dependency needed)
-      const itemRegex = /<item>([\s\S]*?)<\/item>/gi;
-      let match;
-      let count = 0;
-      while ((match = itemRegex.exec(xml)) !== null && count < 5) {
-        const itemXml = match[1];
-        // BUG2 FIX: ([\s\S]*?) instead of (.*?) to handle newlines in CDATA
-        const title = itemXml.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/)?.[1] ?? '';
-        const link = itemXml.match(/<link>([\s\S]*?)<\/link>/)?.[1] ?? '';
-        const pubDate = itemXml.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1] ?? '';
-        const sourceMatch = itemXml.match(/<source[^>]*>(.*?)<\/source>/);
-
-        if (title && title.length > 10) {
-          allItems.push({
-            title: decodeHTMLEntities(title),
-            source: sourceMatch ? decodeHTMLEntities(sourceMatch[1]) : feed.source,
-            url: link,
-            publishedAt: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
-          });
-          count++;
-        }
-      }
-    } catch (err) {
-      logger.warn(`RSS lekérés sikertelen (${feed.source}):`, err instanceof Error ? err.message : err);
-    }
-  }));
-
-  logger.info(`${allItems.length} hír lekérve RSS forrásokból`);
-  return allItems;
-}
-
-function decodeHTMLEntities(text: string): string {
-  return text
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'");
-}
+// RSS fetching REMOVED — news now comes from market-data.service.ts
+// (Finnhub + Alpha Vantage + RSS fallback, cached 30 min)
 
 // --- Deep Analysis típusok ---
 export interface DeepAnalysisCurrencyDetail {
@@ -294,12 +231,12 @@ KÖVETELMÉNYEK:
   }
 }
 
-export async function generateAIAnalysis(rates: RateInfo[]): Promise<AIAnalysisResult | null> {
+export async function generateAIAnalysis(rates: RateInfo[], externalNews?: NewsItemInput[]): Promise<AIAnalysisResult | null> {
   const anthropic = getClient();
   if (!anthropic) return null;
 
-  // 1. Valós hírek lekérése párhuzamosan
-  const newsItems = await fetchRSSNews();
+  // Use externally provided news (from market-data.service)
+  const newsItems: NewsItemInput[] = externalNews ?? [];
 
   const ratesText = rates.map(r =>
     `${r.label}: ${r.rate} (${r.changePercent >= 0 ? '+' : ''}${r.changePercent.toFixed(2)}%)`
