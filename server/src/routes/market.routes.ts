@@ -715,33 +715,6 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
   return rates;
 }
 
-// --- Diagnosztika (ideiglenesen auth nélkül) ---
-router.get('/diag', async (req, res) => {
-  const step = (req.query.step as string) || 'rates';
-  const diag: Record<string, unknown> = { timestamp: Date.now(), step, isGenerating, hasCachedBriefing: !!cachedBriefing };
-  try {
-    if (step === 'rates' || step === 'full') {
-      const t0 = Date.now();
-      const rates = await fetchLiveRates();
-      diag.ratesMs = Date.now() - t0;
-      diag.ratesOk = true;
-      diag.rateCount = rates.length;
-      diag.firstRate = rates[0];
-      if (step === 'full') {
-        const t1 = Date.now();
-        const aiResult = await generateAIAnalysis(rates);
-        diag.aiMs = Date.now() - t1;
-        diag.aiOk = !!aiResult;
-        diag.aiNull = aiResult === null;
-      }
-    }
-  } catch (err) {
-    diag.error = err instanceof Error ? err.message : String(err);
-    diag.stack = err instanceof Error ? err.stack?.split('\n').slice(0, 3) : undefined;
-  }
-  return res.json(diag);
-});
-
 // --- Fő endpoint ---
 router.get('/briefing', async (req, res) => {
   const accountId = req.session?.activeAccountId;
@@ -771,7 +744,14 @@ router.get('/briefing', async (req, res) => {
     const rates = await fetchLiveRates();
 
     // AI elemzés (ha van API kulcs), egyébként sablon fallback
-    const aiResult = await generateAIAnalysis(rates);
+    // Promise.race: hard 45s timeout — if AI hangs, fall back to template
+    const aiResult = await Promise.race([
+      generateAIAnalysis(rates),
+      new Promise<null>((resolve) => setTimeout(() => {
+        logger.warn('generateAIAnalysis hard timeout (45s) — falling back to template');
+        resolve(null);
+      }, 45_000)),
+    ]);
 
     let analyses: AnalysisItem[];
     let positioning: PositioningItem[];
