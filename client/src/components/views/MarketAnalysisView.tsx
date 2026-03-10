@@ -464,9 +464,24 @@ export function MarketAnalysisView() {
   const handleDeepAnalysis = async () => {
     setIsRefreshing(true);
     try {
-      deepAnalysis.trigger();
-      // Also refresh basic rates
+      deepAnalysis.reset();
+      await Promise.all([
+        deepAnalysis.triggerAsync(true),
+        forceRefresh(),
+      ]);
+    } catch {
+      // Errors are surfaced by the query and mutation states.
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleRetryBriefing = async () => {
+    setIsRefreshing(true);
+    try {
       await forceRefresh();
+    } catch {
+      // The existing query error UI already reflects the failure.
     } finally {
       setIsRefreshing(false);
     }
@@ -489,7 +504,11 @@ export function MarketAnalysisView() {
         <div className="text-center">
           <AlertTriangle className="mx-auto mb-3 h-8 w-8 text-red-400" />
           <p className="text-gray-400">Nem sikerült betölteni a piaci elemzést.</p>
-          <button onClick={handleDeepAnalysis} className="mt-3 rounded-lg bg-[#4f6ef7] px-4 py-2 text-sm text-white hover:bg-[#3d5ce5]">
+          <button
+            onClick={handleRetryBriefing}
+            disabled={isFetching || isRefreshing}
+            className="mt-3 rounded-lg bg-[#4f6ef7] px-4 py-2 text-sm text-white hover:bg-[#3d5ce5] disabled:opacity-50"
+          >
             Újrapróba
           </button>
         </div>

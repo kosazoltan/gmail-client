@@ -34,9 +34,9 @@ export function useMarketAnalysis() {
 export function useDeepAnalysis() {
   const queryClient = useQueryClient();
 
-  const mutation = useMutation({
-    mutationFn: async () => {
-      const resp = await api.market.deepAnalysis();
+  const mutation = useMutation<DeepAnalysisData, Error, boolean>({
+    mutationFn: async (refresh = false) => {
+      const resp = await api.market.deepAnalysis(refresh);
       return resp.data;
     },
     onSuccess: (data) => {
@@ -51,6 +51,7 @@ export function useDeepAnalysis() {
     isLoading: mutation.isPending,
     error: mutation.error,
     trigger: mutation.mutate,
+    triggerAsync: mutation.mutateAsync,
     reset: mutation.reset,
   };
 }

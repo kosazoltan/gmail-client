@@ -543,9 +543,10 @@ router.post('/deep-analysis', async (req, res) => {
   }
 
   const now = Date.now();
+  const forceRefresh = req.query.refresh === 'true';
 
   // Return cached if fresh
-  if (cachedDeepAnalysis && (now - deepAnalysisCachedAt) < DEEP_ANALYSIS_CACHE_TTL_MS) {
+  if (!forceRefresh && cachedDeepAnalysis && (now - deepAnalysisCachedAt) < DEEP_ANALYSIS_CACHE_TTL_MS) {
     return res.json({
       success: true,
       data: { ...cachedDeepAnalysis, cached: true },
@@ -554,7 +555,7 @@ router.post('/deep-analysis', async (req, res) => {
 
   // Prevent concurrent generation
   if (isDeepAnalysisGenerating) {
-    if (cachedDeepAnalysis) {
+    if (!forceRefresh && cachedDeepAnalysis) {
       return res.json({
         success: true,
         data: { ...cachedDeepAnalysis, cached: true },

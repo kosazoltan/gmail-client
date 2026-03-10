@@ -800,7 +800,7 @@ export const api = {
       timeout: 120000, // 120s — AI + RSS fetch can take 60-90s on cold start
       retries: 1, // Only 1 retry — avoid 503 loop while server generates
     }),
-    deepAnalysis: () => request<import('../types').DeepAnalysisResponse>('/market/deep-analysis', {
+    deepAnalysis: (refresh?: boolean) => request<import('../types').DeepAnalysisResponse>(`/market/deep-analysis${refresh ? '?refresh=true' : ''}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       timeout: 60000, // 60 sec - AI hívás lassabb
