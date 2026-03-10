@@ -444,7 +444,7 @@ router.get('/briefing', async (req, res) => {
 
     // AI elemzes (ha van API kulcs), egyebkent sablon fallback
     // Promise.race: hard 45s timeout — if AI hangs, fall back to template
-    logger.info('[BRIEFING] Step 2: generateAIAnalysis starting...');
+    logger.info(`[BRIEFING] Step 2: generateAIAnalysis starting... (ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ? 'SET' : 'MISSING'})`);
     const t1 = Date.now();
     const aiResult = await Promise.race([
       generateAIAnalysis(rates, marketNews),
