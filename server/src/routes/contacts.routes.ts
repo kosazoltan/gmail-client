@@ -31,13 +31,18 @@ router.get('/search', async (req: Request, res: Response) => {
 
 // Összes kontakt lekérése
 router.get('/', async (req: Request, res: Response) => {
-  const accountId = req.session.activeAccountId;
-  if (!accountId) {
-    return res.status(401).json({ error: 'Nincs aktív fiók' });
-  }
+  try {
+    const accountId = req.session.activeAccountId;
+    if (!accountId) {
+      return res.status(401).json({ error: 'Nincs aktív fiók' });
+    }
 
-  const contacts = getAllContacts(accountId);
-  res.json(contacts);
+    const contacts = await getAllContacts(accountId);
+    res.json(contacts);
+  } catch (error) {
+    logger.error('Kontaktok lekérése hiba:', error);
+    res.status(500).json({ error: 'Szerverhiba' });
+  }
 });
 
 // Kontakt törlése
@@ -68,13 +73,18 @@ router.patch('/:id', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Név megadása kötelező' });
   }
 
-  const contactId = req.params.id as string;
-  const contact = updateContactName(accountId, contactId, name);
-  if (!contact) {
-    return res.status(404).json({ error: 'Kontakt nem található' });
-  }
+  try {
+    const contactId = req.params.id as string;
+    const contact = await updateContactName(accountId, contactId, name);
+    if (!contact) {
+      return res.status(404).json({ error: 'Kontakt nem található' });
+    }
 
-  res.json(contact);
+    res.json(contact);
+  } catch (error) {
+    logger.error('Kontakt név frissítési hiba:', error);
+    res.status(500).json({ error: 'Szerverhiba' });
+  }
 });
 
 // Meglévő emailekből kontaktok kinyerése (egyszeri migráció)
@@ -84,8 +94,13 @@ router.post('/extract', async (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Nincs aktív fiók' });
   }
 
-  const count = extractContactsFromExistingEmails(accountId);
-  res.json({ success: true, extractedCount: count });
+  try {
+    const count = await extractContactsFromExistingEmails(accountId);
+    res.json({ success: true, extractedCount: count });
+  } catch (error) {
+    logger.error('Kontakt kinyerési hiba:', error);
+    res.status(500).json({ error: 'Szerverhiba' });
+  }
 });
 
 // Karakterkódolás javítása (mojibake fix) - kontaktok, sender_groups és emails

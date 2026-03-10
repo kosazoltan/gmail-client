@@ -54,7 +54,7 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Invalid steps format' });
     }
 
-    const workflow = createWorkflow(
+    const workflow = await createWorkflow(
       accountId,
       name,
       description ?? null,
@@ -97,10 +97,10 @@ router.put('/:id', async (req, res) => {
 
     // Handle isActive toggle separately
     if (isActive !== undefined) {
-      toggleWorkflow(id, isActive);
+      await toggleWorkflow(id, isActive);
     }
 
-    const updated = updateWorkflow(id, {
+    const updated = await updateWorkflow(id, {
       name,
       description,
       triggerType,
@@ -134,7 +134,7 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Workflow nem található' });
     }
 
-    deleteWorkflow(id);
+    await deleteWorkflow(id);
     res.json({ success: true });
   } catch (error) {
     logger.error('Workflow delete error:', error);
@@ -187,7 +187,7 @@ router.get('/:id/runs', async (req, res) => {
     }
 
     const limit = parseInt(req.query.limit as string) || 20;
-    const runs = getWorkflowRuns(id, limit);
+    const runs = await getWorkflowRuns(id, limit);
 
     res.json({ runs });
   } catch (error) {

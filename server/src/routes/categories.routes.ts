@@ -373,7 +373,7 @@ router.post('/recategorize', async (req, res) => {
     res.status(400).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
     return;
   }
-  const updated = recategorizeAllEmails(accountId);
+  const updated = await recategorizeAllEmails(accountId);
   res.json({ success: true, updatedCount: updated });
 });
 

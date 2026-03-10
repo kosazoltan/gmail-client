@@ -192,35 +192,16 @@ router.get('/by-time', async (req, res) => {
     );
     const olderCount = Number(olderResult?.count ?? 0);
 
+    const todayCount = await countByPeriod(todayStart, Date.now());
+    const yesterdayCount = await countByPeriod(yesterdayStart, todayStart);
+    const thisWeekCount = await countByPeriod(weekStart, yesterdayStart);
+    const thisMonthCount = await countByPeriod(monthStart, weekStart);
+
     const timePeriods = [
-      {
-        id: 'today',
-        name: 'Ma',
-        from: todayStart,
-        to: Date.now(),
-        count: countByPeriod(todayStart, Date.now()),
-      },
-      {
-        id: 'yesterday',
-        name: 'Tegnap',
-        from: yesterdayStart,
-        to: todayStart,
-        count: countByPeriod(yesterdayStart, todayStart),
-      },
-      {
-        id: 'this_week',
-        name: 'Ezen a héten',
-        from: weekStart,
-        to: yesterdayStart,
-        count: countByPeriod(weekStart, yesterdayStart),
-      },
-      {
-        id: 'this_month',
-        name: 'Ebben a hónapban',
-        from: monthStart,
-        to: weekStart,
-        count: countByPeriod(monthStart, weekStart),
-      },
+      { id: 'today', name: 'Ma', from: todayStart, to: Date.now(), count: todayCount },
+      { id: 'yesterday', name: 'Tegnap', from: yesterdayStart, to: todayStart, count: yesterdayCount },
+      { id: 'this_week', name: 'Ezen a héten', from: weekStart, to: yesterdayStart, count: thisWeekCount },
+      { id: 'this_month', name: 'Ebben a hónapban', from: monthStart, to: weekStart, count: thisMonthCount },
       { id: 'older', name: 'Régebbi', from: 0, to: monthStart, count: olderCount },
     ];
     res.json({ periods: timePeriods });

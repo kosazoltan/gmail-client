@@ -221,7 +221,7 @@ router.get('/', async (req, res) => {
 
   try {
     // Seed defaults if first time
-    seedDefaultSmartFolders(accountId);
+    await seedDefaultSmartFolders(accountId);
 
     const folders = await getSmartFolders(accountId);
     res.json({ success: true, folders });
@@ -248,8 +248,8 @@ router.get('/:id/emails', async (req, res) => {
       return res.status(404).json({ error: 'Smart folder not found' });
     }
 
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 50;
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 50), 200);
     const { emails, total } = await getSmartFolderEmails(id, page, limit);
 
     // Map to frontend format

@@ -71,7 +71,7 @@ router.put('/:id/color', async (req, res) => {
   }
 
   try {
-    updateAccountColor(accountId, color);
+    await updateAccountColor(accountId, color);
     res.json({ success: true, color });
   } catch (error) {
     logger.error('Szín frissítési hiba:', error);
@@ -115,7 +115,7 @@ router.post('/:id/resync', async (req, res) => {
 
   try {
     // Töröljük az összes emailt, kontaktot és kapcsolódó adatot
-    clearAccountData(accountId);
+    await clearAccountData(accountId);
 
     // Teljes újraszinkronizálás
     const result = await syncAccount(accountId, true);
