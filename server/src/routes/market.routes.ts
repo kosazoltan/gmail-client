@@ -716,20 +716,28 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
 }
 
 // --- Diagnosztika (ideiglenesen auth nélkül) ---
-router.get('/diag', async (_req, res) => {
-  const diag: Record<string, unknown> = { timestamp: Date.now(), isGenerating, hasCachedBriefing: !!cachedBriefing, cachedAge: cachedBriefing ? Date.now() - cachedAt : null };
+router.get('/diag', async (req, res) => {
+  const step = (req.query.step as string) || 'rates';
+  const diag: Record<string, unknown> = { timestamp: Date.now(), step, isGenerating, hasCachedBriefing: !!cachedBriefing };
   try {
-    const rates = await fetchLiveRates();
-    diag.ratesOk = true;
-    diag.rateCount = rates.length;
-    diag.firstRate = rates[0];
-    const aiResult = await generateAIAnalysis(rates);
-    diag.aiOk = !!aiResult;
-    diag.aiAnalysesCount = aiResult?.analyses?.length ?? 0;
-    diag.aiNewsCount = aiResult?.newsItems?.length ?? 0;
+    if (step === 'rates' || step === 'full') {
+      const t0 = Date.now();
+      const rates = await fetchLiveRates();
+      diag.ratesMs = Date.now() - t0;
+      diag.ratesOk = true;
+      diag.rateCount = rates.length;
+      diag.firstRate = rates[0];
+      if (step === 'full') {
+        const t1 = Date.now();
+        const aiResult = await generateAIAnalysis(rates);
+        diag.aiMs = Date.now() - t1;
+        diag.aiOk = !!aiResult;
+        diag.aiNull = aiResult === null;
+      }
+    }
   } catch (err) {
     diag.error = err instanceof Error ? err.message : String(err);
-    diag.stack = err instanceof Error ? err.stack?.split('\n').slice(0, 5) : undefined;
+    diag.stack = err instanceof Error ? err.stack?.split('\n').slice(0, 3) : undefined;
   }
   return res.json(diag);
 });
