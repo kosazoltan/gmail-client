@@ -227,9 +227,10 @@ export function autoExtractContactsIfNeeded(accountId: string): void {
   // Ha még soha nem volt kinyerés VAGY több mint 1 napja volt
   if (!hasExtractedContacts(accountId) || !lastExtraction || now - lastExtraction > oneDayMs) {
     logger.info(`Kontaktok automatikus kinyerése: ${accountId}`);
-    const count = extractContactsFromExistingEmails(accountId);
-    logger.info(`${count} email címből kontaktok kinyerve.`);
     lastExtractionTime.set(accountId, now);
+    extractContactsFromExistingEmails(accountId)
+      .then((count) => logger.info(`${count} email címből kontaktok kinyerve.`))
+      .catch((err) => logger.error(`Kontakt kinyerés hiba (${accountId}):`, err));
   }
 }
 

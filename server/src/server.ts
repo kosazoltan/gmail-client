@@ -264,24 +264,21 @@ async function start() {
       lastBriefDate = todayStr;
       const accounts = await getAllAccounts();
       for (const account of accounts) {
-        await generateAISummary(account.id).then(async (result) => {
-          try {
-            await execute(
-              `INSERT INTO daily_briefs (id, account_id, date, summary, highlights, action_items_count, urgent_count, total_emails, generated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-               ON CONFLICT(account_id, date) DO UPDATE SET
-                 summary = excluded.summary, highlights = excluded.highlights,
-                 action_items_count = excluded.action_items_count, urgent_count = excluded.urgent_count,
-                 total_emails = excluded.total_emails, generated_at = excluded.generated_at`,
-              [uuidv4(), account.id, todayStr, result.summary, JSON.stringify(result.highlights), result.actionItemsCount, result.urgentCount, result.totalEmails, Date.now()],
-            );
-            logger.info(`Daily brief generated for ${account.email}`);
-          } catch (err) {
-            logger.error(`Daily brief save failed for ${account.email}:`, err);
-          }
-        }).catch((err) => {
-          logger.error(`Daily brief generation failed for ${account.email}:`, err);
-        });
+        try {
+          const result = await generateAISummary(account.id);
+          await execute(
+            `INSERT INTO daily_briefs (id, account_id, date, summary, highlights, action_items_count, urgent_count, total_emails, generated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(account_id, date) DO UPDATE SET
+               summary = excluded.summary, highlights = excluded.highlights,
+               action_items_count = excluded.action_items_count, urgent_count = excluded.urgent_count,
+               total_emails = excluded.total_emails, generated_at = excluded.generated_at`,
+            [uuidv4(), account.id, todayStr, result.summary, JSON.stringify(result.highlights), result.actionItemsCount, result.urgentCount, result.totalEmails, Date.now()],
+          );
+          logger.info(`Daily brief generated for ${account.email}`);
+        } catch (err) {
+          logger.error(`Daily brief failed for ${account.email}:`, err);
+        }
       }
     }
   }, 300000); // Check every 5 minutes

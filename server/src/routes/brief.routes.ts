@@ -152,7 +152,7 @@ router.post('/generate', async (req, res) => {
       [id, accountId, today, result.summary, JSON.stringify(result.highlights), result.actionItemsCount, result.urgentCount, result.totalEmails, now],
     );
 
-    res.json({
+    return res.json({
       success: true,
       brief: {
         date: today,
@@ -166,7 +166,7 @@ router.post('/generate', async (req, res) => {
     });
   } catch (err) {
     logger.error('Brief generate error:', err);
-    res.status(500).json({ error: 'Brief generálás sikertelen' });
+    return res.status(500).json({ error: 'Brief generálás sikertelen' });
   }
 });
 
