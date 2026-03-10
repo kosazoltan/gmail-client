@@ -715,6 +715,25 @@ async function fetchLiveRates(): Promise<RateInfo[]> {
   return rates;
 }
 
+// --- Diagnosztika (ideiglenesen auth nélkül) ---
+router.get('/diag', async (_req, res) => {
+  const diag: Record<string, unknown> = { timestamp: Date.now(), isGenerating, hasCachedBriefing: !!cachedBriefing, cachedAge: cachedBriefing ? Date.now() - cachedAt : null };
+  try {
+    const rates = await fetchLiveRates();
+    diag.ratesOk = true;
+    diag.rateCount = rates.length;
+    diag.firstRate = rates[0];
+    const aiResult = await generateAIAnalysis(rates);
+    diag.aiOk = !!aiResult;
+    diag.aiAnalysesCount = aiResult?.analyses?.length ?? 0;
+    diag.aiNewsCount = aiResult?.newsItems?.length ?? 0;
+  } catch (err) {
+    diag.error = err instanceof Error ? err.message : String(err);
+    diag.stack = err instanceof Error ? err.stack?.split('\n').slice(0, 5) : undefined;
+  }
+  return res.json(diag);
+});
+
 // --- Fő endpoint ---
 router.get('/briefing', async (req, res) => {
   const accountId = req.session?.activeAccountId;
