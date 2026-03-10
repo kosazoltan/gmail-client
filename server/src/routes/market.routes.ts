@@ -740,11 +740,16 @@ router.get('/briefing', async (req, res) => {
   }
 
   isGenerating = true;
+  const t0 = Date.now();
   try {
+    logger.info('[BRIEFING] Step 1: fetchLiveRates starting...');
     const rates = await fetchLiveRates();
+    logger.info(`[BRIEFING] Step 1 done: ${rates.length} rates in ${Date.now() - t0}ms`);
 
     // AI elemzés (ha van API kulcs), egyébként sablon fallback
     // Promise.race: hard 45s timeout — if AI hangs, fall back to template
+    logger.info('[BRIEFING] Step 2: generateAIAnalysis starting...');
+    const t1 = Date.now();
     const aiResult = await Promise.race([
       generateAIAnalysis(rates),
       new Promise<null>((resolve) => setTimeout(() => {
@@ -752,6 +757,7 @@ router.get('/briefing', async (req, res) => {
         resolve(null);
       }, 45_000)),
     ]);
+    logger.info(`[BRIEFING] Step 2 done: AI=${!!aiResult} in ${Date.now() - t1}ms`);
 
     let analyses: AnalysisItem[];
     let positioning: PositioningItem[];
@@ -770,7 +776,7 @@ router.get('/briefing', async (req, res) => {
       weightedConclusion = aiResult.weightedConclusion;
       overallSentiment = aiResult.overallSentiment;
     } else {
-      logger.info('Sablon-alapú piaci elemzés használata (nincs AI)');
+      logger.info('[BRIEFING] Step 3: generating template fallback...');
       analyses = generateAnalyses(rates);
       positioning = generatePositioning(rates);
       newsItems = generateNewsItems(rates);
@@ -783,6 +789,7 @@ router.get('/briefing', async (req, res) => {
         source: `${a.source} (sablon becslés)`,
         summary: a.summary + ' ⚠️ Ez automatikus sablon-alapú becslés az élő árfolyamadatok alapján, nem valódi intézményi elemzés.',
       }));
+      logger.info(`[BRIEFING] Step 3 done: template fallback in ${Date.now() - t1}ms`);
     }
 
     const briefing: MarketBriefingData = {
@@ -801,9 +808,10 @@ router.get('/briefing', async (req, res) => {
     cachedBriefing = briefing;
     cachedAt = now;
 
+    logger.info(`[BRIEFING] SUCCESS: total ${Date.now() - t0}ms, AI=${isAIPowered}, ${rates.length} rates, ${analyses.length} analyses`);
     return res.json({ success: true, data: briefing });
   } catch (error) {
-    logger.error('Piaci elemzés hiba:', error);
+    logger.error(`[BRIEFING] FAILED after ${Date.now() - t0}ms:`, error);
     return res.status(500).json({
       success: false,
       error: 'Piaci elemzés generálása sikertelen',
