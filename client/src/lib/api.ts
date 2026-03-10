@@ -796,7 +796,10 @@ export const api = {
   },
 
   market: {
-    briefing: (refresh?: boolean) => request<import('../types').MarketBriefingResponse>(`/market/briefing${refresh ? '?refresh=true' : ''}`),
+    briefing: (refresh?: boolean) => request<import('../types').MarketBriefingResponse>(`/market/briefing${refresh ? '?refresh=true' : ''}`, {
+      timeout: 120000, // 120s — AI + RSS fetch can take 60-90s on cold start
+      retries: 1, // Only 1 retry — avoid 503 loop while server generates
+    }),
     deepAnalysis: () => request<import('../types').DeepAnalysisResponse>('/market/deep-analysis', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

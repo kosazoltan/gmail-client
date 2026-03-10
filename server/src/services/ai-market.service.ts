@@ -248,7 +248,7 @@ KÖVETELMÉNYEK:
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4000,
       messages: [{ role: 'user', content: prompt }],
-    });
+    }, { timeout: 60_000 }); // 60s hard timeout
 
     const elapsed = Date.now() - startTime;
     logger.info(`Deep analysis kész (${elapsed}ms, ${response.usage?.input_tokens ?? '?'} input / ${response.usage?.output_tokens ?? '?'} output token)`);
@@ -410,7 +410,7 @@ KOVETELMENYEK:
       model: 'claude-sonnet-4-20250514', // Same model as AI chat (confirmed working)
       max_tokens: 10000,
       messages: [{ role: 'user', content: prompt }],
-    });
+    }, { timeout: 90_000 }); // 90s hard timeout — prevents indefinite hang
 
     const elapsed = Date.now() - startTime;
     logger.info(`AI piaci elemzes kesz (${elapsed}ms, ${response.usage?.input_tokens ?? '?'} input / ${response.usage?.output_tokens ?? '?'} output token)`);
