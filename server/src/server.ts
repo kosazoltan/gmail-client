@@ -221,26 +221,29 @@ async function start() {
   // Ha van már detected_task az adatbázisban → 30 napos scan, egyébként 180 napos (6 hónap)
   if (taskDetectionInterval) clearInterval(taskDetectionInterval);
   taskDetectionInterval = setInterval(async () => {
-    const now = Date.now();
-    const lastRun = await getLastDetectionRun();
-    if (now - lastRun > 24 * 60 * 60 * 1000) {
-      const isFirstRun = lastRun === 0;
-      const daysBack = isFirstRun ? 180 : 30;
-      const accounts = await getAllAccounts();
-      for (const account of accounts) {
-        try {
-          await detectUnansweredEmails(account.id, daysBack);
-        } catch (err) {
-          logger.error(`Task detection failed for ${account.email}:`, err);
+    try {
+      const now = Date.now();
+      const lastRun = await getLastDetectionRun();
+      if (now - lastRun > 24 * 60 * 60 * 1000) {
+        const isFirstRun = lastRun === 0;
+        const daysBack = isFirstRun ? 180 : 30;
+        const accounts = await getAllAccounts();
+        for (const account of accounts) {
+          try {
+            await detectUnansweredEmails(account.id, daysBack);
+          } catch (err) {
+            logger.error(`Task detection failed for ${account.email}:`, err);
+          }
         }
+        try {
+          await processExpiredSnoozedTasks();
+        } catch (err) {
+          logger.error('Snoozed task processing failed:', err);
+        }
+        logger.info(`Task detection completed for ${accounts.length} accounts (${daysBack} days back)`);
       }
-      // Snoozed taskok feloldása
-      try {
-        await processExpiredSnoozedTasks();
-      } catch (err) {
-        logger.error('Snoozed task processing failed:', err);
-      }
-      logger.info(`Task detection completed for ${accounts.length} accounts (${daysBack} days back)`);
+    } catch (err) {
+      logger.error('Task detection interval error:', err);
     }
   }, 300000); // 5 percenként check
 
@@ -317,6 +320,10 @@ async function start() {
     const usage = process.memoryUsage();
     logger.info(`Startup memory: heap=${Math.round(usage.heapUsed / 1024 / 1024)}MB rss=${Math.round(usage.rss / 1024 / 1024)}MB`);
   });
+
+  httpServer.on('error', (err) => {
+    logger.error('HTTP Server error:', err);
+  });
 }
 
 // Graceful shutdown - adatbázis mentése kilépés előtt
@@ -383,10 +390,10 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 process.on('uncaughtException', (error) => {
-  logger.error('Uncaught Exception - shutting down:', error);
-  // Graceful shutdown on uncaught exceptions - close database first
-  closeDatabase();
-  process.exit(1);
+  logger.error('Uncaught Exception (NOT exiting - attempting recovery):', error);
+  logger.error('Exception stack:', error.stack);
+  // Do NOT exit - let the process continue. Render will restart if truly broken.
+  // Previous behavior: process.exit(1) caused crash loops after every minor error.
 });
 
 start().catch((err) => {

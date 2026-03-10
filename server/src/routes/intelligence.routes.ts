@@ -54,7 +54,7 @@ router.get('/action-items/:emailId', async (req, res) => {
       return res.status(404).json({ error: 'Email not found' });
     }
 
-    const items = getActionItemsByEmail(emailId);
+    const items = await getActionItemsByEmail(emailId);
     res.json({ success: true, actionItems: items });
   } catch (err) {
     logger.error('Get action items error:', err);
@@ -80,7 +80,7 @@ router.patch('/action-items/:id/toggle', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Action item nem található' });
     }
 
-    toggleActionItem(id, isDone);
+    await toggleActionItem(id, isDone);
     res.json({ success: true });
   } catch (err) {
     logger.error('Toggle action item error:', err);
