@@ -59,7 +59,7 @@ export function ScheduledView() {
               Ütemezett emailek
             </h1>
             <p className="dark:text-dark-text-muted text-sm text-gray-500">
-              {scheduledEmails?.length || 0} várakozó email
+              {scheduledEmails?.length || 0} ütemezett vagy újrapróbálható email
             </p>
           </div>
         </div>
@@ -139,6 +139,7 @@ function ScheduledEmailCard({
   isDeleting,
 }: ScheduledEmailCardProps) {
   const isPastDue = email.scheduledAt < Date.now();
+  const isFailed = email.status === 'failed';
 
   return (
     <div className="dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white p-4">
@@ -171,13 +172,15 @@ function ScheduledEmailCard({
         <div className="flex shrink-0 flex-col items-end gap-2">
           <div
             className={`flex items-center gap-1 rounded px-2 py-1 text-xs ${
-              isPastDue
+              isFailed
+                ? 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400'
+                : isPastDue
                 ? 'bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400'
                 : 'bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400'
             }`}
           >
             <Clock className="h-3 w-3" />
-            {formatScheduledTime(email.scheduledAt)}
+            {isFailed ? 'Sikertelen - újrapróbálható' : formatScheduledTime(email.scheduledAt)}
           </div>
 
           {/* Actions */}
@@ -186,7 +189,7 @@ function ScheduledEmailCard({
               onClick={onSendNow}
               disabled={isSending || isDeleting}
               className="rounded p-1.5 text-blue-600 hover:bg-blue-50 disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-500/10"
-              title="Küldés most"
+              title={isFailed ? 'Újrapróbálás most' : 'Küldés most'}
             >
               {isSending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

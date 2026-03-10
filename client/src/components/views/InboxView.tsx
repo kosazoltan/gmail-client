@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
 import { useInboxInfinite } from '../../hooks/useInbox';
 import {
@@ -22,6 +22,7 @@ import { getNextEmailAfterDelete } from '../../lib/emailNavigation';
 
 export function InboxView() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { data: session } = useSession();
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
@@ -32,7 +33,9 @@ export function InboxView() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
 
-  const accountId = session?.activeAccountId || undefined;
+  const emailIdFromQuery = searchParams.get('emailId');
+  const accountIdFromQuery = searchParams.get('accountId') || undefined;
+  const accountId = accountIdFromQuery || session?.activeAccountId || undefined;
   const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInboxInfinite({
     accountId,
   });
@@ -113,7 +116,7 @@ export function InboxView() {
     (isRead: boolean) => {
       if (selectedIds.size === 0) return;
       batchMarkRead.mutate(
-        { emailIds: Array.from(selectedIds), isRead },
+        { emailIds: Array.from(selectedIds), isRead, accountId },
         {
           onSuccess: () => {
             setSelectedIds(new Set());
@@ -132,7 +135,7 @@ export function InboxView() {
 
   const confirmBatchDelete = useCallback(() => {
     const idsToDelete = Array.from(selectedIds);
-    batchDeleteEmails.mutate(idsToDelete, {
+    batchDeleteEmails.mutate({ emailIds: idsToDelete, accountId }, {
       onSuccess: () => {
         setShowBatchDeleteConfirm(false);
         setSelectedIds(new Set());
@@ -188,6 +191,7 @@ export function InboxView() {
     toggleStar.mutate({
       emailId: selectedEmail.id,
       isStarred: !selectedEmail.isStarred,
+      accountId,
     });
     // Frissítsük a helyi állapotot is
     setSelectedEmail((prev) => (prev ? { ...prev, isStarred: !prev.isStarred } : null));
@@ -199,6 +203,7 @@ export function InboxView() {
     markRead.mutate({
       emailId: selectedEmail.id,
       isRead: !selectedEmail.isRead,
+      accountId,
     });
     setSelectedEmail((prev) => (prev ? { ...prev, isRead: !prev.isRead } : null));
   }, [selectedEmail, markRead]);
@@ -215,11 +220,25 @@ export function InboxView() {
     emailsRef.current = emails;
   }, [emails]);
 
+  useEffect(() => {
+    if (!emailIdFromQuery) return;
+
+    const match = emails.find((email) => email.id === emailIdFromQuery);
+    if (match) {
+      setSelectedEmail((prev) => (prev?.id === match.id ? prev : match));
+      return;
+    }
+
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [emailIdFromQuery, emails, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
   const confirmDelete = useCallback(() => {
     if (!selectedEmail) return;
     const emailIdToDelete = selectedEmail.id;
 
-    deleteEmail.mutate(emailIdToDelete, {
+    deleteEmail.mutate({ emailId: emailIdToDelete, accountId }, {
       onSuccess: () => {
         const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailIdToDelete);
         setSelectedEmail(nextEmail);
@@ -358,7 +377,7 @@ export function InboxView() {
           onSelectEmail={setSelectedEmail}
           onDeleteEmail={(emailId) => {
             const emailIndex = emails.findIndex((e) => e.id === emailId);
-            deleteEmail.mutate(emailId, {
+            deleteEmail.mutate({ emailId, accountId }, {
               onSuccess: () => {
                 if (selectedEmail?.id === emailId) {
                   // Ha az email nincs a listában vagy ez az egyetlen, null-ra állítjuk

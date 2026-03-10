@@ -45,8 +45,8 @@ export function EmailList({
   const snoozeEmail = useSnoozeEmail();
   const { data: vipEmails } = useVipEmails();
 
-  const handleToggleRead = (emailId: string, isRead: boolean) => {
-    markRead.mutate({ emailId, isRead });
+  const handleToggleRead = (emailId: string, isRead: boolean, accountId?: string) => {
+    markRead.mutate({ emailId, isRead, accountId });
   };
 
   // Quick snooze for swipe action - snooze until tomorrow morning
@@ -131,12 +131,13 @@ export function EmailList({
                 toggleStar.mutate({
                   emailId: email.id,
                   isStarred: !email.isStarred,
+                  accountId: email.accountId,
                 });
               }}
               onDelete={onDeleteEmail}
               onArchive={onArchiveEmail}
               onSnooze={handleQuickSnooze}
-              onToggleRead={handleToggleRead}
+              onToggleRead={(emailId, isRead) => handleToggleRead(emailId, isRead, email.accountId)}
               selectionMode={selectionMode}
               isChecked={selectedIds.has(email.id)}
               onToggleCheck={onToggleSelect}

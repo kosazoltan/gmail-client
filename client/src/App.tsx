@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -63,39 +63,7 @@ function App() {
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
-            <Routes>
-              <Route element={<AppLayout />}>
-                <Route path="/dashboard" element={<Suspense fallback={<LoadingSkeleton />}><DashboardView /></Suspense>} />
-                <Route path="/calendar" element={<Suspense fallback={<LoadingSkeleton />}><CalendarView /></Suspense>} />
-                <Route path="/tasks" element={<Suspense fallback={<LoadingSkeleton />}><TasksView /></Suspense>} />
-                <Route path="/market" element={<Suspense fallback={<LoadingSkeleton />}><MarketAnalysisView /></Suspense>} />
-                <Route path="/smart-folders" element={<Suspense fallback={<LoadingSkeleton />}><SmartFoldersView /></Suspense>} />
-                <Route path="/ai-assistant" element={<Suspense fallback={<LoadingSkeleton />}><AIAssistantView /></Suspense>} />
-                <Route path="/thread/:threadId" element={<Suspense fallback={<LoadingSkeleton />}><ThreadView /></Suspense>} />
-
-
-                <Route path="/" element={<Suspense fallback={<LoadingSkeleton />}><InboxView /></Suspense>} />
-                <Route path="/unified" element={<Suspense fallback={<LoadingSkeleton />}><UnifiedInboxView /></Suspense>} />
-                <Route path="/by-sender" element={<Suspense fallback={<LoadingSkeleton />}><BySenderView /></Suspense>} />
-                <Route path="/by-topic" element={<Suspense fallback={<LoadingSkeleton />}><ByTopicView /></Suspense>} />
-                <Route path="/by-time" element={<Suspense fallback={<LoadingSkeleton />}><ByTimeView /></Suspense>} />
-                <Route path="/by-category" element={<Suspense fallback={<LoadingSkeleton />}><CategoryView /></Suspense>} />
-                <Route path="/personal" element={<Suspense fallback={<LoadingSkeleton />}><PersonalView /></Suspense>} />
-                <Route path="/invoices" element={<Suspense fallback={<LoadingSkeleton />}><InvoicesView /></Suspense>} />
-                <Route path="/trash" element={<Suspense fallback={<LoadingSkeleton />}><TrashView /></Suspense>} />
-                <Route path="/label/:labelId" element={<Suspense fallback={<LoadingSkeleton />}><LabelView /></Suspense>} />
-                <Route path="/attachments" element={<Suspense fallback={<LoadingSkeleton />}><AttachmentsView /></Suspense>} />
-                <Route path="/reminders" element={<Suspense fallback={<LoadingSkeleton />}><RemindersView onEmailSelect={() => {}} /></Suspense>} />
-                <Route path="/newsletters" element={<Suspense fallback={<LoadingSkeleton />}><NewslettersView onEmailSelect={() => {}} /></Suspense>} />
-                <Route path="/search" element={<Suspense fallback={<LoadingSkeleton />}><SearchResults /></Suspense>} />
-                <Route path="/compose" element={<Suspense fallback={<LoadingSkeleton />}><EmailCompose /></Suspense>} />
-                <Route path="/database" element={<Suspense fallback={<LoadingSkeleton />}><DatabaseManager /></Suspense>} />
-                <Route path="/settings" element={<Suspense fallback={<LoadingSkeleton />}><SettingsView /></Suspense>} />
-                <Route path="/scheduled" element={<Suspense fallback={<LoadingSkeleton />}><ScheduledView /></Suspense>} />
-                <Route path="/privacy" element={<Suspense fallback={<LoadingSkeleton />}><PrivacyPolicy /></Suspense>} />
-                <Route path="/terms" element={<Suspense fallback={<LoadingSkeleton />}><TermsOfService /></Suspense>} />
-              </Route>
-            </Routes>
+            <AppRoutes />
             <CommandPalette />
             <InstallPrompt />
             <ToastContainer />
@@ -103,6 +71,54 @@ function App() {
         </QueryClientProvider>
       </ThemeProvider>
     </ErrorBoundary>
+  );
+}
+
+function AppRoutes() {
+  const navigate = useNavigate();
+
+  const openEmail = (emailId: string) => {
+    navigate(`/?emailId=${encodeURIComponent(emailId)}`);
+  };
+
+  return (
+    <Routes>
+      <Route element={<AppLayout />}>
+        <Route path="/dashboard" element={<Suspense fallback={<LoadingSkeleton />}><DashboardView /></Suspense>} />
+        <Route path="/calendar" element={<Suspense fallback={<LoadingSkeleton />}><CalendarView /></Suspense>} />
+        <Route path="/tasks" element={<Suspense fallback={<LoadingSkeleton />}><TasksView /></Suspense>} />
+        <Route path="/market" element={<Suspense fallback={<LoadingSkeleton />}><MarketAnalysisView /></Suspense>} />
+        <Route path="/smart-folders" element={<Suspense fallback={<LoadingSkeleton />}><SmartFoldersView /></Suspense>} />
+        <Route path="/ai-assistant" element={<Suspense fallback={<LoadingSkeleton />}><AIAssistantView /></Suspense>} />
+        <Route path="/thread/:threadId" element={<Suspense fallback={<LoadingSkeleton />}><ThreadView /></Suspense>} />
+        <Route path="/" element={<Suspense fallback={<LoadingSkeleton />}><InboxView /></Suspense>} />
+        <Route path="/unified" element={<Suspense fallback={<LoadingSkeleton />}><UnifiedInboxView /></Suspense>} />
+        <Route path="/by-sender" element={<Suspense fallback={<LoadingSkeleton />}><BySenderView /></Suspense>} />
+        <Route path="/by-topic" element={<Suspense fallback={<LoadingSkeleton />}><ByTopicView /></Suspense>} />
+        <Route path="/by-time" element={<Suspense fallback={<LoadingSkeleton />}><ByTimeView /></Suspense>} />
+        <Route path="/by-category" element={<Suspense fallback={<LoadingSkeleton />}><CategoryView /></Suspense>} />
+        <Route path="/personal" element={<Suspense fallback={<LoadingSkeleton />}><PersonalView /></Suspense>} />
+        <Route path="/invoices" element={<Suspense fallback={<LoadingSkeleton />}><InvoicesView /></Suspense>} />
+        <Route path="/trash" element={<Suspense fallback={<LoadingSkeleton />}><TrashView /></Suspense>} />
+        <Route path="/label/:labelId" element={<Suspense fallback={<LoadingSkeleton />}><LabelView /></Suspense>} />
+        <Route path="/attachments" element={<Suspense fallback={<LoadingSkeleton />}><AttachmentsView /></Suspense>} />
+        <Route
+          path="/reminders"
+          element={<Suspense fallback={<LoadingSkeleton />}><RemindersView onEmailSelect={openEmail} /></Suspense>}
+        />
+        <Route
+          path="/newsletters"
+          element={<Suspense fallback={<LoadingSkeleton />}><NewslettersView onEmailSelect={openEmail} /></Suspense>}
+        />
+        <Route path="/search" element={<Suspense fallback={<LoadingSkeleton />}><SearchResults /></Suspense>} />
+        <Route path="/compose" element={<Suspense fallback={<LoadingSkeleton />}><EmailCompose /></Suspense>} />
+        <Route path="/database" element={<Suspense fallback={<LoadingSkeleton />}><DatabaseManager /></Suspense>} />
+        <Route path="/settings" element={<Suspense fallback={<LoadingSkeleton />}><SettingsView /></Suspense>} />
+        <Route path="/scheduled" element={<Suspense fallback={<LoadingSkeleton />}><ScheduledView /></Suspense>} />
+        <Route path="/privacy" element={<Suspense fallback={<LoadingSkeleton />}><PrivacyPolicy /></Suspense>} />
+        <Route path="/terms" element={<Suspense fallback={<LoadingSkeleton />}><TermsOfService /></Suspense>} />
+      </Route>
+    </Routes>
   );
 }
 

@@ -177,6 +177,7 @@ export const api = {
       body: string;
       cc?: string;
       attachments?: Array<{ filename: string; mimeType: string; content: string }>;
+      accountId?: string;
     }) =>
       request<{
         success: boolean;
@@ -184,7 +185,10 @@ export const api = {
         scheduledId?: string;
         undoAvailable?: boolean;
         undoSeconds?: number;
-      }>('/emails/send', { method: 'POST', body: JSON.stringify(data) }),
+      }>(`/emails/send${data.accountId ? `?accountId=${encodeURIComponent(data.accountId)}` : ''}`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
     reply: (data: {
       to: string;
       subject?: string;
@@ -193,6 +197,7 @@ export const api = {
       inReplyTo?: string;
       threadId?: string;
       attachments?: Array<{ filename: string; mimeType: string; content: string }>;
+      accountId?: string;
     }) =>
       request<{
         success: boolean;
@@ -200,25 +205,29 @@ export const api = {
         scheduledId?: string;
         undoAvailable?: boolean;
         undoSeconds?: number;
-      }>('/emails/reply', { method: 'POST', body: JSON.stringify(data) }),
-    markRead: (id: string, isRead: boolean) =>
-      request(`/emails/${id}/read`, {
+      }>(`/emails/reply${data.accountId ? `?accountId=${encodeURIComponent(data.accountId)}` : ''}`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    markRead: (id: string, isRead: boolean, accountId?: string) =>
+      request(`/emails/${id}/read${accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''}`, {
         method: 'PATCH',
         body: JSON.stringify({ isRead }),
       }),
-    toggleStar: (id: string, isStarred: boolean) =>
-      request(`/emails/${id}/star`, {
+    toggleStar: (id: string, isStarred: boolean, accountId?: string) =>
+      request(`/emails/${id}/star${accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''}`, {
         method: 'PATCH',
         body: JSON.stringify({ isStarred }),
       }),
-    delete: (id: string) => request(`/emails/${id}`, { method: 'DELETE' }),
-    batchDelete: (emailIds: string[]) =>
-      request<{ deletedCount: number; failedCount: number }>('/emails/batch-delete', {
+    delete: (id: string, accountId?: string) =>
+      request(`/emails/${id}${accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''}`, { method: 'DELETE' }),
+    batchDelete: (emailIds: string[], accountId?: string) =>
+      request<{ deletedCount: number; failedCount: number }>(`/emails/batch-delete${accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''}`, {
         method: 'POST',
         body: JSON.stringify({ emailIds }),
       }),
-    batchMarkRead: (emailIds: string[], isRead: boolean) =>
-      request<{ updatedCount: number }>('/emails/batch-read', {
+    batchMarkRead: (emailIds: string[], isRead: boolean, accountId?: string) =>
+      request<{ updatedCount: number }>('/emails/batch-read' + (accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''), {
         method: 'PATCH',
         body: JSON.stringify({ emailIds, isRead }),
       }),

@@ -563,13 +563,45 @@ router.patch('/batch-read', async (req, res) => {
     }
 
     const placeholders = emailIds.map(() => '?').join(',');
-    await execute(`UPDATE emails SET is_read = ? WHERE id IN (${placeholders}) AND account_id = ?`, [
-      isRead ? 1 : 0,
-      ...emailIds,
-      accountId,
-    ]);
+    const ownedEmails = await queryAll<{ id: string }>(
+      `SELECT id FROM emails WHERE id IN (${placeholders}) AND account_id = ?`,
+      [...emailIds, accountId],
+    );
 
-    res.json({ updatedCount: emailIds.length });
+    if (ownedEmails.length === 0) {
+      res.json({ updatedCount: 0, failedCount: emailIds.length });
+      return;
+    }
+
+    const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
+    const gmail = getGmailClient(oauth2Client);
+    const updatedIds: string[] = [];
+
+    for (const { id } of ownedEmails) {
+      try {
+        if (isRead) {
+          await modifyMessage(gmail, id, { removeLabels: ['UNREAD'] });
+        } else {
+          await modifyMessage(gmail, id, { addLabels: ['UNREAD'] });
+        }
+        updatedIds.push(id);
+      } catch (err) {
+        logger.error('Batch mark read Gmail sync error:', { emailId: id, error: err });
+      }
+    }
+
+    if (updatedIds.length > 0) {
+      const updatedPlaceholders = updatedIds.map(() => '?').join(',');
+      await execute(
+        `UPDATE emails SET is_read = ? WHERE id IN (${updatedPlaceholders}) AND account_id = ?`,
+        [isRead ? 1 : 0, ...updatedIds, accountId],
+      );
+    }
+
+    res.json({
+      updatedCount: updatedIds.length,
+      failedCount: ownedEmails.length - updatedIds.length,
+    });
   } catch (error) {
     logger.error('Batch mark read error:', error);
     res.status(500).json({ error: 'Hiba a batch olvasottság módosítás során' });

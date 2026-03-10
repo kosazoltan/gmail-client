@@ -633,25 +633,9 @@ function EmailsTab() {
 
 // Biztonsági mentések tab
 function BackupsTab() {
-  const queryClient = useQueryClient();
-
   const { data, isLoading } = useQuery({
     queryKey: ['database-backups'],
     queryFn: () => api.database.listBackups(),
-  });
-
-  const createBackupMutation = useMutation({
-    mutationFn: () => api.database.createBackup(),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['database-backups'] });
-    },
-  });
-
-  const deleteBackupMutation = useMutation({
-    mutationFn: (filename: string) => api.database.deleteBackup(filename),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['database-backups'] });
-    },
   });
 
   const formatBytes = (bytes: number) => {
@@ -666,19 +650,9 @@ function BackupsTab() {
 
   return (
     <div className="space-y-4">
-      {/* Új backup létrehozása */}
-      <div className="flex items-center justify-between">
-        <p className="dark:text-dark-text-secondary text-sm text-gray-600">
-          Készíts biztonsági mentést az adatbázisról. A mentések letölthetők és törölhetők.
-        </p>
-        <button
-          onClick={() => createBackupMutation.mutate()}
-          disabled={createBackupMutation.isPending}
-          className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          <Archive className={`h-4 w-4 ${createBackupMutation.isPending ? 'animate-pulse' : ''}`} />
-          {createBackupMutation.isPending ? 'Mentés...' : 'Új biztonsági mentés'}
-        </button>
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+        A jelenlegi Neon PostgreSQL környezetben a biztonsági mentéseket a platform kezeli, ezért a
+        fájlos backup létrehozás, letöltés és törlés itt nem érhető el.
       </div>
 
       {/* Backup lista */}
@@ -723,27 +697,7 @@ function BackupsTab() {
                     {formatBytes(backup.size)}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <a
-                        href={api.database.downloadBackupUrl(backup.filename)}
-                        download
-                        className="rounded p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/20"
-                        title="Letöltés"
-                      >
-                        <Download className="h-4 w-4" />
-                      </a>
-                      <button
-                        onClick={() => {
-                          if (confirm('Biztosan törlöd ezt a mentést?')) {
-                            deleteBackupMutation.mutate(backup.filename);
-                          }
-                        }}
-                        className="rounded p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/20"
-                        title="Törlés"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">Platform kezeli</span>
                   </td>
                 </tr>
               ))}

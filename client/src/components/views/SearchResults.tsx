@@ -48,13 +48,14 @@ export function SearchResults() {
   const emails = data?.emails || [];
 
   const toggleSelectionMode = useCallback(() => {
+    if (allAccounts) return;
     setSelectionMode((prev) => {
       if (prev) {
         setSelectedIds(new Set());
       }
       return !prev;
     });
-  }, []);
+  }, [allAccounts]);
 
   const toggleSelectEmail = useCallback(
     (emailId: string, event?: React.MouseEvent) => {
@@ -96,9 +97,9 @@ export function SearchResults() {
 
   const handleBatchMarkRead = useCallback(
     (isRead: boolean) => {
-      if (selectedIds.size === 0) return;
+      if (selectedIds.size === 0 || allAccounts) return;
       batchMarkRead.mutate(
-        { emailIds: Array.from(selectedIds), isRead },
+        { emailIds: Array.from(selectedIds), isRead, accountId },
         {
           onSuccess: () => {
             setSelectedIds(new Set());
@@ -107,17 +108,17 @@ export function SearchResults() {
         },
       );
     },
-    [selectedIds, batchMarkRead],
+    [selectedIds, batchMarkRead, allAccounts, accountId],
   );
 
   const handleBatchDelete = useCallback(() => {
-    if (selectedIds.size === 0) return;
+    if (selectedIds.size === 0 || allAccounts) return;
     setShowBatchDeleteConfirm(true);
-  }, [selectedIds]);
+  }, [selectedIds, allAccounts]);
 
   const confirmBatchDelete = useCallback(() => {
     const idsToDelete = Array.from(selectedIds);
-    batchDeleteEmails.mutate(idsToDelete, {
+    batchDeleteEmails.mutate({ emailIds: idsToDelete, accountId }, {
       onSuccess: () => {
         setShowBatchDeleteConfirm(false);
         setSelectedIds(new Set());
@@ -127,19 +128,20 @@ export function SearchResults() {
         }
       },
     });
-  }, [selectedIds, batchDeleteEmails, selectedEmail]);
+  }, [selectedIds, batchDeleteEmails, selectedEmail, accountId]);
 
   const leftPanel = (
     <>
       <div className="dark:bg-dark-bg-tertiary dark:border-dark-border sticky top-0 z-10 flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2">
         <button
           onClick={toggleSelectionMode}
+          disabled={allAccounts}
           className={`rounded-lg p-2 transition-colors ${
             selectionMode
               ? 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400'
               : 'dark:hover:bg-dark-border dark:text-dark-text-secondary text-gray-600 hover:bg-gray-200'
-          }`}
-          title={selectionMode ? 'Kijelölés befejezése' : 'Kijelölési mód'}
+          } disabled:cursor-not-allowed disabled:opacity-50`}
+          title={allAccounts ? 'Többfiókos keresésben a batch műveletek le vannak tiltva' : selectionMode ? 'Kijelölés befejezése' : 'Kijelölési mód'}
         >
           <CheckSquare className="h-5 w-5" />
         </button>
@@ -245,7 +247,8 @@ export function SearchResults() {
         selectedEmailId={selectedEmail?.id || null}
         onSelectEmail={setSelectedEmail}
         onDeleteEmail={(emailId) => {
-          deleteEmail.mutate(emailId, {
+          const email = emails.find((item) => item.id === emailId);
+          deleteEmail.mutate({ emailId, accountId: email?.accountId || accountId }, {
             onSuccess: () => {
               if (selectedEmail?.id === emailId) {
                 const nextEmail = getNextEmailAfterDelete(emails, emailId);
@@ -255,7 +258,7 @@ export function SearchResults() {
           });
         }}
         emptyMessage={`Nincs találat: "${query}"`}
-        selectionMode={selectionMode}
+        selectionMode={selectionMode && !allAccounts}
         selectedIds={selectedIds}
         onToggleSelect={toggleSelectEmail}
         showAccountBadge={allAccounts}
@@ -266,13 +269,14 @@ export function SearchResults() {
   const rightPanel = (
     <EmailDetail
       emailId={selectedEmail?.id || null}
-      accountId={accountId}
+      accountId={selectedEmail?.accountId || accountId}
       onBack={() => setSelectedEmail(null)}
       onReply={({ to, subject, threadId, body, fromName, date }) => {
         const originalBody = body || '';
         const replyBody = `\n\n─────────────────────────\nDátum: ${date ? new Date(date).toLocaleString('hu-HU') : ''}\nFeladó: ${fromName || to}\n\n${originalBody}`;
+        const replyAccountId = selectedEmail?.accountId;
         navigate(
-          `/compose?reply=true&to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}&body=${encodeURIComponent(replyBody)}`,
+          `/compose?reply=true&to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}${replyAccountId ? `&accountId=${encodeURIComponent(replyAccountId)}` : ''}&body=${encodeURIComponent(replyBody)}`,
         );
       }}
       onForward={({ subject, body }) => {

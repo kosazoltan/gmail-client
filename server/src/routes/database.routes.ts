@@ -148,7 +148,7 @@ router.post('/backup', async (req: Request, res: Response) => {
     res.json({ success: true, ...backup });
   } catch (error) {
     logger.error('Backup hiba:', error);
-    res.status(500).json({ error: 'Backup létrehozása sikertelen' });
+    res.status(501).json({ error: 'Backup létrehozása ebben a PostgreSQL környezetben nem támogatott' });
   }
 });
 
@@ -161,7 +161,11 @@ router.get('/backups', async (req: Request, res: Response) => {
   }
 
   const backups = listBackups();
-  res.json({ backups });
+  res.json({
+    backups,
+    supported: false,
+    message: 'A fájlos backupokat a platform kezeli ebben a PostgreSQL környezetben.',
+  });
 });
 
 // Backup letöltése
@@ -172,49 +176,9 @@ router.get('/backups/:filename', async (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
   }
 
-  // FIX: Decode and normalize filename to prevent encoded path traversal
-  // Also handle Express typing where params can be string | string[]
-  const rawFilename = req.params.filename;
-  if (Array.isArray(rawFilename)) {
-    return res.status(400).json({ error: 'Érvénytelen fájlnév formátum' });
-  }
-
-  let filename: string;
-  try {
-    filename = decodeURIComponent(rawFilename).normalize('NFC');
-  } catch {
-    return res.status(400).json({ error: 'Érvénytelen fájlnév kódolás' });
-  }
-
-  // Biztonsági ellenőrzés - path traversal védelem
-  if (
-    !filename.endsWith('.db') ||
-    filename.includes('..') ||
-    filename.includes('/') ||
-    filename.includes('\\')
-  ) {
-    return res.status(400).json({ error: 'Érvénytelen fájlnév' });
-  }
-
-  // Csak alfanumerikus karakterek, kötőjelek, pontok, aláhúzás engedélyezve
-  if (!/^[\w\-\.]+\.db$/.test(filename)) {
-    return res.status(400).json({ error: 'Érvénytelen fájlnév formátum' });
-  }
-
-  const dbPath = process.env.DATABASE_URL || './data/gmail-client.db';
-  const backupDir = path.resolve(path.dirname(dbPath), 'backups');
-  const backupPath = path.resolve(backupDir, filename);
-
-  // FIX: Include path separator in check for proper containment
-  if (!backupPath.startsWith(backupDir + path.sep)) {
-    return res.status(400).json({ error: 'Path traversal detected' });
-  }
-
-  if (!fs.existsSync(backupPath)) {
-    return res.status(404).json({ error: 'Backup nem található' });
-  }
-
-  res.download(backupPath, filename);
+  return res.status(501).json({
+    error: 'Backup letöltés ebben a PostgreSQL környezetben nem támogatott',
+  });
 });
 
 // Backup törlése
@@ -224,51 +188,9 @@ router.delete('/backups/:filename', async (req: Request, res: Response) => {
   if (!accountId) {
     return res.status(401).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
   }
-
-  // FIX: Decode and normalize filename to prevent encoded path traversal
-  // Also handle Express typing where params can be string | string[]
-  const rawFilename = req.params.filename;
-  if (Array.isArray(rawFilename)) {
-    return res.status(400).json({ error: 'Érvénytelen fájlnév formátum' });
-  }
-
-  let filename: string;
-  try {
-    filename = decodeURIComponent(rawFilename).normalize('NFC');
-  } catch {
-    return res.status(400).json({ error: 'Érvénytelen fájlnév kódolás' });
-  }
-
-  // Biztonsági ellenőrzés - path traversal védelem
-  if (
-    !filename.endsWith('.db') ||
-    filename.includes('..') ||
-    filename.includes('/') ||
-    filename.includes('\\')
-  ) {
-    return res.status(400).json({ error: 'Érvénytelen fájlnév' });
-  }
-
-  // Csak alfanumerikus karakterek, kötőjelek, pontok, aláhúzás engedélyezve
-  if (!/^[\w\-\.]+\.db$/.test(filename)) {
-    return res.status(400).json({ error: 'Érvénytelen fájlnév formátum' });
-  }
-
-  // FIX: Verify resolved path is within backup directory
-  const dbPath = process.env.DATABASE_URL || './data/gmail-client.db';
-  const backupDir = path.resolve(path.dirname(dbPath), 'backups');
-  const resolvedPath = path.resolve(backupDir, filename);
-
-  if (!resolvedPath.startsWith(backupDir + path.sep)) {
-    return res.status(400).json({ error: 'Path traversal detected' });
-  }
-
-  const success = deleteBackup(filename);
-  if (!success) {
-    return res.status(404).json({ error: 'Backup nem található vagy nem törölhető' });
-  }
-
-  res.json({ success: true });
+  return res.status(501).json({
+    error: 'Backup törlés ebben a PostgreSQL környezetben nem támogatott',
+  });
 });
 
 // Adatbázis tömörítés

@@ -33,6 +33,14 @@ export function BySenderView() {
     enabled: !!selectedSender,
   });
 
+  const emails = senderEmails?.emails || [];
+
+  // Ref a friss emails lista eléréséhez (stale closure fix)
+  const emailsRef = useRef(emails);
+  useEffect(() => {
+    emailsRef.current = emails;
+  }, [emails]);
+
   // Küldő lista nézet
   if (!selectedSender) {
     return (
@@ -94,15 +102,6 @@ export function BySenderView() {
     );
   }
 
-  // Küldő leveleinek nézete
-  const emails = senderEmails?.emails || [];
-
-  // Ref a friss emails lista eléréséhez (stale closure fix)
-  const emailsRef = useRef(emails);
-  useEffect(() => {
-    emailsRef.current = emails;
-  }, [emails]);
-
   const leftPanel = (
     <>
       <div className="dark:bg-dark-bg-tertiary dark:border-dark-border flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3">
@@ -126,7 +125,7 @@ export function BySenderView() {
         selectedEmailId={selectedEmail?.id || null}
         onSelectEmail={setSelectedEmail}
         onDeleteEmail={(emailId) => {
-          deleteEmail.mutate(emailId, {
+          deleteEmail.mutate({ emailId }, {
             onSuccess: () => {
               if (selectedEmail?.id === emailId) {
                 const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);

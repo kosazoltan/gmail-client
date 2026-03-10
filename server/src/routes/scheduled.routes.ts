@@ -1,6 +1,6 @@
 import logger from '../utils/logger.js';
 import { Router } from 'express';
-import { queryAll, queryOne, execute } from '../db/index.js';
+import { queryAll, queryOne, execute, runInTransaction } from '../db/index.js';
 import { v4 as uuid } from 'uuid';
 import { getOAuth2ClientForAccount } from '../services/auth.service.js';
 import { getGmailClient, sendEmail } from '../services/gmail.service.js';
@@ -54,8 +54,10 @@ router.get('/', async (req, res) => {
 
     const emails = await queryAll<ScheduledEmailRow>(
       `SELECT * FROM scheduled_emails
-       WHERE account_id = ? AND status = 'pending'
-       ORDER BY scheduled_at ASC`,
+       WHERE account_id = ? AND status IN ('pending', 'failed')
+       ORDER BY
+         CASE WHEN status = 'failed' THEN 0 ELSE 1 END,
+         scheduled_at ASC`,
       [accountId],
     );
 
@@ -243,6 +245,8 @@ router.delete('/:id', async (req, res) => {
 
 // Send now (convert scheduled to immediate send)
 router.post('/:id/send-now', async (req, res) => {
+  let claimedScheduledEmail: Pick<ScheduledEmailRow, 'id' | 'account_id'> | null = null;
+
   try {
     const accountId = req.session?.activeAccountId;
     if (!accountId) {
@@ -250,15 +254,6 @@ router.post('/:id/send-now', async (req, res) => {
     }
 
     const { id } = req.params;
-
-    const scheduled = await queryOne<ScheduledEmailRow>(
-      'SELECT * FROM scheduled_emails WHERE id = ? AND account_id = ? AND status = ?',
-      [id, accountId, 'pending'],
-    );
-
-    if (!scheduled) {
-      return res.status(404).json({ error: 'Ütemezett email nem található' });
-    }
 
     // BUG #11 Fix: Proper auth error handling for send-now
     let oauth2Client;
@@ -270,36 +265,54 @@ router.post('/:id/send-now', async (req, res) => {
       return res.status(401).json({ error: 'Hitelesítési hiba - jelentkezz be újra' });
     }
 
-    // Mark as processing first to prevent race conditions
-    await execute("UPDATE scheduled_emails SET status = 'processing' WHERE id = ? AND account_id = ?", [
-      id,
-      accountId,
-    ]);
+    const processingStartedAt = Date.now();
+    const scheduledEmail = await runInTransaction<ScheduledEmailRow | null>(async () => {
+      const pendingEmail = await queryOne<ScheduledEmailRow>(
+        "SELECT * FROM scheduled_emails WHERE id = ? AND account_id = ? AND status IN ('pending', 'failed') FOR UPDATE",
+        [id, accountId],
+      );
+
+      if (!pendingEmail) {
+        return null;
+      }
+
+      await execute(
+        "UPDATE scheduled_emails SET status = 'processing', processing_started_at = ? WHERE id = ? AND account_id = ? AND status IN ('pending', 'failed')",
+        [processingStartedAt, id, accountId],
+      );
+
+      return { ...pendingEmail, status: 'processing' };
+    });
+
+    if (!scheduledEmail) {
+      return res.status(404).json({ error: 'Ütemezett email nem található' });
+    }
+    claimedScheduledEmail = { id: scheduledEmail.id, account_id: scheduledEmail.account_id };
 
     const gmail = getGmailClient(oauth2Client);
 
     // Parse attachments if present
     let attachments: Array<{ filename: string; mimeType: string; content: string }> | undefined;
-    if (scheduled.attachments_json) {
+    if (scheduledEmail.attachments_json) {
       try {
-        attachments = JSON.parse(scheduled.attachments_json);
+        attachments = JSON.parse(scheduledEmail.attachments_json);
       } catch {
-        logger.error(`Invalid attachments JSON for scheduled email ${scheduled.id}`);
+        logger.error(`Invalid attachments JSON for scheduled email ${scheduledEmail.id}`);
       }
     }
 
     await sendEmail(gmail, {
-      to: scheduled.to_addresses,
-      subject: scheduled.subject || '',
-      body: scheduled.body || '',
-      cc: scheduled.cc_addresses || undefined,
-      inReplyTo: scheduled.in_reply_to || undefined,
-      threadId: scheduled.thread_id || undefined,
+      to: scheduledEmail.to_addresses,
+      subject: scheduledEmail.subject || '',
+      body: scheduledEmail.body || '',
+      cc: scheduledEmail.cc_addresses || undefined,
+      inReplyTo: scheduledEmail.in_reply_to || undefined,
+      threadId: scheduledEmail.thread_id || undefined,
       attachments,
     });
 
     // Mark as sent only after successful send
-    await execute("UPDATE scheduled_emails SET status = 'sent' WHERE id = ? AND account_id = ?", [
+    await execute("UPDATE scheduled_emails SET status = 'sent', processing_instance = NULL, processing_started_at = NULL WHERE id = ? AND account_id = ?", [
       id,
       accountId,
     ]);
@@ -307,6 +320,14 @@ router.post('/:id/send-now', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     logger.error('Send now error:', error);
+    if (claimedScheduledEmail) {
+      await execute(
+        "UPDATE scheduled_emails SET status = 'failed', processing_instance = NULL, processing_started_at = NULL WHERE id = ? AND account_id = ? AND status = 'processing'",
+        [claimedScheduledEmail.id, claimedScheduledEmail.account_id],
+      ).catch((updateError) => {
+        logger.error('Failed to mark scheduled email as failed after send-now error:', updateError);
+      });
+    }
     res.status(500).json({ error: 'Nem sikerült elküldeni az emailt' });
   }
 });
@@ -317,12 +338,18 @@ export async function processScheduledEmails(): Promise<number> {
   try {
     const now = Date.now();
     const instanceId = uuid(); // Unique ID for this processing run
+    const staleProcessingCutoff = now - 15 * 60 * 1000;
+
+    await execute(
+      "UPDATE scheduled_emails SET status = 'pending', processing_instance = NULL, processing_started_at = NULL WHERE status = 'processing' AND processing_started_at IS NOT NULL AND processing_started_at < ?",
+      [staleProcessingCutoff],
+    );
 
     // Atomically claim emails with unique instance ID
     // This ensures only this instance processes these specific emails
     await execute(
-      "UPDATE scheduled_emails SET status = 'processing', processing_instance = ? WHERE scheduled_at <= ? AND status = 'pending'",
-      [instanceId, now],
+      "UPDATE scheduled_emails SET status = 'processing', processing_instance = ?, processing_started_at = ? WHERE scheduled_at <= ? AND status = 'pending'",
+      [instanceId, now, now],
     );
 
     // Get only the emails claimed by THIS instance
@@ -342,7 +369,7 @@ export async function processScheduledEmails(): Promise<number> {
           oauth2Client = authResult.oauth2Client;
         } catch (authError) {
           logger.error(`Auth error for scheduled email ${email.id}:`, authError);
-          await execute("UPDATE scheduled_emails SET status = 'failed' WHERE id = ?", [email.id]);
+          await execute("UPDATE scheduled_emails SET status = 'failed', processing_instance = NULL, processing_started_at = NULL WHERE id = ?", [email.id]);
           continue;
         }
 
@@ -369,14 +396,14 @@ export async function processScheduledEmails(): Promise<number> {
         });
 
         // Mark as sent only after successful send
-        await execute("UPDATE scheduled_emails SET status = 'sent' WHERE id = ?", [email.id]);
+        await execute("UPDATE scheduled_emails SET status = 'sent', processing_instance = NULL, processing_started_at = NULL WHERE id = ?", [email.id]);
 
         sentCount++;
         logger.info(`Scheduled email ${email.id} sent successfully.`);
       } catch (error) {
         logger.error(`Failed to send scheduled email ${email.id}:`, error);
         // Mark as failed
-        await execute("UPDATE scheduled_emails SET status = 'failed' WHERE id = ?", [email.id]);
+        await execute("UPDATE scheduled_emails SET status = 'failed', processing_instance = NULL, processing_started_at = NULL WHERE id = ?", [email.id]);
       }
     }
 

@@ -98,7 +98,7 @@ export function PersonalView() {
         selectedEmailId={selectedEmail?.id || null}
         onSelectEmail={setSelectedEmail}
         onDeleteEmail={(emailId) => {
-          deleteEmail.mutate(emailId, {
+          deleteEmail.mutate({ emailId }, {
             onSuccess: () => {
               if (selectedEmail?.id === emailId) {
                 const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);

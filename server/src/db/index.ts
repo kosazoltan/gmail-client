@@ -320,6 +320,7 @@ export async function initializeDatabase(): Promise<void> {
         scheduled_at INTEGER NOT NULL,
         status TEXT DEFAULT 'pending',
         processing_instance TEXT,
+        processing_started_at BIGINT,
         created_at INTEGER NOT NULL
       );
 
@@ -511,6 +512,7 @@ export async function initializeDatabase(): Promise<void> {
       ALTER TABLE scheduled_emails ADD COLUMN IF NOT EXISTS thread_id TEXT;
       ALTER TABLE scheduled_emails ADD COLUMN IF NOT EXISTS attachments_json TEXT;
       ALTER TABLE scheduled_emails ADD COLUMN IF NOT EXISTS is_undo_send INTEGER DEFAULT 0;
+      ALTER TABLE scheduled_emails ADD COLUMN IF NOT EXISTS processing_started_at BIGINT;
       ALTER TABLE categories ADD COLUMN IF NOT EXISTS description TEXT;
       ALTER TABLE categories ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
       ALTER TABLE categories ADD COLUMN IF NOT EXISTS created_at INTEGER DEFAULT 0;

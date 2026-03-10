@@ -32,6 +32,14 @@ export function ByTimeView() {
     enabled: !!selectedPeriod,
   });
 
+  const emails = periodEmails?.emails || [];
+
+  // Ref a friss emails lista eléréséhez (stale closure fix)
+  const emailsRef = useRef(emails);
+  useEffect(() => {
+    emailsRef.current = emails;
+  }, [emails]);
+
   const periodColors: Record<string, string> = {
     today: 'bg-green-50 dark:bg-green-500/20 text-green-600',
     yesterday: 'bg-blue-50 dark:bg-blue-500/20 text-blue-600',
@@ -82,14 +90,6 @@ export function ByTimeView() {
     );
   }
 
-  const emails = periodEmails?.emails || [];
-
-  // Ref a friss emails lista eléréséhez (stale closure fix)
-  const emailsRef = useRef(emails);
-  useEffect(() => {
-    emailsRef.current = emails;
-  }, [emails]);
-
   const leftPanel = (
     <>
       <div className="dark:bg-dark-bg-tertiary dark:border-dark-border flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3">
@@ -113,7 +113,7 @@ export function ByTimeView() {
         selectedEmailId={selectedEmail?.id || null}
         onSelectEmail={setSelectedEmail}
         onDeleteEmail={(emailId) => {
-          deleteEmail.mutate(emailId, {
+          deleteEmail.mutate({ emailId }, {
             onSuccess: () => {
               if (selectedEmail?.id === emailId) {
                 const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);

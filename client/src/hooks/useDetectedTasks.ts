@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, API_BASE } from '../lib/api';
 
@@ -89,6 +89,15 @@ export function useScanStream() {
   const [scanState, setScanState] = useState<ScanState>(INITIAL_SCAN_STATE);
   const queryClient = useQueryClient();
   const abortRef = useRef<AbortController | null>(null);
+
+  // Cleanup: abort any in-flight scan on unmount
+  useEffect(() => {
+    return () => {
+      if (abortRef.current) {
+        abortRef.current.abort();
+      }
+    };
+  }, []);
 
   const startScan = useCallback((daysBack: number) => {
     // Ha már fut, ne indítsunk újat

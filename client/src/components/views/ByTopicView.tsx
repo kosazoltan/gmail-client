@@ -97,7 +97,7 @@ export function ByTopicView() {
         onSelectEmail={setSelectedEmail}
         onDeleteEmail={(emailId) => {
           const emailIndex = emails.findIndex((e) => e.id === emailId);
-          deleteEmail.mutate(emailId, {
+          deleteEmail.mutate({ emailId }, {
             onSuccess: () => {
               if (selectedEmail?.id === emailId) {
                 if (emails.length > 1) {

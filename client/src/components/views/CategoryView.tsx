@@ -525,7 +525,7 @@ export function CategoryView() {
             // For user categories, remove from category instead of deleting
             handleRemoveFromCategory(emailId);
           } else {
-            deleteEmail.mutate(emailId, {
+            deleteEmail.mutate({ emailId }, {
               onSuccess: () => {
                 if (selectedEmail?.id === emailId) {
                   const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);

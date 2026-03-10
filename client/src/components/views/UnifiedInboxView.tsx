@@ -95,7 +95,7 @@ export function UnifiedInboxView() {
 
   const confirmBatchDelete = useCallback(() => {
     const idsToDelete = Array.from(selectedIds);
-    batchDeleteEmails.mutate(idsToDelete, {
+    batchDeleteEmails.mutate({ emailIds: idsToDelete }, {
       onSuccess: () => {
         setShowBatchDeleteConfirm(false);
         setSelectedIds(new Set());
@@ -133,7 +133,7 @@ export function UnifiedInboxView() {
     const replyBody = `\n\n─────────────────────────\nDatum: ${new Date(selectedEmail.date).toLocaleString('hu-HU')}\nFeladó: ${selectedEmail.fromName || selectedEmail.from || ''}\n\n${originalBody}`;
 
     navigate(
-      `/compose?reply=true&to=${encodeURIComponent(selectedEmail.from || '')}&subject=${encodeURIComponent(`Re: ${selectedEmail.subject || ''}`)}${selectedEmail.threadId ? `&threadId=${selectedEmail.threadId}` : ''}&body=${encodeURIComponent(replyBody)}`,
+      `/compose?reply=true&to=${encodeURIComponent(selectedEmail.from || '')}&subject=${encodeURIComponent(`Re: ${selectedEmail.subject || ''}`)}${selectedEmail.threadId ? `&threadId=${selectedEmail.threadId}` : ''}${selectedEmail.accountId ? `&accountId=${encodeURIComponent(selectedEmail.accountId)}` : ''}&body=${encodeURIComponent(replyBody)}`,
     );
   }, [selectedEmail, navigate]);
 
@@ -149,6 +149,7 @@ export function UnifiedInboxView() {
     toggleStar.mutate({
       emailId: selectedEmail.id,
       isStarred: !selectedEmail.isStarred,
+      accountId: selectedEmail.accountId,
     });
     setSelectedEmail((prev) => (prev ? { ...prev, isStarred: !prev.isStarred } : null));
   }, [selectedEmail, toggleStar]);
@@ -159,6 +160,7 @@ export function UnifiedInboxView() {
     markRead.mutate({
       emailId: selectedEmail.id,
       isRead: !selectedEmail.isRead,
+      accountId: selectedEmail.accountId,
     });
     setSelectedEmail((prev) => (prev ? { ...prev, isRead: !prev.isRead } : null));
   }, [selectedEmail, markRead]);
@@ -179,7 +181,7 @@ export function UnifiedInboxView() {
     if (!selectedEmail) return;
     const emailIdToDelete = selectedEmail.id;
 
-    deleteEmail.mutate(emailIdToDelete, {
+    deleteEmail.mutate({ emailId: emailIdToDelete, accountId: selectedEmail.accountId }, {
       onSuccess: () => {
         const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailIdToDelete);
         setSelectedEmail(nextEmail);
@@ -414,7 +416,8 @@ export function UnifiedInboxView() {
           onSelectEmail={setSelectedEmail}
           onDeleteEmail={(emailId) => {
             // BUG #3 Fix: Use emailsRef to get fresh data in onSuccess callback
-            deleteEmail.mutate(emailId, {
+            const email = emailsRef.current.find((item) => item.id === emailId);
+            deleteEmail.mutate({ emailId, accountId: email?.accountId }, {
               onSuccess: () => {
                 if (selectedEmail?.id === emailId) {
                   const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);
@@ -449,14 +452,14 @@ export function UnifiedInboxView() {
         const originalBody = body || '';
         const replyBody = `\n\n─────────────────────────\nDátum: ${date ? new Date(date).toLocaleString('hu-HU') : ''}\nFeladó: ${fromName || to}\n\n${originalBody}`;
         navigate(
-          `/compose?reply=true&to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}&body=${encodeURIComponent(replyBody)}`,
+          `/compose?reply=true&to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}${selectedEmail?.accountId ? `&accountId=${encodeURIComponent(selectedEmail.accountId)}` : ''}&body=${encodeURIComponent(replyBody)}`,
         );
       }}
       onReplyAll={({ to, cc, subject, threadId, body, fromName, date }) => {
         const originalBody = body || '';
         const replyBody = `\n\n─────────────────────────\nDátum: ${date ? new Date(date).toLocaleString('hu-HU') : ''}\nFeladó: ${fromName || to}\n\n${originalBody}`;
         navigate(
-          `/compose?reply=true&to=${encodeURIComponent(to)}${cc ? `&cc=${encodeURIComponent(cc)}` : ''}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}&body=${encodeURIComponent(replyBody)}`,
+          `/compose?reply=true&to=${encodeURIComponent(to)}${cc ? `&cc=${encodeURIComponent(cc)}` : ''}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}${selectedEmail?.accountId ? `&accountId=${encodeURIComponent(selectedEmail.accountId)}` : ''}&body=${encodeURIComponent(replyBody)}`,
         );
       }}
       onForward={({ subject, body }) => {

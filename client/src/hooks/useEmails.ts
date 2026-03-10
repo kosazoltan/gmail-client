@@ -31,7 +31,7 @@ export function useEmailsInfinite(params: { accountId?: string; limit?: number; 
 
 export function useEmailDetail(emailId: string | null, accountId?: string) {
   return useQuery({
-    queryKey: ['email', emailId],
+    queryKey: ['email', emailId, accountId],
     queryFn: () => api.emails.get(emailId!, accountId),
     enabled: !!emailId,
   });
@@ -39,7 +39,7 @@ export function useEmailDetail(emailId: string | null, accountId?: string) {
 
 export function useThreadConversation(emailId: string | null, accountId?: string) {
   return useQuery({
-    queryKey: ['thread', emailId],
+    queryKey: ['thread', emailId, accountId],
     queryFn: () => api.emails.getThread(emailId!, accountId),
     enabled: !!emailId,
   });
@@ -60,6 +60,7 @@ export function useSendEmail() {
       body: string;
       cc?: string;
       attachments?: EmailAttachment[];
+      accountId?: string;
     }) => api.emails.send(data),
     onSuccess: () => {
       // Invalidate all email-related queries to show sent email in lists
@@ -85,6 +86,7 @@ export function useReplyEmail() {
       inReplyTo?: string;
       threadId?: string;
       attachments?: EmailAttachment[];
+      accountId?: string;
     }) => api.emails.reply(data),
     onSuccess: () => {
       // Invalidate all email-related queries to show reply in thread
@@ -103,8 +105,8 @@ export function useReplyEmail() {
 export function useMarkRead() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ emailId, isRead }: { emailId: string; isRead: boolean }) =>
-      api.emails.markRead(emailId, isRead),
+    mutationFn: ({ emailId, isRead, accountId }: { emailId: string; isRead: boolean; accountId?: string }) =>
+      api.emails.markRead(emailId, isRead, accountId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['emails'] });
       queryClient.invalidateQueries({ queryKey: ['emails-infinite'] });
@@ -121,8 +123,8 @@ export function useMarkRead() {
 export function useToggleStar() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ emailId, isStarred }: { emailId: string; isStarred: boolean }) =>
-      api.emails.toggleStar(emailId, isStarred),
+    mutationFn: ({ emailId, isStarred, accountId }: { emailId: string; isStarred: boolean; accountId?: string }) =>
+      api.emails.toggleStar(emailId, isStarred, accountId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['emails'] });
       queryClient.invalidateQueries({ queryKey: ['emails-infinite'] });
@@ -139,7 +141,7 @@ export function useToggleStar() {
 export function useDeleteEmail() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (emailId: string) => api.emails.delete(emailId),
+    mutationFn: ({ emailId, accountId }: { emailId: string; accountId?: string }) => api.emails.delete(emailId, accountId),
     onSuccess: () => {
       // MINDEN email listát frissítünk azonnal - beleértve az infinite query-ket is
       queryClient.invalidateQueries({ queryKey: ['emails'] });
@@ -160,7 +162,8 @@ export function useDeleteEmail() {
 export function useBatchDeleteEmails() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (emailIds: string[]) => api.emails.batchDelete(emailIds),
+    mutationFn: ({ emailIds, accountId }: { emailIds: string[]; accountId?: string }) =>
+      api.emails.batchDelete(emailIds, accountId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['emails'] });
       queryClient.invalidateQueries({ queryKey: ['emails-infinite'] });
@@ -180,8 +183,8 @@ export function useBatchDeleteEmails() {
 export function useBatchMarkRead() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ emailIds, isRead }: { emailIds: string[]; isRead: boolean }) =>
-      api.emails.batchMarkRead(emailIds, isRead),
+    mutationFn: ({ emailIds, isRead, accountId }: { emailIds: string[]; isRead: boolean; accountId?: string }) =>
+      api.emails.batchMarkRead(emailIds, isRead, accountId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inbox-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['unread-count'] });

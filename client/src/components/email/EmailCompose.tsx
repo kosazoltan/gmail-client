@@ -106,6 +106,7 @@ export function EmailCompose() {
   const [offlineSaved, setOfflineSaved] = useState(false);
 
   const threadId = searchParams.get('threadId') || undefined;
+  const composeAccountId = searchParams.get('accountId') || undefined;
 
   // Auto-save draft to IndexedDB every 5 seconds (debounced)
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -360,6 +361,7 @@ export function EmailCompose() {
           cc,
           threadId,
           attachments: emailAttachments.length > 0 ? emailAttachments : undefined,
+          accountId: composeAccountId,
         });
       } else {
         result = await sendEmail.mutateAsync({
@@ -368,6 +370,7 @@ export function EmailCompose() {
           body,
           cc,
           attachments: emailAttachments.length > 0 ? emailAttachments : undefined,
+          accountId: composeAccountId,
         });
       }
 

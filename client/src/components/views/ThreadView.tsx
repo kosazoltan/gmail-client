@@ -135,7 +135,6 @@ function EmailMessage({
               className="prose prose-sm dark:prose-invert max-w-none overflow-auto"
               dangerouslySetInnerHTML={{
                 __html: DOMPurify.sanitize(email.bodyHtml, {
-                  ADD_TAGS: ['style'],
                   ADD_ATTR: ['target'],
                 }),
               }}

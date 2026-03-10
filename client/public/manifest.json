@@ -84,24 +84,8 @@
       "name": "Beérkezett",
       "short_name": "Inbox",
       "description": "Beérkezett levelek",
-      "url": "/inbox",
+      "url": "/",
       "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/screenshots/desktop.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "ZMail desktop nézet"
-    },
-    {
-      "src": "/screenshots/mobile.png",
-      "sizes": "390x844",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "ZMail mobil nézet"
     }
   ],
   "related_applications": [],

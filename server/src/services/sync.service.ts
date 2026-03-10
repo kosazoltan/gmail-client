@@ -218,7 +218,7 @@ async function incrementalSync(
             body: msg.subject || 'Új üzenet',
             icon: '/icons/icon-192x192.png',
             badge: '/icons/icon-72x72.png',
-            url: `/?email=${msg.id}`,
+            url: `/?emailId=${msg.id}`,
             tag: `email-${msg.id}`,
           }).catch((err) => {
             logger.error('Push notification hiba:', err);

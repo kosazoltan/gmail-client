@@ -35,7 +35,7 @@ router.post('/subscribe', async (req, res) => {
   }
 
   try {
-    saveSubscription(accountId, subscription);
+    await saveSubscription(accountId, subscription);
     res.json({ success: true, message: 'Push értesítések bekapcsolva' });
   } catch (error) {
     logger.error('Push subscription error:', error);
@@ -59,7 +59,7 @@ router.post('/unsubscribe', async (req, res) => {
 
   try {
     // Az accountId-t is átadjuk, hogy csak a saját subscription-t törölhesse
-    deleteSubscription(endpoint, accountId);
+    await deleteSubscription(endpoint, accountId);
     res.json({ success: true, message: 'Push értesítések kikapcsolva' });
   } catch (error) {
     logger.error('Push unsubscribe error:', error);

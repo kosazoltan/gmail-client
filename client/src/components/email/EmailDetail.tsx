@@ -5,6 +5,7 @@ import {
   useMarkRead,
   useDeleteEmail,
   useThreadConversation,
+  useReplyEmail,
 } from '../../hooks/useEmails';
 import { AttachmentView } from './AttachmentView';
 import { ConversationView } from './ConversationView';
@@ -79,6 +80,7 @@ export function EmailDetail({
   );
   const markRead = useMarkRead();
   const deleteEmail = useDeleteEmail();
+  const replyEmail = useReplyEmail();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [showMoreActions, setShowMoreActions] = useState(false);
@@ -224,9 +226,9 @@ export function EmailDetail({
 
   useEffect(() => {
     if (email && !email.isRead && !markRead.isPending) {
-      markReadRef.current.mutate({ emailId: email.id, isRead: true });
+      markReadRef.current.mutate({ emailId: email.id, isRead: true, accountId });
     }
-  }, [email?.id, email?.isRead, markRead.isPending]);
+  }, [email?.id, email?.isRead, markRead.isPending, accountId]);
 
   // FIX: Cleanup download timeouts on unmount to prevent memory leak
   useEffect(() => {
@@ -286,7 +288,7 @@ export function EmailDetail({
     if (!quickReplyText.trim() || !email.from) return;
     setSendingQuickReply(true);
     try {
-      await api.emails.reply({
+      await replyEmail.mutateAsync({
         to: email.from,
         subject: `Re: ${email.subject || ''}`,
         body: quickReplyText.trim(),
@@ -542,7 +544,7 @@ export function EmailDetail({
               <button
                 onClick={() => {
                   setDeleteError(null);
-                  deleteEmail.mutate(email.id, {
+                  deleteEmail.mutate({ emailId: email.id, accountId }, {
                     onSuccess: () => {
                       setShowDeleteConfirm(false);
                       onBack();

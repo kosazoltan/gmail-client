@@ -59,7 +59,7 @@ router.get('/stats', async (req, res) => {
       return res.status(401).json({ error: 'Nincs aktív fiók vagy nincs jogosultság' });
     }
 
-    const stats = getTaskStats(accountId);
+    const stats = await getTaskStats(accountId);
     return res.json(stats);
   } catch (err) {
     logger.error('Detected tasks stats error:', err);
@@ -154,7 +154,7 @@ router.patch('/:id', async (req, res) => {
       return res.status(400).json({ error: 'status mező kötelező (open/done/dismissed/snoozed)' });
     }
 
-    const updated = updateDetectedTaskStatus(id, accountId, status);
+    const updated = await updateDetectedTaskStatus(id, accountId, status);
     if (!updated) {
       return res.status(404).json({ error: 'Task nem található vagy érvénytelen status' });
     }
@@ -175,7 +175,7 @@ router.delete('/:id', async (req, res) => {
     }
 
     const { id } = req.params;
-    const deleted = deleteDetectedTask(id, accountId);
+    const deleted = await deleteDetectedTask(id, accountId);
     if (!deleted) {
       return res.status(404).json({ error: 'Task nem található' });
     }
@@ -201,7 +201,7 @@ router.post('/:id/snooze', async (req, res) => {
       : 1;
 
     const snoozedUntil = Date.now() + days * 24 * 60 * 60 * 1000;
-    const updated = updateDetectedTaskStatus(id, accountId, 'snoozed', snoozedUntil);
+    const updated = await updateDetectedTaskStatus(id, accountId, 'snoozed', snoozedUntil);
     if (!updated) {
       return res.status(404).json({ error: 'Task nem található' });
     }
