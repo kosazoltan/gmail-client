@@ -4,13 +4,11 @@
  * Primary feeds:
  *   EUR/HUF, USD/HUF, CHF/HUF, EUR/USD  → TwelveData
  *   GBP/HUF                               → Finnhub (→ TwelveData fallback)
- *   XAU/USD, XAU/EUR                      → Metals-API (→ TwelveData fallback)
+ *   XAU/USD, XAU/EUR                      → Swissquote (free, no key)
  *
  * Fallback for all forex:  Frankfurter (ECB, free, no key)
- * Fallback for gold:       Swissquote / NBP / fawazahmed0 CDN
  *
- * Budget: ~800 TwelveData calls/day → 30-min cache = 48 refreshes × 6 symbols = 288/day ✓
- *         Metals-API ~250/month → 48/day × 2 = 96/day (3 days = 288 → fine for ~8 days) ✓
+ * Budget: ~800 TwelveData calls/day → 30-min cache = 48 refreshes × 7 symbols = 1 batch call each = 48/day ✓
  *         Finnhub 60/min → no issue
  */
 import logger from '../utils/logger.js';
@@ -38,7 +36,6 @@ export interface MarketNewsItem {
 // --- Config ---
 const TWELVEDATA_KEY = () => process.env.TWELVEDATA_API_KEY || '';
 const FINNHUB_KEY = () => process.env.FINNHUB_API_KEY || '';
-const METALS_KEY = () => process.env.METALS_API_KEY || '';
 const ALPHAVANTAGE_KEY = () => process.env.ALPHAVANTAGE_API_KEY || '';
 
 // --- Cache ---
@@ -49,8 +46,9 @@ let newsCachedAt = 0;
 const RATE_CACHE_TTL = 30 * 60 * 1000; // 30 perc
 const NEWS_CACHE_TTL = 30 * 60 * 1000; // 30 perc
 
-// Historical rates cache (for 24h change) — keyed by date string
+// Historical rates cache (for 24h change) — keyed by date string, max 10 entries
 const historicalCache = new Map<string, Record<string, number>>();
+const HISTORICAL_CACHE_MAX = 10;
 
 // --- Helpers ---
 async function fetchJSON<T>(url: string, timeoutMs = 8000, headers?: Record<string, string>): Promise<T | null> {
@@ -99,7 +97,7 @@ async function fetchTwelveData(): Promise<Record<string, number> | null> {
   if (!key) return null;
 
   // Batch: single API call for all forex pairs
-  const symbols = 'EUR/HUF,USD/HUF,GBP/HUF,CHF/HUF,EUR/USD';
+  const symbols = 'EUR/HUF,USD/HUF,GBP/HUF,CHF/HUF,EUR/USD,XAU/USD,XAU/EUR';
   const data = await fetchJSON<Record<string, { price: string } | { price: string }>>(
     `https://api.twelvedata.com/price?symbol=${symbols}&apikey=${key}`,
   );
@@ -133,28 +131,6 @@ async function fetchFinnhub(symbol: string): Promise<number | null> {
   return data.c;
 }
 
-/** Metals-API for gold */
-async function fetchMetalsAPI(): Promise<{ xauusd: number; xaueur: number } | null> {
-  const key = METALS_KEY();
-  if (!key) return null;
-
-  const data = await fetchJSON<{
-    success: boolean;
-    rates: Record<string, number>;
-  }>(`https://metals-api.com/api/latest?access_key=${key}&base=XAU&symbols=USD,EUR`);
-
-  if (!data?.success || !data.rates) return null;
-
-  // Metals-API returns rates as 1 XAU = X USD (inverted sometimes)
-  // Their base=XAU means: 1 oz gold = rates.USD dollars
-  const xauusd = data.rates['USD'];
-  const xaueur = data.rates['EUR'];
-  if (!xauusd || xauusd <= 100) return null; // sanity check
-
-  logger.info(`Metals-API: XAU/USD=${xauusd}, XAU/EUR=${xaueur}`);
-  return { xauusd, xaueur };
-}
-
 /** Frankfurter (ECB) — free, no key, reliable fallback */
 async function fetchFrankfurter(): Promise<{
   rates: Record<string, number>;
@@ -183,6 +159,11 @@ async function fetchHistoricalRates(): Promise<Record<string, number> | null> {
       5000,
     );
     if (data?.rates && Object.keys(data.rates).length > 0) {
+      // Evict oldest if cache full
+      if (historicalCache.size >= HISTORICAL_CACHE_MAX) {
+        const oldest = historicalCache.keys().next().value;
+        if (oldest !== undefined) historicalCache.delete(oldest);
+      }
       historicalCache.set(data.date, data.rates);
       return data.rates;
     }
@@ -247,22 +228,22 @@ export async function fetchMarketRates(): Promise<RateInfo[]> {
     if (fh) gbphuf = fh;
   }
 
-  // --- Step 2: Gold (Metals-API primary → Swissquote fallback) ---
-  let xauusd = 0, xaueur = 0;
-
-  const metals = await fetchMetalsAPI();
-  if (metals) {
-    xauusd = metals.xauusd;
-    xaueur = metals.xaueur;
-  }
+  // --- Step 2: Gold (TwelveData primary → Swissquote fallback) ---
+  let xauusd = td?.['XAUUSD'] || 0;
+  let xaueur = td?.['XAUEUR'] || 0;
 
   if (!xauusd) {
     // Swissquote fallback (free, no key)
     const sq = await fetchSwissquoteGold();
     if (sq) {
       xauusd = sq;
-      xaueur = eurusd > 0 ? round(sq / eurusd, 2) : 0;
+      if (!xaueur && eurusd > 0) xaueur = round(sq / eurusd, 2);
     }
+  }
+
+  // Cross-rate: ha XAU/EUR hiányzik de XAU/USD megvan
+  if (!xaueur && xauusd && eurusd > 0) {
+    xaueur = round(xauusd / eurusd, 2);
   }
 
   const xauhuf = xauusd && usdhuf ? round(xauusd * usdhuf, 0) : 0;
@@ -302,7 +283,7 @@ export async function fetchMarketRates(): Promise<RateInfo[]> {
 
   cachedRates = rates;
   ratesCachedAt = now;
-  logger.info(`Market rates loaded: ${rates.length} pairs (sources: ${td ? 'TwelveData' : ''}${metals ? '+Metals' : ''}${!td ? 'Frankfurter-fallback' : ''})`);
+  logger.info(`Market rates loaded: ${rates.length} pairs (sources: ${td ? 'TwelveData' : 'Frankfurter-fallback'}${xauusd ? (td?.['XAUUSD'] ? '' : '+Swissquote-gold') : ''})`);
   return rates;
 }
 

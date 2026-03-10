@@ -548,6 +548,14 @@ export function MarketAnalysisView() {
           </button>
         </div>
 
+        {/* Deep analysis hiba */}
+        {deepAnalysis.error && !deepAnalysis.isLoading && (
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+            <AlertTriangle className="mr-1.5 inline h-4 w-4" />
+            Mély elemzés sikertelen — próbáld újra később.
+          </div>
+        )}
+
         {/* AI Összefoglaló (deep analysis) */}
         {deepData?.summary && (
           <section className="rounded-xl border border-[#4f6ef7]/40 bg-[#4f6ef7]/15 p-4">
@@ -679,7 +687,7 @@ export function MarketAnalysisView() {
             </h2>
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
               {Object.entries(DEEP_CURRENCY_LABELS).map(([key, label]) => {
-                const values = trendQuery.data.map(d => d.rates[key]).filter(v => v !== undefined);
+                const values = trendQuery.data.map(d => d.rates[key]).filter((v): v is number => v != null);
                 if (values.length < 2) return null;
                 const first = values[0];
                 const last = values[values.length - 1];

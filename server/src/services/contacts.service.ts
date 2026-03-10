@@ -224,13 +224,27 @@ export function autoExtractContactsIfNeeded(accountId: string): void {
   const lastExtraction = lastExtractionTime.get(accountId);
   const oneDayMs = 24 * 60 * 60 * 1000;
 
-  // Ha még soha nem volt kinyerés VAGY több mint 1 napja volt
-  if (!hasExtractedContacts(accountId) || !lastExtraction || now - lastExtraction > oneDayMs) {
-    logger.info(`Kontaktok automatikus kinyerése: ${accountId}`);
-    lastExtractionTime.set(accountId, now);
-    extractContactsFromExistingEmails(accountId)
-      .then((count) => logger.info(`${count} email címből kontaktok kinyerve.`))
-      .catch((err) => logger.error(`Kontakt kinyerés hiba (${accountId}):`, err));
+  // Restart után lastExtraction undefined → mindig fut egyszer
+  // Utána: naponta egyszer, VAGY ha kevés kontakt van (< 50)
+  if (!lastExtraction || now - lastExtraction > oneDayMs) {
+    // Check contact count async — if few contacts, always rebuild
+    hasExtractedContacts(accountId).then(async (hasContacts) => {
+      const countResult = await queryOne<{ count: number }>(
+        'SELECT COUNT(*) as count FROM contacts WHERE account_id = ?',
+        [accountId],
+      );
+      const count = Number(countResult?.count ?? 0);
+      // Rebuild if no contacts, few contacts (< 50), or daily refresh
+      if (!hasContacts || count < 50 || !lastExtraction || now - (lastExtraction ?? 0) > oneDayMs) {
+        logger.info(`Kontaktok automatikus kinyerése (jelenlegi: ${count}): ${accountId}`);
+        lastExtractionTime.set(accountId, now);
+        extractContactsFromExistingEmails(accountId)
+          .then((extracted) => logger.info(`${extracted} email címből kontaktok kinyerve (összesen: ${count + extracted}).`))
+          .catch((err) => logger.error(`Kontakt kinyerés hiba (${accountId}):`, err));
+      } else {
+        lastExtractionTime.set(accountId, now);
+      }
+    }).catch((err) => logger.error(`Kontakt check hiba (${accountId}):`, err));
   }
 }
 
