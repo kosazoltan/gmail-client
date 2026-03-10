@@ -93,7 +93,7 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar }: HeaderP
   };
 
   return (
-    <header className="dark:bg-dark-bg-secondary dark:border-dark-border flex items-center gap-2 border-b border-gray-200/80 bg-white px-3 py-2.5 backdrop-blur-sm sm:gap-4 sm:px-5">
+    <header className="relative z-50 dark:bg-dark-bg-secondary dark:border-dark-border flex items-center gap-2 border-b border-gray-200/80 bg-white px-3 py-2.5 backdrop-blur-sm sm:gap-4 sm:px-5">
       <button
         onClick={onToggleSidebar}
         className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary flex-shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 lg:hidden"
