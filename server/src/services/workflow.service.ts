@@ -2,6 +2,9 @@ import { queryAll, queryOne, execute, runInTransaction } from '../db/index.js';
 import { sendPushToAccount } from './push.service.js';
 import { getOAuth2ClientForAccount } from './auth.service.js';
 import { getGmailClient, sendEmail } from './gmail.service.js';
+import { extractActionItems } from './email-intelligence.service.js';
+import { extractAndStoreEventCandidatesForEmail, syncEventCandidateToCalendar } from './calendar-automation.service.js';
+import { upsertDetectedTaskForEmail } from './task-detection.service.js';
 import { v4 as uuid } from 'uuid';
 import logger from '../utils/logger.js';
 
@@ -21,8 +24,8 @@ async function getAnthropicClient() {
 // --- Interfaces ---
 
 export interface WorkflowStep {
-  type: 'filter' | 'ai_analyze' | 'categorize' | 'label' | 'forward' | 'summarize' | 'extract' | 'group' | 'notify' | 'save_report' | 'ai_reply' | 'condition';
-  name: string;
+  type: 'filter' | 'ai_analyze' | 'categorize' | 'label' | 'forward' | 'summarize' | 'extract' | 'group' | 'notify' | 'save_report' | 'ai_reply' | 'condition' | 'extract_action_items' | 'detect_followup_risk' | 'extract_calendar_event' | 'create_calendar_event' | 'raise_dashboard_alert';
+  name?: string;
   config: Record<string, unknown>;
 }
 
@@ -116,12 +119,12 @@ export interface StepResult {
 // --- Row to model mappers ---
 
 function rowToWorkflow(row: WorkflowRow): Workflow {
-  return {
+  return normalizeWorkflowForRuntime({
     id: row.id,
     accountId: row.account_id,
     name: row.name,
     description: row.description,
-    triggerType: row.trigger_type,
+    triggerType: normalizeTriggerType(row.trigger_type),
     triggerConfig: safeJsonParse(row.trigger_config, {}),
     steps: safeJsonParse(row.steps, []),
     isActive: row.is_active === 1,
@@ -129,7 +132,7 @@ function rowToWorkflow(row: WorkflowRow): Workflow {
     lastRunAt: row.last_run_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-  };
+  });
 }
 
 function rowToWorkflowRun(row: WorkflowRunRow): WorkflowRun {
@@ -156,6 +159,125 @@ function safeJsonParse<T>(json: string | null | undefined, fallback: T): T {
   }
 }
 
+function normalizeTriggerType(triggerType: string): string {
+  if (triggerType === 'on_receive') return 'new_email';
+  if (triggerType === 'scheduled') return 'schedule';
+  return triggerType;
+}
+
+function toStorageTriggerType(triggerType: string): string {
+  if (triggerType === 'new_email') return 'on_receive';
+  if (triggerType === 'schedule') return 'scheduled';
+  return triggerType;
+}
+
+function parseCronDays(segment?: string): number[] | undefined {
+  if (!segment || segment === '*' || segment === '?') return undefined;
+  const mapped = segment
+    .split(',')
+    .map((value) => Number.parseInt(value.trim(), 10))
+    .filter((value) => Number.isInteger(value))
+    .map((value) => (value === 7 ? 0 : value))
+    .filter((value) => value >= 0 && value <= 6);
+  return mapped.length > 0 ? [...new Set(mapped)] : undefined;
+}
+
+function normalizeScheduleConfig(triggerConfig: Record<string, unknown>): Record<string, unknown> {
+  const hour = typeof triggerConfig.hour === 'number'
+    ? triggerConfig.hour
+    : Number.parseInt(String(triggerConfig.hour ?? ''), 10);
+  const minute = typeof triggerConfig.minute === 'number'
+    ? triggerConfig.minute
+    : Number.parseInt(String(triggerConfig.minute ?? ''), 10);
+  const days = Array.isArray(triggerConfig.days)
+    ? triggerConfig.days.map((value) => Number.parseInt(String(value), 10)).filter((value) => Number.isInteger(value))
+    : undefined;
+
+  if (Number.isInteger(hour) && Number.isInteger(minute)) {
+    return {
+      hour,
+      minute,
+      days: days && days.length > 0 ? [...new Set(days)] : [1, 2, 3, 4, 5],
+    };
+  }
+
+  const cron = typeof triggerConfig.cron === 'string' ? triggerConfig.cron.trim() : '';
+  if (cron) {
+    const parts = cron.split(/\s+/);
+    if (parts.length >= 5) {
+      const cronMinute = Number.parseInt(parts[0], 10);
+      const cronHour = Number.parseInt(parts[1], 10);
+      const cronDays = parseCronDays(parts[4]) ?? [1, 2, 3, 4, 5];
+      if (Number.isInteger(cronHour) && Number.isInteger(cronMinute)) {
+        return {
+          hour: cronHour,
+          minute: cronMinute,
+          days: cronDays,
+        };
+      }
+    }
+  }
+
+  return {
+    hour: 7,
+    minute: 0,
+    days: [1, 2, 3, 4, 5],
+  };
+}
+
+function normalizeStepConfigForType(stepType: WorkflowStep['type'], config: Record<string, unknown>): Record<string, unknown> {
+  if (stepType === 'filter') {
+    if (typeof config.field === 'string' && typeof config.value === 'string') {
+      return config;
+    }
+    if (typeof config.sender === 'string' && config.sender.trim()) {
+      return {
+        field: 'from_email',
+        operator: 'contains',
+        value: config.sender.trim(),
+      };
+    }
+    if (typeof config.subject === 'string' && config.subject.trim()) {
+      return {
+        field: 'subject',
+        operator: 'contains',
+        value: config.subject.trim(),
+      };
+    }
+  }
+
+  if (stepType === 'notify') {
+    return {
+      title: typeof config.title === 'string' ? config.title : 'Workflow értesítés',
+      body: typeof config.body === 'string'
+        ? config.body
+        : typeof config.message === 'string'
+          ? config.message
+          : undefined,
+    };
+  }
+
+  return config;
+}
+
+function normalizeWorkflowStep(step: WorkflowStep): WorkflowStep {
+  return {
+    ...step,
+    name: step.name ?? step.type,
+    config: normalizeStepConfigForType(step.type, step.config),
+  };
+}
+
+function normalizeWorkflowForRuntime(workflow: Workflow): Workflow {
+  return {
+    ...workflow,
+    triggerConfig: workflow.triggerType === 'schedule'
+      ? normalizeScheduleConfig(workflow.triggerConfig)
+      : workflow.triggerConfig,
+    steps: workflow.steps.map(normalizeWorkflowStep),
+  };
+}
+
 // --- CRUD ---
 
 export async function createWorkflow(
@@ -172,23 +294,33 @@ export async function createWorkflow(
   await execute(
     `INSERT INTO workflows (id, account_id, name, description, trigger_type, trigger_config, steps, is_active, run_count, last_run_at, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, NULL, ?, ?)`,
-    [id, accountId, name, description, triggerType, JSON.stringify(triggerConfig), JSON.stringify(steps), now, now],
+    [
+      id,
+      accountId,
+      name,
+      description,
+      toStorageTriggerType(triggerType),
+      JSON.stringify(triggerType === 'schedule' ? normalizeScheduleConfig(triggerConfig) : triggerConfig),
+      JSON.stringify(steps.map(normalizeWorkflowStep)),
+      now,
+      now,
+    ],
   );
 
-  return {
+  return normalizeWorkflowForRuntime({
     id,
     accountId,
     name,
     description,
-    triggerType,
-    triggerConfig,
-    steps,
+    triggerType: normalizeTriggerType(triggerType),
+    triggerConfig: triggerType === 'schedule' ? normalizeScheduleConfig(triggerConfig) : triggerConfig,
+    steps: steps.map(normalizeWorkflowStep),
     isActive: true,
     runCount: 0,
     lastRunAt: null,
     createdAt: now,
     updatedAt: now,
-  };
+  });
 }
 
 export async function getWorkflows(accountId: string): Promise<Workflow[]> {
@@ -233,15 +365,19 @@ export async function updateWorkflow(
   }
   if (updates.triggerType !== undefined) {
     fields.push('trigger_type = ?');
-    params.push(updates.triggerType);
+    params.push(toStorageTriggerType(updates.triggerType));
   }
   if (updates.triggerConfig !== undefined) {
     fields.push('trigger_config = ?');
-    params.push(JSON.stringify(updates.triggerConfig));
+    params.push(JSON.stringify(
+      updates.triggerType === 'schedule' || (updates.triggerType === undefined && existing.trigger_type === 'scheduled')
+        ? normalizeScheduleConfig(updates.triggerConfig)
+        : updates.triggerConfig,
+    ));
   }
   if (updates.steps !== undefined) {
     fields.push('steps = ?');
-    params.push(JSON.stringify(updates.steps));
+    params.push(JSON.stringify(updates.steps.map(normalizeWorkflowStep)));
   }
 
   params.push(id);
@@ -271,13 +407,13 @@ export async function processScheduledWorkflows(): Promise<void> {
   const dayOfWeek = now.getDay(); // 0=Sunday
 
   const rows = await queryAll<WorkflowRow>(
-    'SELECT * FROM workflows WHERE is_active = 1 AND trigger_type = ?',
-    ['scheduled'],
+    'SELECT * FROM workflows WHERE is_active = 1 AND trigger_type IN (?, ?)',
+    ['scheduled', 'schedule'],
   );
   const scheduled = rows.map(rowToWorkflow);
 
   for (const wf of scheduled) {
-    const config = wf.triggerConfig as { hour?: number; minute?: number; days?: number[] };
+    const config = normalizeScheduleConfig(wf.triggerConfig) as { hour?: number; minute?: number; days?: number[] };
     const targetHour = config.hour ?? 7;
     const targetMinute = config.minute ?? 0;
     const targetDays = config.days ?? [1, 2, 3, 4, 5]; // weekdays by default
@@ -411,6 +547,16 @@ export async function executeStep(step: WorkflowStep, context: StepContext): Pro
         return await handleAIReplyStep(context.emails, step.config);
       case 'condition':
         return handleConditionStep(context.data, step.config, context);
+      case 'extract_action_items':
+        return await handleExtractActionItemsStep(context.emails, context, step.config);
+      case 'detect_followup_risk':
+        return await handleDetectFollowUpRiskStep(context.emails, context);
+      case 'extract_calendar_event':
+        return await handleExtractCalendarEventStep(context.emails, context);
+      case 'create_calendar_event':
+        return await handleCreateCalendarEventStep(context.data);
+      case 'raise_dashboard_alert':
+        return await handleRaiseDashboardAlertStep(context.emails, context, step.config);
       default:
         return { success: false, error: `Unknown step type: ${step.type}` };
     }
@@ -440,13 +586,14 @@ export async function handleFilterStep(
   config: Record<string, unknown>,
   context?: StepContext,
 ): Promise<StepResult> {
-  const { field, operator, value } = config as {
+  const normalizedConfig = normalizeStepConfigForType('filter', config);
+  const { field, operator, value } = normalizedConfig as {
     field?: string;
     operator?: string;
     value?: string;
   };
 
-  if (!field || !value) {
+  if (!field || (!value && operator !== 'in_vip_list')) {
     return { success: true, data: { filtered: emails.length, total: emails.length } };
   }
 
@@ -458,24 +605,36 @@ export async function handleFilterStep(
   }
 
   const filtered = emails.filter((email) => {
-    const fieldValue = String((email as unknown as Record<string, unknown>)[field] ?? '').toLowerCase();
-    const matchValue = value.toLowerCase();
+    const numericFieldValue = field === 'date_age_days'
+      ? Math.floor((Date.now() - Number(email.date ?? 0)) / (24 * 60 * 60 * 1000))
+      : null;
+    const fieldValue = numericFieldValue ?? String((email as unknown as Record<string, unknown>)[field] ?? '').toLowerCase();
+    const matchValue = typeof value === 'string' ? value.toLowerCase() : '';
+    const numericMatchValue = Number(value);
 
     switch (operator) {
       case 'contains':
-        return fieldValue.includes(matchValue);
+        return String(fieldValue).includes(matchValue);
       case 'equals':
         return fieldValue === matchValue;
       case 'starts_with':
-        return fieldValue.startsWith(matchValue);
+        return String(fieldValue).startsWith(matchValue);
       case 'ends_with':
-        return fieldValue.endsWith(matchValue);
+        return String(fieldValue).endsWith(matchValue);
       case 'not_contains':
-        return !fieldValue.includes(matchValue);
+        return !String(fieldValue).includes(matchValue);
+      case 'gt':
+        return Number(fieldValue) > numericMatchValue;
+      case 'gte':
+        return Number(fieldValue) >= numericMatchValue;
+      case 'lt':
+        return Number(fieldValue) < numericMatchValue;
+      case 'lte':
+        return Number(fieldValue) <= numericMatchValue;
       case 'in_vip_list':
-        return vipEmails.includes(fieldValue.toLowerCase());
+        return vipEmails.includes(String(fieldValue).toLowerCase());
       default:
-        return fieldValue.includes(matchValue);
+        return String(fieldValue).includes(matchValue);
     }
   });
 
@@ -678,6 +837,90 @@ export function handleExtractStep(
   return { success: true, data: { extracted } };
 }
 
+async function handleExtractActionItemsStep(
+  emails: EmailRow[],
+  context: StepContext,
+  config: Record<string, unknown>,
+): Promise<StepResult> {
+  const workflowOrigin = (config.workflowOrigin as string) || 'workflow';
+  const extracted = await Promise.all(
+    emails.map((email) => extractActionItems(email.id, { workflowOrigin })),
+  );
+  context.data.actionItems = extracted.flat();
+  return {
+    success: true,
+    data: { extractedActionItems: extracted.flat().length },
+  };
+}
+
+async function handleDetectFollowUpRiskStep(
+  emails: EmailRow[],
+  context: StepContext,
+): Promise<StepResult> {
+  const detected = await Promise.all(
+    emails.map((email) => upsertDetectedTaskForEmail(context.accountId, email.id)),
+  );
+  context.data.followUpRisks = detected.filter(Boolean);
+  return {
+    success: true,
+    data: { detected: detected.filter(Boolean).length },
+  };
+}
+
+async function handleExtractCalendarEventStep(
+  emails: EmailRow[],
+  context: StepContext,
+): Promise<StepResult> {
+  const candidates = await Promise.all(
+    emails.map((email) => extractAndStoreEventCandidatesForEmail(email.id)),
+  );
+  context.data.eventCandidates = candidates.flat();
+  return {
+    success: true,
+    data: { eventCandidates: candidates.flat().length },
+  };
+}
+
+async function handleCreateCalendarEventStep(data: Record<string, unknown>): Promise<StepResult> {
+  const candidates = (data.eventCandidates as Array<{ id: string }>) || [];
+  const createdIds: string[] = [];
+  for (const candidate of candidates) {
+    const created = await syncEventCandidateToCalendar(candidate.id);
+    if (created?.googleEventId) createdIds.push(created.googleEventId);
+  }
+  return {
+    success: true,
+    data: { createdCalendarEvents: createdIds.length },
+  };
+}
+
+async function handleRaiseDashboardAlertStep(
+  emails: EmailRow[],
+  context: StepContext,
+  config: Record<string, unknown>,
+): Promise<StepResult> {
+  const reminderOffsetHours = Number(config.reminderOffsetHours ?? 2);
+  const note = String(config.note ?? 'Workflow által létrehozott AI figyelmeztetés');
+  let remindersCreated = 0;
+  for (const email of emails) {
+    const existing = await queryOne<{ id: string }>(
+      'SELECT id FROM reminders WHERE email_id = ? AND account_id = ? AND is_completed = 0',
+      [email.id, context.accountId],
+    );
+    if (existing) continue;
+    await execute(
+      `INSERT INTO reminders (id, email_id, account_id, remind_at, note, is_completed, created_at)
+       VALUES (?, ?, ?, ?, ?, 0, ?)`,
+      [uuid(), email.id, context.accountId, Date.now() + reminderOffsetHours * 60 * 60 * 1000, note, Date.now()],
+    );
+    remindersCreated++;
+  }
+  return {
+    success: true,
+    data: { remindersCreated },
+  };
+}
+
 export function handleGroupStep(
   emails: EmailRow[],
   config: Record<string, unknown>,
@@ -704,8 +947,9 @@ export async function handleNotifyStep(
   config: Record<string, unknown>,
   context: StepContext,
 ): Promise<StepResult> {
-  const title = (config.title as string) ?? 'Workflow értesítés';
-  const body = (config.body as string) ?? `${context.emails.length} email feldolgozva`;
+  const normalizedConfig = normalizeStepConfigForType('notify', config);
+  const title = (normalizedConfig.title as string) ?? 'Workflow értesítés';
+  const body = (normalizedConfig.body as string) ?? `${context.emails.length} email feldolgozva`;
 
   try {
     await sendPushToAccount(context.accountId, { title, body });
@@ -863,7 +1107,7 @@ export async function createDefaultWorkflows(accountId: string): Promise<Workflo
   // 1. Napi összefoglaló — reggel 7:00
   workflows.push(
     await createWorkflow(accountId, 'Napi összefoglaló', 'Reggel 7:00-kor összefoglalja a tegnapi emaileket', 'scheduled', { hour: 7, minute: 0, days: [0, 1, 2, 3, 4, 5, 6] }, [
-      { type: 'filter', name: 'Tegnapi emailek', config: { field: 'date', operator: 'gte', value: 'yesterday' } },
+      { type: 'filter', name: 'Elmúlt 1 nap emailjei', config: { field: 'date_age_days', operator: 'lte', value: '1' } },
       { type: 'summarize', name: 'Összefoglalás', config: { maxLength: 300 } },
       { type: 'notify', name: 'Értesítés', config: { title: 'Napi összefoglaló', body: 'Tegnapi emailek összefoglalója elkészült' } },
     ]),
@@ -891,7 +1135,7 @@ export async function createDefaultWorkflows(accountId: string): Promise<Workflo
   // 4. Heti riport — weekly
   workflows.push(
     await createWorkflow(accountId, 'Heti riport', 'Heti statisztika: email mennyiség, top feladók, válaszidők', 'scheduled', { hour: 8, minute: 0, days: [1] }, [
-      { type: 'filter', name: 'Heti emailek', config: { field: 'date', operator: 'gte', value: 'last_week' } },
+      { type: 'filter', name: 'Elmúlt 7 nap emailjei', config: { field: 'date_age_days', operator: 'lte', value: '7' } },
       { type: 'group', name: 'Feladók csoportosítása', config: { groupBy: 'from_email' } },
       { type: 'summarize', name: 'Statisztika', config: { maxLength: 500 } },
       { type: 'save_report', name: 'Heti riport mentés', config: { reportName: 'weekly_report' } },

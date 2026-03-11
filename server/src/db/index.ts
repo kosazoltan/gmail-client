@@ -142,7 +142,8 @@ export async function initializeDatabase(): Promise<void> {
         color TEXT NOT NULL DEFAULT '#6B7280',
         icon TEXT NOT NULL DEFAULT 'folder',
         is_system INTEGER NOT NULL DEFAULT 0,
-        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        created_at BIGINT NOT NULL DEFAULT 0
       );
 
       CREATE TABLE IF NOT EXISTS topics (
@@ -389,9 +390,39 @@ export async function initializeDatabase(): Promise<void> {
         email_id TEXT NOT NULL REFERENCES emails(id) ON DELETE CASCADE,
         account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
         text TEXT NOT NULL,
-        due_date INTEGER,
+        due_date BIGINT,
+        source_quote TEXT,
+        priority TEXT DEFAULT 'medium',
+        confidence REAL DEFAULT 0.5,
+        suggested_action TEXT,
+        workflow_origin TEXT,
+        calendar_event_id TEXT,
         is_done INTEGER DEFAULT 0,
-        created_at INTEGER NOT NULL
+        created_at BIGINT NOT NULL,
+        updated_at BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT
+      );
+
+      CREATE TABLE IF NOT EXISTS email_event_candidates (
+        id TEXT PRIMARY KEY,
+        email_id TEXT NOT NULL REFERENCES emails(id) ON DELETE CASCADE,
+        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        thread_id TEXT,
+        title TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        start_at BIGINT NOT NULL,
+        end_at BIGINT,
+        is_all_day INTEGER DEFAULT 0,
+        timezone TEXT DEFAULT 'Europe/Budapest',
+        location TEXT,
+        participants_json TEXT,
+        source_quote TEXT,
+        confidence REAL DEFAULT 0.5,
+        status TEXT DEFAULT 'suggested',
+        google_event_id TEXT,
+        google_event_link TEXT,
+        created_at BIGINT NOT NULL,
+        updated_at BIGINT NOT NULL,
+        UNIQUE(email_id, title, start_at)
       );
 
       CREATE TABLE IF NOT EXISTS ai_messages (
@@ -410,14 +441,14 @@ export async function initializeDatabase(): Promise<void> {
         subject TEXT,
         from_email TEXT,
         from_name TEXT,
-        email_date INTEGER,
+        email_date BIGINT,
         detection_type TEXT NOT NULL,
         reason TEXT,
         priority TEXT DEFAULT 'medium',
         status TEXT DEFAULT 'open',
-        snoozed_until INTEGER,
-        created_at INTEGER DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT,
-        updated_at INTEGER DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT
+        snoozed_until BIGINT,
+        created_at BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT,
+        updated_at BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT
       );
 
       CREATE TABLE IF NOT EXISTS daily_briefs (
@@ -437,7 +468,7 @@ export async function initializeDatabase(): Promise<void> {
         email_id TEXT NOT NULL REFERENCES emails(id) ON DELETE CASCADE,
         category_id TEXT NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
         account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-        created_at INTEGER DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT,
+        created_at BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT,
         PRIMARY KEY (email_id, category_id)
       );
     `);
@@ -445,6 +476,7 @@ export async function initializeDatabase(): Promise<void> {
     // Indexes
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_emails_account ON emails(account_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_emails_id_account_unique ON emails(id, account_id);
       CREATE INDEX IF NOT EXISTS idx_emails_date ON emails(date);
       CREATE INDEX IF NOT EXISTS idx_emails_from ON emails(from_email);
       CREATE INDEX IF NOT EXISTS idx_emails_category ON emails(category_id);
@@ -453,6 +485,7 @@ export async function initializeDatabase(): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_sender_groups_account ON sender_groups(account_id);
       CREATE INDEX IF NOT EXISTS idx_sender_groups_email ON sender_groups(email);
       CREATE INDEX IF NOT EXISTS idx_categories_account ON categories(account_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_id_account_unique ON categories(id, account_id);
       CREATE INDEX IF NOT EXISTS idx_topics_account ON topics(account_id);
       CREATE INDEX IF NOT EXISTS idx_sessions_expire ON sessions(expire);
       CREATE INDEX IF NOT EXISTS idx_contacts_account ON contacts(account_id);
@@ -487,11 +520,20 @@ export async function initializeDatabase(): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_action_items_email ON action_items(email_id);
       CREATE INDEX IF NOT EXISTS idx_action_items_account ON action_items(account_id);
       CREATE INDEX IF NOT EXISTS idx_action_items_done ON action_items(is_done);
+      CREATE INDEX IF NOT EXISTS idx_action_items_due ON action_items(due_date);
+      CREATE INDEX IF NOT EXISTS idx_action_items_priority ON action_items(priority);
       CREATE INDEX IF NOT EXISTS idx_ai_messages_conversation ON ai_messages(conversation_id);
       CREATE INDEX IF NOT EXISTS idx_ai_messages_created ON ai_messages(created_at);
 
       CREATE INDEX IF NOT EXISTS idx_detected_tasks_account ON detected_tasks(account_id, status);
       CREATE INDEX IF NOT EXISTS idx_detected_tasks_email ON detected_tasks(email_id);
+      CREATE INDEX IF NOT EXISTS idx_detected_tasks_status_snoozed ON detected_tasks(account_id, status, snoozed_until);
+
+      CREATE INDEX IF NOT EXISTS idx_event_candidates_account ON email_event_candidates(account_id);
+      CREATE INDEX IF NOT EXISTS idx_event_candidates_email ON email_event_candidates(email_id);
+      CREATE INDEX IF NOT EXISTS idx_event_candidates_start ON email_event_candidates(start_at);
+      CREATE INDEX IF NOT EXISTS idx_event_candidates_status ON email_event_candidates(status);
+      CREATE INDEX IF NOT EXISTS idx_event_candidates_account_status_start ON email_event_candidates(account_id, status, start_at);
 
       CREATE INDEX IF NOT EXISTS idx_daily_briefs_account_date ON daily_briefs(account_id, date DESC);
 
@@ -515,7 +557,15 @@ export async function initializeDatabase(): Promise<void> {
       ALTER TABLE scheduled_emails ADD COLUMN IF NOT EXISTS processing_started_at BIGINT;
       ALTER TABLE categories ADD COLUMN IF NOT EXISTS description TEXT;
       ALTER TABLE categories ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
-      ALTER TABLE categories ADD COLUMN IF NOT EXISTS created_at INTEGER DEFAULT 0;
+      ALTER TABLE categories ADD COLUMN IF NOT EXISTS created_at BIGINT DEFAULT 0;
+      ALTER TABLE action_items ADD COLUMN IF NOT EXISTS source_quote TEXT;
+      ALTER TABLE action_items ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'medium';
+      ALTER TABLE action_items ADD COLUMN IF NOT EXISTS confidence REAL DEFAULT 0.5;
+      ALTER TABLE action_items ADD COLUMN IF NOT EXISTS suggested_action TEXT;
+      ALTER TABLE action_items ADD COLUMN IF NOT EXISTS workflow_origin TEXT;
+      ALTER TABLE action_items ADD COLUMN IF NOT EXISTS calendar_event_id TEXT;
+      ALTER TABLE action_items ADD COLUMN IF NOT EXISTS updated_at BIGINT;
+      ALTER TABLE email_event_candidates ADD COLUMN IF NOT EXISTS google_event_link TEXT;
 
     `);
 
@@ -554,8 +604,15 @@ export async function initializeDatabase(): Promise<void> {
       'ALTER TABLE smart_folders ALTER COLUMN updated_at TYPE BIGINT',
       'ALTER TABLE action_items ALTER COLUMN due_date TYPE BIGINT',
       'ALTER TABLE action_items ALTER COLUMN created_at TYPE BIGINT',
+      'ALTER TABLE action_items ALTER COLUMN updated_at TYPE BIGINT',
       'ALTER TABLE ai_messages ALTER COLUMN created_at TYPE BIGINT',
       'ALTER TABLE daily_briefs ALTER COLUMN generated_at TYPE BIGINT',
+      'ALTER TABLE categories ALTER COLUMN created_at TYPE BIGINT',
+      'ALTER TABLE detected_tasks ALTER COLUMN email_date TYPE BIGINT',
+      'ALTER TABLE detected_tasks ALTER COLUMN snoozed_until TYPE BIGINT',
+      'ALTER TABLE detected_tasks ALTER COLUMN created_at TYPE BIGINT',
+      'ALTER TABLE detected_tasks ALTER COLUMN updated_at TYPE BIGINT',
+      'ALTER TABLE email_categories ALTER COLUMN created_at TYPE BIGINT',
     ];
     for (const sql of bigintMigrations) {
       try {
@@ -564,6 +621,34 @@ export async function initializeDatabase(): Promise<void> {
         // Already BIGINT or column doesn't exist — safe to ignore
         logger.debug(`BIGINT migration skipped: ${sql} — ${(err as Error).message}`);
       }
+    }
+
+    // Clean mismatched account-linked records before composite FK migrations
+    try {
+      await client.query(`
+        DELETE FROM action_items ai
+        WHERE NOT EXISTS (
+          SELECT 1 FROM emails e WHERE e.id = ai.email_id AND e.account_id = ai.account_id
+        );
+        DELETE FROM detected_tasks dt
+        WHERE NOT EXISTS (
+          SELECT 1 FROM emails e WHERE e.id = dt.email_id AND e.account_id = dt.account_id
+        );
+        DELETE FROM email_event_candidates ec
+        WHERE NOT EXISTS (
+          SELECT 1 FROM emails e WHERE e.id = ec.email_id AND e.account_id = ec.account_id
+        );
+        DELETE FROM email_categories ec
+        WHERE NOT EXISTS (
+          SELECT 1 FROM emails e WHERE e.id = ec.email_id AND e.account_id = ec.account_id
+        );
+        DELETE FROM email_categories ec
+        WHERE NOT EXISTS (
+          SELECT 1 FROM categories c WHERE c.id = ec.category_id AND c.account_id = ec.account_id
+        );
+      `);
+    } catch (err) {
+      logger.debug(`Composite FK cleanup skipped: ${(err as Error).message}`);
     }
 
     // FK migrations for existing tables (idempotent — skips if constraint already exists)
@@ -577,6 +662,18 @@ export async function initializeDatabase(): Promise<void> {
         ALTER TABLE detected_tasks ADD CONSTRAINT fk_detected_tasks_email
           FOREIGN KEY (email_id) REFERENCES emails(id) ON DELETE CASCADE;
       EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+      `DO $$ BEGIN
+        ALTER TABLE detected_tasks ADD CONSTRAINT fk_detected_tasks_email_account
+          FOREIGN KEY (email_id, account_id) REFERENCES emails(id, account_id) ON DELETE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+      `DO $$ BEGIN
+        ALTER TABLE action_items ADD CONSTRAINT fk_action_items_email_account
+          FOREIGN KEY (email_id, account_id) REFERENCES emails(id, account_id) ON DELETE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+      `DO $$ BEGIN
+        ALTER TABLE email_event_candidates ADD CONSTRAINT fk_event_candidates_email_account
+          FOREIGN KEY (email_id, account_id) REFERENCES emails(id, account_id) ON DELETE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
       // email_categories: add FK to emails, categories, accounts
       `DO $$ BEGIN
         ALTER TABLE email_categories ADD CONSTRAINT fk_email_categories_email
@@ -589,6 +686,14 @@ export async function initializeDatabase(): Promise<void> {
       `DO $$ BEGIN
         ALTER TABLE email_categories ADD CONSTRAINT fk_email_categories_account
           FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+      `DO $$ BEGIN
+        ALTER TABLE email_categories ADD CONSTRAINT fk_email_categories_email_account
+          FOREIGN KEY (email_id, account_id) REFERENCES emails(id, account_id) ON DELETE CASCADE;
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+      `DO $$ BEGIN
+        ALTER TABLE email_categories ADD CONSTRAINT fk_email_categories_category_account
+          FOREIGN KEY (category_id, account_id) REFERENCES categories(id, account_id) ON DELETE CASCADE;
       EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
       // workflow_runs.trigger_email_id: add FK to emails (SET NULL on delete)
       `DO $$ BEGIN
@@ -610,6 +715,10 @@ export async function initializeDatabase(): Promise<void> {
       await client.query(`
         DELETE FROM detected_tasks WHERE email_id NOT IN (SELECT id FROM emails);
         DELETE FROM detected_tasks WHERE account_id NOT IN (SELECT id FROM accounts);
+        DELETE FROM action_items WHERE email_id NOT IN (SELECT id FROM emails);
+        DELETE FROM action_items WHERE account_id NOT IN (SELECT id FROM accounts);
+        DELETE FROM email_event_candidates WHERE email_id NOT IN (SELECT id FROM emails);
+        DELETE FROM email_event_candidates WHERE account_id NOT IN (SELECT id FROM accounts);
         DELETE FROM email_categories WHERE email_id NOT IN (SELECT id FROM emails);
         DELETE FROM email_categories WHERE category_id NOT IN (SELECT id FROM categories);
         DELETE FROM email_categories WHERE account_id NOT IN (SELECT id FROM accounts);

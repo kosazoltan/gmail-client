@@ -1,11 +1,11 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   useCalendarEvents,
-  useCalendarToday,
   useCreateCalendarEvent,
   useUpdateCalendarEvent,
   useDeleteCalendarEvent,
 } from '../../hooks/useCalendar';
+import { useSearchParams } from 'react-router-dom';
 import { format, addDays, startOfWeek, isToday as isTodayFn } from 'date-fns';
 import { hu } from 'date-fns/locale';
 import {
@@ -46,12 +46,14 @@ const emptyForm: EventFormData = {
 };
 
 export function CalendarView() {
+  const [searchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [formData, setFormData] = useState<EventFormData>(emptyForm);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const autoOpenedEventIdRef = useRef<string | null>(null);
 
   const createMutation = useCreateCalendarEvent();
   const updateMutation = useUpdateCalendarEvent();
@@ -60,16 +62,27 @@ export function CalendarView() {
   // Hét navigáció: a selectedDate alapján számolt timeMin/timeMax
   const monday = useMemo(() => startOfWeek(selectedDate, { weekStartsOn: 1 }), [selectedDate]);
   const sunday = useMemo(() => addDays(monday, 7), [monday]);
+  const dayStart = useMemo(() => {
+    const date = new Date(selectedDate);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }, [selectedDate]);
+  const dayEnd = useMemo(() => addDays(dayStart, 1), [dayStart]);
 
   const { data: weekData, isLoading: weekLoading, error: weekError } = useCalendarEvents({
     timeMin: monday.toISOString(),
     timeMax: sunday.toISOString(),
+    enabled: viewMode === 'week',
   });
-  const { data: todayData, isLoading: todayLoading, error: todayError } = useCalendarToday();
+  const { data: dayData, isLoading: dayLoading, error: dayError } = useCalendarEvents({
+    timeMin: dayStart.toISOString(),
+    timeMax: dayEnd.toISOString(),
+    enabled: viewMode === 'day',
+  });
 
-  const isLoading = viewMode === 'week' ? weekLoading : todayLoading;
-  const error = viewMode === 'week' ? weekError : todayError;
-  const events = viewMode === 'week' ? weekData?.events : todayData?.events;
+  const isLoading = viewMode === 'week' ? weekLoading : dayLoading;
+  const error = viewMode === 'week' ? weekError : dayError;
+  const events = viewMode === 'week' ? weekData?.events : dayData?.events;
 
   // Hét napjai (hétfőtől vasárnapig)
   const weekDays = useMemo(() => {
@@ -97,6 +110,10 @@ export function CalendarView() {
     setSelectedDate((prev) => addDays(prev, direction * 7));
   };
 
+  const navigateDay = (direction: number) => {
+    setSelectedDate((prev) => addDays(prev, direction));
+  };
+
   const openCreateModal = useCallback(() => {
     setEditingEvent(null);
     setFormData(emptyForm);
@@ -111,7 +128,7 @@ export function CalendarView() {
 
     if (event.isAllDay) {
       startVal = event.start; // YYYY-MM-DD
-      endVal = event.end || '';
+      endVal = event.end || event.start || '';
     } else {
       // ISO → datetime-local format (YYYY-MM-DDTHH:mm)
       startVal = event.start ? event.start.slice(0, 16) : '';
@@ -128,6 +145,30 @@ export function CalendarView() {
     });
     setModalOpen(true);
   }, []);
+
+  useEffect(() => {
+    const dateParam = searchParams.get('date');
+    const eventId = searchParams.get('eventId');
+    if (!dateParam && !eventId) return;
+
+    const targetDate = dateParam ? new Date(`${dateParam}T12:00:00`) : new Date();
+    if (!Number.isNaN(targetDate.getTime())) {
+      setSelectedDate(targetDate);
+      setViewMode('day');
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const targetEventId = searchParams.get('eventId');
+    if (!targetEventId || !events?.length) return;
+    if (autoOpenedEventIdRef.current === targetEventId) return;
+
+    const targetEvent = events.find((event) => event.id === targetEventId);
+    if (!targetEvent) return;
+
+    openEditModal(targetEvent);
+    autoOpenedEventIdRef.current = targetEventId;
+  }, [events, openEditModal, searchParams]);
 
   const handleSave = useCallback(async () => {
     if (!formData.summary.trim()) return;
@@ -238,31 +279,28 @@ export function CalendarView() {
             </button>
           </div>
 
-          {/* Hét navigáció */}
-          {viewMode === 'week' && (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => navigateWeek(-1)}
-                className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary rounded-lg p-2 text-gray-500 hover:bg-gray-100"
-                aria-label="Előző hét"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => setSelectedDate(new Date())}
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-[#4f6ef7] hover:bg-[#4f6ef7]/10"
-              >
-                Ma
-              </button>
-              <button
-                onClick={() => navigateWeek(1)}
-                className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary rounded-lg p-2 text-gray-500 hover:bg-gray-100"
-                aria-label="Következő hét"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => (viewMode === 'week' ? navigateWeek(-1) : navigateDay(-1))}
+              className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+              aria-label={viewMode === 'week' ? 'Előző hét' : 'Előző nap'}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => setSelectedDate(new Date())}
+              className="rounded-lg px-3 py-1.5 text-sm font-medium text-[#4f6ef7] hover:bg-[#4f6ef7]/10"
+            >
+              Ma
+            </button>
+            <button
+              onClick={() => (viewMode === 'week' ? navigateWeek(1) : navigateDay(1))}
+              className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+              aria-label={viewMode === 'week' ? 'Következő hét' : 'Következő nap'}
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -311,6 +349,7 @@ export function CalendarView() {
                       <EventCard
                         key={event.id}
                         event={event}
+                        highlighted={searchParams.get('eventId') === event.id}
                         onEdit={openEditModal}
                         onDelete={setDeleteConfirmId}
                       />
@@ -332,39 +371,41 @@ export function CalendarView() {
         <div className="dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center gap-3">
             <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-purple-500 text-lg font-bold text-white">
-              {format(new Date(), 'd')}
+              {format(selectedDate, 'd')}
             </span>
             <div>
               <h2 className="dark:text-dark-text text-lg font-semibold text-gray-900">
-                {format(new Date(), 'yyyy. MMMM d., EEEE', { locale: hu })}
+                {format(selectedDate, 'yyyy. MMMM d., EEEE', { locale: hu })}
               </h2>
               <p className="dark:text-dark-text-secondary text-sm text-gray-500">
-                {todayData?.events?.length || 0} esemény
+                {dayData?.events?.length || 0} esemény
               </p>
             </div>
           </div>
 
-          {todayData?.events && todayData.events.length > 0 ? (
+          {dayData?.events && dayData.events.length > 0 ? (
             <div className="space-y-3">
               {/* Egész napos események először */}
-              {todayData.events
+              {dayData.events
                 .filter((e) => e.isAllDay)
                 .map((event) => (
                   <EventCard
                     key={event.id}
                     event={event}
+                    highlighted={searchParams.get('eventId') === event.id}
                     expanded
                     onEdit={openEditModal}
                     onDelete={setDeleteConfirmId}
                   />
                 ))}
               {/* Időpontos események */}
-              {todayData.events
+              {dayData.events
                 .filter((e) => !e.isAllDay)
                 .map((event) => (
                   <EventCard
                     key={event.id}
                     event={event}
+                    highlighted={searchParams.get('eventId') === event.id}
                     expanded
                     onEdit={openEditModal}
                     onDelete={setDeleteConfirmId}
@@ -373,7 +414,7 @@ export function CalendarView() {
             </div>
           ) : (
             <div className="dark:text-dark-text-muted py-12 text-center text-sm text-gray-500">
-              Nincs ma esemény — szabad a nap! 🎉
+              Nincs esemény ezen a napon.
             </div>
           )}
         </div>
@@ -582,11 +623,13 @@ export function CalendarView() {
 function EventCard({
   event,
   expanded = false,
+  highlighted = false,
   onEdit,
   onDelete,
 }: {
   event: CalendarEvent;
   expanded?: boolean;
+  highlighted?: boolean;
   onEdit: (event: CalendarEvent) => void;
   onDelete: (id: string) => void;
 }) {
@@ -597,6 +640,7 @@ function EventCard({
         event.isAllDay
           ? 'border-gray-200 bg-gray-50/70 dark:bg-dark-bg-tertiary/50'
           : 'border-purple-200 bg-purple-50/30 dark:border-purple-500/20 dark:bg-purple-500/5',
+        highlighted && 'ring-2 ring-[#4f6ef7]/40 dark:ring-[#6d8cff]/40',
       )}
     >
       <div className="flex items-start gap-3">

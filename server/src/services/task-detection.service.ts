@@ -48,6 +48,7 @@ interface IncomingEmailRow {
   from_name: string | null;
   date: number;
   is_read: number;
+  snippet?: string | null;
 }
 
 function rowToDetectedTask(row: DetectedTaskRow): DetectedTask {
@@ -76,6 +77,14 @@ function rowToDetectedTask(row: DetectedTaskRow): DetectedTask {
 async function getAccountEmail(accountId: string): Promise<string | null> {
   const row = await queryOne<{ email: string }>('SELECT email FROM accounts WHERE id = ?', [accountId]);
   return row?.email ?? null;
+}
+
+function inferImmediatePriority(email: { subject: string | null; snippet?: string | null; date: number }): string {
+  const combined = `${email.subject || ''} ${email.snippet || ''}`.toLowerCase();
+  if (/(sürgős|urgent|azonnal|asap|határidő|deadline|kritikus)/i.test(combined)) return 'high';
+  const ageHours = (Date.now() - email.date) / (60 * 60 * 1000);
+  if (ageHours >= 72) return 'medium';
+  return 'low';
 }
 
 /**
@@ -222,6 +231,118 @@ export async function detectUnansweredEmails(accountId: string, daysBack: number
   }
 
   return newTasks;
+}
+
+export async function upsertDetectedTaskForEmail(accountId: string, emailId: string): Promise<DetectedTask | null> {
+  const accountEmail = await getAccountEmail(accountId);
+  if (!accountEmail) return null;
+
+  const email = await queryOne<IncomingEmailRow>(
+    `SELECT id, thread_id, subject, from_email, from_name, date, is_read, snippet
+     FROM emails
+     WHERE id = ? AND account_id = ?`,
+    [emailId, accountId],
+  );
+  if (!email || !email.from_email || email.from_email === accountEmail) {
+    return null;
+  }
+
+  let hasReply = false;
+  if (email.thread_id) {
+    const reply = await queryOne<{ id: string }>(
+      `SELECT id FROM emails
+       WHERE thread_id = ?
+         AND account_id = ?
+         AND from_email = ?
+         AND date > ?
+       LIMIT 1`,
+      [email.thread_id, accountId, accountEmail, email.date],
+    );
+    hasReply = !!reply;
+  }
+
+  const detectionType = email.is_read === 0 ? 'unread' : !hasReply ? 'unanswered' : null;
+  if (!detectionType) return null;
+
+  const priority = inferImmediatePriority(email);
+  const reason =
+    detectionType === 'unread'
+      ? 'Új, feldolgozandó email'
+      : 'Az ügy továbbra is válaszra vár';
+
+  const existing = await queryOne<DetectedTaskRow>(
+    'SELECT * FROM detected_tasks WHERE email_id = ? AND account_id = ?',
+    [emailId, accountId],
+  );
+
+  const now = Date.now();
+  if (existing) {
+    await execute(
+      `UPDATE detected_tasks
+       SET detection_type = ?, reason = ?, priority = ?, status = 'open', updated_at = ?
+       WHERE id = ?`,
+      [detectionType, reason, priority, now, existing.id],
+    );
+    return rowToDetectedTask({
+      ...existing,
+      detection_type: detectionType,
+      reason,
+      priority,
+      status: 'open',
+      updated_at: now,
+    });
+  }
+
+  const id = crypto.randomUUID();
+  await execute(
+    `INSERT INTO detected_tasks (
+      id, account_id, email_id, thread_id, subject, from_email, from_name, email_date,
+      detection_type, reason, priority, status, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`,
+    [
+      id,
+      accountId,
+      email.id,
+      email.thread_id,
+      email.subject,
+      email.from_email,
+      email.from_name,
+      email.date,
+      detectionType,
+      reason,
+      priority,
+      now,
+      now,
+    ],
+  );
+
+  return {
+    id,
+    accountId,
+    emailId: email.id,
+    threadId: email.thread_id,
+    subject: email.subject,
+    fromEmail: email.from_email,
+    fromName: email.from_name,
+    emailDate: email.date,
+    detectionType,
+    reason,
+    priority,
+    status: 'open',
+    snoozedUntil: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export async function resolveDetectedTasksForThread(accountId: string, threadId: string | null): Promise<void> {
+  if (!threadId) return;
+  await execute(
+    `UPDATE detected_tasks
+     SET status = 'done', updated_at = ?
+     WHERE account_id = ? AND thread_id = ? AND status = 'open'`,
+    [Date.now(), accountId, threadId],
+  );
 }
 
 /**

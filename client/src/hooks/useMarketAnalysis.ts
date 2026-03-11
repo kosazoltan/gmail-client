@@ -23,12 +23,26 @@ export function useMarketAnalysis() {
     retry: 1,
   });
 
-  const forceRefresh = useCallback(async () => {
-    const resp = await api.market.briefing(true);
-    queryClient.setQueryData(QUERY_KEY, resp.data);
-  }, [queryClient]);
+  const refreshMutation = useMutation({
+    mutationFn: async () => {
+      const resp = await api.market.briefing(true);
+      return resp.data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(QUERY_KEY, data);
+    },
+  });
 
-  return { ...query, forceRefresh };
+  const forceRefresh = useCallback(async () => {
+    await refreshMutation.mutateAsync();
+  }, [refreshMutation]);
+
+  return {
+    ...query,
+    forceRefresh,
+    isForceRefreshing: refreshMutation.isPending,
+    refreshError: refreshMutation.error,
+  };
 }
 
 export function useDeepAnalysis() {

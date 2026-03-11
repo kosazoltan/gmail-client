@@ -3,9 +3,66 @@ import { google } from 'googleapis';
 import { getOAuth2ClientForAccount } from '../services/auth.service.js';
 import { queryOne } from '../db/index.js';
 import { getTaskStats, getDetectedTasks } from '../services/task-detection.service.js';
+import { getActionCenter, type ActionCenterItem } from '../services/action-center.service.js';
 import logger from '../utils/logger.js';
 
 const router = Router();
+
+interface FeedItem {
+  id: string;
+  type: 'today_task' | 'urgent_reply' | 'unanswered_email' | 'deadline';
+  title: string;
+  subtitle?: string | null;
+  excerpt?: string | null;
+  dueAt?: number | null;
+  priority?: 'high' | 'medium' | 'low' | null;
+  emailId?: string | null;
+  threadId?: string | null;
+  links: {
+    app: string | null;
+    gmail: string | null;
+    calendar: string | null;
+  };
+  source: ActionCenterItem['sourceType'];
+}
+
+function buildCalendarLink(dueAt?: number | null): string {
+  if (!dueAt) return '/calendar';
+  const date = new Date(dueAt);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `https://calendar.google.com/calendar/r/day/${year}/${month}/${day}`;
+}
+
+function normalizePriority(input?: string | null): 'high' | 'medium' | 'low' | null {
+  if (input === 'high' || input === 'medium' || input === 'low') return input;
+  return null;
+}
+
+function mapActionCenterItem(
+  item: ActionCenterItem,
+  type: FeedItem['type'],
+): FeedItem {
+  const calendarLink = item.links.calendar ?? (item.dueAt ? buildCalendarLink(item.dueAt) : null);
+
+  return {
+    id: item.id,
+    type,
+    title: item.title,
+    subtitle: item.summary,
+    excerpt: item.quote || item.suggestedAction,
+    dueAt: item.dueAt,
+    priority: item.priority === 'critical' ? 'high' : normalizePriority(item.priority),
+    emailId: item.emailId,
+    threadId: item.threadId,
+    links: {
+      ...item.links,
+      calendar: calendarLink,
+    },
+    source: item.sourceType,
+  };
+}
 
 // Összesített dashboard adat
 router.get('/', async (req, res) => {
@@ -16,6 +73,7 @@ router.get('/', async (req, res) => {
 
   try {
     const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
+    const actionCenter = await getActionCenter(accountId);
 
     // Olvasatlan levelek száma (helyi DB-ből — gyorsabb)
     const unreadResult = await queryOne<{ count: number }>(
@@ -56,6 +114,7 @@ router.get('/', async (req, res) => {
               end: event.end?.dateTime || event.end?.date || '',
               isAllDay,
               location: event.location || null,
+              htmlLink: event.htmlLink || null,
             };
           })
         : [];
@@ -122,6 +181,9 @@ router.get('/', async (req, res) => {
       due: null,
       listId: 'detected',
       listTitle: 'Email feladatok',
+      emailId: dt.emailId,
+      accountId: dt.accountId,
+      appLink: `/?emailId=${encodeURIComponent(dt.emailId)}&accountId=${encodeURIComponent(dt.accountId)}`,
     }));
 
     // Kombinált lista: detected tasks először, aztán Google Tasks, max 5
@@ -135,6 +197,9 @@ router.get('/', async (req, res) => {
         due: t.due || null,
         listId: t.listId,
         listTitle: t.listTitle,
+        emailId: null as string | null,
+        accountId: null as string | null,
+        appLink: '/tasks',
       })),
     ].slice(0, 5);
 
@@ -144,11 +209,47 @@ router.get('/', async (req, res) => {
       todayEventsCount: calendarEvents.length,
       openTasks: combinedOpenTasks,
       openTasksCount: openTasks.length + detectedStats.open,
+      actionCenter,
       timestamp: Date.now(),
     });
   } catch (error) {
     logger.error('Dashboard error:', error);
     return res.status(500).json({ error: 'Dashboard adatok lekérése sikertelen' });
+  }
+});
+
+// Akcióközpont feed - actionable feladatok blokkosítva
+router.get('/feed', async (req, res) => {
+  const accountId = req.session?.activeAccountId;
+  if (!accountId) {
+    return res.status(401).json({ error: 'Nincs aktív fiók' });
+  }
+
+  try {
+    const actionCenter = await getActionCenter(accountId);
+    const todayTasks = actionCenter.blocks.todayFocus
+      .filter((item) => item.sourceType === 'action_items')
+      .map((item) => mapActionCenterItem(item, 'today_task'));
+    const urgentReplies = actionCenter.blocks.urgentClientMatters
+      .filter((item) => item.kind === 'urgent_reply' || item.kind === 'unanswered_email' || item.kind === 'unread_email')
+      .map((item) => mapActionCenterItem(item, 'urgent_reply'));
+    const unanswered = [...actionCenter.blocks.unanswered, ...actionCenter.blocks.repeatedFollowUps]
+      .map((item) => mapActionCenterItem(item, 'unanswered_email'));
+    const deadlines = [...actionCenter.blocks.suggestedEvents, ...actionCenter.blocks.todayCalendar]
+      .map((item) => mapActionCenterItem(item, 'deadline'));
+
+    return res.json({
+      generatedAt: actionCenter.generatedAt,
+      blocks: {
+        todayTasks,
+        urgentReplies,
+        unanswered,
+        deadlines,
+      },
+    });
+  } catch (error) {
+    logger.error('Dashboard feed error:', error);
+    return res.status(500).json({ error: 'Dashboard feed lekérése sikertelen' });
   }
 });
 

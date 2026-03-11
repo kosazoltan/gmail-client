@@ -26,6 +26,7 @@ export function useScanTasks() {
     mutationFn: (daysBack: number) => api.detectedTasks.scan(daysBack),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['detected-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -38,6 +39,8 @@ export function useUpdateDetectedTask() {
       api.detectedTasks.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['detected-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['detected-tasks', 'stats'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -49,6 +52,8 @@ export function useDeleteDetectedTask() {
     mutationFn: (id: string) => api.detectedTasks.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['detected-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['detected-tasks', 'stats'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -61,6 +66,8 @@ export function useSnoozeDetectedTask() {
       api.detectedTasks.snooze(id, days),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['detected-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['detected-tasks', 'stats'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -129,6 +136,7 @@ export function useScanStream() {
           });
           queryClient.invalidateQueries({ queryKey: ['detected-tasks'] });
           queryClient.invalidateQueries({ queryKey: ['detected-tasks', 'stats'] });
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] });
         } catch {
           setScanState(prev => ({ ...prev, isScanning: false, phase: 'error' }));
         }
@@ -164,6 +172,7 @@ export function useScanStream() {
                 setScanState(prev => ({ ...prev, isScanning: false }));
                 queryClient.invalidateQueries({ queryKey: ['detected-tasks'] });
                 queryClient.invalidateQueries({ queryKey: ['detected-tasks', 'stats'] });
+                queryClient.invalidateQueries({ queryKey: ['dashboard'] });
                 abortRef.current = null;
               }
             } catch {
@@ -178,6 +187,7 @@ export function useScanStream() {
         if (prev.isScanning) {
           queryClient.invalidateQueries({ queryKey: ['detected-tasks'] });
           queryClient.invalidateQueries({ queryKey: ['detected-tasks', 'stats'] });
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] });
           return { ...prev, isScanning: false, phase: 'done' };
         }
         return prev;

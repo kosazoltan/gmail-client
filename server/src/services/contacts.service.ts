@@ -78,23 +78,23 @@ export async function getAllContacts(accountId: string): Promise<Contact[]> {
 }
 
 // Email címek kinyerése egy email-ből
-export function extractContactsFromEmail(
+export async function extractContactsFromEmail(
   accountId: string,
   fromEmail: string | null,
   fromName: string | null,
   toEmail: string | null,
   ccEmail: string | null,
-): void {
+): Promise<void> {
   // From cím feldolgozása
   if (fromEmail) {
-    upsertContact(accountId, fromEmail, fromName);
+    await upsertContact(accountId, fromEmail, fromName);
   }
 
   // To címek feldolgozása (lehet több is, vesszővel elválasztva)
   if (toEmail) {
     const toAddresses = parseEmailAddresses(toEmail);
     for (const addr of toAddresses) {
-      upsertContact(accountId, addr.email, addr.name);
+      await upsertContact(accountId, addr.email, addr.name);
     }
   }
 
@@ -102,7 +102,7 @@ export function extractContactsFromEmail(
   if (ccEmail) {
     const ccAddresses = parseEmailAddresses(ccEmail);
     for (const addr of ccAddresses) {
-      upsertContact(accountId, addr.email, addr.name);
+      await upsertContact(accountId, addr.email, addr.name);
     }
   }
 }

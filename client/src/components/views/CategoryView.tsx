@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
 import { useDeleteEmail } from '../../hooks/useEmails';
 import { api } from '../../lib/api';
@@ -67,7 +67,7 @@ function CategoryModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: CategoryFormData) => void;
+  onSave: (data: CategoryFormData) => Promise<unknown> | void;
   initialData?: Partial<CategoryFormData>;
   title: string;
 }) {
@@ -88,6 +88,8 @@ function CategoryModal({
       });
     }
   }, [isOpen, initialData]);
+
+  const [isSaving, setIsSaving] = useState(false);
 
   if (!isOpen) return null;
 
@@ -186,16 +188,21 @@ function CategoryModal({
             Mégse
           </button>
           <button
-            onClick={() => {
+            onClick={async () => {
               if (form.name.trim()) {
-                onSave(form);
-                onClose();
+                try {
+                  setIsSaving(true);
+                  await onSave(form);
+                  onClose();
+                } finally {
+                  setIsSaving(false);
+                }
               }
             }}
-            disabled={!form.name.trim()}
+            disabled={!form.name.trim() || isSaving}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            Mentés
+            {isSaving ? 'Mentés...' : 'Mentés'}
           </button>
         </div>
       </div>
@@ -205,6 +212,7 @@ function CategoryModal({
 
 export function CategoryView() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { data: session } = useSession();
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
@@ -223,10 +231,29 @@ export function CategoryView() {
   });
 
   const { data: categoryEmails, isLoading: loadingEmails } = useQuery({
-    queryKey: ['views', 'by-category-emails', selectedCategory?.id],
+    queryKey: ['views', 'by-category-emails', accountId, selectedCategory?.id],
     queryFn: () => api.views.byCategoryEmails(selectedCategory!.id),
-    enabled: !!selectedCategory,
+    enabled: !!accountId && !!selectedCategory,
   });
+
+  useEffect(() => {
+    const targetCategoryId = searchParams.get('categoryId');
+    const categories = categoryData?.categories || [];
+    if (!targetCategoryId || categories.length === 0) return;
+    const targetCategory = categories.find((category) => category.id === targetCategoryId);
+    if (targetCategory && selectedCategory?.id !== targetCategory.id) {
+      setSelectedCategory(targetCategory);
+    }
+  }, [categoryData?.categories, searchParams, selectedCategory?.id]);
+
+  useEffect(() => {
+    const categories = categoryData?.categories || [];
+    if (!selectedCategory) return;
+    if (!categories.some((category) => category.id === selectedCategory.id)) {
+      setSelectedCategory(null);
+      setSelectedEmail(null);
+    }
+  }, [accountId, categoryData?.categories, selectedCategory]);
 
   // Mutations
   const createCategory = useMutation({
@@ -445,7 +472,7 @@ export function CategoryView() {
         <CategoryModal
           isOpen={showCreateModal}
           onClose={() => setShowCreateModal(false)}
-          onSave={(data) => createCategory.mutate(data)}
+          onSave={(data) => createCategory.mutateAsync(data)}
           title="Új kategória létrehozása"
         />
 
@@ -455,8 +482,9 @@ export function CategoryView() {
           onClose={() => setEditingCategory(null)}
           onSave={(data) => {
             if (editingCategory) {
-              updateCategory.mutate({ id: editingCategory.id, data });
+              return updateCategory.mutateAsync({ id: editingCategory.id, data });
             }
+            return Promise.resolve();
           }}
           initialData={editingCategory ? {
             name: editingCategory.name,

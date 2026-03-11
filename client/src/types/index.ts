@@ -2,18 +2,20 @@
 
 export interface DetectedTask {
   id: string;
+  accountId: string;
   emailId: string;
   threadId: string | null;
   subject: string | null;
   fromEmail: string | null;
   fromName: string | null;
   emailDate: number | null;
-  detectionType: 'unanswered' | 'action_required' | 'follow_up' | 'deadline';
+  detectionType: 'unread' | 'unanswered';
   reason: string | null;
   priority: 'high' | 'medium' | 'low';
   status: 'open' | 'done' | 'dismissed' | 'snoozed';
   snoozedUntil?: number | null;
   createdAt: number;
+  updatedAt?: number;
 }
 
 export interface Account {
@@ -334,6 +336,7 @@ export interface DashboardData {
     end: string;
     isAllDay: boolean;
     location: string | null;
+    htmlLink?: string | null;
   }>;
   todayEventsCount: number;
   openTasks: Array<{
@@ -343,9 +346,97 @@ export interface DashboardData {
     due: string | null;
     listId: string;
     listTitle: string;
+    notes?: string | null;
+    emailId?: string | null;
+    accountId?: string | null;
+    appLink?: string | null;
   }>;
   openTasksCount: number;
+  actionCenter?: ActionCenterData;
   timestamp: number;
+}
+
+export type ActionCenterPriority = 'critical' | 'high' | 'medium' | 'low';
+
+export interface ActionCenterItem {
+  id: string;
+  kind:
+    | 'action_item'
+    | 'urgent_reply'
+    | 'unread_email'
+    | 'unanswered_email'
+    | 'repeated_followup'
+    | 'calendar_event'
+    | 'event_candidate'
+    | 'reminder'
+    | 'google_task';
+  sourceType:
+    | 'action_items'
+    | 'detected_tasks'
+    | 'reminders'
+    | 'calendar'
+    | 'event_candidates'
+    | 'google_tasks';
+  title: string;
+  summary: string | null;
+  quote: string | null;
+  priority: ActionCenterPriority;
+  dueAt: number | null;
+  createdAt: number | null;
+  updatedAt: number | null;
+  status: string | null;
+  confidence: number | null;
+  suggestedAction: string | null;
+  emailId: string | null;
+  accountId: string | null;
+  threadId: string | null;
+  calendarEventId: string | null;
+  links: {
+    app: string | null;
+    gmail: string | null;
+    calendar: string | null;
+  };
+}
+
+export interface ActionCenterData {
+  generatedAt: number;
+  blocks: {
+    todayFocus: ActionCenterItem[];
+    urgentClientMatters: ActionCenterItem[];
+    unanswered: ActionCenterItem[];
+    repeatedFollowUps: ActionCenterItem[];
+    suggestedEvents: ActionCenterItem[];
+    todayCalendar: ActionCenterItem[];
+    delegatedWatch: ActionCenterItem[];
+  };
+}
+
+export interface ActionableFeedItem {
+  id: string;
+  type: 'today_task' | 'urgent_reply' | 'unanswered_email' | 'deadline';
+  title: string;
+  subtitle?: string | null;
+  excerpt?: string | null;
+  dueAt?: number | null;
+  priority?: 'high' | 'medium' | 'low' | null;
+  emailId?: string | null;
+  threadId?: string | null;
+  links: {
+    app: string | null;
+    gmail: string | null;
+    calendar: string | null;
+  };
+  source: ActionCenterItem['sourceType'];
+}
+
+export interface DashboardFeed {
+  generatedAt: number;
+  blocks: {
+    todayTasks: ActionableFeedItem[];
+    urgentReplies: ActionableFeedItem[];
+    unanswered: ActionableFeedItem[];
+    deadlines: ActionableFeedItem[];
+  };
 }
 
 // Thread conversation - teljes beszĂ©lgetĂ©s egy thread-ben
@@ -520,8 +611,15 @@ export interface ActionItem {
   accountId: string;
   text: string;
   dueDate: number | null;
+  sourceQuote?: string | null;
+  priority?: 'high' | 'medium' | 'low';
+  confidence?: number | null;
+  suggestedAction?: string | null;
+  workflowOrigin?: string | null;
+  calendarEventId?: string | null;
   isDone: boolean;
   createdAt: number;
+  updatedAt?: number | null;
 }
 
 export interface SentimentResult {
@@ -712,19 +810,25 @@ export type WorkflowStepType =
   | 'group'
   | 'save_report'
   | 'ai_reply'
-  | 'condition';
+  | 'condition'
+  | 'extract_action_items'
+  | 'detect_followup_risk'
+  | 'extract_calendar_event'
+  | 'create_calendar_event'
+  | 'raise_dashboard_alert';
 
 export interface WorkflowStep {
   id: string;
   type: WorkflowStepType;
-  config: Record<string, string>;
+  name?: string;
+  config: Record<string, unknown>;
 }
 
 export interface WorkflowData {
   id?: string;
   name: string;
   triggerType: WorkflowTriggerType;
-  triggerConfig: Record<string, string>;
+  triggerConfig: Record<string, unknown>;
   steps: WorkflowStep[];
   isActive: boolean;
   createdAt?: number;

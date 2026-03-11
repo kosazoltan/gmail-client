@@ -50,7 +50,7 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'A name és triggerType megadása kötelező' });
     }
 
-    if (steps && (!Array.isArray(steps) || steps.some(s => !s.type || !s.name))) {
+    if (steps && (!Array.isArray(steps) || steps.some(s => !s.type))) {
       return res.status(400).json({ error: 'Invalid steps format' });
     }
 

@@ -27,12 +27,12 @@ export function useInboxInfinite(params: { accountId?: string } = {}) {
 export function useUnreadCount(accountId?: string) {
   return useQuery({
     queryKey: ['unread-count', accountId],
-    queryFn: () => api.views.inbox({ accountId, page: 1 }),
+    queryFn: () => api.dashboard.get(),
     enabled: !!accountId,
-    select: (data) => data.emails.filter((e) => !e.isRead).length,
+    select: (data) => data.unreadCount,
     refetchInterval: (query) => {
       if (query.state.status === 'error') {
-        const failures = getFailureCount('/views/inbox');
+        const failures = getFailureCount('/dashboard');
         return Math.min(60000 * Math.pow(2, Math.min(failures, 3)), 300000);
       }
       return 60000; // 60 seconds

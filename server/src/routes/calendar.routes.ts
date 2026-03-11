@@ -1,9 +1,86 @@
 import { Router } from 'express';
 import { google } from 'googleapis';
 import { getOAuth2ClientForAccount } from '../services/auth.service.js';
+import {
+  CalendarWritePermissionError,
+  extractAndStoreEventCandidatesForEmail,
+  getEventCandidatesForAccount,
+  syncEventCandidateToCalendar,
+} from '../services/calendar-automation.service.js';
+import { queryOne } from '../db/index.js';
 import logger from '../utils/logger.js';
 
 const router = Router();
+
+function isWriteScopeError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as { code?: number; message?: string; errors?: Array<{ reason?: string }> };
+  return candidate.code === 403
+    || candidate.message?.toLowerCase().includes('insufficient')
+    || candidate.errors?.some((item) => item.reason === 'insufficientPermissions') === true;
+}
+
+router.get('/suggestions', async (req, res) => {
+  const accountId = req.session?.activeAccountId;
+  if (!accountId) {
+    return res.status(401).json({ error: 'Nincs aktív fiók' });
+  }
+
+  try {
+    const events = await getEventCandidatesForAccount(accountId);
+    return res.json({ events });
+  } catch (error) {
+    logger.error('Calendar suggestions error:', error);
+    return res.status(500).json({ error: 'Naptárjavaslatok lekérése sikertelen' });
+  }
+});
+
+router.post('/suggestions/from-email/:emailId', async (req, res) => {
+  const accountId = req.session?.activeAccountId;
+  if (!accountId) {
+    return res.status(401).json({ error: 'Nincs aktív fiók' });
+  }
+
+  try {
+    const { emailId } = req.params;
+    const owned = await queryOne<{ account_id: string }>('SELECT account_id FROM emails WHERE id = ?', [emailId]);
+    if (!owned || owned.account_id !== accountId) {
+      return res.status(404).json({ error: 'Email nem található' });
+    }
+
+    const events = await extractAndStoreEventCandidatesForEmail(emailId);
+    return res.json({ events });
+  } catch (error) {
+    logger.error('Calendar suggestions from email error:', error);
+    return res.status(500).json({ error: 'Emailből történő naptárfelismerés sikertelen' });
+  }
+});
+
+router.post('/suggestions/:id/sync', async (req, res) => {
+  const accountId = req.session?.activeAccountId;
+  if (!accountId) {
+    return res.status(401).json({ error: 'Nincs aktív fiók' });
+  }
+
+  try {
+    const owned = await queryOne<{ account_id: string }>(
+      'SELECT account_id FROM email_event_candidates WHERE id = ?',
+      [req.params.id],
+    );
+    if (!owned || owned.account_id !== accountId) {
+      return res.status(404).json({ error: 'Naptárjavaslat nem található' });
+    }
+
+    const event = await syncEventCandidateToCalendar(req.params.id, accountId);
+    return res.json({ event });
+  } catch (error) {
+    logger.error('Calendar suggestion sync error:', error);
+    if (error instanceof CalendarWritePermissionError || isWriteScopeError(error)) {
+      return res.status(403).json({ error: 'Google Calendar írási jogosultság hiányzik. Jelentkezz be újra a naptár szinkronhoz.' });
+    }
+    return res.status(500).json({ error: 'Naptárjavaslat szinkron sikertelen' });
+  }
+});
 
 // Mai nap eseményei
 router.get('/today', async (req, res) => {
@@ -125,7 +202,15 @@ function formatEvent(event: {
 }) {
   const isAllDay = !event.start?.dateTime;
   const startTime = event.start?.dateTime || event.start?.date || '';
-  const endTime = event.end?.dateTime || event.end?.date || '';
+  let endTime = event.end?.dateTime || event.end?.date || '';
+
+  if (isAllDay && event.end?.date) {
+    const inclusiveEnd = new Date(`${event.end.date}T00:00:00`);
+    if (!Number.isNaN(inclusiveEnd.getTime())) {
+      inclusiveEnd.setDate(inclusiveEnd.getDate() - 1);
+      endTime = inclusiveEnd.toISOString().slice(0, 10);
+    }
+  }
 
   return {
     id: event.id || '',
@@ -160,8 +245,16 @@ function buildEventBody(body: {
   };
 
   if (isAllDay) {
+    const exclusiveEnd = end
+      ? new Date(`${end}T00:00:00`)
+      : start
+        ? new Date(`${start}T00:00:00`)
+        : null;
+    if (exclusiveEnd) {
+      exclusiveEnd.setDate(exclusiveEnd.getDate() + 1);
+    }
     eventBody.start = { date: start };
-    eventBody.end = { date: end || start };
+    eventBody.end = { date: exclusiveEnd ? exclusiveEnd.toISOString().slice(0, 10) : start };
   } else {
     eventBody.start = { dateTime: start, timeZone: 'Europe/Budapest' };
     eventBody.end = {
@@ -202,6 +295,9 @@ router.post('/', async (req, res) => {
     return res.json({ event: formatEvent(response.data) });
   } catch (error) {
     logger.error('Calendar create error:', error);
+    if (isWriteScopeError(error)) {
+      return res.status(403).json({ error: 'Google Calendar írási jogosultság hiányzik. Jelentkezz be újra a naptár szinkronhoz.' });
+    }
     return res.status(500).json({ error: 'Esemény létrehozása sikertelen' });
   }
 });
@@ -223,7 +319,22 @@ router.put('/:id', async (req, res) => {
     const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
-    const eventBody = buildEventBody(req.body);
+    const existingEvent = await calendar.events.get({
+      calendarId: 'primary',
+      eventId: id,
+    });
+    const existingIsAllDay = !existingEvent.data.start?.dateTime;
+    if (req.body.isAllDay === false && existingIsAllDay && !req.body.start) {
+      return res.status(400).json({ error: 'Egész napos esemény időpontosra váltásához új kezdési idő szükséges.' });
+    }
+    const mergedBody = {
+      ...req.body,
+      isAllDay: req.body.isAllDay ?? existingIsAllDay,
+      start: req.body.start || existingEvent.data.start?.dateTime || existingEvent.data.start?.date,
+      end: req.body.end || existingEvent.data.end?.dateTime || existingEvent.data.end?.date,
+    };
+
+    const eventBody = buildEventBody(mergedBody);
 
     const response = await calendar.events.update({
       calendarId: 'primary',
@@ -234,6 +345,9 @@ router.put('/:id', async (req, res) => {
     return res.json({ event: formatEvent(response.data) });
   } catch (error) {
     logger.error('Calendar update error:', error);
+    if (isWriteScopeError(error)) {
+      return res.status(403).json({ error: 'Google Calendar írási jogosultság hiányzik. Jelentkezz be újra a naptár szinkronhoz.' });
+    }
     return res.status(500).json({ error: 'Esemény szerkesztése sikertelen' });
   }
 });
@@ -259,6 +373,9 @@ router.delete('/:id', async (req, res) => {
     return res.json({ success: true });
   } catch (error) {
     logger.error('Calendar delete error:', error);
+    if (isWriteScopeError(error)) {
+      return res.status(403).json({ error: 'Google Calendar írási jogosultság hiányzik. Jelentkezz be újra a naptár szinkronhoz.' });
+    }
     return res.status(500).json({ error: 'Esemény törlése sikertelen' });
   }
 });

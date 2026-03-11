@@ -17,11 +17,12 @@ export function useCalendarWeek() {
   });
 }
 
-export function useCalendarEvents(params?: { timeMin?: string; timeMax?: string }) {
+export function useCalendarEvents(params?: { timeMin?: string; timeMax?: string; enabled?: boolean }) {
   return useQuery({
-    queryKey: ['calendar', 'events', params],
-    queryFn: () => api.calendar.events(params),
+    queryKey: ['calendar', 'events', params?.timeMin, params?.timeMax],
+    queryFn: () => api.calendar.events({ timeMin: params?.timeMin, timeMax: params?.timeMax }),
     staleTime: 60000,
+    enabled: params?.enabled ?? true,
   });
 }
 

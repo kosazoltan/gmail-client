@@ -6,7 +6,6 @@ import {
   useIncrementSearchUsage,
 } from '../../hooks/useSavedSearches';
 import { useDueRemindersCount } from '../../hooks/useReminders';
-import { useUnreadCount } from '../../hooks/useInbox';
 import { useLabels } from '../../hooks/useLabels';
 import { ZMailLogo } from '../common/ZMailLogo';
 import { LoginHelp } from '../auth/LoginHelp';
@@ -113,6 +112,7 @@ function NavItem({
   return (
     <NavLink
       to={path}
+      end={path === '/'}
       aria-label={label}
       title={label}
       className={({ isActive }) =>
@@ -195,12 +195,12 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
     location.pathname === '/search' ? new URLSearchParams(location.search).get('q') : null;
   const { data: dueRemindersCount } = useDueRemindersCount(isAuthenticated);
   const { data: labelsData } = useLabels(isAuthenticated);
-  const { data: unreadCount } = useUnreadCount(session?.activeAccountId || undefined);
   const { data: dashboardData } = useDashboard(isAuthenticated);
   const { data: smartFoldersData } = useSmartFolders(isAuthenticated);
   const smartFolders = smartFoldersData?.folders || [];
   const { data: detectedTaskStats } = useDetectedTaskStats(isAuthenticated);
   const detectedTaskCount = detectedTaskStats?.open ?? 0;
+  const unreadCount = dashboardData?.unreadCount ?? 0;
 
   // User categories for sidebar sub-items
   const { data: categoriesData } = useQuery({
@@ -407,7 +407,7 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
             {userCategories.slice(0, 5).map((cat) => (
               <NavLink
                 key={cat.id}
-                to="/by-category"
+                to={`/by-category?categoryId=${encodeURIComponent(cat.id)}`}
                 className={cn(
                   'flex min-h-[36px] touch-manipulation items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
                   'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-500 hover:bg-gray-100 hover:text-gray-900',

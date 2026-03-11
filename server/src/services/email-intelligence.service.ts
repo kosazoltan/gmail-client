@@ -11,8 +11,15 @@ export interface ActionItem {
   accountId: string;
   text: string;
   dueDate: number | null;
+  sourceQuote?: string | null;
+  priority?: 'high' | 'medium' | 'low';
+  confidence?: number | null;
+  suggestedAction?: string | null;
+  workflowOrigin?: string | null;
+  calendarEventId?: string | null;
   isDone: boolean;
   createdAt: number;
+  updatedAt?: number | null;
 }
 
 export interface SentimentResult {
@@ -91,23 +98,91 @@ function truncateBody(body: string | null, maxLength = 3000): string {
   return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
 }
 
+function sanitizeQuote(text: string | null | undefined, maxLength = 220): string | null {
+  if (!text) return null;
+  const normalized = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!normalized) return null;
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1)}…` : normalized;
+}
+
+function normalizeActionItemText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+function inferActionPriority(text: string, dueDate: number | null, emailDate: number): 'high' | 'medium' | 'low' {
+  const lowered = text.toLowerCase();
+  if (dueDate && dueDate <= Date.now() + 48 * 60 * 60 * 1000) return 'high';
+  if (/(sürgős|urgent|azonnal|asap|mielőbb|határidő|deadline)/i.test(lowered)) return 'high';
+  if (/(fontos|kérlek|please|válaszolj|intézd|sign|aláír|fizesd|fizetés)/i.test(lowered)) return 'medium';
+  if (Date.now() - emailDate > 7 * 24 * 60 * 60 * 1000) return 'medium';
+  return 'low';
+}
+
+function inferSuggestedAction(text: string): string {
+  const lowered = text.toLowerCase();
+  if (/(aláír|sign|signature)/i.test(lowered)) return 'Nyisd meg az emailt, ellenőrizd a mellékletet és intézd az aláírást.';
+  if (/(válasz|reply)/i.test(lowered)) return 'Nyisd meg az emailt és küldj választ.';
+  if (/(fizet|payment|utal|befizet)/i.test(lowered)) return 'Ellenőrizd a pénzügyi teendőt és indítsd a szükséges fizetési folyamatot.';
+  if (/(meeting|megbeszélés|találkozó|call)/i.test(lowered)) return 'Ellenőrizd az időpontot és készíts vagy frissíts naptárbejegyzést.';
+  return 'Nyisd meg az emailt és intézd a kért teendőt.';
+}
+
 // --- 1. Extract Action Items ---
 
-export async function extractActionItems(emailId: string): Promise<ActionItem[]> {
+export async function extractActionItems(
+  emailId: string,
+  options?: { force?: boolean; workflowOrigin?: string | null },
+): Promise<ActionItem[]> {
   const email = await getEmailById(emailId);
   if (!email) throw new Error('Email nem található');
 
   // Check if action items already exist for this email
-  const existing = await queryAll<{ id: string; emailId: string; accountId: string; text: string; dueDate: number | null; isDone: number; createdAt: number }>(
-    'SELECT id, email_id as emailId, account_id as accountId, text, due_date as dueDate, is_done as isDone, created_at as createdAt FROM action_items WHERE email_id = ?',
+  const existing = await queryAll<{
+    id: string;
+    emailId: string;
+    accountId: string;
+    text: string;
+    dueDate: number | null;
+    sourceQuote: string | null;
+    priority: 'high' | 'medium' | 'low' | null;
+    confidence: number | null;
+    suggestedAction: string | null;
+    workflowOrigin: string | null;
+    calendarEventId: string | null;
+    isDone: number;
+    createdAt: number;
+    updatedAt: number | null;
+  }>(
+    `SELECT id, email_id as emailId, account_id as accountId, text, due_date as dueDate,
+            source_quote as sourceQuote, priority, confidence, suggested_action as suggestedAction,
+            workflow_origin as workflowOrigin, calendar_event_id as calendarEventId,
+            is_done as isDone, created_at as createdAt, updated_at as updatedAt
+     FROM action_items WHERE email_id = ?`,
     [emailId],
   );
-  if (existing.length > 0) return existing.map(item => ({ ...item, isDone: item.isDone === 1 }));
+  if (!options?.force && existing.length > 0) {
+    return existing.map(item => ({
+      ...item,
+      priority: item.priority ?? 'medium',
+      isDone: item.isDone === 1,
+    }));
+  }
+  const preservedDoneKeys = new Set(
+    options?.force
+      ? existing.filter((item) => item.isDone === 1).map((item) => normalizeActionItemText(item.text))
+      : [],
+  );
+  if (options?.force && existing.length > 0) {
+    await execute('DELETE FROM action_items WHERE email_id = ? AND is_done = 0', [emailId]);
+  }
 
   const anthropic = getClient();
   if (!anthropic) {
     // Fallback: simple keyword-based extraction
-    return extractActionItemsFallback(email);
+    return extractActionItemsFallback(email, {
+      workflowOrigin: options?.workflowOrigin ?? 'fallback',
+      preservedDoneKeys,
+    });
   }
 
   const bodyText = truncateBody(email.body);
@@ -121,7 +196,7 @@ Body:
 ${bodyText}
 
 Return ONLY a JSON array. Each item:
-{"text": "action item description in Hungarian", "due_date": "YYYY-MM-DD or null"}
+{"text": "action item description in Hungarian", "due_date": "YYYY-MM-DD or null", "source_quote": "relevant quote", "priority": "high|medium|low", "confidence": 0.0, "suggested_action": "short next step in Hungarian"}
 
 If no action items, return [].`;
 
@@ -135,17 +210,48 @@ If no action items, return [].`;
     const text = response.content[0].type === 'text' ? response.content[0].text : '[]';
     const stripped = text.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/gi, '');
     const jsonMatch = stripped.match(/\[[\s\S]*\]/);
-    const items: Array<{ text: string; due_date: string | null }> = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+    const items: Array<{
+      text: string;
+      due_date: string | null;
+      source_quote?: string | null;
+      priority?: 'high' | 'medium' | 'low';
+      confidence?: number;
+      suggested_action?: string | null;
+    }> = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
 
     const now = Date.now();
     const result: ActionItem[] = [];
 
     for (const item of items) {
+      const normalizedText = normalizeActionItemText(item.text);
+      if (!normalizedText || preservedDoneKeys.has(normalizedText)) {
+        continue;
+      }
       const id = crypto.randomUUID();
       const dueDate = item.due_date ? new Date(item.due_date).getTime() : null;
+      const priority = item.priority || inferActionPriority(item.text, dueDate, email.date);
+      const confidence = Math.max(0, Math.min(1, item.confidence ?? 0.8));
+      const sourceQuote = sanitizeQuote(item.source_quote) || sanitizeQuote(email.snippet) || sanitizeQuote(email.body);
+      const suggestedAction = item.suggested_action || inferSuggestedAction(item.text);
       await execute(
-        'INSERT INTO action_items (id, email_id, account_id, text, due_date, is_done, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)',
-        [id, emailId, email.account_id, item.text, dueDate, now],
+        `INSERT INTO action_items (
+          id, email_id, account_id, text, due_date, source_quote, priority, confidence,
+          suggested_action, workflow_origin, calendar_event_id, is_done, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, ?, ?)`,
+        [
+          id,
+          emailId,
+          email.account_id,
+          item.text,
+          dueDate,
+          sourceQuote,
+          priority,
+          confidence,
+          suggestedAction,
+          options?.workflowOrigin ?? null,
+          now,
+          now,
+        ],
       );
       result.push({
         id,
@@ -153,35 +259,74 @@ If no action items, return [].`;
         accountId: email.account_id,
         text: item.text,
         dueDate,
+        sourceQuote,
+        priority,
+        confidence,
+        suggestedAction,
+        workflowOrigin: options?.workflowOrigin ?? null,
+        calendarEventId: null,
         isDone: false,
         createdAt: now,
+        updatedAt: now,
       });
     }
 
     return result;
   } catch (err) {
     logger.error('AI action items extraction failed:', err);
-    return extractActionItemsFallback(email);
+    return extractActionItemsFallback(email, {
+      workflowOrigin: options?.workflowOrigin ?? 'fallback',
+      preservedDoneKeys,
+    });
   }
 }
 
-async function extractActionItemsFallback(email: EmailRow): Promise<ActionItem[]> {
+async function extractActionItemsFallback(
+  email: EmailRow,
+  options?: { workflowOrigin?: string | null; preservedDoneKeys?: Set<string> },
+): Promise<ActionItem[]> {
   const bodyText = truncateBody(email.body);
   const keywords = ['kérem', 'kérlek', 'határidő', 'deadline', 'válaszolj', 'küldj', 'please', 'szükséges', 'ASAP', 'sürgős', 'urgent'];
   const sentences = bodyText.split(/[.!?\n]+/).filter(s => s.trim().length > 10);
   const items: ActionItem[] = [];
   const now = Date.now();
+  const preservedDoneKeys = options?.preservedDoneKeys ?? new Set<string>();
 
   for (const sentence of sentences) {
     const lower = sentence.toLowerCase();
     if (keywords.some(kw => lower.includes(kw.toLowerCase()))) {
-      const id = crypto.randomUUID();
       const text = sentence.trim();
+      const normalizedText = normalizeActionItemText(text);
+      if (!normalizedText || preservedDoneKeys.has(normalizedText)) {
+        continue;
+      }
+      const id = crypto.randomUUID();
+      const priority = inferActionPriority(text, null, email.date);
+      const sourceQuote = sanitizeQuote(sentence) || sanitizeQuote(email.snippet);
+      const suggestedAction = inferSuggestedAction(text);
       await execute(
-        'INSERT INTO action_items (id, email_id, account_id, text, due_date, is_done, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)',
-        [id, email.id, email.account_id, text, null, now],
+        `INSERT INTO action_items (
+          id, email_id, account_id, text, due_date, source_quote, priority, confidence,
+          suggested_action, workflow_origin, calendar_event_id, is_done, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, ?, ?)`,
+        [id, email.id, email.account_id, text, null, sourceQuote, priority, 0.45, suggestedAction, options?.workflowOrigin ?? 'fallback', now, now],
       );
-      items.push({ id, emailId: email.id, accountId: email.account_id, text, dueDate: null, isDone: false, createdAt: now });
+      items.push({
+        id,
+        emailId: email.id,
+        accountId: email.account_id,
+        text,
+        dueDate: null,
+        sourceQuote,
+        priority,
+        confidence: 0.45,
+        suggestedAction,
+        workflowOrigin: options?.workflowOrigin ?? 'fallback',
+        calendarEventId: null,
+        isDone: false,
+        createdAt: now,
+        updatedAt: now,
+      });
     }
   }
 
@@ -331,8 +476,8 @@ export async function findRelatedEmails(emailId: string): Promise<RelatedEmail[]
   // 1. Same thread
   if (email.thread_id) {
     const threadEmails = await queryAll<EmailRow>(
-      'SELECT id, subject, from_email, from_name, date FROM emails WHERE thread_id = ? AND id != ? ORDER BY date DESC LIMIT 5',
-      [email.thread_id, emailId],
+      'SELECT id, subject, from_email, from_name, date FROM emails WHERE thread_id = ? AND id != ? AND account_id = ? ORDER BY date DESC LIMIT 5',
+      [email.thread_id, emailId, email.account_id],
     );
     for (const e of threadEmails) {
       if (!addedIds.has(e.id)) {
@@ -557,12 +702,29 @@ Adatok:
 // --- Action item toggle ---
 
 export async function toggleActionItem(actionItemId: string, isDone: boolean): Promise<void> {
-  await execute('UPDATE action_items SET is_done = ? WHERE id = ?', [isDone ? 1 : 0, actionItemId]);
+  await execute('UPDATE action_items SET is_done = ?, updated_at = ? WHERE id = ?', [isDone ? 1 : 0, Date.now(), actionItemId]);
 }
 
 export async function getActionItemsByEmail(emailId: string): Promise<ActionItem[]> {
-  return (await queryAll<{ id: string; email_id: string; account_id: string; text: string; due_date: number | null; is_done: number; created_at: number }>(
-    'SELECT id, email_id, account_id, text, due_date, is_done, created_at FROM action_items WHERE email_id = ?',
+  return (await queryAll<{
+    id: string;
+    email_id: string;
+    account_id: string;
+    text: string;
+    due_date: number | null;
+    source_quote: string | null;
+    priority: 'high' | 'medium' | 'low' | null;
+    confidence: number | null;
+    suggested_action: string | null;
+    workflow_origin: string | null;
+    calendar_event_id: string | null;
+    is_done: number;
+    created_at: number;
+    updated_at: number | null;
+  }>(
+    `SELECT id, email_id, account_id, text, due_date, source_quote, priority, confidence,
+            suggested_action, workflow_origin, calendar_event_id, is_done, created_at, updated_at
+     FROM action_items WHERE email_id = ?`,
     [emailId],
   )).map(row => ({
     id: row.id,
@@ -570,7 +732,14 @@ export async function getActionItemsByEmail(emailId: string): Promise<ActionItem
     accountId: row.account_id,
     text: row.text,
     dueDate: row.due_date,
+    sourceQuote: row.source_quote,
+    priority: row.priority ?? 'medium',
+    confidence: row.confidence ?? 0.5,
+    suggestedAction: row.suggested_action,
+    workflowOrigin: row.workflow_origin,
+    calendarEventId: row.calendar_event_id,
     isDone: row.is_done === 1,
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
   }));
 }

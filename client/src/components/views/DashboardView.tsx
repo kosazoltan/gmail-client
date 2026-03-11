@@ -1,10 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { useDashboard } from '../../hooks/useDashboard';
-import { useDetectedTasks, useUpdateDetectedTask } from '../../hooks/useDetectedTasks';
-import { useCalendarEvents } from '../../hooks/useCalendar';
-import { useUnreadCount } from '../../hooks/useInbox';
-import { useSession } from '../../hooks/useAccounts';
+import { useDetectedTasks, useDetectedTaskStats, useUpdateDetectedTask } from '../../hooks/useDetectedTasks';
 import { useLatestBrief, useGenerateBrief } from '../../hooks/useDailyBrief';
+import { useMarketAnalysis } from '../../hooks/useMarketAnalysis';
 import { format } from 'date-fns';
 import { hu } from 'date-fns/locale';
 import {
@@ -16,13 +14,17 @@ import {
   ArrowRight,
   Loader2,
   AlertCircle,
-  LayoutDashboard,
   Sparkles,
   Zap,
   Reply,
   Check,
+  ExternalLink,
+  BarChart3,
+  TrendingUp,
+  RefreshCw,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import type { ActionCenterItem } from '../../types';
 
 const GREETINGS = [
   { from: 0, to: 5, text: 'Jó éjszakát' },
@@ -39,28 +41,22 @@ function getGreeting(): string {
 
 export function DashboardView() {
   const navigate = useNavigate();
-  const { data: session } = useSession();
   const { data, isLoading, error } = useDashboard();
   const { data: detectedTasksData } = useDetectedTasks({ status: 'open', limit: 5 });
+  const { data: detectedTaskStats } = useDetectedTaskStats();
   const updateTask = useUpdateDetectedTask();
 
-  // Calendar: next 2 events from now
-  const now = new Date();
-  const endOfDay = new Date(now);
-  endOfDay.setHours(23, 59, 59, 999);
-  const { data: calendarData } = useCalendarEvents({
-    timeMin: now.toISOString(),
-    timeMax: endOfDay.toISOString(),
-  });
-  const { data: unreadCount } = useUnreadCount(session?.activeAccountId || undefined);
   const { data: briefData } = useLatestBrief();
   const generateBrief = useGenerateBrief();
+  const { data: marketData, isForceRefreshing, forceRefresh: refreshMarket } = useMarketAnalysis();
 
   const today = new Date();
   const formattedDate = format(today, 'yyyy. MMMM d., EEEE', { locale: hu });
 
   const detectedTasks = detectedTasksData?.tasks || [];
-  const upcomingEvents = calendarData?.events?.slice(0, 2) || data?.todayEvents?.slice(0, 2) || [];
+  const upcomingEvents = data?.todayEvents?.slice(0, 2) || [];
+  const actionCenter = data?.actionCenter?.blocks;
+  const topMarketRates = marketData?.rates.slice(0, 3) || [];
 
   if (isLoading) {
     return (
@@ -90,10 +86,13 @@ export function DashboardView() {
   }
 
   // Build briefing text
-  const urgentTasks = detectedTasks.filter((t) => t.priority === 'high').length;
+  const urgentTasks = Math.max(
+    detectedTaskStats?.high ?? 0,
+    data?.actionCenter?.blocks.urgentClientMatters?.length ?? 0,
+  );
   const openTaskCount = data?.openTasksCount ?? 0;
   const todayEventCount = data?.todayEventsCount ?? 0;
-  const unread = unreadCount ?? data?.unreadCount ?? 0;
+  const unread = data?.unreadCount ?? 0;
 
   const briefingParts: string[] = [];
   if (urgentTasks > 0) briefingParts.push(`${urgentTasks} sürgős feladat`);
@@ -107,6 +106,20 @@ export function DashboardView() {
 
   const handleCompleteTask = (taskId: string) => {
     updateTask.mutate({ id: taskId, data: { status: 'done' } });
+  };
+
+  const handleOpenApp = (link: string | null) => {
+    if (!link) return;
+    navigate(link);
+  };
+
+  const handleOpenCalendar = (eventId: string, start: string) => {
+    const params = new URLSearchParams({ eventId });
+    const date = new Date(start);
+    if (!Number.isNaN(date.getTime())) {
+      params.set('date', format(date, 'yyyy-MM-dd'));
+    }
+    navigate(`/calendar?${params.toString()}`);
   };
 
   return (
@@ -160,6 +173,144 @@ export function DashboardView() {
               AI Brief generálása
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Aktív Workflow Blokkok */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ActionCenterBlock
+          title="Mai fókusz"
+          items={actionCenter?.todayFocus}
+          emptyText="Nincs mára határidős teendő."
+          onOpenApp={handleOpenApp}
+        />
+        <ActionCenterBlock
+          title="Azonnali intézkedést igényel"
+          items={actionCenter?.urgentClientMatters}
+          emptyText="Nincs sürgős válasz."
+          onOpenApp={handleOpenApp}
+        />
+        <ActionCenterBlock
+          title="Válasz nélkül maradt emailek"
+          items={actionCenter?.unanswered}
+          emptyText="Nincs válasz nélkül maradt email."
+          onOpenApp={handleOpenApp}
+        />
+        <ActionCenterBlock
+          title="Többször utánkövetett ügyek"
+          items={actionCenter?.repeatedFollowUps}
+          emptyText="Nincs többször utánkövetett ügy."
+          onOpenApp={handleOpenApp}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <ActionCenterBlock
+          title="Emailből felismert határidők / találkozók"
+          items={actionCenter?.suggestedEvents}
+          emptyText="Nincs közelgő határidő emailből."
+          onOpenApp={handleOpenApp}
+          compact
+        />
+        <ActionCenterBlock
+          title="Mai naptári események"
+          items={actionCenter?.todayCalendar}
+          emptyText="Nincs mai naptári esemény."
+          onOpenApp={handleOpenApp}
+          compact
+        />
+        <ActionCenterBlock
+          title="Következő figyelendő ügyek"
+          items={actionCenter?.delegatedWatch}
+          emptyText="Nincs közelgő figyelendő ügy."
+          onOpenApp={handleOpenApp}
+          compact
+        />
+      </div>
+
+      <div className="dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h2 className="dark:text-dark-text flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <BarChart3 className="h-5 w-5 text-emerald-500" />
+              Piaci operáció
+            </h2>
+            <p className="dark:text-dark-text-muted mt-1 text-sm text-gray-500">
+              Friss market összkép a napi döntésekhez.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => void refreshMarket()}
+              disabled={isForceRefreshing}
+              className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              <span className="flex items-center gap-1">
+                <RefreshCw className={cn('h-3.5 w-3.5', isForceRefreshing && 'animate-spin')} />
+                Frissítés
+              </span>
+            </button>
+            <button
+              onClick={() => navigate('/market')}
+              className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-600"
+            >
+              Market nézet
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <div className="rounded-xl border border-emerald-200/60 bg-emerald-50/60 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/5">
+            <div className="mb-2 flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-emerald-500" />
+              <p className="dark:text-dark-text text-sm font-medium text-gray-900">
+                {marketData?.isAIPowered ? 'AI-alapú piaci összkép' : 'Fallback piaci összkép'}
+              </p>
+            </div>
+            <p className="dark:text-dark-text-secondary text-sm leading-relaxed text-gray-600">
+              {marketData?.overallSentiment || 'A piaci briefing betöltése folyamatban van.'}
+            </p>
+            {marketData?.generatedAt && (
+              <p className="dark:text-dark-text-muted mt-2 text-xs text-gray-500">
+                Frissítve: {format(new Date(marketData.generatedAt), 'yyyy. MMM d. HH:mm', { locale: hu })}
+              </p>
+            )}
+            {marketData && !marketData.isAIPowered && (
+              <p className="mt-2 text-xs text-amber-600 dark:text-amber-300">
+                {marketData.fallbackMessage || 'A piaci modul jelenleg sablon-alapú fallback összegzést mutat.'}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            {topMarketRates.length > 0 ? topMarketRates.map((rate) => (
+              <button
+                key={rate.pair}
+                onClick={() => navigate('/market')}
+                className="dark:border-dark-border dark:hover:bg-dark-bg-tertiary flex w-full items-center justify-between rounded-xl border border-gray-100 bg-gray-50/70 px-3 py-2 text-left hover:bg-gray-50 dark:bg-dark-bg-tertiary/40"
+              >
+                <div>
+                  <p className="dark:text-dark-text text-sm font-medium text-gray-900">{rate.label}</p>
+                  <p className="dark:text-dark-text-muted text-xs text-gray-500">{rate.pair}</p>
+                </div>
+                <div className="text-right">
+                  <p className="dark:text-dark-text text-sm font-semibold text-gray-900">
+                    {rate.rate.toFixed(rate.pair.endsWith('HUF') || rate.pair.startsWith('XAU') ? 2 : 4)}
+                  </p>
+                  <p className={cn(
+                    'text-xs font-medium',
+                    rate.changePercent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400',
+                  )}>
+                    {rate.changePercent >= 0 ? '+' : ''}{rate.changePercent.toFixed(2)}%
+                  </p>
+                </div>
+              </button>
+            )) : (
+              <p className="dark:text-dark-text-muted rounded-xl border border-dashed border-gray-200 px-3 py-4 text-center text-xs text-gray-500 dark:border-gray-700">
+                A piaci adatok még nem érkeztek meg.
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -220,7 +371,7 @@ export function DashboardView() {
                       <Check className="h-4 w-4" />
                     </button>
                     <button
-                      onClick={() => navigate(`/?emailId=${task.emailId}`)}
+                      onClick={() => navigate(`/?emailId=${encodeURIComponent(task.emailId)}${task.accountId ? `&accountId=${encodeURIComponent(task.accountId)}` : ''}`)}
                       className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10"
                       title="Megnyitás"
                     >
@@ -259,7 +410,7 @@ export function DashboardView() {
                 {upcomingEvents.map((event) => (
                   <button
                     key={event.id}
-                    onClick={() => navigate('/calendar')}
+                    onClick={() => handleOpenCalendar(event.id, event.start)}
                     className={cn(
                       'dark:border-dark-border dark:hover:bg-dark-bg-tertiary w-full rounded-lg border p-3 text-left transition-colors hover:bg-gray-50',
                       event.isAllDay
@@ -312,7 +463,13 @@ export function DashboardView() {
                 {data.openTasks.slice(0, 4).map((task) => (
                   <button
                     key={task.id}
-                    onClick={() => navigate('/tasks')}
+                    onClick={() =>
+                      task.appLink
+                        ? navigate(task.appLink)
+                        : task.emailId
+                          ? navigate(`/?emailId=${encodeURIComponent(task.emailId)}${task.accountId ? `&accountId=${encodeURIComponent(task.accountId)}` : ''}`)
+                          : navigate('/tasks')
+                    }
                     className="dark:border-dark-border dark:hover:bg-dark-bg-tertiary flex w-full items-start gap-2.5 rounded-lg border border-gray-100 p-2.5 text-left transition-colors hover:bg-gray-50"
                   >
                     <div className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-2 border-gray-300 dark:border-gray-600" />
@@ -345,77 +502,174 @@ export function DashboardView() {
         </div>
       </div>
 
-      {/* Quick Stats Row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard
-          icon={Mail}
-          label="Olvasatlan levél"
-          value={unread}
-          color="blue"
-          onClick={() => navigate('/')}
-        />
-        <StatCard
-          icon={Calendar}
-          label="Mai események"
-          value={todayEventCount}
-          color="purple"
-          onClick={() => navigate('/calendar')}
-        />
-        <StatCard
-          icon={CheckSquare}
-          label="Nyitott feladatok"
-          value={openTaskCount}
-          color="green"
-          onClick={() => navigate('/tasks')}
-        />
-      </div>
     </div>
   );
 }
 
 // Segédfüggvények
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  color,
-  onClick,
+function ActionCenterBlock({
+  title,
+  items,
+  emptyText,
+  onOpenApp,
+  compact = false,
 }: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: number;
-  color: 'blue' | 'purple' | 'green';
-  onClick: () => void;
+  title: string;
+  items?: ActionCenterItem[];
+  emptyText: string;
+  onOpenApp: (link: string | null) => void;
+  compact?: boolean;
 }) {
-  const colorStyles = {
-    blue: 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',
-    purple: 'bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400',
-    green: 'bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400',
-  };
+  const list = items?.slice(0, 5) ?? [];
 
   return (
-    <button
-      onClick={onClick}
-      className="dark:bg-dark-bg-secondary dark:border-dark-border dark:hover:bg-dark-bg-tertiary rounded-xl border border-gray-200 bg-white p-5 text-left shadow-sm transition-all hover:shadow-md"
-    >
-      <div className="flex items-center gap-4">
-        <div className={cn('rounded-lg p-2.5', colorStyles[color])}>
-          <Icon className="h-5 w-5" />
-        </div>
-        <div>
-          <p className="dark:text-dark-text text-2xl font-bold text-gray-900">{value}</p>
-          <p className="dark:text-dark-text-secondary text-sm text-gray-500">{label}</p>
-        </div>
+    <div className="dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="dark:text-dark-text text-base font-semibold text-gray-900">
+          {title}
+        </h2>
       </div>
-    </button>
+
+      {list.length > 0 ? (
+        <div className="space-y-2">
+          {list.map((item) => (
+            <div
+              key={item.id}
+              className="dark:border-dark-border dark:hover:bg-dark-bg-tertiary group flex items-start gap-3 rounded-lg border border-gray-100 p-3 transition-colors hover:bg-gray-50"
+            >
+              <div
+                className={cn(
+                  'mt-0.5 h-2.5 w-2.5 flex-shrink-0 rounded-full',
+                  item.priority === 'critical'
+                    ? 'bg-red-600'
+                    : item.priority === 'high'
+                      ? 'bg-red-500'
+                      : item.priority === 'medium'
+                        ? 'bg-yellow-500'
+                        : 'bg-green-500',
+                )}
+              />
+              <div className="min-w-0 flex-1">
+                {item.links.app ? (
+                  <button
+                    onClick={() => onOpenApp(item.links.app)}
+                    className="block w-full text-left"
+                  >
+                    <p className="dark:text-dark-text truncate text-sm font-medium text-gray-900 hover:text-[#4f6ef7] dark:hover:text-[#88a2ff]">
+                      {item.title}
+                    </p>
+                    {item.summary && (
+                      <p className="dark:text-dark-text-muted truncate text-xs text-gray-500">
+                        {item.summary}
+                      </p>
+                    )}
+                  </button>
+                ) : (
+                  <>
+                    <p className="dark:text-dark-text truncate text-sm font-medium text-gray-900">
+                      {item.title}
+                    </p>
+                    {item.summary && (
+                      <p className="dark:text-dark-text-muted truncate text-xs text-gray-500">
+                        {item.summary}
+                      </p>
+                    )}
+                  </>
+                )}
+                {item.quote && (
+                  <button
+                    onClick={() => onOpenApp(getQuoteAppLink(item))}
+                    disabled={!getQuoteAppLink(item)}
+                    className={cn(
+                      'block w-full text-left dark:text-dark-text-muted text-[11px] text-gray-400',
+                      compact ? 'truncate' : 'line-clamp-2',
+                      getQuoteAppLink(item) && 'hover:text-[#4f6ef7] dark:hover:text-[#88a2ff]',
+                    )}
+                  >
+                    {item.quote}
+                  </button>
+                )}
+                {item.dueAt != null ? (
+                  <p className="dark:text-dark-text-muted mt-1 text-[10px] text-gray-400">
+                    {formatFeedDue(item.dueAt)}
+                  </p>
+                ) : null}
+                {!compact && item.suggestedAction && (
+                  <p className="mt-1 text-[11px] text-[#4f6ef7] dark:text-[#88a2ff]">
+                    {item.suggestedAction}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                {item.links.app && (
+                  <button
+                    onClick={() => onOpenApp(item.links.app)}
+                    className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10"
+                    title="Megnyitás az appban"
+                  >
+                    {item.links.app.startsWith('/calendar') ? <Calendar className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
+                  </button>
+                )}
+                {item.links.gmail && (
+                  <a
+                    href={item.links.gmail}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-lg p-1.5 text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700/40"
+                    title="Megnyitás Gmailben"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                )}
+                {item.links.calendar && isSafeExternalLink(item.links.calendar) && (
+                  <a
+                    href={item.links.calendar}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-lg p-1.5 text-purple-600 hover:bg-purple-50 dark:text-purple-300 dark:hover:bg-purple-500/10"
+                    title="Megnyitás a naptárban"
+                  >
+                    <Calendar className="h-4 w-4" />
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="dark:text-dark-text-muted py-4 text-center text-xs text-gray-500">
+          {emptyText}
+        </p>
+      )}
+    </div>
   );
+}
+
+function isSafeExternalLink(link: string): boolean {
+  return /^https:\/\//i.test(link);
+}
+
+function buildEmailAppLink(emailId: string | null, accountId?: string | null): string | null {
+  if (!emailId) return null;
+  const params = new URLSearchParams({ emailId });
+  if (accountId) params.set('accountId', accountId);
+  return `/?${params.toString()}`;
+}
+
+function getQuoteAppLink(item: ActionCenterItem): string | null {
+  return buildEmailAppLink(item.emailId, item.accountId) ?? item.links.app;
 }
 
 function formatTime(isoString: string): string {
   if (!isoString) return '';
   const date = new Date(isoString);
   return format(date, 'HH:mm');
+}
+
+function formatFeedDue(timestamp: number): string {
+  const date = new Date(timestamp);
+  return format(date, 'yyyy. MMM d. HH:mm', { locale: hu });
 }
 
 function formatDueDate(dateString: string): string {

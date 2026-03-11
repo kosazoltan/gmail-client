@@ -768,6 +768,16 @@ export const api = {
       }),
     delete: (id: string) =>
       request<{ success: boolean }>(`/calendar/${id}`, { method: 'DELETE' }),
+    suggestions: () =>
+      request<{ events: Array<Record<string, unknown>> }>('/calendar/suggestions'),
+    suggestionsFromEmail: (emailId: string) =>
+      request<{ events: Array<Record<string, unknown>> }>(`/calendar/suggestions/from-email/${emailId}`, {
+        method: 'POST',
+      }),
+    syncSuggestion: (id: string) =>
+      request<{ event: Record<string, unknown> | null }>(`/calendar/suggestions/${id}/sync`, {
+        method: 'POST',
+      }),
   },
 
   tasks: {
@@ -802,6 +812,7 @@ export const api = {
 
   dashboard: {
     get: () => request<import('../types').DashboardData>('/dashboard'),
+    feed: () => request<import('../types').DashboardFeed>('/dashboard/feed'),
   },
 
   market: {

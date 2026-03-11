@@ -7,7 +7,7 @@ import { errorHandler } from './middleware/error-handler.js';
 import { deleteProtection } from './middleware/delete-protection.js';
 import { initializeDatabase, closeDatabase, queryOne, execute } from './db/index.js';
 import type { Server } from 'http';
-import { startBackgroundSync, stopAllBackgroundSyncs } from './services/sync.service.js';
+import { startBackgroundSync, stopAllBackgroundSyncs, reprocessRecentOperationalSignals } from './services/sync.service.js';
 import { getAllAccounts } from './services/auth.service.js';
 import { v4 as uuidv4 } from 'uuid';
 import logger from './utils/logger.js';
@@ -51,6 +51,8 @@ import { detectUnansweredEmails, processExpiredSnoozedTasks } from './services/t
 import { buildAllowedOrigins } from './utils/cors-config.js';
 
 const PORT = parseInt(process.env.PORT || '5000', 10);
+const STARTUP_DB_RETRIES = 5;
+const STARTUP_DB_RETRY_DELAY_MS = 5000;
 
 // Track intervals and server handle for graceful shutdown
 let snoozeInterval: NodeJS.Timeout | null = null;
@@ -58,7 +60,30 @@ let scheduledInterval: NodeJS.Timeout | null = null;
 let workflowInterval: NodeJS.Timeout | null = null;
 let taskDetectionInterval: NodeJS.Timeout | null = null;
 let dailyBriefInterval: NodeJS.Timeout | null = null;
+let operationalReprocessInterval: NodeJS.Timeout | null = null;
 let httpServer: Server | null = null;
+
+async function wait(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function initializeDatabaseWithRetry(): Promise<void> {
+  for (let attempt = 1; attempt <= STARTUP_DB_RETRIES; attempt++) {
+    try {
+      await initializeDatabase();
+      if (attempt > 1) {
+        logger.info(`Database initialization succeeded on retry ${attempt}/${STARTUP_DB_RETRIES}`);
+      }
+      return;
+    } catch (error) {
+      logger.error(`Database initialization failed (attempt ${attempt}/${STARTUP_DB_RETRIES})`, error);
+      if (attempt === STARTUP_DB_RETRIES) {
+        throw error;
+      }
+      await wait(STARTUP_DB_RETRY_DELAY_MS * attempt);
+    }
+  }
+}
 
 /**
  * Lekéri az utolsó detekció idejét az adatbázisból.
@@ -72,7 +97,7 @@ async function getLastDetectionRun(): Promise<number> {
 // Szerver indítás
 async function start() {
   // Adatbázis inicializálás ELŐSZÖR (session store-nak szüksége van rá)
-  await initializeDatabase();
+  await initializeDatabaseWithRetry();
 
   const app = express();
   const frontendUrl = process.env.FRONTEND_URL;
@@ -173,7 +198,12 @@ async function start() {
   app.use(errorHandler);
 
   // Háttér szinkronizálás indítása — 30s késleltetéssel, hogy a szerver előbb stabilan elinduljon
-  const existingAccounts = await getAllAccounts();
+  let existingAccounts = [] as Awaited<ReturnType<typeof getAllAccounts>>;
+  try {
+    existingAccounts = await getAllAccounts();
+  } catch (error) {
+    logger.error('Startup account preload failed; continuing without eager background sync', error);
+  }
   setTimeout(async () => {
     for (const account of existingAccounts) {
       try {
@@ -291,6 +321,30 @@ async function start() {
     }
   }, 300000); // Check every 5 minutes
 
+  // Operatív AI újrafeldolgozás - 15 percenként ellenőriz, fiókonként 6 óránként fut
+  if (operationalReprocessInterval) clearInterval(operationalReprocessInterval);
+  operationalReprocessInterval = setInterval(async () => {
+    try {
+      const accounts = await getAllAccounts();
+      for (const account of accounts) {
+        try {
+          const result = await reprocessRecentOperationalSignals(account.id, {
+            daysBack: 30,
+            maxEmails: 120,
+            minIntervalMs: 6 * 60 * 60 * 1000,
+          });
+          if (!result.skipped && result.processed > 0) {
+            logger.info(`Operational reprocess completed for ${account.email}: ${result.processed} emails`);
+          }
+        } catch (err) {
+          logger.error(`Operational reprocess failed for ${account.email}:`, err);
+        }
+      }
+    } catch (err) {
+      logger.error('Operational reprocess interval error:', err);
+    }
+  }, 900000);
+
   // Első futtatás 60s késleltetéssel — ne terhelje a startup-ot
   setTimeout(async () => {
     try {
@@ -358,6 +412,10 @@ async function gracefulShutdown(signal: string) {
   if (dailyBriefInterval) {
     clearInterval(dailyBriefInterval);
     dailyBriefInterval = null;
+  }
+  if (operationalReprocessInterval) {
+    clearInterval(operationalReprocessInterval);
+    operationalReprocessInterval = null;
   }
 
   // Stop session store cleanup

@@ -1,5 +1,5 @@
 import logger from '../utils/logger.js';
-import { queryOne, execute, runInTransaction } from '../db/index.js';
+import { queryAll, queryOne, execute, runInTransaction } from '../db/index.js';
 import { v4 as uuidv4 } from 'uuid';
 import { getOAuth2ClientForAccount } from './auth.service.js';
 import {
@@ -13,7 +13,13 @@ import { categorizeEmail } from './categorization.service.js';
 import { extractContactsFromEmail, autoExtractContactsIfNeeded } from './contacts.service.js';
 import { sendPushToAccount } from './push.service.js';
 import { getActiveWorkflowsForAccount, executeWorkflow } from './workflow.service.js';
+import { extractActionItems } from './email-intelligence.service.js';
+import { extractAndStoreEventCandidatesForEmail } from './calendar-automation.service.js';
+import { upsertDetectedTaskForEmail, resolveDetectedTasksForThread } from './task-detection.service.js';
 import { broadcastNewEmail } from '../routes/sse.routes.js';
+
+const OPERATIONAL_REPROCESS_KEY = 'operational_reprocess_last_run';
+const syncPromises = new Map<string, Promise<{ success: boolean; messagesProcessed: number }>>();
 
 // Gmail üzenet interfész (getMessage visszatérési típusa)
 interface GmailMessage {
@@ -40,71 +46,240 @@ interface GmailMessage {
   }>;
 }
 
+async function ensureRemindersForActionItems(accountId: string, emailId: string): Promise<void> {
+  const items = await queryOne<{ count: number }>('SELECT COUNT(*) as count FROM action_items WHERE email_id = ? AND account_id = ?', [emailId, accountId]);
+  if (!Number(items?.count ?? 0)) return;
+
+  const dueItems = await queryOne<{ due_date: number | null }>(
+    `SELECT due_date
+     FROM action_items
+     WHERE email_id = ? AND account_id = ? AND is_done = 0 AND due_date IS NOT NULL
+     ORDER BY due_date ASC
+     LIMIT 1`,
+    [emailId, accountId],
+  );
+  if (!dueItems?.due_date) return;
+
+  const existingReminder = await queryOne<{ id: string; remind_at: number; note: string | null }>(
+    'SELECT id, remind_at, note FROM reminders WHERE email_id = ? AND account_id = ? AND is_completed = 0',
+    [emailId, accountId],
+  );
+  const remindAt = Math.max(Date.now() + 10 * 60 * 1000, dueItems.due_date - 4 * 60 * 60 * 1000);
+  const note = 'Automatikusan létrehozott AI emlékeztető';
+  if (existingReminder) {
+    if (existingReminder.remind_at !== remindAt || existingReminder.note !== note) {
+      await execute('UPDATE reminders SET remind_at = ?, note = ? WHERE id = ?', [remindAt, note, existingReminder.id]);
+    }
+    return;
+  }
+  await execute(
+    `INSERT INTO reminders (id, email_id, account_id, remind_at, note, is_completed, created_at)
+     VALUES (?, ?, ?, ?, ?, 0, ?)`,
+    [uuidv4(), emailId, accountId, remindAt, note, Date.now()],
+  );
+}
+
+async function processOperationalSignals(accountId: string, emailId: string, isSent: boolean, threadId: string | null): Promise<void> {
+  try {
+    if (isSent) {
+      await resolveDetectedTasksForThread(accountId, threadId);
+      return;
+    }
+
+    await upsertDetectedTaskForEmail(accountId, emailId);
+    await extractActionItems(emailId, { workflowOrigin: 'sync_new_email' });
+    await ensureRemindersForActionItems(accountId, emailId);
+    await extractAndStoreEventCandidatesForEmail(emailId);
+  } catch (error) {
+    logger.error(`Operational AI processing failed for email ${emailId}:`, error);
+  }
+}
+
+async function runWorkflowTriggersForEmail(accountId: string, emailId: string): Promise<void> {
+  try {
+    const workflows = await getActiveWorkflowsForAccount(accountId);
+    for (const wf of workflows) {
+      if (wf.triggerType === 'on_receive' || wf.triggerType === 'new_email') {
+        await executeWorkflow(wf.id, emailId).catch((wfErr) =>
+          logger.error(`Workflow ${wf.id} failed for email ${emailId}:`, wfErr),
+        );
+      }
+    }
+  } catch (wfErr) {
+    logger.error('Workflow trigger error:', wfErr);
+  }
+}
+
+async function handleInsertedEmailEffects(
+  accountId: string,
+  msg: GmailMessage,
+  options: { notifyRealtime: boolean; runUserWorkflows: boolean },
+): Promise<void> {
+  if (options.notifyRealtime) {
+    broadcastNewEmail(accountId, {
+      emailId: msg.id,
+      subject: msg.subject,
+      from: msg.from,
+      fromName: msg.fromName,
+      date: msg.date,
+      snippet: msg.snippet || null,
+    });
+
+    if (!msg.isRead) {
+      sendPushToAccount(accountId, {
+        title: msg.fromName || msg.from,
+        body: msg.subject || 'Új üzenet',
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/icon-72x72.png',
+        url: `/?emailId=${msg.id}`,
+        tag: `email-${msg.id}`,
+      }).catch((err) => {
+        logger.error('Push notification hiba:', err);
+      });
+    }
+  }
+
+  await processOperationalSignals(accountId, msg.id, msg.labels.includes('SENT'), msg.threadId ?? null);
+
+  if (options.runUserWorkflows) {
+    await runWorkflowTriggersForEmail(accountId, msg.id);
+  }
+}
+
+export async function reprocessRecentOperationalSignals(
+  accountId: string,
+  options?: { force?: boolean; daysBack?: number; maxEmails?: number; minIntervalMs?: number },
+): Promise<{ processed: number; skipped: boolean }> {
+  const daysBack = options?.daysBack ?? 30;
+  const maxEmails = options?.maxEmails ?? 120;
+  const minIntervalMs = options?.minIntervalMs ?? 6 * 60 * 60 * 1000;
+
+  if (!options?.force) {
+    const existing = await queryOne<{ value: string | null }>(
+      'SELECT value FROM user_settings WHERE account_id = ? AND key = ?',
+      [accountId, OPERATIONAL_REPROCESS_KEY],
+    );
+    const lastRun = Number(existing?.value ?? 0);
+    if (Number.isFinite(lastRun) && lastRun > 0 && Date.now() - lastRun < minIntervalMs) {
+      return { processed: 0, skipped: true };
+    }
+  }
+
+  const since = Date.now() - daysBack * 24 * 60 * 60 * 1000;
+  const emails = await queryAll<{ id: string; thread_id: string | null; labels: string | null }>(
+    `SELECT id, thread_id, labels
+     FROM emails
+     WHERE account_id = ? AND date >= ?
+     ORDER BY date DESC
+     LIMIT ?`,
+    [accountId, since, maxEmails],
+  );
+
+  let processed = 0;
+  for (const email of emails) {
+    try {
+      const labels = email.labels ? JSON.parse(email.labels) as string[] : [];
+      const isSent = labels.includes('SENT');
+      if (isSent) {
+        await resolveDetectedTasksForThread(accountId, email.thread_id);
+        continue;
+      }
+
+      await upsertDetectedTaskForEmail(accountId, email.id);
+      await extractActionItems(email.id, { force: true, workflowOrigin: 'scheduled_reprocess' });
+      await ensureRemindersForActionItems(accountId, email.id);
+      await extractAndStoreEventCandidatesForEmail(email.id);
+      processed++;
+    } catch (error) {
+      logger.error(`Operational reprocess failed for email ${email.id}:`, error);
+    }
+  }
+  await execute(
+    `INSERT INTO user_settings (id, account_id, key, value, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(account_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+    [uuidv4(), accountId, OPERATIONAL_REPROCESS_KEY, String(Date.now()), Date.now()],
+  );
+
+  return { processed, skipped: false };
+}
+
 // Email szinkronizálás egy fiókhoz
 export async function syncAccount(accountId: string, fullSync = false) {
+  const activeSync = syncPromises.get(accountId);
+  if (activeSync) {
+    logger.info(`Sync already in progress for ${accountId}, joining existing run`);
+    return activeSync;
+  }
+
+  const syncPromise = (async () => {
   const logId = uuidv4();
 
   // Wrap initial sync_log insert in try-catch to handle DB failures
-  try {
-    await execute('INSERT INTO sync_log (id, account_id, started_at, status) VALUES (?, ?, ?, ?)', [
-      logId,
-      accountId,
-      Date.now(),
-      'running',
-    ]);
-  } catch (error) {
-    logger.error('Failed to create sync log:', error);
-    throw new Error('Cannot start sync: database error');
-  }
-
-  try {
-    const { oauth2Client, account } = await getOAuth2ClientForAccount(accountId);
-    const gmail = getGmailClient(oauth2Client);
-
-    let processedCount = 0;
-
-    if (!fullSync && account.history_id) {
-      processedCount = await incrementalSync(gmail, accountId, account.history_id);
-    } else {
-      const daysBack = Math.max(1, parseInt(process.env.SYNC_DAYS_BACK || '30', 10));
-      processedCount = await fullSyncMessages(gmail, accountId, daysBack);
-    }
-
-    const profile = await getProfile(gmail);
-    await execute('UPDATE accounts SET history_id = ?, last_sync_at = ? WHERE id = ?', [
-      profile.historyId ? profile.historyId.toString() : null,
-      Date.now(),
-      accountId,
-    ]);
-
-    await execute(
-      'UPDATE sync_log SET completed_at = ?, messages_processed = ?, status = ? WHERE id = ?',
-      [Date.now(), processedCount, 'completed', logId],
-    );
-
-    // Automatikus kontakt kinyerés (csak első alkalommal)
-    // FIX: Add error handling for background contact extraction
     try {
-      autoExtractContactsIfNeeded(accountId);
-    } catch (err) {
-      logger.error(`Failed to extract contacts for account ${accountId}:`, err);
-    }
-
-    return { success: true, messagesProcessed: processedCount };
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : 'Ismeretlen hiba';
-    try {
-      await execute('UPDATE sync_log SET completed_at = ?, status = ?, error = ? WHERE id = ?', [
-        Date.now(),
-        'failed',
-        errorMsg,
+      await execute('INSERT INTO sync_log (id, account_id, started_at, status) VALUES (?, ?, ?, ?)', [
         logId,
+        accountId,
+        Date.now(),
+        'running',
       ]);
-    } catch (updateError) {
-      logger.error('Failed to update sync log on error:', updateError);
+    } catch (error) {
+      logger.error('Failed to create sync log:', error);
+      throw new Error('Cannot start sync: database error');
     }
-    throw error;
-  }
+
+    try {
+      const { oauth2Client, account } = await getOAuth2ClientForAccount(accountId);
+      const gmail = getGmailClient(oauth2Client);
+
+      let processedCount = 0;
+
+      if (!fullSync && account.history_id) {
+        processedCount = await incrementalSync(gmail, accountId, account.history_id);
+      } else {
+        const daysBack = Math.max(1, parseInt(process.env.SYNC_DAYS_BACK || '30', 10));
+        processedCount = await fullSyncMessages(gmail, accountId, daysBack);
+      }
+
+      const profile = await getProfile(gmail);
+      await execute('UPDATE accounts SET history_id = ?, last_sync_at = ? WHERE id = ?', [
+        profile.historyId ? profile.historyId.toString() : null,
+        Date.now(),
+        accountId,
+      ]);
+
+      await execute(
+        'UPDATE sync_log SET completed_at = ?, messages_processed = ?, status = ? WHERE id = ?',
+        [Date.now(), processedCount, 'completed', logId],
+      );
+
+      try {
+        await autoExtractContactsIfNeeded(accountId);
+      } catch (err) {
+        logger.error(`Failed to extract contacts for account ${accountId}:`, err);
+      }
+
+      return { success: true, messagesProcessed: processedCount };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Ismeretlen hiba';
+      try {
+        await execute('UPDATE sync_log SET completed_at = ?, status = ?, error = ? WHERE id = ?', [
+          Date.now(),
+          'failed',
+          errorMsg,
+          logId,
+        ]);
+      } catch (updateError) {
+        logger.error('Failed to update sync log on error:', updateError);
+      }
+      throw error;
+    }
+  })().finally(() => {
+    syncPromises.delete(accountId);
+  });
+
+  syncPromises.set(accountId, syncPromise);
+  return syncPromise;
 }
 
 async function fullSyncMessages(
@@ -157,8 +332,14 @@ async function fullSyncMessages(
 
       for (const msg of messages) {
         if (!msg) continue;
-        await saveEmail(accountId, msg);
-        totalProcessed++;
+        const isNew = await saveEmail(accountId, msg);
+        if (isNew) {
+          await handleInsertedEmailEffects(accountId, msg, {
+            notifyRealtime: false,
+            runUserWorkflows: false,
+          });
+          totalProcessed++;
+        }
       }
 
       if (i + 10 < batch.length) {
@@ -197,48 +378,12 @@ async function incrementalSync(
       try {
         const msg = await getMessage(gmail, msgId);
         const isNew = await saveEmail(accountId, msg);
-        processedCount++;
-
-        // SSE broadcast — küldés az összes csatlakozott kliensnek
         if (isNew) {
-          broadcastNewEmail(accountId, {
-            emailId: msg.id,
-            subject: msg.subject,
-            from: msg.from,
-            fromName: msg.fromName,
-            date: msg.date,
-            snippet: msg.snippet || null,
+          processedCount++;
+          await handleInsertedEmailEffects(accountId, msg, {
+            notifyRealtime: true,
+            runUserWorkflows: true,
           });
-        }
-
-        // Push notification küldése új, olvasatlan emailekről
-        if (isNew && !msg.isRead) {
-          sendPushToAccount(accountId, {
-            title: msg.fromName || msg.from,
-            body: msg.subject || 'Új üzenet',
-            icon: '/icons/icon-192x192.png',
-            badge: '/icons/icon-72x72.png',
-            url: `/?emailId=${msg.id}`,
-            tag: `email-${msg.id}`,
-          }).catch((err) => {
-            logger.error('Push notification hiba:', err);
-          });
-        }
-
-        // Workflow triggerek — on_receive típusú workflow-k aktiválása új emailnél
-        if (isNew) {
-          try {
-            const workflows = await getActiveWorkflowsForAccount(accountId);
-            for (const wf of workflows) {
-              if (wf.triggerType === 'on_receive') {
-                await executeWorkflow(wf.id, msg.id).catch((wfErr) =>
-                  logger.error(`Workflow ${wf.id} failed for email ${msg.id}:`, wfErr),
-                );
-              }
-            }
-          } catch (wfErr) {
-            logger.error('Workflow trigger error:', wfErr);
-          }
         }
       } catch (err) {
         logger.error(`Hiba inkrementális szinkronizálásnál (${msgId}):`, err);
@@ -260,91 +405,83 @@ async function incrementalSync(
 }
 
 async function saveEmail(accountId: string, msg: GmailMessage): Promise<boolean> {
-  // Ellenőrizzük, hogy már létezik-e
-  const existing = await queryOne<{ id: string }>(
-    'SELECT id FROM emails WHERE id = ? AND account_id = ?',
-    [msg.id, accountId],
-  );
+  return runInTransaction(async () => {
+    const inserted = await queryOne<{ id: string }>(
+      `INSERT INTO emails (id, account_id, thread_id, subject, from_email, from_name, to_email, cc_email, snippet, body, body_html, date, is_read, is_starred, labels, has_attachments, category_id, topic_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
+       ON CONFLICT(id) DO NOTHING
+       RETURNING id`,
+      [
+        msg.id,
+        accountId,
+        msg.threadId,
+        msg.subject,
+        msg.from,
+        msg.fromName,
+        msg.to,
+        msg.cc,
+        msg.snippet,
+        msg.body,
+        msg.bodyHtml,
+        msg.date,
+        msg.isRead ? 1 : 0,
+        msg.isStarred ? 1 : 0,
+        JSON.stringify(msg.labels),
+        msg.hasAttachments ? 1 : 0,
+      ],
+    );
 
-  if (existing) {
-    return false; // Már létezett
-  }
+    if (!inserted) {
+      return false;
+    }
 
-  const categoryId = await categorizeEmail(accountId, {
-    from: msg.from,
-    subject: msg.subject || '',
-    labels: msg.labels,
+    const categoryId = await categorizeEmail(accountId, {
+      from: msg.from,
+      subject: msg.subject || '',
+      labels: msg.labels,
+    });
+
+    const topicSubject = msg.subject || extractSubjectFromBody(msg.body);
+    const topicId = await findOrCreateTopic(accountId, topicSubject, msg.threadId, msg.body);
+
+    await execute(
+      'UPDATE emails SET category_id = ?, topic_id = ? WHERE id = ? AND account_id = ?',
+      [categoryId, topicId, msg.id, accountId],
+    );
+
+    if (msg.attachments && msg.attachments.length > 0) {
+      for (const att of msg.attachments) {
+        await execute(
+          'INSERT INTO attachments (id, email_id, filename, mime_type, size, gmail_attachment_id) VALUES (?, ?, ?, ?, ?, ?)',
+          [uuidv4(), msg.id, att.filename, att.mimeType, att.size, att.attachmentId],
+        );
+      }
+    }
+
+    const isSent = msg.labels.includes('SENT');
+    if (isSent) {
+      await updateSenderGroup(accountId, msg.from, msg.fromName, msg.date);
+
+      if (msg.to) {
+        const recipients = parseEmailList(msg.to);
+        for (const recipient of recipients) {
+          await updateSenderGroup(accountId, recipient.email, recipient.name, msg.date);
+        }
+      }
+
+      if (msg.cc) {
+        const ccRecipients = parseEmailList(msg.cc);
+        for (const ccRecipient of ccRecipients) {
+          await updateSenderGroup(accountId, ccRecipient.email, ccRecipient.name, msg.date);
+        }
+      }
+    } else {
+      await updateSenderGroup(accountId, msg.from, msg.fromName, msg.date);
+    }
+
+    await extractContactsFromEmail(accountId, msg.from, msg.fromName, msg.to, msg.cc);
+    return true;
   });
-
-  // Ha nincs tárgy, de van body, akkor body-ból próbáljuk meghatározni a témát
-  const topicSubject = msg.subject || extractSubjectFromBody(msg.body);
-  const topicId = await findOrCreateTopic(accountId, topicSubject, msg.threadId, msg.body);
-
-  await execute(
-    `INSERT INTO emails (id, account_id, thread_id, subject, from_email, from_name, to_email, cc_email, snippet, body, body_html, date, is_read, is_starred, labels, has_attachments, category_id, topic_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id) DO NOTHING`,
-    [
-      msg.id,
-      accountId,
-      msg.threadId,
-      msg.subject,
-      msg.from,
-      msg.fromName,
-      msg.to,
-      msg.cc,
-      msg.snippet,
-      msg.body,
-      msg.bodyHtml,
-      msg.date,
-      msg.isRead ? 1 : 0,
-      msg.isStarred ? 1 : 0,
-      JSON.stringify(msg.labels),
-      msg.hasAttachments ? 1 : 0,
-      categoryId,
-      topicId,
-    ],
-  );
-
-  if (msg.attachments && msg.attachments.length > 0) {
-    for (const att of msg.attachments) {
-      await execute(
-        'INSERT INTO attachments (id, email_id, filename, mime_type, size, gmail_attachment_id) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING',
-        [uuidv4(), msg.id, att.filename, att.mimeType, att.size, att.attachmentId],
-      );
-    }
-  }
-
-  // Elküldött email esetén (SENT label) a címzettet is csoportosítjuk
-  const isSent = msg.labels.includes('SENT');
-
-  if (isSent) {
-    // Ha én küldtem, akkor a címzetteket csoportosítom
-    updateSenderGroup(accountId, msg.from, msg.fromName, msg.date);
-
-    // Minden címzettet külön csoportba rak
-    if (msg.to) {
-      const recipients = parseEmailList(msg.to);
-      for (const recipient of recipients) {
-        updateSenderGroup(accountId, recipient.email, recipient.name, msg.date);
-      }
-    }
-
-    if (msg.cc) {
-      const ccRecipients = parseEmailList(msg.cc);
-      for (const ccRecipient of ccRecipients) {
-        updateSenderGroup(accountId, ccRecipient.email, ccRecipient.name, msg.date);
-      }
-    }
-  } else {
-    // Beérkezett email: csak a feladót csoportosítjuk
-    updateSenderGroup(accountId, msg.from, msg.fromName, msg.date);
-  }
-
-  // Kontaktok kinyerése
-  extractContactsFromEmail(accountId, msg.from, msg.fromName, msg.to, msg.cc);
-
-  return true; // Új email volt
 }
 
 // Email cím lista feldolgozása ("Name1 <email1@domain.com>, Name2 <email2@domain.com>" formátumból)
@@ -453,7 +590,7 @@ async function updateSenderGroup(
 
   if (existing) {
     await execute(
-      'UPDATE sender_groups SET message_count = message_count + 1, last_message_at = MAX(COALESCE(last_message_at, 0), ?), name = COALESCE(?, name) WHERE id = ?',
+      'UPDATE sender_groups SET message_count = message_count + 1, last_message_at = GREATEST(COALESCE(last_message_at, 0), ?), name = COALESCE(?, name) WHERE id = ?',
       [date, name || null, existing.id],
     );
   } else {
@@ -469,25 +606,20 @@ function sleep(ms: number) {
 }
 
 const syncIntervals = new Map<string, NodeJS.Timeout>();
-const syncInProgress = new Set<string>();
 
 export async function startBackgroundSync(accountId: string) {
   if (syncIntervals.has(accountId)) return;
 
   const intervalMs = Math.max(60000, parseInt(process.env.SYNC_INTERVAL_MS || '300000', 10));
   const interval = setInterval(async () => {
-    // Guard against overlapping syncs for the same account
-    if (syncInProgress.has(accountId)) {
+    if (syncPromises.has(accountId)) {
       logger.info(`Sync already in progress for ${accountId}, skipping`);
       return;
     }
-    syncInProgress.add(accountId);
     try {
       await syncAccount(accountId);
     } catch (err) {
       logger.error(`Háttér szinkronizálás hiba (${accountId}):`, err);
-    } finally {
-      syncInProgress.delete(accountId);
     }
   }, intervalMs);
 
@@ -500,13 +632,11 @@ export function stopBackgroundSync(accountId: string) {
     clearInterval(interval);
     syncIntervals.delete(accountId);
   }
-  syncInProgress.delete(accountId);
 }
 
 export function stopAllBackgroundSyncs() {
   for (const [accountId, interval] of syncIntervals) {
     clearInterval(interval);
-    syncInProgress.delete(accountId);
   }
   syncIntervals.clear();
 }

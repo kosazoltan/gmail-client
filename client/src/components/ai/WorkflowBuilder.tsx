@@ -12,6 +12,7 @@ import {
   PowerOff,
   Loader2,
   Clock,
+  Calendar,
   Filter,
   Bot,
   Tag,
@@ -49,13 +50,150 @@ const STEP_META: Record<StepType, { label: string; icon: typeof Filter; color: s
   save_report: { label: 'Riport mentés', icon: FileText, color: 'text-emerald-500', description: 'Eredmény mentése riportként' },
   ai_reply: { label: 'AI Válasz', icon: Bot, color: 'text-violet-500', description: 'AI-alapú válasz tervezet készítése' },
   condition: { label: 'Feltétel', icon: AlertCircle, color: 'text-amber-500', description: 'Feltételes elágazás' },
+  extract_action_items: { label: 'Teendők kinyerése', icon: Scissors, color: 'text-fuchsia-500', description: 'Action itemek automatikus kinyerése az emailből' },
+  detect_followup_risk: { label: 'Follow-up kockázat', icon: AlertCircle, color: 'text-rose-500', description: 'Válasz nélküli vagy kockázatos ügyek felismerése' },
+  extract_calendar_event: { label: 'Naptáresemény felismerés', icon: Calendar, color: 'text-cyan-500', description: 'Meeting vagy határidő felismerése emailből' },
+  create_calendar_event: { label: 'Naptáresemény létrehozás', icon: Calendar, color: 'text-sky-500', description: 'Felismert esemény automatikus naptárba írása' },
+  raise_dashboard_alert: { label: 'Dashboard figyelmeztetés', icon: Bell, color: 'text-red-500', description: 'Automatikus emlékeztető és dashboard figyelmeztetés létrehozása' },
 };
 
 const TRIGGER_META: Record<TriggerType, { label: string; icon: typeof Clock }> = {
   new_email: { label: 'Új email érkezésekor', icon: Forward },
-  schedule: { label: 'Ütemezett', icon: Clock },
+  schedule: { label: 'Ütemezett / napi batch', icon: Clock },
   manual: { label: 'Kézi indítás', icon: Play },
 };
+
+const WEEKDAY_OPTIONS = [
+  { value: 1, label: 'H' },
+  { value: 2, label: 'K' },
+  { value: 3, label: 'Sze' },
+  { value: 4, label: 'Cs' },
+  { value: 5, label: 'P' },
+  { value: 6, label: 'Szo' },
+  { value: 0, label: 'V' },
+];
+
+const ADDABLE_STEP_TYPES: StepType[] = [
+  'filter',
+  'ai_analyze',
+  'label',
+  'forward',
+  'summarize',
+  'notify',
+  'extract_action_items',
+  'detect_followup_risk',
+  'extract_calendar_event',
+  'create_calendar_event',
+  'raise_dashboard_alert',
+];
+
+type StepConfigValue = string | number | boolean | string[] | number[] | null;
+
+function parseCronToScheduleConfig(config: Record<string, unknown>): Record<string, unknown> {
+  const hour = typeof config.hour === 'number' ? config.hour : Number.parseInt(String(config.hour ?? ''), 10);
+  const minute = typeof config.minute === 'number' ? config.minute : Number.parseInt(String(config.minute ?? ''), 10);
+  const days = Array.isArray(config.days)
+    ? config.days.map((value) => Number.parseInt(String(value), 10)).filter((value) => Number.isInteger(value))
+    : null;
+
+  if (Number.isInteger(hour) && Number.isInteger(minute)) {
+    return {
+      hour,
+      minute,
+      days: days && days.length > 0 ? [...new Set(days)] : [1, 2, 3, 4, 5],
+    };
+  }
+
+  const cron = typeof config.cron === 'string' ? config.cron.trim() : '';
+  if (cron) {
+    const parts = cron.split(/\s+/);
+    if (parts.length >= 5) {
+      const parsedMinute = Number.parseInt(parts[0], 10);
+      const parsedHour = Number.parseInt(parts[1], 10);
+      const parsedDays = parts[4] === '*' || parts[4] === '?'
+        ? [1, 2, 3, 4, 5]
+        : parts[4]
+          .split(',')
+          .map((value) => Number.parseInt(value.trim(), 10))
+          .filter((value) => Number.isInteger(value))
+          .map((value) => (value === 7 ? 0 : value));
+      if (Number.isInteger(parsedHour) && Number.isInteger(parsedMinute)) {
+        return {
+          hour: parsedHour,
+          minute: parsedMinute,
+          days: parsedDays.length > 0 ? [...new Set(parsedDays)] : [1, 2, 3, 4, 5],
+        };
+      }
+    }
+  }
+
+  return { hour: 7, minute: 0, days: [1, 2, 3, 4, 5] };
+}
+
+function getDefaultStepConfig(type: StepType): Record<string, StepConfigValue> {
+  switch (type) {
+    case 'filter':
+      return { field: 'from_email', operator: 'contains', value: '' };
+    case 'notify':
+      return { title: 'Workflow értesítés', body: '' };
+    case 'forward':
+      return { to: '' };
+    case 'label':
+      return { label: '' };
+    case 'raise_dashboard_alert':
+      return { reminderOffsetHours: 2, note: 'Workflow által létrehozott AI figyelmeztetés' };
+    default:
+      return {};
+  }
+}
+
+function normalizeStepConfig(step: WorkflowStep): Record<string, StepConfigValue> {
+  if (step.type === 'filter') {
+    if (typeof step.config.field === 'string' && typeof step.config.value === 'string') {
+      return step.config as Record<string, StepConfigValue>;
+    }
+    if (typeof step.config.sender === 'string' && step.config.sender.trim()) {
+      return { field: 'from_email', operator: 'contains', value: step.config.sender.trim() };
+    }
+    if (typeof step.config.subject === 'string' && step.config.subject.trim()) {
+      return { field: 'subject', operator: 'contains', value: step.config.subject.trim() };
+    }
+    return getDefaultStepConfig('filter');
+  }
+
+  if (step.type === 'notify') {
+    return {
+      title: typeof step.config.title === 'string' ? step.config.title : 'Workflow értesítés',
+      body: typeof step.config.body === 'string'
+        ? step.config.body
+        : typeof step.config.message === 'string'
+          ? step.config.message
+          : '',
+    };
+  }
+
+  return step.config as Record<string, StepConfigValue>;
+}
+
+function normalizeWorkflow(workflow: WorkflowData): WorkflowData {
+  return {
+    ...workflow,
+    triggerConfig: workflow.triggerType === 'schedule'
+      ? parseCronToScheduleConfig(workflow.triggerConfig)
+      : workflow.triggerConfig,
+    steps: workflow.steps.map((step) => ({
+      ...step,
+      name: step.name ?? STEP_META[step.type].label,
+      config: normalizeStepConfig(step),
+    })),
+  };
+}
+
+function clampNumber(rawValue: string, min: number, max: number, fallback: number): number {
+  const parsed = Number.parseInt(rawValue, 10);
+  if (!Number.isInteger(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+}
 
 // --- Component ---
 
@@ -67,6 +205,7 @@ export function WorkflowBuilder() {
   const [error, setError] = useState<string | null>(null);
   const [runLogs, setRunLogs] = useState<RunLogEntry[]>([]);
   const [showLogs, setShowLogs] = useState(false);
+  const [activeLogWorkflowId, setActiveLogWorkflowId] = useState<string | null>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
   // Fetch workflows
@@ -75,7 +214,7 @@ export function WorkflowBuilder() {
     setError(null);
     try {
       const data = await api.workflows.list();
-      setWorkflows(data.workflows || []);
+      setWorkflows((data.workflows || []).map(normalizeWorkflow));
     } catch (err) {
       console.error('[WorkflowBuilder] loadWorkflows error:', err);
       setError(err instanceof Error ? err.message : 'Hiba a workflow-k betöltésekor');
@@ -100,6 +239,7 @@ export function WorkflowBuilder() {
     };
     setSelected(newWf);
     setShowLogs(false);
+    setActiveLogWorkflowId(null);
   };
 
   // Save
@@ -108,14 +248,15 @@ export function WorkflowBuilder() {
     setIsSaving(true);
     setError(null);
     try {
+      const payload = normalizeWorkflow(selected);
       if (selected.id) {
-        const updated = await api.workflows.update(selected.id, selected);
-        setWorkflows((prev) => prev.map((w) => (w.id === selected.id ? updated.workflow : w)));
-        setSelected(updated.workflow);
+        const updated = await api.workflows.update(selected.id, payload);
+        setWorkflows((prev) => prev.map((w) => (w.id === selected.id ? normalizeWorkflow(updated.workflow) : w)));
+        setSelected(normalizeWorkflow(updated.workflow));
       } else {
-        const created = await api.workflows.create(selected);
-        setWorkflows((prev) => [...prev, created.workflow]);
-        setSelected(created.workflow);
+        const created = await api.workflows.create(payload);
+        setWorkflows((prev) => [...prev, normalizeWorkflow(created.workflow)]);
+        setSelected(normalizeWorkflow(created.workflow));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Mentési hiba');
@@ -130,6 +271,11 @@ export function WorkflowBuilder() {
       await api.workflows.delete(id);
       setWorkflows((prev) => prev.filter((w) => w.id !== id));
       if (selected?.id === id) setSelected(null);
+      if (activeLogWorkflowId === id) {
+        setRunLogs([]);
+        setShowLogs(false);
+        setActiveLogWorkflowId(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Törlési hiba');
     }
@@ -140,8 +286,8 @@ export function WorkflowBuilder() {
     if (!wf.id) return;
     try {
       const updated = await api.workflows.update(wf.id, { ...wf, isActive: !wf.isActive });
-      setWorkflows((prev) => prev.map((w) => (w.id === wf.id ? updated.workflow : w)));
-      if (selected?.id === wf.id) setSelected(updated.workflow);
+      setWorkflows((prev) => prev.map((w) => (w.id === wf.id ? normalizeWorkflow(updated.workflow) : w)));
+      if (selected?.id === wf.id) setSelected(normalizeWorkflow(updated.workflow));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Aktiválási hiba');
     }
@@ -163,9 +309,11 @@ export function WorkflowBuilder() {
       const data = await api.workflows.runs(id);
       setRunLogs(data.runs || []);
       setShowLogs(true);
+      setActiveLogWorkflowId(id);
     } catch {
       setRunLogs([]);
       setShowLogs(true);
+      setActiveLogWorkflowId(id);
     }
   };
 
@@ -175,7 +323,8 @@ export function WorkflowBuilder() {
     const step: WorkflowStep = {
       id: crypto.randomUUID(),
       type,
-      config: {},
+      name: STEP_META[type].label,
+      config: getDefaultStepConfig(type),
     };
     setSelected({ ...selected, steps: [...selected.steps, step] });
   };
@@ -196,13 +345,38 @@ export function WorkflowBuilder() {
   };
 
   // Update step config
-  const handleStepConfigChange = (stepId: string, key: string, value: string) => {
+  const handleStepConfigChange = (stepId: string, key: string, value: StepConfigValue) => {
     if (!selected) return;
     setSelected({
       ...selected,
       steps: selected.steps.map((s) =>
         s.id === stepId ? { ...s, config: { ...s.config, [key]: value } } : s,
       ),
+    });
+  };
+
+  const handleTriggerConfigChange = (key: string, value: StepConfigValue) => {
+    if (!selected) return;
+    setSelected({
+      ...selected,
+      triggerConfig: { ...selected.triggerConfig, [key]: value },
+    });
+  };
+
+  const toggleScheduleDay = (dayValue: number) => {
+    if (!selected) return;
+    const current = Array.isArray(selected.triggerConfig.days)
+      ? selected.triggerConfig.days.map((value) => Number(value)).filter((value) => Number.isInteger(value))
+      : [1, 2, 3, 4, 5];
+    const next = current.includes(dayValue)
+      ? current.filter((value) => value !== dayValue)
+      : [...current, dayValue];
+    setSelected({
+      ...selected,
+      triggerConfig: {
+        ...selected.triggerConfig,
+        days: next.length > 0 ? next.sort((a, b) => a - b) : [1, 2, 3, 4, 5],
+      },
     });
   };
 
@@ -253,7 +427,7 @@ export function WorkflowBuilder() {
               {workflows.map((wf) => (
                 <div
                   key={wf.id}
-                  onClick={() => { setSelected(wf); setShowLogs(false); }}
+                  onClick={() => { setSelected(normalizeWorkflow(wf)); setShowLogs(false); }}
                   className={cn(
                     'dark:border-dark-border dark:hover:bg-dark-bg-tertiary cursor-pointer rounded-lg border border-gray-100 p-3 transition-colors hover:bg-gray-50',
                     selected?.id === wf.id && 'border-[#4f6ef7]/30 bg-[#4f6ef7]/5 dark:border-[#4f6ef7]/20 dark:bg-[#4f6ef7]/5',
@@ -339,7 +513,16 @@ export function WorkflowBuilder() {
                   </label>
                   <select
                     value={selected.triggerType}
-                    onChange={(e) => setSelected({ ...selected, triggerType: e.target.value as TriggerType })}
+                    onChange={(e) => {
+                      const triggerType = e.target.value as TriggerType;
+                      setSelected({
+                        ...selected,
+                        triggerType,
+                        triggerConfig: triggerType === 'schedule'
+                          ? parseCronToScheduleConfig(selected.triggerConfig)
+                          : {},
+                      });
+                    }}
                     className="dark:border-dark-border dark:bg-dark-bg-tertiary dark:text-dark-text w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#4f6ef7]"
                   >
                     {(Object.entries(TRIGGER_META) as [TriggerType, typeof TRIGGER_META[TriggerType]][]).map(([key, meta]) => (
@@ -351,19 +534,61 @@ export function WorkflowBuilder() {
 
               {/* Schedule config */}
               {selected.triggerType === 'schedule' && (
-                <div className="mb-5">
-                  <label className="dark:text-dark-text-secondary mb-1 block text-xs font-medium text-gray-600">
-                    Cron kifejezés (pl. 0 9 * * *)
-                  </label>
-                  <input
-                    type="text"
-                    value={selected.triggerConfig.cron || ''}
-                    onChange={(e) =>
-                      setSelected({ ...selected, triggerConfig: { ...selected.triggerConfig, cron: e.target.value } })
-                    }
-                    placeholder="0 9 * * *"
-                    className="dark:border-dark-border dark:bg-dark-bg-tertiary dark:text-dark-text w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#4f6ef7]"
-                  />
+                <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-[120px_120px_minmax(0,1fr)]">
+                  <div>
+                    <label className="dark:text-dark-text-secondary mb-1 block text-xs font-medium text-gray-600">
+                      Óra
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={23}
+                      value={String(selected.triggerConfig.hour ?? 7)}
+                      onChange={(e) => handleTriggerConfigChange('hour', clampNumber(e.target.value, 0, 23, 7))}
+                      className="dark:border-dark-border dark:bg-dark-bg-tertiary dark:text-dark-text w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#4f6ef7]"
+                    />
+                  </div>
+                  <div>
+                    <label className="dark:text-dark-text-secondary mb-1 block text-xs font-medium text-gray-600">
+                      Perc
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={59}
+                      value={String(selected.triggerConfig.minute ?? 0)}
+                      onChange={(e) => handleTriggerConfigChange('minute', clampNumber(e.target.value, 0, 59, 0))}
+                      className="dark:border-dark-border dark:bg-dark-bg-tertiary dark:text-dark-text w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-[#4f6ef7]"
+                    />
+                  </div>
+                  <div>
+                    <label className="dark:text-dark-text-secondary mb-1 block text-xs font-medium text-gray-600">
+                      Napok
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {WEEKDAY_OPTIONS.map((day) => {
+                        const selectedDays = Array.isArray(selected.triggerConfig.days)
+                          ? selected.triggerConfig.days.map((value) => Number(value))
+                          : [1, 2, 3, 4, 5];
+                        const isSelected = selectedDays.includes(day.value);
+                        return (
+                          <button
+                            key={day.value}
+                            type="button"
+                            onClick={() => toggleScheduleDay(day.value)}
+                            className={cn(
+                              'rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors',
+                              isSelected
+                                ? 'border-[#4f6ef7] bg-[#4f6ef7]/10 text-[#4f6ef7]'
+                                : 'border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800',
+                            )}
+                          >
+                            {day.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -430,19 +655,41 @@ export function WorkflowBuilder() {
                           <div className="mt-2 grid grid-cols-1 gap-2 pl-8 sm:grid-cols-2">
                             {step.type === 'filter' && (
                               <>
+                                <select
+                                  value={String(step.config.field || 'from_email')}
+                                  onChange={(e) => handleStepConfigChange(step.id, 'field', e.target.value)}
+                                  className="dark:border-dark-border dark:bg-dark-bg-secondary dark:text-dark-text rounded border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-[#4f6ef7]"
+                                >
+                                  <option value="from_email">Feladó email</option>
+                                  <option value="from_name">Feladó név</option>
+                                  <option value="subject">Tárgy</option>
+                                  <option value="to_email">Címzett</option>
+                                  <option value="labels">Címkék</option>
+                                  <option value="date_age_days">Levél kora (nap)</option>
+                                </select>
+                                <select
+                                  value={String(step.config.operator || 'contains')}
+                                  onChange={(e) => handleStepConfigChange(step.id, 'operator', e.target.value)}
+                                  className="dark:border-dark-border dark:bg-dark-bg-secondary dark:text-dark-text rounded border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-[#4f6ef7]"
+                                >
+                                  <option value="contains">Tartalmazza</option>
+                                  <option value="equals">Pontosan egyezik</option>
+                                  <option value="not_contains">Nem tartalmazza</option>
+                                  <option value="starts_with">Ezzel kezdődik</option>
+                                  <option value="ends_with">Ezzel végződik</option>
+                                  <option value="gt">Nagyobb mint</option>
+                                  <option value="gte">Nagyobb vagy egyenlő</option>
+                                  <option value="lt">Kisebb mint</option>
+                                  <option value="lte">Kisebb vagy egyenlő</option>
+                                  <option value="in_vip_list">VIP listában van</option>
+                                </select>
                                 <input
                                   type="text"
-                                  placeholder="Feladó (pl. *@company.com)"
-                                  value={step.config.sender || ''}
-                                  onChange={(e) => handleStepConfigChange(step.id, 'sender', e.target.value)}
-                                  className="dark:border-dark-border dark:bg-dark-bg-secondary dark:text-dark-text rounded border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-[#4f6ef7]"
-                                />
-                                <input
-                                  type="text"
-                                  placeholder="Tárgy tartalmazza"
-                                  value={step.config.subject || ''}
-                                  onChange={(e) => handleStepConfigChange(step.id, 'subject', e.target.value)}
-                                  className="dark:border-dark-border dark:bg-dark-bg-secondary dark:text-dark-text rounded border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-[#4f6ef7]"
+                                  placeholder={step.config.operator === 'in_vip_list' ? 'VIP lista alapú szűrés' : 'Szűrési érték'}
+                                  value={step.config.operator === 'in_vip_list' ? '' : String(step.config.value || '')}
+                                  onChange={(e) => handleStepConfigChange(step.id, 'value', e.target.value)}
+                                  disabled={step.config.operator === 'in_vip_list'}
+                                  className="dark:border-dark-border dark:bg-dark-bg-secondary dark:text-dark-text rounded border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-[#4f6ef7] sm:col-span-2"
                                 />
                               </>
                             )}
@@ -450,7 +697,7 @@ export function WorkflowBuilder() {
                               <input
                                 type="email"
                                 placeholder="Továbbítás címzettje"
-                                value={step.config.to || ''}
+                                value={String(step.config.to || '')}
                                 onChange={(e) => handleStepConfigChange(step.id, 'to', e.target.value)}
                                 className="dark:border-dark-border dark:bg-dark-bg-secondary dark:text-dark-text rounded border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-[#4f6ef7] sm:col-span-2"
                               />
@@ -459,19 +706,28 @@ export function WorkflowBuilder() {
                               <input
                                 type="text"
                                 placeholder="Címke neve"
-                                value={step.config.label || ''}
+                                value={String(step.config.label || '')}
                                 onChange={(e) => handleStepConfigChange(step.id, 'label', e.target.value)}
                                 className="dark:border-dark-border dark:bg-dark-bg-secondary dark:text-dark-text rounded border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-[#4f6ef7] sm:col-span-2"
                               />
                             )}
                             {step.type === 'notify' && (
-                              <input
-                                type="text"
-                                placeholder="Értesítés szövege"
-                                value={step.config.message || ''}
-                                onChange={(e) => handleStepConfigChange(step.id, 'message', e.target.value)}
-                                className="dark:border-dark-border dark:bg-dark-bg-secondary dark:text-dark-text rounded border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-[#4f6ef7] sm:col-span-2"
-                              />
+                              <>
+                                <input
+                                  type="text"
+                                  placeholder="Értesítés címe"
+                                  value={String(step.config.title || '')}
+                                  onChange={(e) => handleStepConfigChange(step.id, 'title', e.target.value)}
+                                  className="dark:border-dark-border dark:bg-dark-bg-secondary dark:text-dark-text rounded border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-[#4f6ef7]"
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="Értesítés szövege"
+                                  value={String(step.config.body || '')}
+                                  onChange={(e) => handleStepConfigChange(step.id, 'body', e.target.value)}
+                                  className="dark:border-dark-border dark:bg-dark-bg-secondary dark:text-dark-text rounded border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-[#4f6ef7]"
+                                />
+                              </>
                             )}
                           </div>
                         </div>
@@ -487,7 +743,8 @@ export function WorkflowBuilder() {
                   Lépés hozzáadása:
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {(Object.entries(STEP_META) as [StepType, typeof STEP_META[StepType]][]).map(([type, meta]) => {
+                  {ADDABLE_STEP_TYPES.map((type) => {
+                    const meta = STEP_META[type];
                     const Icon = meta.icon;
                     return (
                       <button
@@ -550,8 +807,9 @@ export function WorkflowBuilder() {
                   Futtatási napló
                 </h3>
                 <button
-                  onClick={() => { if (selected?.id) loadLogs(selected.id); }}
-                  className="dark:text-dark-text-secondary p-1 text-gray-400 hover:text-gray-600"
+                  onClick={() => { if (activeLogWorkflowId) loadLogs(activeLogWorkflowId); }}
+                  disabled={!activeLogWorkflowId}
+                  className="dark:text-dark-text-secondary p-1 text-gray-400 hover:text-gray-600 disabled:opacity-40"
                   title="Frissítés"
                 >
                   <RefreshCw className="h-4 w-4" />
