@@ -63,6 +63,8 @@ interface AIAnalysisResult {
 }
 
 let client: Anthropic | null = null;
+const DEEP_ANALYSIS_REQUEST_TIMEOUT_MS = 75_000;
+const BRIEFING_ANALYSIS_REQUEST_TIMEOUT_MS = 85_000;
 
 function getClient(): Anthropic | null {
   if (!process.env.ANTHROPIC_API_KEY) return null;
@@ -185,7 +187,7 @@ KÖVETELMÉNYEK:
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4000,
       messages: [{ role: 'user', content: prompt }],
-    }, { timeout: 60_000 }); // 60s hard timeout
+    }, { timeout: DEEP_ANALYSIS_REQUEST_TIMEOUT_MS });
 
     const elapsed = Date.now() - startTime;
     logger.info(`Deep analysis kész (${elapsed}ms, ${response.usage?.input_tokens ?? '?'} input / ${response.usage?.output_tokens ?? '?'} output token)`);
@@ -347,7 +349,7 @@ KOVETELMENYEK:
       model: 'claude-sonnet-4-20250514', // Same model as AI chat (confirmed working)
       max_tokens: 10000,
       messages: [{ role: 'user', content: prompt }],
-    }, { timeout: 90_000 }); // 90s hard timeout — prevents indefinite hang
+    }, { timeout: BRIEFING_ANALYSIS_REQUEST_TIMEOUT_MS });
 
     const elapsed = Date.now() - startTime;
     logger.info(`AI piaci elemzes kesz (${elapsed}ms, ${response.usage?.input_tokens ?? '?'} input / ${response.usage?.output_tokens ?? '?'} output token)`);

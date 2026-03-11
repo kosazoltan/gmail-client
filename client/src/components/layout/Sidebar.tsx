@@ -367,9 +367,15 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
           </>
         )}
 
-        {/* Smart Folders sub-items */}
+        {/* Smart Folders alatti mappák — világosan a Smart Folders alá tartoznak, nem a Market alá */}
         {aiGroup.isOpen && smartFolders.length > 0 && isOpen && (
           <>
+            <div className="px-3 pt-2 pb-1">
+              <div className="dark:text-dark-text-muted flex items-center gap-2 text-xs font-medium tracking-wider text-gray-400 uppercase">
+                <FolderSearch className="h-3 w-3" aria-hidden="true" />
+                Smart Folders
+              </div>
+            </div>
             {smartFolders.slice(0, 4).map((folder) => (
               <NavLink
                 key={folder.id}

@@ -61,6 +61,26 @@ export function useDeleteVip() {
   });
 }
 
+// AI VIP suggestions (manual trigger, not cached)
+export function useVipSuggestions() {
+  return useMutation({
+    mutationFn: () => api.vip.suggest(),
+  });
+}
+
+// Apply AI suggestions (batch add)
+export function useApplyVipSuggestions() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (items: Array<{ email: string; name?: string | null }>) =>
+      api.vip.applySuggestions(items),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vipSenders'] });
+      queryClient.invalidateQueries({ queryKey: ['vipEmails'] });
+    },
+  });
+}
+
 // Toggle VIP status for an email
 export function useToggleVip() {
   const queryClient = useQueryClient();

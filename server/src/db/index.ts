@@ -430,6 +430,7 @@ export async function initializeDatabase(): Promise<void> {
         conversation_id TEXT NOT NULL REFERENCES ai_conversations(id) ON DELETE CASCADE,
         role TEXT NOT NULL,
         content TEXT NOT NULL,
+        metadata TEXT,
         created_at INTEGER NOT NULL
       );
 
@@ -485,7 +486,9 @@ export async function initializeDatabase(): Promise<void> {
       ALTER TABLE detected_tasks ADD COLUMN IF NOT EXISTS snoozed_until BIGINT;
       ALTER TABLE detected_tasks ADD COLUMN IF NOT EXISTS created_at BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT;
       ALTER TABLE email_event_candidates ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'suggested';
+      ALTER TABLE emails ADD COLUMN IF NOT EXISTS ai_tags TEXT;
       ALTER TABLE daily_briefs ADD COLUMN IF NOT EXISTS generated_at BIGINT DEFAULT 0;
+      ALTER TABLE ai_messages ADD COLUMN IF NOT EXISTS metadata TEXT;
     `);
 
     // Indexes

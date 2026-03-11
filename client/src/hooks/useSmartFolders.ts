@@ -62,3 +62,13 @@ export function useDeleteSmartFolder() {
     },
   });
 }
+
+export function useClassifyEmails() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (limit?: number) => api.smartFolders.classify(limit),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['smartFolders'] });
+    },
+  });
+}

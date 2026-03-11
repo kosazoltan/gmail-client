@@ -155,6 +155,9 @@ export function useDeleteEmail() {
       queryClient.invalidateQueries({ queryKey: ['trash-infinite'] }); // Infinite scroll trash
       queryClient.invalidateQueries({ queryKey: ['views'] });
       queryClient.invalidateQueries({ queryKey: ['search'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['detected-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['detected-tasks', 'stats'] });
     },
   });
 }
@@ -176,6 +179,9 @@ export function useBatchDeleteEmails() {
       queryClient.invalidateQueries({ queryKey: ['trash-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['views'] });
       queryClient.invalidateQueries({ queryKey: ['search'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['detected-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['detected-tasks', 'stats'] });
     },
   });
 }
@@ -189,6 +195,7 @@ export function useBatchMarkRead() {
       queryClient.invalidateQueries({ queryKey: ['inbox-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['unread-count'] });
       queryClient.invalidateQueries({ queryKey: ['emails'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }

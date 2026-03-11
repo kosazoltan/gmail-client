@@ -388,9 +388,11 @@ export interface ActionCenterItem {
   confidence: number | null;
   suggestedAction: string | null;
   emailId: string | null;
+  emailIds?: string[] | null;
   accountId: string | null;
   threadId: string | null;
   calendarEventId: string | null;
+  groupSize?: number | null;
   links: {
     app: string | null;
     gmail: string | null;
@@ -659,8 +661,19 @@ export interface WeeklyReportData {
 // --- Smart Folders ---
 
 export interface SmartFolderRule {
-  field: 'from' | 'to' | 'subject' | 'labels' | 'has_attachments' | 'is_read' | 'date_age_days';
-  operator: 'contains' | 'equals' | 'not_contains' | 'greater_than' | 'less_than';
+  field:
+    | 'from'
+    | 'to'
+    | 'subject'
+    | 'labels'
+    | 'has_attachments'
+    | 'is_read'
+    | 'date_age_days'
+    | 'subject_or_snippet_keywords'
+    | 'ai_tags_contains'
+    | 'content_semantic'
+    | 'unanswered';
+  operator: 'contains' | 'equals' | 'not_contains' | 'greater_than' | 'less_than' | 'contains_any';
   value: string;
 }
 
@@ -776,9 +789,90 @@ export interface SmartSearchResult {
   query: string;
   interpretation: string;
   resultCount: number;
+  emails?: Array<{
+    id: string;
+    subject: string | null;
+    fromEmail: string | null;
+    fromName: string | null;
+    snippet: string | null;
+    date: number;
+    appLink: string;
+  }>;
 }
 
 // --- AI Chat ---
+
+export interface PendingAgentAction {
+  toolName: 'saveWorkflow' | 'runWorkflow';
+  title: string;
+  confirmationMessage: string;
+  payload: Record<string, unknown>;
+}
+
+export interface AgentExecutionResult {
+  kind:
+    | 'search'
+    | 'workflow_draft'
+    | 'workflow_saved'
+    | 'workflow_run'
+    | 'workflows'
+    | 'smart_folders'
+    | 'navigation'
+    | 'email';
+  title: string;
+  query?: string;
+  interpretation?: string;
+  resultCount?: number;
+  emails?: Array<{
+    id: string;
+    subject: string | null;
+    fromEmail: string | null;
+    fromName: string | null;
+    snippet: string | null;
+    date: number;
+    appLink: string;
+  }>;
+  workflowDraft?: WorkflowData;
+  workflow?: {
+    id?: string;
+    name: string;
+    triggerType?: string;
+    stepCount?: number;
+    isActive?: boolean;
+  };
+  workflowRun?: {
+    id: string;
+    workflowId: string;
+    status: string;
+    triggerEmailId: string | null;
+    stepsCompleted: number;
+  };
+  workflows?: Array<{
+    id: string;
+    name: string;
+    triggerType: string;
+    isActive: boolean;
+    stepCount: number;
+  }>;
+  smartFolders?: Array<{
+    id: string;
+    name: string;
+    color: string | null;
+    count: number;
+  }>;
+  navigation?: {
+    label: string;
+    path: string;
+  };
+  warnings?: string[];
+}
+
+export interface AiAgentResponse {
+  reply: string;
+  conversationId: string | null;
+  result?: AgentExecutionResult | null;
+  pendingAction?: PendingAgentAction | null;
+}
 
 export interface ChatMessage {
   id: string;
@@ -827,6 +921,7 @@ export interface WorkflowStep {
 export interface WorkflowData {
   id?: string;
   name: string;
+  description?: string | null;
   triggerType: WorkflowTriggerType;
   triggerConfig: Record<string, unknown>;
   steps: WorkflowStep[];

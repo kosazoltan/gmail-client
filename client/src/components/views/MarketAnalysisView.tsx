@@ -69,7 +69,15 @@ function getFallbackBannerText(
 function replaceLegacyFallbackText(text: string, replacement: string): string {
   return text
     .replace(LEGACY_BRIEFING_FALLBACK_TEXT, replacement)
-    .replace(LEGACY_DEEP_ANALYSIS_FALLBACK_TEXT, `Sablon alapu elemzes - ${replacement}`);
+    .replace(LEGACY_DEEP_ANALYSIS_FALLBACK_TEXT, `Sablon-alapú elemzés - ${replacement}`)
+    .replace(/\n?\n?⚠️\s*Sablon-alapú becslés fut,[^\n]*/g, '')
+    .replace(/Sablon alapu elemzes/gi, 'Sablon-alapú elemzés')
+    .replace(/Mely elemzes/gi, 'Mély elemzés')
+    .replace(/atmenetileg/gi, 'átmenetileg')
+    .replace(/elerheto/gi, 'elérhető')
+    .replace(/elo arfolyamok/gi, 'élő árfolyamok')
+    .replace(/Osszessegeben/gi, 'Összességében')
+    .trim();
 }
 
 function DirectionIcon({ direction, className }: { direction: string; className?: string }) {

@@ -10,3 +10,5 @@ logs/
 client_secret*.json
 .claude/
 nul
+client/playwright-report/
+client/test-results/

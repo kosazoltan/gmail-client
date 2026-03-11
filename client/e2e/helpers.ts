@@ -45,9 +45,11 @@ export const mockEmails = [
 
 /** Setup standard API mocks for an authenticated session */
 export async function setupAuthenticatedMocks(page: Page) {
-  await page.route('**/api/auth/session', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mockSession) })
-  );
+  // Mock session with proper structure
+  await page.route('**/api/auth/session', (route) => {
+    console.log('[MOCK] Session endpoint called');
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mockSession) });
+  });
   await page.route('**/api/vip**', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ senders: [] }) })
   );

@@ -1,5 +1,6 @@
 import { queryAll, queryOne } from '../db/index.js';
 import logger from '../utils/logger.js';
+import { isLikelyBulkNoise, isLikelyOperationalAlert } from './email-signal.service.js';
 
 // --- Típusok ---
 
@@ -165,7 +166,21 @@ export async function autoPrioritize(
 
   const now = Date.now();
 
-  return emails.map((email) => {
+  return emails
+    .filter(
+      (email) =>
+        !isLikelyBulkNoise({
+          fromEmail: email.from_email,
+          subject: email.subject,
+          snippet: email.snippet,
+        }) &&
+        !isLikelyOperationalAlert({
+          fromEmail: email.from_email,
+          subject: email.subject,
+          snippet: email.snippet,
+        }),
+    )
+    .map((email) => {
     let score = 0;
     const reasons: string[] = [];
     const subjectLower = normalizeText(email.subject || '');
@@ -227,12 +242,12 @@ export async function autoPrioritize(
       priority = 'low';
     }
 
-    return {
-      emailId: email.id,
-      priority,
-      reason: reasons.length > 0 ? reasons.join(', ') : 'Normál levél',
-    };
-  });
+      return {
+        emailId: email.id,
+        priority,
+        reason: reasons.length > 0 ? reasons.join(', ') : 'Normál levél',
+      };
+    });
 }
 
 /**
@@ -275,27 +290,39 @@ export async function detectPendingFollowups(accountId: string): Promise<Pending
 
   const now = Date.now();
 
-  return pendingEmails.map((email) => {
-    const daysSince = Math.floor((now - email.date) / (1000 * 60 * 60 * 24));
+  return pendingEmails
+    .filter(
+      (email) =>
+        !isLikelyBulkNoise({
+          fromEmail: email.from_email,
+          subject: email.subject,
+        }) &&
+        !isLikelyOperationalAlert({
+          fromEmail: email.from_email,
+          subject: email.subject,
+        }),
+    )
+    .map((email) => {
+      const daysSince = Math.floor((now - email.date) / (1000 * 60 * 60 * 24));
 
-    let urgency: string;
-    if (daysSince >= 7) {
-      urgency = 'critical';
-    } else if (daysSince >= 5) {
-      urgency = 'high';
-    } else {
-      urgency = 'medium';
-    }
+      let urgency: string;
+      if (daysSince >= 7) {
+        urgency = 'critical';
+      } else if (daysSince >= 5) {
+        urgency = 'high';
+      } else {
+        urgency = 'medium';
+      }
 
-    return {
-      emailId: email.id,
-      subject: email.subject || '(Nincs tárgy)',
-      from_email: email.from_email || '',
-      from_name: email.from_name || '',
-      daysSince,
-      urgency,
-    };
-  });
+      return {
+        emailId: email.id,
+        subject: email.subject || '(Nincs tárgy)',
+        from_email: email.from_email || '',
+        from_name: email.from_name || '',
+        daysSince,
+        urgency,
+      };
+    });
 }
 
 /**
@@ -313,13 +340,28 @@ export async function extractEventsFromEmails(
     subject: string;
     body: string;
     snippet: string;
+    from_email: string | null;
   }>(
-    `SELECT id, subject, body, snippet FROM emails
+    `SELECT id, subject, body, snippet, from_email FROM emails
      WHERE id IN (${placeholders}) AND account_id = ?`,
     [...emailIds, accountId],
   );
 
-  return emails.map((email) => {
+  return emails
+    .filter(
+      (email) =>
+        !isLikelyBulkNoise({
+          fromEmail: email.from_email,
+          subject: email.subject,
+          snippet: email.snippet,
+        }) &&
+        !isLikelyOperationalAlert({
+          fromEmail: email.from_email,
+          subject: email.subject,
+          snippet: email.snippet,
+        }),
+    )
+    .map((email) => {
     const events: ExtractedEvent[] = [];
     const textToSearch = [email.subject, email.snippet, email.body]
       .filter(Boolean)
@@ -383,8 +425,8 @@ export async function extractEventsFromEmails(
       events.push({ title, date: dateStr, type });
     }
 
-    return { emailId: email.id, events };
-  });
+      return { emailId: email.id, events };
+    });
 }
 
 /**

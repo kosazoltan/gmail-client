@@ -431,10 +431,19 @@ export async function processScheduledWorkflows(): Promise<void> {
 
 export async function executeWorkflow(
   workflowId: string,
-  triggerEmailId?: string,
+  options?: string | {
+    triggerEmailId?: string;
+    sourceEmailIds?: string[];
+  },
 ): Promise<WorkflowRun | undefined> {
   const workflow = await getWorkflow(workflowId);
   if (!workflow) return undefined;
+  const triggerEmailId = typeof options === 'string' ? options : options?.triggerEmailId;
+  const sourceEmailIds = typeof options === 'string'
+    ? []
+    : Array.isArray(options?.sourceEmailIds)
+      ? options.sourceEmailIds.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      : [];
 
   const runId = uuid();
   const now = Date.now();
@@ -445,9 +454,15 @@ export async function executeWorkflow(
     [runId, workflowId, workflow.accountId, triggerEmailId ?? null, now],
   );
 
-  // Load trigger email(s) as initial context
+  // Load trigger email(s) or explicit selected emails as initial context
   let emails: EmailRow[] = [];
-  if (triggerEmailId) {
+  if (sourceEmailIds.length > 0) {
+    const placeholders = sourceEmailIds.map(() => '?').join(', ');
+    emails = await queryAll<EmailRow>(
+      `SELECT * FROM emails WHERE account_id = ? AND id IN (${placeholders}) ORDER BY date DESC`,
+      [workflow.accountId, ...sourceEmailIds],
+    );
+  } else if (triggerEmailId) {
     const email = await queryOne<EmailRow>('SELECT * FROM emails WHERE id = ? AND account_id = ?', [triggerEmailId, workflow.accountId]);
     if (email) emails = [email];
   }

@@ -5,6 +5,7 @@ import {
   useCreateSmartFolder,
   useDeleteSmartFolder,
   useGenerateSmartFolder,
+  useClassifyEmails,
 } from '../../hooks/useSmartFolders';
 import {
   FolderSearch,
@@ -25,7 +26,7 @@ interface SmartFoldersViewProps {
   onEmailSelect?: (emailId: string) => void;
 }
 
-const FIELD_LABELS: Record<SmartFolderRule['field'], string> = {
+const FIELD_LABELS: Partial<Record<SmartFolderRule['field'], string>> = {
   from: 'Feladó',
   to: 'Címzett',
   subject: 'Tárgy',
@@ -33,14 +34,19 @@ const FIELD_LABELS: Record<SmartFolderRule['field'], string> = {
   has_attachments: 'Csatolmány',
   is_read: 'Olvasott',
   date_age_days: 'Kor (napok)',
+  subject_or_snippet_keywords: 'Tárgy/előnézet',
+  ai_tags_contains: 'AI tag',
+  content_semantic: 'Tartalom (kulcsszó+AI)',
+  unanswered: 'Megválaszolatlan',
 };
 
-const OPERATOR_LABELS: Record<SmartFolderRule['operator'], string> = {
+const OPERATOR_LABELS: Partial<Record<SmartFolderRule['operator'], string>> = {
   contains: 'tartalmazza',
   equals: 'egyenlő',
   not_contains: 'nem tartalmazza',
   greater_than: 'nagyobb mint',
   less_than: 'kisebb mint',
+  contains_any: 'tartalmazza bármelyiket',
 };
 
 export function SmartFoldersView({ onEmailSelect }: SmartFoldersViewProps) {
@@ -48,6 +54,7 @@ export function SmartFoldersView({ onEmailSelect }: SmartFoldersViewProps) {
   const createMutation = useCreateSmartFolder();
   const deleteMutation = useDeleteSmartFolder();
   const generateMutation = useGenerateSmartFolder();
+  const classifyMutation = useClassifyEmails();
 
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -233,6 +240,26 @@ export function SmartFoldersView({ onEmailSelect }: SmartFoldersViewProps) {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() =>
+              classifyMutation.mutate(50, {
+                onSuccess: (data) => {
+                  toast.success(`${data.classified} levél kategorizálva. Még ${data.unclassified} feldolgozatlan.`);
+                },
+                onError: () => toast.error('AI kategorizálás sikertelen'),
+              })
+            }
+            disabled={classifyMutation.isPending}
+            className="flex items-center gap-1.5 rounded-lg border border-violet-400 px-3 py-2 text-sm font-medium text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-500/10 transition-colors disabled:opacity-50"
+            title="Levelek AI kategorizálása a tartalom alapján (Pénzügyi, Jogi stb.)"
+          >
+            {classifyMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+            AI Kategorizálás
+          </button>
+          <button
             onClick={() => setShowAIModal(true)}
             className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-purple-500 px-3 py-2 text-sm font-medium text-white hover:from-violet-600 hover:to-purple-600 transition-all"
           >
@@ -282,7 +309,7 @@ export function SmartFoldersView({ onEmailSelect }: SmartFoldersViewProps) {
                       )}
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {folder.rules.map(r => `${FIELD_LABELS[r.field]} ${OPERATOR_LABELS[r.operator]} "${r.value}"`).join(' + ')}
+                      {folder.rules.map(r => `${FIELD_LABELS[r.field] ?? r.field} ${OPERATOR_LABELS[r.operator] ?? r.operator} ${r.value ? `"${r.value}"` : ''}`).join(' + ')}
                     </p>
                   </div>
                 </button>

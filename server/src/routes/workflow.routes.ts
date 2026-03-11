@@ -10,9 +10,24 @@ import {
   getWorkflowRuns,
 } from '../services/workflow.service.js';
 import type { WorkflowStep } from '../services/workflow.service.js';
+import Anthropic from '@anthropic-ai/sdk';
+import {
+  generateWorkflowDraftFromPrompt,
+  validateWorkflowDraft,
+} from '../services/ai-workflow.service.js';
 import logger from '../utils/logger.js';
 
 const router = Router();
+
+let anthropicClient: Anthropic | null = null;
+
+function getAnthropicClient(): Anthropic | null {
+  if (!process.env.ANTHROPIC_API_KEY) return null;
+  if (!anthropicClient) {
+    anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  }
+  return anthropicClient;
+}
 
 // GET /api/workflows — list workflows (account szűrés)
 router.get('/', async (req, res) => {
@@ -67,6 +82,32 @@ router.post('/', async (req, res) => {
   } catch (error) {
     logger.error('Workflow create error:', error);
     res.status(500).json({ error: 'Nem sikerült létrehozni a workflow-t' });
+  }
+});
+
+// POST /api/workflows/generate — AI workflow draft generation
+router.post('/generate', async (req, res) => {
+  try {
+    const accountId = req.session?.activeAccountId;
+    if (!accountId) {
+      return res.status(401).json({ error: 'Nincs bejelentkezve' });
+    }
+
+    const { prompt } = req.body as { prompt?: string };
+    if (!prompt || typeof prompt !== 'string' || prompt.trim().length < 5) {
+      return res.status(400).json({ error: 'A prompt megadása kötelező' });
+    }
+
+    const generated = await generateWorkflowDraftFromPrompt(getAnthropicClient(), prompt.trim());
+    const validated = validateWorkflowDraft(generated.workflow);
+    res.json({
+      workflow: validated.workflow,
+      warnings: [...generated.warnings, ...validated.warnings],
+      source: generated.source,
+    });
+  } catch (error) {
+    logger.error('Workflow generate error:', error);
+    res.status(500).json({ error: 'Nem sikerült workflow draftot generálni' });
   }
 });
 
@@ -157,9 +198,15 @@ router.post('/:id/run', async (req, res) => {
       return res.status(404).json({ error: 'Workflow nem található' });
     }
 
-    const { triggerEmailId } = req.body as { triggerEmailId?: string };
+    const { triggerEmailId, sourceEmailIds } = req.body as {
+      triggerEmailId?: string;
+      sourceEmailIds?: string[];
+    };
 
-    const run = await executeWorkflow(id, triggerEmailId);
+    const run = await executeWorkflow(id, {
+      triggerEmailId,
+      sourceEmailIds,
+    });
     if (!run) {
       return res.status(500).json({ error: 'Workflow futtatás sikertelen' });
     }

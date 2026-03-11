@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Sun,
   Mail,
@@ -14,11 +15,14 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { api } from '../../lib/api';
+import { useSession } from '../../hooks/useAccounts';
 import type { DailyStats, PriorityEmail, FollowUp, ContactActivity } from '../../types';
 
 // --- Component ---
 
 export function DailyBriefView() {
+  const navigate = useNavigate();
+  const { data: session } = useSession();
   const [stats, setStats] = useState<DailyStats | null>(null);
   const [priorities, setPriorities] = useState<PriorityEmail[]>([]);
   const [followUps, setFollowUps] = useState<FollowUp[]>([]);
@@ -70,6 +74,17 @@ export function DailyBriefView() {
     if (hour < 18) return 'Jó napot! 🌤️';
     return 'Jó estét! 🌙';
   })();
+
+  const openEmail = useCallback(
+    (emailId: string) => {
+      const params = new URLSearchParams({ emailId });
+      if (session?.activeAccountId) {
+        params.set('accountId', session.activeAccountId);
+      }
+      navigate(`/?${params.toString()}`);
+    },
+    [navigate, session?.activeAccountId],
+  );
 
   if (isLoading) {
     return (
@@ -160,7 +175,11 @@ export function DailyBriefView() {
           ) : (
             <div className="space-y-3">
               {priorities.slice(0, 5).map((email) => (
-                <div key={email.id} className="dark:border-dark-border rounded-lg border border-gray-100 p-3">
+                <button
+                  key={email.id}
+                  onClick={() => openEmail(email.id)}
+                  className="dark:border-dark-border block w-full rounded-lg border border-gray-100 p-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                >
                   <div className="flex items-start gap-2">
                     <ArrowUp
                       className={cn(
@@ -185,7 +204,7 @@ export function DailyBriefView() {
                       {new Date(email.receivedAt).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -204,7 +223,11 @@ export function DailyBriefView() {
           ) : (
             <div className="space-y-3">
               {followUps.slice(0, 5).map((fu) => (
-                <div key={fu.emailId} className="dark:border-dark-border rounded-lg border border-gray-100 p-3">
+                <button
+                  key={fu.emailId}
+                  onClick={() => openEmail(fu.emailId)}
+                  className="dark:border-dark-border block w-full rounded-lg border border-gray-100 p-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                >
                   <div className="flex items-center gap-2">
                     <AlertTriangle
                       className={cn(
@@ -233,7 +256,7 @@ export function DailyBriefView() {
                       {fu.urgency === 'critical' ? 'Kritikus' : fu.urgency === 'high' ? 'Sürgős' : fu.urgency === 'medium' ? 'Közepes' : 'Alacsony'}
                     </span>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}

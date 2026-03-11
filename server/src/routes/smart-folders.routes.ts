@@ -26,8 +26,13 @@ function getAIClient(): Anthropic | null {
 }
 
 // Valid fields and operators for rule validation
-const VALID_FIELDS = ['from', 'to', 'subject', 'labels', 'has_attachments', 'is_read', 'date_age_days'] as const;
-const VALID_OPERATORS = ['contains', 'equals', 'not_contains', 'greater_than', 'less_than'] as const;
+import {
+  classifyEmailsBatch,
+  getUnclassifiedCount,
+} from '../services/email-classification.service.js';
+
+const VALID_FIELDS = ['from', 'to', 'subject', 'labels', 'has_attachments', 'is_read', 'date_age_days', 'subject_or_snippet_keywords', 'ai_tags_contains', 'content_semantic', 'unanswered'] as const;
+const VALID_OPERATORS = ['contains', 'equals', 'not_contains', 'greater_than', 'less_than', 'contains_any'] as const;
 
 function isValidField(f: string): f is SmartFolderRule['field'] {
   return (VALID_FIELDS as readonly string[]).includes(f);
@@ -229,6 +234,40 @@ router.get('/', async (req, res) => {
     logger.error('Get smart folders error:', err);
     const message = err instanceof Error ? err.message : 'Ismeretlen hiba';
     res.status(500).json({ success: false, error: message });
+  }
+});
+
+// POST /api/smart-folders/classify — AI kategorizálás a levél tartalma alapján
+router.post('/classify', async (req, res) => {
+  const accountId = req.session?.activeAccountId;
+  if (!accountId) {
+    return res.status(401).json({ error: 'Nincs aktív fiók' });
+  }
+
+  try {
+    const raw = (req.body as { limit?: number }).limit;
+    const limit = Math.min(Math.max(1, parseInt(String(raw), 10) || 50), 100);
+    const { classified } = await classifyEmailsBatch(accountId, limit);
+    const unclassified = await getUnclassifiedCount(accountId);
+    res.json({ success: true, classified, unclassified });
+  } catch (err) {
+    logger.error('Classify emails error:', err);
+    res.status(500).json({ error: 'AI kategorizálás sikertelen' });
+  }
+});
+
+// GET /api/smart-folders/classify/status — nem besorolt levelek száma
+router.get('/classify/status', async (req, res) => {
+  const accountId = req.session?.activeAccountId;
+  if (!accountId) {
+    return res.status(401).json({ error: 'Nincs aktív fiók' });
+  }
+
+  try {
+    const unclassified = await getUnclassifiedCount(accountId);
+    res.json({ unclassified });
+  } catch {
+    res.status(500).json({ unclassified: 0 });
   }
 });
 

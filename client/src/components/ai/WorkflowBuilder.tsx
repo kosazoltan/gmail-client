@@ -35,6 +35,13 @@ import type {
   RunLogEntry,
 } from '../../types';
 
+interface WorkflowBuilderProps {
+  externalDraft?: WorkflowData | null;
+  externalDraftKey?: string | null;
+  onExternalDraftConsumed?: () => void;
+  onWorkflowSaved?: (workflow: WorkflowData) => void;
+}
+
 // --- Constants ---
 
 const STEP_META: Record<StepType, { label: string; icon: typeof Filter; color: string; description: string }> = {
@@ -181,7 +188,7 @@ function normalizeWorkflow(workflow: WorkflowData): WorkflowData {
     triggerConfig: workflow.triggerType === 'schedule'
       ? parseCronToScheduleConfig(workflow.triggerConfig)
       : workflow.triggerConfig,
-    steps: workflow.steps.map((step) => ({
+    steps: (workflow.steps || []).map((step) => ({
       ...step,
       name: step.name ?? STEP_META[step.type].label,
       config: normalizeStepConfig(step),
@@ -197,7 +204,12 @@ function clampNumber(rawValue: string, min: number, max: number, fallback: numbe
 
 // --- Component ---
 
-export function WorkflowBuilder() {
+export function WorkflowBuilder({
+  externalDraft,
+  externalDraftKey,
+  onExternalDraftConsumed,
+  onWorkflowSaved,
+}: WorkflowBuilderProps) {
   const [workflows, setWorkflows] = useState<WorkflowData[]>([]);
   const [selected, setSelected] = useState<WorkflowData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -228,6 +240,14 @@ export function WorkflowBuilder() {
     loadWorkflows();
   }, [loadWorkflows]);
 
+  useEffect(() => {
+    if (!externalDraft || !externalDraftKey) return;
+    setSelected(normalizeWorkflow(externalDraft));
+    setShowLogs(false);
+    setActiveLogWorkflowId(null);
+    onExternalDraftConsumed?.();
+  }, [externalDraft, externalDraftKey, onExternalDraftConsumed]);
+
   // New workflow
   const handleNew = () => {
     const newWf: WorkflowData = {
@@ -253,10 +273,12 @@ export function WorkflowBuilder() {
         const updated = await api.workflows.update(selected.id, payload);
         setWorkflows((prev) => prev.map((w) => (w.id === selected.id ? normalizeWorkflow(updated.workflow) : w)));
         setSelected(normalizeWorkflow(updated.workflow));
+        onWorkflowSaved?.(normalizeWorkflow(updated.workflow));
       } else {
         const created = await api.workflows.create(payload);
         setWorkflows((prev) => [...prev, normalizeWorkflow(created.workflow)]);
         setSelected(normalizeWorkflow(created.workflow));
+        onWorkflowSaved?.(normalizeWorkflow(created.workflow));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Mentési hiba');

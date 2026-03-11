@@ -11,15 +11,19 @@ const router = Router();
 
 // --- Cache ---
 let cachedBriefing: MarketBriefingData | null = null;
+let cachedSuccessfulAIBriefing: MarketBriefingData | null = null;
 let cachedAt = 0;
 let isGenerating = false; // BUG3 FIX: prevent duplicate AI calls on concurrent requests
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 perc
+const BRIEFING_AI_TIMEOUT_MS = 75_000;
 
 // Deep analysis cache (15 perc - draga AI hivas)
-let cachedDeepAnalysis: DeepAnalysisResult | null = null;
+let cachedDeepAnalysis: DeepAnalysisPayload | null = null;
+let cachedSuccessfulAIDeepAnalysis: DeepAnalysisPayload | null = null;
 let deepAnalysisCachedAt = 0;
 let isDeepAnalysisGenerating = false;
 const DEEP_ANALYSIS_CACHE_TTL_MS = 15 * 60 * 1000;
+const DEEP_ANALYSIS_AI_TIMEOUT_MS = 75_000;
 
 // --- Tipusok ---
 interface AnalysisItem {
@@ -82,6 +86,15 @@ interface MarketBriefingData {
   overallSentiment: string;
 }
 
+interface DeepAnalysisPayload extends DeepAnalysisResult {
+  cached: boolean;
+  trendData: TrendDataPoint[];
+  rates: RateInfo[];
+  isAIPowered: boolean;
+  fallbackReason?: MarketFallbackReason;
+  fallbackMessage?: string;
+}
+
 type MarketFallbackReason = 'missing_api_key' | 'timeout' | 'generation_failed';
 
 function getBriefingFallbackMessage(reason: MarketFallbackReason): string {
@@ -93,6 +106,27 @@ function getBriefingFallbackMessage(reason: MarketFallbackReason): string {
     default:
       return 'Sablon-alapú becslés fut, mert a market AI elemzés hibára futott vagy érvénytelen választ adott.';
   }
+}
+
+function sanitizeFallbackText(text: string): string {
+  return text
+    .replace(/Sablon alapu elemzes/gi, 'Sablon-alapú elemzés')
+    .replace(/Mely elemzes/gi, 'Mély elemzés')
+    .replace(/atmenetileg/gi, 'átmenetileg')
+    .replace(/elerheto/gi, 'elérhető')
+    .replace(/elo arfolyamok/gi, 'élő árfolyamok')
+    .replace(/elorejelzes/gi, 'előrejelzés')
+    .replace(/Kezi elemzes/gi, 'Kézi elemzés')
+    .replace(/dontest/gi, 'döntést')
+    .replace(/korultekinto/gi, 'körültekintő')
+    .replace(/probald ujra/gi, 'próbáld újra')
+    .replace(/Osszessegeben/gi, 'Összességében')
+    .replace(/dominal/gi, 'dominál')
+    .replace(/etvaggy/gi, 'étvágy')
+    .replace(/erosodese/gi, 'erősödése')
+    .replace(/jellmezo/gi, 'jellemző')
+    .replace(/kockazatkerules/gi, 'kockázatkerülés')
+    .replace(/novekedhet/gi, 'növekedhet');
 }
 
 // --- Institutional Sources ---
@@ -415,12 +449,12 @@ function generateOverallSentiment(conclusion: Record<string, WeightedConclusion>
   const bearCount = Object.values(conclusion).filter(c => c.direction === 'bearish').length;
 
   if (bullCount >= 4) {
-    return `Osszessegeben BIKA hangulat dominal a deviza- es aranypiacokon (atlag: ${avg}%). ${bullCount} devizaparbol ${bullCount} mutat pozitiv iranyt. A kockazati etvaggy javult, az EUR erosodese jellmezo.`;
+    return sanitizeFallbackText(`Osszessegeben BIKA hangulat dominal a deviza- es aranypiacokon (atlag: ${avg}%). ${bullCount} devizaparbol ${bullCount} mutat pozitiv iranyt. A kockazati etvaggy javult, az EUR erosodese jellmezo.`);
   }
   if (bearCount >= 4) {
-    return `Osszessegeben MEDVE hangulat uralja a piacot (atlag: ${avg}%). ${bearCount} devizapar mutat negativ iranyt. A kockazatkerules erosodott, a menedekdevizak es az arany iranti kereslet novekedhet.`;
+    return sanitizeFallbackText(`Osszessegeben MEDVE hangulat uralja a piacot (atlag: ${avg}%). ${bearCount} devizapar mutat negativ iranyt. A kockazatkerules erosodott, a menedekdevizak es az arany iranti kereslet novekedhet.`);
   }
-  return `VEGYES piaci hangulat (atlag: ${avg}%). A devizaparok ${bullCount} bika es ${bearCount} medve iranyt mutatnak. A piac varakozik a kovetkezo makroadatokra es jegybanki kommunikaciora.`;
+  return sanitizeFallbackText(`VEGYES piaci hangulat (atlag: ${avg}%). A devizaparok ${bullCount} bika es ${bearCount} medve iranyt mutatnak. A piac varakozik a kovetkezo makroadatokra es jegybanki kommunikaciora.`);
 }
 
 // --- Fo endpoint ---
@@ -444,7 +478,7 @@ router.get('/briefing', async (req, res) => {
     if (cachedBriefing) {
       return res.json({ success: true, data: { ...cachedBriefing, cached: true } });
     }
-    return res.status(503).json({ success: false, error: 'Elemzes folyamatban, kerlek probald ujra 30 masodperc mulva.' });
+    return res.status(503).json({ success: false, error: 'Elemzés folyamatban, kérlek próbáld újra 30 másodperc múlva.' });
   }
 
   isGenerating = true;
@@ -464,9 +498,9 @@ router.get('/briefing', async (req, res) => {
     const aiResult = await Promise.race([
       generateAIAnalysis(rates, marketNews),
       new Promise<'timeout'>((resolve) => setTimeout(() => {
-        logger.warn('generateAIAnalysis hard timeout (45s) — falling back to template');
+        logger.warn(`generateAIAnalysis hard timeout (${BRIEFING_AI_TIMEOUT_MS}ms) — falling back to template or cached AI result`);
         resolve('timeout');
-      }, 45_000)),
+      }, BRIEFING_AI_TIMEOUT_MS)),
     ]);
     logger.info(`[BRIEFING] Step 2 done: AI=${!!aiResult} in ${Date.now() - t1}ms`);
 
@@ -495,13 +529,19 @@ router.get('/briefing', async (req, res) => {
         : aiResult === 'timeout'
           ? 'timeout'
           : 'generation_failed';
+      if (fallbackReason !== 'missing_api_key' && cachedSuccessfulAIBriefing) {
+        logger.warn(`[BRIEFING] Reusing last successful AI briefing because generation ended with ${fallbackReason}`);
+        return res.json({
+          success: true,
+          data: { ...cachedSuccessfulAIBriefing, cached: true },
+        });
+      }
       fallbackMessage = getBriefingFallbackMessage(fallbackReason);
       analyses = generateAnalyses(rates);
       positioning = generatePositioning(rates);
       newsItems = generateNewsItems(rates);
       weightedConclusion = computeWeightedConclusion(analyses, rates);
-      overallSentiment = generateOverallSentiment(weightedConclusion) +
-        `\n\n⚠️ ${fallbackMessage}`;
+      overallSentiment = generateOverallSentiment(weightedConclusion);
       // Mark template-based analyses clearly
       analyses = analyses.map(a => ({
         ...a,
@@ -528,6 +568,9 @@ router.get('/briefing', async (req, res) => {
     // Update cache
     cachedBriefing = briefing;
     cachedAt = now;
+    if (isAIPowered) {
+      cachedSuccessfulAIBriefing = briefing;
+    }
 
     logger.info(`[BRIEFING] SUCCESS: total ${Date.now() - t0}ms, AI=${isAIPowered}, ${rates.length} rates, ${analyses.length} analyses`);
     return res.json({ success: true, data: briefing });
@@ -583,12 +626,12 @@ router.post('/deep-analysis', async (req, res) => {
     if (!forceRefresh && cachedDeepAnalysis) {
       return res.json({
         success: true,
-        data: { ...cachedDeepAnalysis, cached: true },
+      data: { ...cachedDeepAnalysis, cached: true },
       });
     }
     return res.status(503).json({
       success: false,
-      error: 'Mely elemzes folyamatban, kerlek probald ujra 30 masodperc mulva.',
+      error: 'Mély elemzés folyamatban, kérlek próbáld újra 30 másodperc múlva.',
     });
   }
 
@@ -603,9 +646,9 @@ router.post('/deep-analysis', async (req, res) => {
     const result = await Promise.race([
       generateDeepAnalysis(rates, trendData),
       new Promise<'timeout'>((resolve) => setTimeout(() => {
-        logger.warn('generateDeepAnalysis hard timeout (45s) — falling back to template');
+        logger.warn(`generateDeepAnalysis hard timeout (${DEEP_ANALYSIS_AI_TIMEOUT_MS}ms) — falling back to template or cached AI result`);
         resolve('timeout');
-      }, 45_000)),
+      }, DEEP_ANALYSIS_AI_TIMEOUT_MS)),
     ]);
 
     if (!result || result === 'timeout') {
@@ -615,64 +658,76 @@ router.post('/deep-analysis', async (req, res) => {
         : result === 'timeout'
           ? 'timeout'
           : 'generation_failed';
+      if (fallbackReason !== 'missing_api_key' && cachedSuccessfulAIDeepAnalysis) {
+        logger.warn(`[DEEP_ANALYSIS] Reusing last successful AI analysis because generation ended with ${fallbackReason}`);
+        return res.json({
+          success: true,
+          data: { ...cachedSuccessfulAIDeepAnalysis, cached: true },
+        });
+      }
       const fallbackMessage = getBriefingFallbackMessage(fallbackReason);
-      const fallbackCurrencies: Record<string, { trend: string; support: number; resistance: number; forecast: string; recommendation: string; confidence: number }> = {};
+      const fallbackCurrencies: DeepAnalysisPayload['currencies'] = {};
       for (const r of rates) {
         if (r.pair.startsWith('XAU')) continue;
-        const trend = r.changePercent > 0.1 ? 'up' : r.changePercent < -0.1 ? 'down' : 'sideways';
+        const trend: 'up' | 'down' | 'sideways' = r.changePercent > 0.1 ? 'up' : r.changePercent < -0.1 ? 'down' : 'sideways';
         const spread = r.rate * 0.015;
         fallbackCurrencies[r.pair.replace(/(.{3})(.{3})/, '$1_$2')] = {
           trend,
           support: Math.round((r.rate - spread) * 100) / 100,
           resistance: Math.round((r.rate + spread) * 100) / 100,
-          forecast: `Sablon alapu elemzes: a ${r.label} ${r.changePercent >= 0 ? 'emelkedik' : 'csokken'} (${r.changePercent.toFixed(2)}%).`,
+          forecast: sanitizeFallbackText(`Sablon alapu elemzes: a ${r.label} ${r.changePercent >= 0 ? 'emelkedik' : 'csokken'} (${r.changePercent.toFixed(2)}%).`),
           recommendation: r.changePercent > 0.3 ? 'buy' : r.changePercent < -0.3 ? 'sell' : 'hold',
           confidence: 3,
         };
       }
 
+      const fallbackPayload: DeepAnalysisPayload = {
+        summary: sanitizeFallbackText(`Sablon alapu elemzes - ${fallbackMessage}`),
+        currencies: fallbackCurrencies,
+        gold: {
+          trend: rates.find(r => r.pair === 'XAUUSD') ? 'Adatok alapján' : 'Nem elérhető',
+          forecast: 'Sablon-alapú elemzés - nincs AI előrejelzés.',
+          recommendation: 'Kézi elemzés javasolt.',
+        },
+        overallRecommendation: 'Sablon-alapú elemzés - az AI átmenetileg nem elérhető. Az élő árfolyamok és trend adatok alapján hozzon döntést.',
+        risks: ['Az elemzés sablon alapú, nem AI-generált - körültekintő döntéshozatal javasolt.'],
+        generatedAt: new Date().toISOString(),
+        cached: false,
+        trendData,
+        rates,
+        isAIPowered: false,
+        fallbackReason,
+        fallbackMessage,
+      };
+      cachedDeepAnalysis = fallbackPayload;
+      deepAnalysisCachedAt = now;
       return res.json({
         success: true,
-        data: {
-          summary: `Sablon alapu elemzes - ${fallbackMessage}`,
-          currencies: fallbackCurrencies,
-          gold: {
-            trend: rates.find(r => r.pair === 'XAUUSD') ? 'Adatok alapjan' : 'Nem elerheto',
-            forecast: 'Sablon alapu elemzes - nincs AI elorejelzes.',
-            recommendation: 'Kezi elemzes javasolt.',
-          },
-          overallRecommendation: 'Sablon alapu elemzes - az AI atmenetileg nem elerheto. Az elo arfolyamok es trend adatok alapjan hozzon dontest.',
-          risks: ['Az elemzes sablon alapu, nem AI-generalt - korultekinto donteshozatal javasolt.'],
-          generatedAt: new Date().toISOString(),
-          cached: false,
-          trendData,
-          rates,
-          isAIPowered: false,
-          fallbackReason,
-          fallbackMessage,
-        },
+        data: fallbackPayload,
       });
     }
 
     // Cache the result
-    cachedDeepAnalysis = result;
+    const deepAnalysisPayload: DeepAnalysisPayload = {
+      ...result,
+      cached: false,
+      trendData,
+      rates,
+      isAIPowered: true,
+    };
+    cachedDeepAnalysis = deepAnalysisPayload;
+    cachedSuccessfulAIDeepAnalysis = deepAnalysisPayload;
     deepAnalysisCachedAt = now;
 
     return res.json({
       success: true,
-      data: {
-        ...result,
-        cached: false,
-        trendData,
-        rates,
-        isAIPowered: true,
-      },
+      data: deepAnalysisPayload,
     });
   } catch (error) {
     logger.error('Deep analysis hiba:', error);
     return res.status(500).json({
       success: false,
-      error: 'Mely elemzes generalasa sikertelen',
+      error: 'Mély elemzés generálása sikertelen',
     });
   } finally {
     isDeepAnalysisGenerating = false;

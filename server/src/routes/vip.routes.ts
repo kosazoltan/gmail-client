@@ -2,6 +2,7 @@ import logger from '../utils/logger.js';
 import { Router } from 'express';
 import { queryAll, queryOne, execute } from '../db/index.js';
 import { v4 as uuid } from 'uuid';
+import { suggestVipSenders } from '../services/vip-suggestions.service.js';
 
 const router = Router();
 
@@ -37,6 +38,63 @@ router.get('/', async (req, res) => {
   } catch (error) {
     logger.error('VIP senders fetch error:', error);
     res.status(500).json({ error: 'Nem sikerült lekérni a VIP küldőket' });
+  }
+});
+
+// AI-suggested VIP senders (from email history)
+router.get('/suggest', async (req, res) => {
+  try {
+    const accountId = req.session?.activeAccountId;
+    if (!accountId) {
+      return res.status(401).json({ error: 'Nincs bejelentkezve' });
+    }
+
+    const suggestions = await suggestVipSenders(accountId);
+    res.json({ suggestions });
+  } catch (error) {
+    logger.error('VIP suggest error:', error);
+    res.status(500).json({ error: 'Nem sikerült generálni a VIP javaslatokat' });
+  }
+});
+
+// Batch-add suggested VIPs
+router.post('/apply-suggestions', async (req, res) => {
+  try {
+    const accountId = req.session?.activeAccountId;
+    if (!accountId) {
+      return res.status(401).json({ error: 'Nincs bejelentkezve' });
+    }
+
+    const { items } = req.body as { items: Array<{ email: string; name?: string | null }> };
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Érvénytelen kérés' });
+    }
+
+    const added: Array<{ id: string; email: string; name: string | null }> = [];
+    for (const { email, name } of items.slice(0, 20)) {
+      const normalizedEmail = (email || '').toString().toLowerCase().trim();
+      if (!normalizedEmail || !normalizedEmail.includes('@')) continue;
+
+      const existing = await queryOne<{ id: string }>(
+        'SELECT id FROM vip_senders WHERE account_id = ? AND email = ?',
+        [accountId, normalizedEmail],
+      );
+      if (existing) continue;
+
+      const id = uuid();
+      const createdAt = Date.now();
+      await execute(
+        `INSERT INTO vip_senders (id, account_id, email, name, created_at)
+         VALUES (?, ?, ?, ?, ?)`,
+        [id, accountId, normalizedEmail, name || null, createdAt],
+      );
+      added.push({ id, email: normalizedEmail, name: name || null });
+    }
+
+    res.json({ added: added.length, items: added });
+  } catch (error) {
+    logger.error('VIP apply-suggestions error:', error);
+    res.status(500).json({ error: 'Nem sikerült hozzáadni a javasolt VIP küldőket' });
   }
 });
 

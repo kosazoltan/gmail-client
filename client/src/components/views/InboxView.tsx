@@ -19,6 +19,7 @@ import { LoginScreen } from '../auth/LoginScreen';
 import { CheckSquare, X, Trash2, Square, CheckCheck, Loader2, MailOpen, Mail } from 'lucide-react';
 import type { Email } from '../../types';
 import { getNextEmailAfterDelete } from '../../lib/emailNavigation';
+import { api } from '../../lib/api';
 
 export function InboxView() {
   const navigate = useNavigate();
@@ -62,6 +63,7 @@ export function InboxView() {
   }, [emails, selectedEmail]);
 
   const lastClickedIndexRef = useRef<number>(-1);
+  const lastDirectFetchRef = useRef<string | null>(null);
 
   // Selection mode handlers
   const toggleSelectionMode = useCallback(() => {
@@ -233,6 +235,38 @@ export function InboxView() {
       fetchNextPage();
     }
   }, [emailIdFromQuery, emails, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  useEffect(() => {
+    if (!emailIdFromQuery || !accountId) return;
+
+    const match = emails.find((email) => email.id === emailIdFromQuery);
+    if (match || lastDirectFetchRef.current === emailIdFromQuery) {
+      return;
+    }
+
+    let cancelled = false;
+    lastDirectFetchRef.current = emailIdFromQuery;
+
+    void api.emails
+      .get(emailIdFromQuery, accountId)
+      .then((email) => {
+        if (!cancelled) {
+          setSelectedEmail(email);
+        }
+      })
+      .catch(() => {
+        // Inbox pagination fallback continues in the sibling effect.
+      })
+      .finally(() => {
+        if (!cancelled && lastDirectFetchRef.current === emailIdFromQuery) {
+          lastDirectFetchRef.current = null;
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [emailIdFromQuery, accountId, emails]);
 
   const confirmDelete = useCallback(() => {
     if (!selectedEmail) return;

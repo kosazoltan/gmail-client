@@ -1,11 +1,17 @@
 import { Router } from 'express';
 import Anthropic from '@anthropic-ai/sdk';
-import { queryOne, queryAll, execute, runInTransactionAsync } from '../db/index.js';
+import { queryOne, queryAll, execute } from '../db/index.js';
+import {
+  executeAgentPlan,
+  executeConfirmedAction,
+  planAgentAction,
+  type PendingAgentAction,
+} from '../services/ai-agent.service.js';
+import { searchEmails } from '../services/ai-agent-tools.service.js';
 import logger from '../utils/logger.js';
 
 const router = Router();
 
-// Anthropic client (lazy init)
 let client: Anthropic | null = null;
 
 function getClient(): Anthropic | null {
@@ -16,20 +22,110 @@ function getClient(): Anthropic | null {
   return client;
 }
 
-// Helper: strip HTML tags
 function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-// Helper: generate UUID
 function generateId(): string {
   return crypto.randomUUID();
 }
 
-// Max conversation history messages to send to Claude
 const MAX_HISTORY_MESSAGES = 20;
 
-// POST /api/ai/chat
+async function resolveConversation(accountId: string, conversationId: string | undefined, message: string, emailId?: string) {
+  let activeConversationId = conversationId || null;
+  if (activeConversationId) {
+    const existing = await queryOne<{ id: string }>(
+      'SELECT id FROM ai_conversations WHERE id = ? AND account_id = ?',
+      [activeConversationId, accountId],
+    );
+    if (!existing) {
+      activeConversationId = null;
+    }
+  }
+
+  if (!activeConversationId) {
+    const now = Date.now();
+    activeConversationId = generateId();
+    const title = message.trim().slice(0, 80) + (message.trim().length > 80 ? '...' : '');
+    await execute(
+      'INSERT INTO ai_conversations (id, account_id, title, context_type, context_data, messages, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [activeConversationId, accountId, title, emailId ? 'email' : null, emailId ? JSON.stringify({ emailId }) : '{}', '[]', now, now],
+    );
+  }
+
+  return activeConversationId;
+}
+
+async function loadConversationHistory(conversationId: string) {
+  const historyRows = await queryAll<{ role: string; content: string }>(
+    'SELECT role, content FROM ai_messages WHERE conversation_id = ? ORDER BY created_at ASC',
+    [conversationId],
+  );
+  return historyRows.slice(-MAX_HISTORY_MESSAGES).map((row) => ({
+    role: row.role as 'user' | 'assistant',
+    content: row.content,
+  }));
+}
+
+function parseMessageMetadata(raw: string | null | undefined): {
+  result?: unknown;
+  pendingAction?: PendingAgentAction | null;
+} {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as {
+      result?: unknown;
+      pendingAction?: PendingAgentAction | null;
+    };
+    return {
+      result: parsed.result,
+      pendingAction: parsed.pendingAction ?? null,
+    };
+  } catch {
+    return {};
+  }
+}
+
+async function appendConversationMessage(
+  conversationId: string,
+  role: 'user' | 'assistant',
+  content: string,
+  metadata?: { result?: unknown; pendingAction?: PendingAgentAction | null },
+) {
+  const now = Date.now();
+  await execute(
+    'INSERT INTO ai_messages (id, conversation_id, role, content, metadata, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    [generateId(), conversationId, role, content, metadata ? JSON.stringify(metadata) : null, now],
+  );
+  await execute('UPDATE ai_conversations SET updated_at = ? WHERE id = ?', [now, conversationId]);
+}
+
+async function buildEmailContext(accountId: string, emailId?: string): Promise<string> {
+  if (!emailId) return '';
+  const email = await queryOne<{
+    subject: string | null;
+    from_email: string | null;
+    from_name: string | null;
+    to_email: string | null;
+    snippet: string | null;
+    body: string | null;
+    date: number;
+  }>(
+    'SELECT subject, from_email, from_name, to_email, snippet, body, date FROM emails WHERE id = ? AND account_id = ?',
+    [emailId, accountId],
+  );
+
+  if (!email) return '';
+  const bodyText = email.body ? stripHtml(email.body).slice(0, 3000) : email.snippet || '';
+  return `Email kontextus:
+Tárgy: ${email.subject || '(nincs tárgy)'}
+Feladó: ${email.from_name || email.from_email || 'ismeretlen'}
+Címzett: ${email.to_email || 'ismeretlen'}
+Dátum: ${new Date(email.date).toLocaleString('hu-HU')}
+Tartalom: ${bodyText}`;
+}
+
 router.post('/chat', async (req, res) => {
   const accountId = req.session?.activeAccountId;
   if (!accountId) {
@@ -47,130 +143,80 @@ router.post('/chat', async (req, res) => {
       return res.status(400).json({ error: 'A message mező kötelező' });
     }
 
-    // Build context from email if emailId is provided
-    let emailContext = '';
-    if (emailId) {
-      const email = await queryOne<{
-        subject: string | null;
-        from_email: string | null;
-        from_name: string | null;
-        to_email: string | null;
-        snippet: string | null;
-        body: string | null;
-        date: number;
-      }>(
-        'SELECT subject, from_email, from_name, to_email, snippet, body, date FROM emails WHERE id = ? AND account_id = ?',
-        [emailId, accountId],
-      );
-
-      if (email) {
-        const bodyText = email.body ? stripHtml(email.body).substring(0, 3000) : (email.snippet || '');
-        emailContext = `\n\nEmail kontextus:
-Tárgy: ${email.subject || '(nincs tárgy)'}
-Feladó: ${email.from_name || email.from_email || 'ismeretlen'}
-Címzett: ${email.to_email || 'ismeretlen'}
-Dátum: ${new Date(email.date).toLocaleString('hu-HU')}
-Tartalom: ${bodyText}`;
-      }
-    }
-
+    const activeConversationId = await resolveConversation(accountId, conversationId, message, emailId);
+    const history = await loadConversationHistory(activeConversationId);
+    const emailContext = await buildEmailContext(accountId, emailId);
     const anthropic = getClient();
-    if (!anthropic) {
-      return res.json({
-        reply: 'Az AI asszisztens jelenleg nem elérhető. Kérem ellenőrizze az ANTHROPIC_API_KEY beállítást.',
-        conversationId: conversationId || null,
-      });
-    }
 
-    // Resolve or create conversation
-    let activeConversationId = conversationId || null;
-
-    if (activeConversationId) {
-      // Verify ownership
-      const conv = await queryOne<{ id: string }>(
-        'SELECT id FROM ai_conversations WHERE id = ? AND account_id = ?',
-        [activeConversationId, accountId],
-      );
-      if (!conv) {
-        // Invalid conversationId — create new
-        activeConversationId = null;
-      }
-    }
-
-    const now = Date.now();
-
-    if (!activeConversationId) {
-      // Create new conversation with first ~50 chars of message as title
-      activeConversationId = generateId();
-      const title = message.trim().substring(0, 80) + (message.trim().length > 80 ? '...' : '');
-      await execute(
-        'INSERT INTO ai_conversations (id, account_id, title, context_type, context_data, messages, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [activeConversationId, accountId, title, emailId ? 'email' : null, emailId ? JSON.stringify({ emailId }) : '{}', '[]', now, now],
-      );
-    }
-
-    // Load conversation history (last MAX_HISTORY_MESSAGES messages)
-    const historyRows = await queryAll<{ role: string; content: string }>(
-      'SELECT role, content FROM ai_messages WHERE conversation_id = ? ORDER BY created_at ASC',
-      [activeConversationId],
-    );
-
-    // Take last MAX_HISTORY_MESSAGES
-    const recentHistory = historyRows.slice(-MAX_HISTORY_MESSAGES);
-
-    // Build messages array for Claude
-    const claudeMessages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
-    for (const row of recentHistory) {
-      claudeMessages.push({
-        role: row.role as 'user' | 'assistant',
-        content: row.content,
-      });
-    }
-
-    // Add current user message
-    const userContent = emailContext ? `${message}${emailContext}` : message;
-    claudeMessages.push({ role: 'user', content: userContent });
-
-    const systemPrompt = `Te egy intelligens email asszisztens vagy, aki egy magyar cégvezető (90 valutaváltó iroda igazgatója) munkáját segíti. 
-Magyarul válaszolj, lényegre törően és professzionálisan.
-Ha email kontextust kapsz, használd azt a válaszodban.
-Segíts email fogalmazásban, elemzésben, összefoglalásban és szervezésben.`;
-
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 2000,
-      system: systemPrompt,
-      messages: claudeMessages,
+    const plan = await planAgentAction(anthropic, message.trim(), emailContext);
+    const agentResponse = await executeAgentPlan({
+      accountId,
+      anthropic,
+      message: message.trim(),
+      plan,
+      history,
+      emailContext,
     });
 
-    const reply = response.content[0].type === 'text' ? response.content[0].text : 'Nem sikerült választ generálni.';
-
-    // Save both messages to ai_messages
-    const userMsgId = generateId();
-    const assistantMsgId = generateId();
-    const msgNow = Date.now();
-
-    await execute(
-      'INSERT INTO ai_messages (id, conversation_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)',
-      [userMsgId, activeConversationId, 'user', userContent, msgNow],
-    );
-    await execute(
-      'INSERT INTO ai_messages (id, conversation_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)',
-      [assistantMsgId, activeConversationId, 'assistant', reply, msgNow + 1],
-    );
-
-    // Update conversation timestamp
-    await execute(
-      'UPDATE ai_conversations SET updated_at = ? WHERE id = ?',
-      [msgNow, activeConversationId],
-    );
+    await appendConversationMessage(activeConversationId, 'user', message.trim());
+    await appendConversationMessage(activeConversationId, 'assistant', agentResponse.reply, {
+      result: agentResponse.result ?? null,
+      pendingAction: agentResponse.pendingAction ?? null,
+    });
 
     res.json({
-      reply,
+      reply: agentResponse.reply,
       conversationId: activeConversationId,
+      result: agentResponse.result ?? null,
+      pendingAction: agentResponse.pendingAction ?? null,
     });
   } catch (err) {
     logger.error('AI chat error:', err);
+    const message = err instanceof Error ? err.message : 'Ismeretlen hiba';
+    res.status(500).json({ error: message });
+  }
+});
+
+router.post('/confirm-action', async (req, res) => {
+  const accountId = req.session?.activeAccountId;
+  if (!accountId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  try {
+    const { conversationId, pendingAction } = req.body as {
+      conversationId?: string;
+      pendingAction?: PendingAgentAction;
+    };
+
+    if (!pendingAction || typeof pendingAction !== 'object' || typeof pendingAction.toolName !== 'string') {
+      return res.status(400).json({ error: 'A pendingAction megadása kötelező' });
+    }
+
+    const agentResponse = await executeConfirmedAction({
+      accountId,
+      pendingAction,
+    });
+
+    if (conversationId && typeof conversationId === 'string') {
+      const existing = await queryOne<{ id: string }>(
+        'SELECT id FROM ai_conversations WHERE id = ? AND account_id = ?',
+        [conversationId, accountId],
+      );
+      if (existing) {
+        await appendConversationMessage(conversationId, 'assistant', agentResponse.reply, {
+          result: agentResponse.result ?? null,
+          pendingAction: null,
+        });
+      }
+    }
+
+    res.json({
+      reply: agentResponse.reply,
+      result: agentResponse.result ?? null,
+    });
+  } catch (err) {
+    logger.error('AI confirm action error:', err);
     const message = err instanceof Error ? err.message : 'Ismeretlen hiba';
     res.status(500).json({ error: message });
   }
@@ -232,9 +278,10 @@ router.get('/conversations/:id/messages', async (req, res) => {
       id: string;
       role: string;
       content: string;
+      metadata: string | null;
       created_at: number;
     }>(
-      'SELECT id, role, content, created_at FROM ai_messages WHERE conversation_id = ? ORDER BY created_at ASC',
+      'SELECT id, role, content, metadata, created_at FROM ai_messages WHERE conversation_id = ? ORDER BY created_at ASC',
       [id],
     );
 
@@ -244,6 +291,7 @@ router.get('/conversations/:id/messages', async (req, res) => {
         role: m.role,
         content: m.content,
         timestamp: m.created_at,
+        ...parseMessageMetadata(m.metadata),
       })),
     });
   } catch (err) {
@@ -329,21 +377,8 @@ router.post('/smart-search', async (req, res) => {
       }
     }
 
-    // Full search — parse query and search emails
-    // Simple keyword-based search as fallback (works without AI too)
     const searchTerm = query.trim();
-    const emails = await queryAll<{ id: string; subject: string; from_email: string; from_name: string; date: number }>(
-      `SELECT id, subject, from_email, from_name, date FROM emails
-       WHERE account_id = ? AND (
-         subject LIKE ? COLLATE NOCASE OR
-         from_email LIKE ? COLLATE NOCASE OR
-         from_name LIKE ? COLLATE NOCASE OR
-         snippet LIKE ? COLLATE NOCASE
-       )
-       ORDER BY date DESC LIMIT 50`,
-      [accountId, `%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`],
-    );
-
+    const searchResult = await searchEmails(accountId, { query: searchTerm, limit: 20 });
     let interpretation = '';
     if (anthropic) {
       try {
@@ -362,9 +397,10 @@ router.post('/smart-search', async (req, res) => {
     }
 
     res.json({
+      query: searchTerm,
       interpretation,
-      resultCount: emails.length,
-      emails: emails.slice(0, 20),
+      resultCount: searchResult.resultCount,
+      emails: searchResult.emails,
     });
   } catch (err) {
     logger.error('Smart search error:', err);

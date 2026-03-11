@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { queryAll, queryOne, execute } from '../db/index.js';
 import logger from '../utils/logger.js';
 import crypto from 'crypto';
+import { assessEmailTaskRelevance, isMeaningfulActionItemText } from './task-relevance.service.js';
 
 // --- Types ---
 
@@ -160,13 +161,6 @@ export async function extractActionItems(
      FROM action_items WHERE email_id = ?`,
     [emailId],
   );
-  if (!options?.force && existing.length > 0) {
-    return existing.map(item => ({
-      ...item,
-      priority: item.priority ?? 'medium',
-      isDone: item.isDone === 1,
-    }));
-  }
   const preservedDoneKeys = new Set(
     options?.force
       ? existing.filter((item) => item.isDone === 1).map((item) => normalizeActionItemText(item.text))
@@ -174,6 +168,26 @@ export async function extractActionItems(
   );
   if (options?.force && existing.length > 0) {
     await execute('DELETE FROM action_items WHERE email_id = ? AND is_done = 0', [emailId]);
+  }
+
+  const relevance = assessEmailTaskRelevance({
+    fromEmail: email.from_email,
+    fromName: email.from_name,
+    subject: email.subject,
+    snippet: email.snippet,
+    body: email.body,
+    labels: email.labels,
+  });
+  if (!relevance.isRelevant) {
+    await execute('DELETE FROM action_items WHERE email_id = ? AND is_done = 0', [emailId]);
+    return [];
+  }
+  if (!options?.force && existing.length > 0) {
+    return existing.map(item => ({
+      ...item,
+      priority: item.priority ?? 'medium',
+      isDone: item.isDone === 1,
+    }));
   }
 
   const anthropic = getClient();
@@ -224,7 +238,7 @@ If no action items, return [].`;
 
     for (const item of items) {
       const normalizedText = normalizeActionItemText(item.text);
-      if (!normalizedText || preservedDoneKeys.has(normalizedText)) {
+      if (!normalizedText || preservedDoneKeys.has(normalizedText) || !isMeaningfulActionItemText(item.text)) {
         continue;
       }
       const id = crypto.randomUUID();
@@ -297,7 +311,7 @@ async function extractActionItemsFallback(
     if (keywords.some(kw => lower.includes(kw.toLowerCase()))) {
       const text = sentence.trim();
       const normalizedText = normalizeActionItemText(text);
-      if (!normalizedText || preservedDoneKeys.has(normalizedText)) {
+      if (!normalizedText || preservedDoneKeys.has(normalizedText) || !isMeaningfulActionItemText(text)) {
         continue;
       }
       const id = crypto.randomUUID();

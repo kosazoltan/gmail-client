@@ -1,18 +1,33 @@
 import { useState } from 'react';
-import { Crown, Plus, Trash2, Loader2, User } from 'lucide-react';
-import { useVipSenders, useAddVip, useDeleteVip } from '../../hooks/useVip';
+import { Crown, Plus, Trash2, Loader2, User, Sparkles, Check } from 'lucide-react';
+import {
+  useVipSenders,
+  useAddVip,
+  useDeleteVip,
+  useVipSuggestions,
+  useApplyVipSuggestions,
+} from '../../hooks/useVip';
 import { toast } from '../../lib/toast';
 import { cn } from '../../lib/utils';
+
+interface VipSuggestion {
+  email: string;
+  name: string | null;
+  reason: string;
+}
 
 export function VIPSettings() {
   const { data: vipSenders, isLoading } = useVipSenders();
   const addVip = useAddVip();
   const deleteVip = useDeleteVip();
+  const suggestVip = useVipSuggestions();
+  const applySuggestions = useApplyVipSuggestions();
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<VipSuggestion[] | null>(null);
 
   const handleAdd = () => {
     if (!newEmail.trim()) {
@@ -48,6 +63,55 @@ export function VIPSettings() {
     });
   };
 
+  const handleGenerateSuggestions = () => {
+    suggestVip.mutate(undefined, {
+      onSuccess: (data) => {
+        setAiSuggestions(data.suggestions ?? []);
+        if (!data.suggestions?.length) {
+          toast.info('Nincs új javasolt VIP küldő');
+        } else {
+          toast.success(`${data.suggestions.length} VIP javaslat generálva`);
+        }
+      },
+      onError: () => {
+        toast.error('Nem sikerült generálni a javaslatokat');
+        setAiSuggestions([]);
+      },
+    });
+  };
+
+  const handleApplyAllSuggestions = () => {
+    if (!aiSuggestions?.length) return;
+    applySuggestions.mutate(
+      aiSuggestions.map((s) => ({ email: s.email, name: s.name })),
+      {
+        onSuccess: (data) => {
+          toast.success(`${data.added} VIP küldő hozzáadva`);
+          setAiSuggestions(null);
+        },
+        onError: () => {
+          toast.error('Nem sikerült hozzáadni a javaslatokat');
+        },
+      },
+    );
+  };
+
+  const handleAddSuggestion = (s: VipSuggestion) => {
+    addVip.mutate(
+      { email: s.email, name: s.name ?? undefined },
+      {
+        onSuccess: () => {
+          toast.success('VIP küldő hozzáadva');
+          setAiSuggestions((prev) => (prev ?? []).filter((x) => x.email !== s.email));
+        },
+        onError: () => toast.error('Nem sikerült hozzáadni'),
+      },
+    );
+  };
+
+  const vipEmails = new Set((vipSenders ?? []).map((v) => v.email.toLowerCase()));
+  const suggestionsToShow = aiSuggestions?.filter((s) => !vipEmails.has(s.email.toLowerCase())) ?? [];
+
   return (
     <div className="space-y-4">
       <div>
@@ -56,6 +120,80 @@ export function VIPSettings() {
           A VIP küldőktől érkező levelek koronával lesznek jelölve, és mindig megkapod róluk az
           értesítést (még csendes órákban is).
         </p>
+      </div>
+
+      {/* AI suggestions */}
+      <div className="dark:bg-dark-bg-secondary space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-dark-border">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-amber-500" />
+          <span className="dark:text-dark-text font-medium text-gray-800">AI javaslatok</span>
+        </div>
+        <p className="dark:text-dark-text-muted text-sm text-gray-600">
+          Az AI elemzi az emaileid küldőit, és fontos kapcsolatokat javasol VIPnek.
+        </p>
+        <button
+          onClick={handleGenerateSuggestions}
+          disabled={suggestVip.isPending}
+          className="flex items-center gap-2 rounded-lg bg-amber-500/90 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600 disabled:opacity-50"
+        >
+          {suggestVip.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles className="h-4 w-4" />
+          )}
+          {suggestVip.isPending ? 'Generálás...' : 'Javaslatok generálása'}
+        </button>
+
+        {suggestionsToShow.length > 0 && (
+          <div className="dark:border-dark-border mt-4 space-y-2 border-t border-gray-200 pt-4">
+            <div className="flex items-center justify-between">
+              <span className="dark:text-dark-text-muted text-sm text-gray-600">
+                {suggestionsToShow.length} javasolt küldő
+              </span>
+              <button
+                onClick={handleApplyAllSuggestions}
+                disabled={applySuggestions.isPending}
+                className="flex items-center gap-1 rounded-lg bg-[#4f6ef7] px-3 py-1.5 text-sm text-white hover:bg-[#3d5ce5] disabled:opacity-50"
+              >
+                {applySuggestions.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Check className="h-3.5 w-3.5" />
+                )}
+                Összes hozzáadása
+              </button>
+            </div>
+            <div className="space-y-1.5">
+              {suggestionsToShow.map((s) => (
+                <div
+                  key={s.email}
+                  className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-2 dark:border-dark-border dark:bg-dark-bg"
+                >
+                  <div>
+                    <span className="dark:text-dark-text font-medium text-gray-800">
+                      {s.name || s.email}
+                    </span>
+                    {s.name && (
+                      <span className="dark:text-dark-text-muted ml-1 text-sm text-gray-500">
+                        ({s.email})
+                      </span>
+                    )}
+                    <p className="dark:text-dark-text-muted mt-0.5 text-xs text-gray-500">
+                      {s.reason}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleAddSuggestion(s)}
+                    disabled={addVip.isPending}
+                    className="rounded-lg bg-amber-500/80 px-2 py-1 text-xs text-white hover:bg-amber-600 disabled:opacity-50"
+                  >
+                    Hozzáadás
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Add button */}

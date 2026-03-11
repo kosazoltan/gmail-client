@@ -5,8 +5,19 @@ import crypto from 'crypto';
 // --- Types ---
 
 export interface SmartFolderRule {
-  field: 'from' | 'to' | 'subject' | 'labels' | 'has_attachments' | 'is_read' | 'date_age_days';
-  operator: 'contains' | 'equals' | 'not_contains' | 'greater_than' | 'less_than';
+  field:
+    | 'from'
+    | 'to'
+    | 'subject'
+    | 'labels'
+    | 'has_attachments'
+    | 'is_read'
+    | 'date_age_days'
+    | 'subject_or_snippet_keywords'
+    | 'ai_tags_contains'
+    | 'content_semantic'
+    | 'unanswered';
+  operator: 'contains' | 'equals' | 'not_contains' | 'greater_than' | 'less_than' | 'contains_any';
   value: string;
 }
 
@@ -144,6 +155,64 @@ function buildWhereClause(rules: SmartFolderRule[], accountId: string): { sql: s
         }
         break;
       }
+
+      case 'subject_or_snippet_keywords':
+        if (rule.operator === 'contains_any' && rule.value) {
+          const keywords = rule.value.split(/[,|]/).map((k) => k.trim()).filter(Boolean);
+          if (keywords.length > 0) {
+            const orParts = keywords.map(() => "(LOWER(COALESCE(subject,'') || ' ' || COALESCE(snippet,'')) LIKE ?)");
+            conditions.push(`(${orParts.join(' OR ')})`);
+            keywords.forEach((kw) => params.push(`%${kw.toLowerCase()}%`));
+          }
+        }
+        break;
+
+      case 'ai_tags_contains':
+        if (rule.value) {
+          const tag = rule.value.toLowerCase().trim();
+          conditions.push("(ai_tags IS NOT NULL AND ai_tags != '' AND ai_tags LIKE ?)");
+          params.push(`%"${tag}"%`);
+        }
+        break;
+
+      case 'content_semantic': {
+        const kind = rule.value.toLowerCase();
+        if (kind === 'financial') {
+          const kw = 'számla,invoice,fizetés,payment,bank,átutalás,receipt,nyugta,díj,költség,fizetendő,befizetés'.split(',');
+          const orParts = kw.map(() => "(LOWER(COALESCE(subject,'') || ' ' || COALESCE(snippet,'')) LIKE ?)");
+          orParts.push("(ai_tags IS NOT NULL AND ai_tags != '' AND ai_tags LIKE ?)");
+          conditions.push(`(${orParts.join(' OR ')})`);
+          kw.forEach((k) => params.push(`%${k}%`));
+          params.push('%"financial"%');
+        } else if (kind === 'legal') {
+          const kw = 'jogi,jogász,ügyvéd,compliance,mnb,hatóság,contract,szerződés,gdpr,jog,vélemény,per,ítélet'.split(',');
+          const orParts = kw.map(() => "(LOWER(COALESCE(subject,'') || ' ' || COALESCE(snippet,'')) LIKE ?)");
+          orParts.push("(ai_tags IS NOT NULL AND ai_tags != '' AND ai_tags LIKE ?)");
+          conditions.push(`(${orParts.join(' OR ')})`);
+          kw.forEach((k) => params.push(`%${k}%`));
+          params.push('%"legal"%');
+        }
+        break;
+      }
+
+      case 'unanswered': {
+        // Levelek, ahol nincs válasz a threadben (SENT) a beérkezés után
+        const days = parseInt(rule.value, 10) || 2;
+        const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+        conditions.push(`date < ?`);
+        params.push(cutoff);
+        conditions.push(`(labels LIKE '%INBOX%' OR labels LIKE '%inbox%')`);
+        conditions.push(`(labels NOT LIKE '%SENT%' AND labels NOT LIKE '%sent%')`);
+        conditions.push(`(labels NOT LIKE '%TRASH%' AND labels NOT LIKE '%trash%')`);
+        conditions.push(`NOT EXISTS (
+          SELECT 1 FROM emails reply
+          WHERE reply.account_id = emails.account_id
+            AND reply.thread_id = emails.thread_id
+            AND (reply.labels LIKE '%SENT%' OR reply.labels LIKE '%sent%')
+            AND reply.date > emails.date
+        )`);
+        break;
+      }
     }
   }
 
@@ -268,13 +337,31 @@ export async function deleteSmartFolder(folderId: string): Promise<boolean> {
 
 // --- Seed default smart folders ---
 
+const UPGRADED_RULES: Record<string, SmartFolderRule[]> = {
+  'Megválaszolatlan 48h+': [{ field: 'unanswered', operator: 'greater_than', value: '2' }],
+  'Pénzügyi': [{ field: 'content_semantic', operator: 'equals', value: 'financial' }],
+  'Jogi/Compliance': [{ field: 'content_semantic', operator: 'equals', value: 'legal' }],
+};
+
+export async function migrateSystemFolderRules(accountId: string): Promise<void> {
+  for (const [name, rules] of Object.entries(UPGRADED_RULES)) {
+    await execute(
+      'UPDATE smart_folders SET rules = ?, updated_at = ? WHERE account_id = ? AND name = ? AND is_system = 1',
+      [JSON.stringify(rules), Date.now(), accountId, name],
+    );
+  }
+}
+
 export async function seedDefaultSmartFolders(accountId: string): Promise<void> {
   const existing = await queryOne<{ cnt: number }>(
     'SELECT COUNT(*) as cnt FROM smart_folders WHERE account_id = ?',
     [accountId],
   );
 
-  if (existing && existing.cnt > 0) return; // Already seeded
+  if (existing && existing.cnt > 0) {
+    await migrateSystemFolderRules(accountId);
+    return;
+  }
 
   logger.info(`Seeding default smart folders for account ${accountId}`);
 
@@ -283,8 +370,7 @@ export async function seedDefaultSmartFolders(accountId: string): Promise<void> 
       name: 'Megválaszolatlan 48h+',
       icon: '⏰',
       rules: [
-        { field: 'is_read', operator: 'equals', value: '0' },
-        { field: 'date_age_days', operator: 'greater_than', value: '2' },
+        { field: 'unanswered', operator: 'greater_than', value: '2' },
       ],
     },
     {
@@ -297,16 +383,12 @@ export async function seedDefaultSmartFolders(accountId: string): Promise<void> 
     {
       name: 'Pénzügyi',
       icon: '💰',
-      rules: [
-        { field: 'subject', operator: 'contains', value: 'számla' },
-      ],
+      rules: [{ field: 'content_semantic', operator: 'equals', value: 'financial' }],
     },
     {
       name: 'Jogi/Compliance',
       icon: '⚖️',
-      rules: [
-        { field: 'from', operator: 'contains', value: 'mnb' },
-      ],
+      rules: [{ field: 'content_semantic', operator: 'equals', value: 'legal' }],
     },
   ];
 

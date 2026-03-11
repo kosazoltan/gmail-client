@@ -698,6 +698,15 @@ export const api = {
         }>;
       }>('/vip'),
     emails: () => request<{ emails: string[] }>('/vip/emails'),
+    suggest: () =>
+      request<{
+        suggestions: Array<{ email: string; name: string | null; reason: string }>;
+      }>('/vip/suggest'),
+    applySuggestions: (items: Array<{ email: string; name?: string | null }>) =>
+      request<{ added: number; items: Array<{ id: string; email: string; name: string | null }> }>(
+        '/vip/apply-suggestions',
+        { method: 'POST', body: JSON.stringify({ items }) },
+      ),
     add: (email: string, name?: string) =>
       request<{
         id: string;
@@ -823,7 +832,7 @@ export const api = {
     deepAnalysis: (refresh?: boolean) => request<import('../types').DeepAnalysisResponse>(`/market/deep-analysis${refresh ? '?refresh=true' : ''}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      timeout: 60000, // 60 sec - AI hívás lassabb
+      timeout: 120000, // 120s — align with server-side AI timeout and fallback reuse
     }),
     trend: (days: number = 7) => request<import('../types').TrendResponse>(`/market/trend?days=${days}`),
     news: () => request<import('../types').NewsResponse>('/market/news'),
@@ -928,6 +937,13 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ description }),
       }),
+    classify: (limit?: number) =>
+      request<{ success: boolean; classified: number; unclassified: number }>('/smart-folders/classify', {
+        method: 'POST',
+        body: JSON.stringify({ limit: limit ?? 50 }),
+      }),
+    classifyStatus: () =>
+      request<{ unclassified: number }>('/smart-folders/classify/status'),
   },
 
   // Smart Features
@@ -941,6 +957,11 @@ export const api = {
   // Workflows
   workflows: {
     list: () => request<{ workflows: import('../types').WorkflowData[] }>('/workflows'),
+    generate: (prompt: string) =>
+      request<{ workflow: import('../types').WorkflowData; warnings: string[]; source: 'ai' | 'fallback' }>('/workflows/generate', {
+        method: 'POST',
+        body: JSON.stringify({ prompt }),
+      }),
     create: (data: Partial<import('../types').WorkflowData>) =>
       request<{ workflow: import('../types').WorkflowData }>('/workflows', {
         method: 'POST',
@@ -952,10 +973,10 @@ export const api = {
         body: JSON.stringify(data),
       }),
     delete: (id: string) => request<void>(`/workflows/${id}`, { method: 'DELETE' }),
-    run: (id: string, emailId?: string) =>
+    run: (id: string, emailId?: string, sourceEmailIds?: string[]) =>
       request<void>(`/workflows/${id}/run`, {
         method: 'POST',
-        body: JSON.stringify({ triggerEmailId: emailId }),
+        body: JSON.stringify({ triggerEmailId: emailId, sourceEmailIds }),
       }),
     runs: (id: string) => request<{ runs: import('../types').RunLogEntry[] }>(`/workflows/${id}/runs`),
   },
@@ -963,9 +984,14 @@ export const api = {
   // AI
   ai: {
     chat: (message: string, conversationId?: string, emailId?: string) =>
-      request<{ reply: string; conversationId: string }>('/ai/chat', {
+      request<import('../types').AiAgentResponse>('/ai/chat', {
         method: 'POST',
         body: JSON.stringify({ message, conversationId, emailId }),
+      }),
+    confirmAction: (pendingAction: import('../types').PendingAgentAction, conversationId?: string) =>
+      request<{ reply: string; result?: import('../types').AgentExecutionResult | null }>('/ai/confirm-action', {
+        method: 'POST',
+        body: JSON.stringify({ pendingAction, conversationId }),
       }),
     smartSearch: (query: string, suggestionsOnly?: boolean) =>
       request<import('../types').SmartSearchResult>('/ai/smart-search', {
@@ -975,7 +1001,16 @@ export const api = {
     getConversations: () =>
       request<{ conversations: Array<{ id: string; title: string; updatedAt: number; createdAt: number }> }>('/ai/conversations'),
     getConversationMessages: (id: string) =>
-      request<{ messages: Array<{ id: string; role: string; content: string; timestamp: number }> }>(`/ai/conversations/${id}/messages`),
+      request<{
+        messages: Array<{
+          id: string;
+          role: string;
+          content: string;
+          timestamp: number;
+          result?: import('../types').AgentExecutionResult | null;
+          pendingAction?: import('../types').PendingAgentAction | null;
+        }>;
+      }>(`/ai/conversations/${id}/messages`),
     deleteConversation: (id: string) =>
       request<{ success: boolean }>(`/ai/conversations/${id}`, { method: 'DELETE' }),
   },

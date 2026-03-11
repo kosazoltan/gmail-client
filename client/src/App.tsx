@@ -9,6 +9,7 @@ import { Suspense, lazy, useEffect } from 'react';
 import { LoadingSkeleton } from './components/common/LoadingSkeleton';
 import { CommandPalette } from './components/CommandPalette';
 import { useOfflineSync } from './hooks/useOfflineSync';
+import { useSession } from './hooks/useAccounts';
 import { warmUpBackend } from './lib/api';
 
 // Lazy loaded views — code splitting
@@ -76,9 +77,15 @@ function App() {
 
 function AppRoutes() {
   const navigate = useNavigate();
+  const { data: session } = useSession();
 
-  const openEmail = (emailId: string) => {
-    navigate(`/?emailId=${encodeURIComponent(emailId)}`);
+  const openEmail = (emailId: string, accountId?: string) => {
+    const params = new URLSearchParams({ emailId });
+    const resolvedAccountId = accountId || session?.activeAccountId;
+    if (resolvedAccountId) {
+      params.set('accountId', resolvedAccountId);
+    }
+    navigate(`/?${params.toString()}`);
   };
 
   return (
@@ -88,7 +95,10 @@ function AppRoutes() {
         <Route path="/calendar" element={<Suspense fallback={<LoadingSkeleton />}><CalendarView /></Suspense>} />
         <Route path="/tasks" element={<Suspense fallback={<LoadingSkeleton />}><TasksView /></Suspense>} />
         <Route path="/market" element={<Suspense fallback={<LoadingSkeleton />}><MarketAnalysisView /></Suspense>} />
-        <Route path="/smart-folders" element={<Suspense fallback={<LoadingSkeleton />}><SmartFoldersView /></Suspense>} />
+        <Route
+          path="/smart-folders"
+          element={<Suspense fallback={<LoadingSkeleton />}><SmartFoldersView onEmailSelect={openEmail} /></Suspense>}
+        />
         <Route path="/ai-assistant" element={<Suspense fallback={<LoadingSkeleton />}><AIAssistantView /></Suspense>} />
         <Route path="/thread/:threadId" element={<Suspense fallback={<LoadingSkeleton />}><ThreadView /></Suspense>} />
         <Route path="/" element={<Suspense fallback={<LoadingSkeleton />}><InboxView /></Suspense>} />

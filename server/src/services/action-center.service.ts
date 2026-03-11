@@ -2,6 +2,11 @@ import { google } from 'googleapis';
 import { queryAll, queryOne } from '../db/index.js';
 import { getOAuth2ClientForAccount } from './auth.service.js';
 import logger from '../utils/logger.js';
+import {
+  buildOperationalGroupKey,
+  isLikelyBulkNoise,
+  isLikelyOperationalAlert,
+} from './email-signal.service.js';
 
 export type ActionCenterPriority = 'critical' | 'high' | 'medium' | 'low';
 export type ActionCenterItemKind =
@@ -42,9 +47,11 @@ export interface ActionCenterItem {
   confidence: number | null;
   suggestedAction: string | null;
   emailId: string | null;
+  emailIds?: string[] | null;
   accountId: string | null;
   threadId: string | null;
   calendarEventId: string | null;
+  groupSize?: number | null;
   links: ActionCenterLinkSet;
 }
 
@@ -117,6 +124,90 @@ function sanitizeQuote(text?: string | null, maxLength = 220): string | null {
   const normalized = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   if (!normalized) return null;
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1)}…` : normalized;
+}
+
+function getItemSignalParts(item: ActionCenterItem): {
+  fromEmail: string | null;
+  subject: string | null;
+  snippet: string | null;
+} {
+  return {
+    fromEmail: item.summary,
+    subject: item.title,
+    snippet: item.quote,
+  };
+}
+
+function highestPriority(items: ActionCenterItem[]): ActionCenterPriority {
+  const order: ActionCenterPriority[] = ['critical', 'high', 'medium', 'low'];
+  return (
+    items
+      .map((item) => item.priority)
+      .sort((a, b) => order.indexOf(a) - order.indexOf(b))[0] ?? 'medium'
+  );
+}
+
+function summarizeOperationalGroup(items: ActionCenterItem[]): ActionCenterItem {
+  const sorted = [...items].sort(
+    (a, b) =>
+      (b.updatedAt ?? b.createdAt ?? b.dueAt ?? 0) - (a.updatedAt ?? a.createdAt ?? a.dueAt ?? 0),
+  );
+  const newest = sorted[0];
+  const count = sorted.length;
+  const domainLike = newest.summary?.split('@')[1] || newest.summary || 'rendszer';
+  const baseTitle = newest.title || 'Rendszerértesítés';
+
+  return {
+    ...newest,
+    id: `group-${buildOperationalGroupKey({
+      fromEmail: newest.summary,
+      subject: newest.title,
+      title: newest.title,
+    })}`,
+    title: `${count} hasonló rendszerjelzés`,
+    summary: `${domainLike} · legfrissebb: ${baseTitle}`,
+    quote: newest.quote || `${count} hasonló deploy / monitoring / hibajelzés lett összevonva.`,
+    priority: highestPriority(sorted),
+    suggestedAction: 'Nyisd meg a legfrissebb levelet, a hasonló rendszerjelzések összevonva jelennek meg.',
+    emailId: newest.emailId,
+    emailIds: sorted.flatMap((item) =>
+      item.emailIds?.length ? item.emailIds : item.emailId ? [item.emailId] : [],
+    ),
+    groupSize: count,
+  };
+}
+
+function filterAndGroupItems(items: ActionCenterItem[]): ActionCenterItem[] {
+  const visible = items.filter((item) => {
+    const signal = getItemSignalParts(item);
+    return !isLikelyBulkNoise(signal);
+  });
+
+  const grouped = new Map<string, ActionCenterItem[]>();
+  const passthrough: ActionCenterItem[] = [];
+
+  for (const item of visible) {
+    const signal = getItemSignalParts(item);
+    if (!isLikelyOperationalAlert(signal)) {
+      passthrough.push(item);
+      continue;
+    }
+
+    const key = buildOperationalGroupKey({
+      fromEmail: item.summary,
+      subject: item.title,
+      title: item.title,
+    });
+    const bucket = grouped.get(key) ?? [];
+    bucket.push(item);
+    grouped.set(key, bucket);
+  }
+
+  const summaryItems = Array.from(grouped.values()).map((bucket) =>
+    bucket.length > 1 ? summarizeOperationalGroup(bucket) : bucket[0],
+  );
+
+  return [...passthrough, ...summaryItems];
 }
 
 async function getAccountEmail(accountId: string): Promise<string | null> {
@@ -355,11 +446,18 @@ export async function getActionCenter(accountId: string): Promise<ActionCenterDa
         google_event_link: string | null;
         created_at: number;
         updated_at: number;
+        subject: string | null;
+        from_email: string | null;
+        from_name: string | null;
+        snippet: string | null;
       }>(
-        `SELECT id, email_id, account_id, thread_id, title, event_type, start_at, end_at, is_all_day,
-                location, source_quote, confidence, status, google_event_id, google_event_link, created_at, updated_at
-         FROM email_event_candidates
-         WHERE account_id = ? AND status != 'dismissed'
+        `SELECT ec.id, ec.email_id, ec.account_id, ec.thread_id, ec.title, ec.event_type, ec.start_at,
+                ec.end_at, ec.is_all_day, ec.location, ec.source_quote, ec.confidence, ec.status,
+                ec.google_event_id, ec.google_event_link, ec.created_at, ec.updated_at,
+                e.subject, e.from_email, e.from_name, e.snippet
+         FROM email_event_candidates ec
+         JOIN emails e ON e.id = ec.email_id
+         WHERE ec.account_id = ? AND ec.status != 'dismissed'
          ORDER BY start_at ASC
          LIMIT 30`,
         [accountId],
@@ -414,9 +512,11 @@ export async function getActionCenter(accountId: string): Promise<ActionCenterDa
     confidence: item.confidence ?? null,
     suggestedAction: item.suggested_action || 'Nyisd meg az emailt és intézd a kért teendőt.',
     emailId: item.email_id,
+    emailIds: [item.email_id],
     accountId: item.account_id,
     threadId: item.thread_id,
     calendarEventId: item.calendar_event_id,
+    groupSize: null,
     links: withCalendarLink(buildEmailLinks(item.email_id, item.account_id), item.due_date),
   }));
 
@@ -438,9 +538,11 @@ export async function getActionCenter(accountId: string): Promise<ActionCenterDa
         ? 'Nyisd meg a levelet és küldj választ vagy dönts a következő lépésről.'
         : 'Olvasd el a levelet, majd döntsd el, kell-e válasz vagy további teendő.',
     emailId: task.email_id,
+    emailIds: [task.email_id],
     accountId: task.account_id,
     threadId: task.thread_id,
     calendarEventId: null,
+    groupSize: null,
     links: buildEmailLinks(task.email_id, task.account_id),
   }));
 
@@ -459,9 +561,11 @@ export async function getActionCenter(accountId: string): Promise<ActionCenterDa
     confidence: 1,
     suggestedAction: 'Nyisd meg az emailt és intézd az emlékeztetett teendőt.',
     emailId: reminder.email_id,
+    emailIds: [reminder.email_id],
     accountId: reminder.account_id,
     threadId: reminder.thread_id,
     calendarEventId: null,
+    groupSize: null,
     links: withCalendarLink(buildEmailLinks(reminder.email_id, reminder.account_id), reminder.remind_at),
   }));
 
@@ -470,8 +574,8 @@ export async function getActionCenter(accountId: string): Promise<ActionCenterDa
     kind: 'event_candidate',
     sourceType: 'event_candidates',
     title: event.title,
-    summary: event.location || `${event.event_type} emailből`,
-    quote: sanitizeQuote(event.source_quote),
+    summary: event.from_name || event.from_email || event.location || `${event.event_type} emailből`,
+    quote: sanitizeQuote(event.source_quote || event.snippet || event.subject),
     priority: event.start_at <= tomorrowStart.getTime() ? 'high' : 'medium',
     dueAt: event.start_at,
     createdAt: event.created_at,
@@ -482,16 +586,16 @@ export async function getActionCenter(accountId: string): Promise<ActionCenterDa
       ? 'Nyisd meg a naptárbejegyzést és szükség esetén szerkeszd.'
       : 'Ellenőrizd a felismert eseményt, majd hozd létre vagy frissítsd a naptárban.',
     emailId: event.email_id,
+    emailIds: [event.email_id],
     accountId: event.account_id,
     threadId: event.thread_id,
     calendarEventId: event.google_event_id,
+    groupSize: null,
     links: {
       ...withCalendarLink(
         {
           ...buildEmailLinks(event.email_id, event.account_id),
-          app: event.google_event_id
-            ? buildCalendarAppLink(event.google_event_id, event.start_at)
-            : buildEmailLinks(event.email_id, event.account_id).app,
+          app: buildEmailLinks(event.email_id, event.account_id).app,
           calendar: event.google_event_link || null,
         },
         event.start_at,
@@ -517,34 +621,36 @@ export async function getActionCenter(accountId: string): Promise<ActionCenterDa
       confidence: 0.9,
       suggestedAction: 'Ezt az ügyet többször utánkövették. Nyisd meg a threadet és dönts a válaszról.',
       emailId: item.id,
+      emailIds: [item.id],
       accountId,
       threadId: item.thread_id,
       calendarEventId: null,
+      groupSize: null,
       links: buildEmailLinks(item.id, accountId),
     }));
 
-  const todayFocus = [...actionCenterItems, ...reminderItems, ...googleData.googleTasks]
+  const todayFocus = filterAndGroupItems([...actionCenterItems, ...reminderItems, ...googleData.googleTasks]
     .filter((item) => item.dueAt == null || item.dueAt < tomorrowStart.getTime())
     .sort((a, b) => {
       const prio = { critical: 0, high: 1, medium: 2, low: 3 };
       return (prio[a.priority] - prio[b.priority]) || ((a.dueAt ?? Number.MAX_SAFE_INTEGER) - (b.dueAt ?? Number.MAX_SAFE_INTEGER));
     })
-    .slice(0, 12);
+    .slice(0, 12));
 
-  const urgentClientMatters = [...detectedItems, ...actionCenterItems]
+  const urgentClientMatters = filterAndGroupItems([...detectedItems, ...actionCenterItems]
     .filter((item) =>
       (item.priority === 'critical' || item.priority === 'high')
       && item.kind !== 'unread_email',
     )
-    .slice(0, 12);
+    .slice(0, 12));
 
-  const unanswered = detectedItems
+  const unanswered = filterAndGroupItems(detectedItems
     .filter((item) => item.kind === 'unanswered_email' || item.kind === 'unread_email')
-    .slice(0, 12);
-  const delegatedWatch = [...reminderItems, ...googleData.googleTasks]
+    .slice(0, 12));
+  const delegatedWatch = filterAndGroupItems([...reminderItems, ...googleData.googleTasks]
     .filter((item) => item.dueAt != null && item.dueAt > now)
     .sort((a, b) => (a.dueAt ?? Number.MAX_SAFE_INTEGER) - (b.dueAt ?? Number.MAX_SAFE_INTEGER))
-    .slice(0, 10);
+    .slice(0, 10));
 
   return {
     generatedAt: now,
@@ -552,8 +658,8 @@ export async function getActionCenter(accountId: string): Promise<ActionCenterDa
       todayFocus,
       urgentClientMatters,
       unanswered,
-      repeatedFollowUps: repeatedFollowUpItems,
-      suggestedEvents: eventItems.slice(0, 12),
+      repeatedFollowUps: filterAndGroupItems(repeatedFollowUpItems),
+      suggestedEvents: filterAndGroupItems(eventItems.slice(0, 12)),
       todayCalendar: googleData.todayCalendar.slice(0, 12),
       delegatedWatch,
     },
