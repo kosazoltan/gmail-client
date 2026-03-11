@@ -1,5 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk';
 import logger from '../utils/logger.js';
+import {
+  BRIEFING_ANALYSIS_REQUEST_TIMEOUT_MS,
+  DEEP_ANALYSIS_REQUEST_TIMEOUT_MS,
+  trimNewsItemsForPrompt,
+} from './market-ai-config.js';
 
 interface RateInfo {
   pair: string;
@@ -63,8 +68,6 @@ interface AIAnalysisResult {
 }
 
 let client: Anthropic | null = null;
-const DEEP_ANALYSIS_REQUEST_TIMEOUT_MS = 75_000;
-const BRIEFING_ANALYSIS_REQUEST_TIMEOUT_MS = 85_000;
 
 function getClient(): Anthropic | null {
   if (!process.env.ANTHROPIC_API_KEY) return null;
@@ -238,7 +241,7 @@ export async function generateAIAnalysis(rates: RateInfo[], externalNews?: NewsI
   if (!anthropic) return null;
 
   // Use externally provided news (from market-data.service)
-  const newsItems: NewsItemInput[] = externalNews ?? [];
+  const newsItems = trimNewsItemsForPrompt(externalNews ?? []);
 
   const ratesText = rates.map(r =>
     `${r.label}: ${r.rate} (${r.changePercent >= 0 ? '+' : ''}${r.changePercent.toFixed(2)}%)`
@@ -347,7 +350,7 @@ KOVETELMENYEK:
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514', // Same model as AI chat (confirmed working)
-      max_tokens: 10000,
+      max_tokens: 7000,
       messages: [{ role: 'user', content: prompt }],
     }, { timeout: BRIEFING_ANALYSIS_REQUEST_TIMEOUT_MS });
 

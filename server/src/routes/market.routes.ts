@@ -2,6 +2,10 @@ import { Router } from 'express';
 import logger from '../utils/logger.js';
 import { generateAIAnalysis, generateDeepAnalysis } from '../services/ai-market.service.js';
 import type { DeepAnalysisResult } from '../services/ai-market.service.js';
+import {
+  BRIEFING_ROUTE_TIMEOUT_MS,
+  DEEP_ANALYSIS_ROUTE_TIMEOUT_MS,
+} from '../services/market-ai-config.js';
 import { fetchMarketRates, fetchMarketNews, fetchTrendData } from '../services/market-data.service.js';
 import type { RateInfo, TrendDataPoint } from '../services/market-data.service.js';
 import { fetchNews } from '../services/news.service.js';
@@ -15,7 +19,6 @@ let cachedSuccessfulAIBriefing: MarketBriefingData | null = null;
 let cachedAt = 0;
 let isGenerating = false; // BUG3 FIX: prevent duplicate AI calls on concurrent requests
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 perc
-const BRIEFING_AI_TIMEOUT_MS = 75_000;
 
 // Deep analysis cache (15 perc - draga AI hivas)
 let cachedDeepAnalysis: DeepAnalysisPayload | null = null;
@@ -23,7 +26,6 @@ let cachedSuccessfulAIDeepAnalysis: DeepAnalysisPayload | null = null;
 let deepAnalysisCachedAt = 0;
 let isDeepAnalysisGenerating = false;
 const DEEP_ANALYSIS_CACHE_TTL_MS = 15 * 60 * 1000;
-const DEEP_ANALYSIS_AI_TIMEOUT_MS = 75_000;
 
 // --- Tipusok ---
 interface AnalysisItem {
@@ -498,9 +500,9 @@ router.get('/briefing', async (req, res) => {
     const aiResult = await Promise.race([
       generateAIAnalysis(rates, marketNews),
       new Promise<'timeout'>((resolve) => setTimeout(() => {
-        logger.warn(`generateAIAnalysis hard timeout (${BRIEFING_AI_TIMEOUT_MS}ms) — falling back to template or cached AI result`);
+        logger.warn(`generateAIAnalysis hard timeout (${BRIEFING_ROUTE_TIMEOUT_MS}ms) — falling back to template or cached AI result`);
         resolve('timeout');
-      }, BRIEFING_AI_TIMEOUT_MS)),
+      }, BRIEFING_ROUTE_TIMEOUT_MS)),
     ]);
     logger.info(`[BRIEFING] Step 2 done: AI=${!!aiResult} in ${Date.now() - t1}ms`);
 
@@ -646,9 +648,9 @@ router.post('/deep-analysis', async (req, res) => {
     const result = await Promise.race([
       generateDeepAnalysis(rates, trendData),
       new Promise<'timeout'>((resolve) => setTimeout(() => {
-        logger.warn(`generateDeepAnalysis hard timeout (${DEEP_ANALYSIS_AI_TIMEOUT_MS}ms) — falling back to template or cached AI result`);
+        logger.warn(`generateDeepAnalysis hard timeout (${DEEP_ANALYSIS_ROUTE_TIMEOUT_MS}ms) — falling back to template or cached AI result`);
         resolve('timeout');
-      }, DEEP_ANALYSIS_AI_TIMEOUT_MS)),
+      }, DEEP_ANALYSIS_ROUTE_TIMEOUT_MS)),
     ]);
 
     if (!result || result === 'timeout') {
