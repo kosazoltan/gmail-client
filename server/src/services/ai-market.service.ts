@@ -350,7 +350,7 @@ KOVETELMENYEK:
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514', // Same model as AI chat (confirmed working)
-      max_tokens: 7000,
+      max_tokens: 4500,
       messages: [{ role: 'user', content: prompt }],
     }, { timeout: BRIEFING_ANALYSIS_REQUEST_TIMEOUT_MS });
 
