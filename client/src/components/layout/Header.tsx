@@ -1,5 +1,15 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, Menu, RefreshCw, BookmarkPlus, Check } from 'lucide-react';
+import {
+  Search,
+  Menu,
+  RefreshCw,
+  BookmarkPlus,
+  Check,
+  MoreHorizontal,
+  Settings,
+  Database,
+  Keyboard,
+} from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useSession, useSyncAccount } from '../../hooks/useAccounts';
 import { useCreateSavedSearch } from '../../hooks/useSavedSearches';
@@ -11,9 +21,10 @@ interface HeaderProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onToggleSidebar: () => void;
+  onShowShortcuts?: () => void;
 }
 
-export function Header({ searchQuery, onSearchChange, onToggleSidebar }: HeaderProps) {
+export function Header({ searchQuery, onSearchChange, onToggleSidebar, onShowShortcuts }: HeaderProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { data: session } = useSession();
@@ -23,7 +34,9 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar }: HeaderP
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [saveName, setSaveName] = useState('');
   const [justSaved, setJustSaved] = useState(false);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const justSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const headerMenuRef = useRef<HTMLDivElement>(null);
 
   // Cleanup timer on unmount to prevent memory leak
   useEffect(() => {
@@ -33,6 +46,29 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar }: HeaderP
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!showHeaderMenu) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (headerMenuRef.current && !headerMenuRef.current.contains(event.target as Node)) {
+        setShowHeaderMenu(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowHeaderMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [showHeaderMenu]);
 
   // Keresési lekérdezés az URL-ből
   const isSearchPage = location.pathname === '/search';
@@ -91,6 +127,24 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar }: HeaderP
       },
     );
   };
+
+  const headerMenuItems = [
+    {
+      label: 'Beállítások',
+      icon: Settings,
+      action: () => navigate('/settings'),
+    },
+    {
+      label: 'Adatbázis',
+      icon: Database,
+      action: () => navigate('/database'),
+    },
+    {
+      label: 'Billentyűparancsok',
+      icon: Keyboard,
+      action: () => onShowShortcuts?.(),
+    },
+  ];
 
   return (
     <header className="relative z-50 dark:bg-dark-bg-secondary dark:border-dark-border flex items-center gap-2 border-b border-gray-200/80 bg-white px-3 py-2.5 backdrop-blur-sm sm:gap-4 sm:px-5">
@@ -199,6 +253,41 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar }: HeaderP
           />
         </button>
       )}
+
+      <div className="relative flex-shrink-0" ref={headerMenuRef}>
+        <button
+          type="button"
+          onClick={() => setShowHeaderMenu((prev) => !prev)}
+          className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary flex-shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+          title="Gyorsmenü"
+          aria-label="Gyorsmenü"
+          aria-expanded={showHeaderMenu}
+        >
+          <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
+        </button>
+
+        {showHeaderMenu && (
+          <div className="dark:bg-dark-bg-secondary dark:border-dark-border absolute top-full right-0 mt-2 w-64 rounded-xl border border-gray-200 bg-white p-2 shadow-xl">
+            {headerMenuItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => {
+                    setShowHeaderMenu(false);
+                    item.action();
+                  }}
+                  className="dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:hover:text-white"
+                >
+                  <Icon className="h-4.5 w-4.5 flex-shrink-0" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Fiókváltó */}
       <HeaderAccountSwitcher />

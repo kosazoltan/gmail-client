@@ -76,6 +76,7 @@ export function AppLayout() {
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+          onShowShortcuts={() => setShowShortcutsHelp(true)}
         />
 
         <OfflineBanner />
