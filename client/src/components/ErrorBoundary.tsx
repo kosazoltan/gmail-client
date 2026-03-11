@@ -9,6 +9,26 @@ interface State {
   error?: Error;
 }
 
+const API_BASE = import.meta.env.VITE_API_URL ?? '';
+
+function reportError(payload: Record<string, unknown>): void {
+  try {
+    navigator.sendBeacon
+      ? navigator.sendBeacon(
+          `${API_BASE}/api/error-report`,
+          new Blob([JSON.stringify(payload)], { type: 'application/json' }),
+        )
+      : fetch(`${API_BASE}/api/error-report`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          keepalive: true,
+        }).catch(() => {});
+  } catch {
+    // Never throw from error reporter
+  }
+}
+
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
@@ -21,6 +41,15 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('React Error Boundary caught:', error, errorInfo);
+    reportError({
+      errorType: 'react_error_boundary',
+      message: error.message,
+      stack: error.stack,
+      url: window.location.href,
+      browser: navigator.userAgent,
+      timestamp: new Date().toISOString(),
+      breadcrumbs: [{ type: 'componentStack', data: errorInfo.componentStack?.slice(0, 500) }],
+    });
   }
 
   render() {

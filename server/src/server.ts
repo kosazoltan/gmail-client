@@ -49,6 +49,10 @@ import sseRoutes from './routes/sse.routes.js';
 import briefRoutes, { generateAISummary } from './routes/brief.routes.js';
 import { detectUnansweredEmails, processExpiredSnoozedTasks } from './services/task-detection.service.js';
 import { buildAllowedOrigins } from './utils/cors-config.js';
+import { requestIdMiddleware } from './middleware/request-id.js';
+import { ensureErrorLogTable } from './db/error-log.js';
+import errorReportRoutes from './routes/error-report.routes.js';
+import staticAuditRoutes from './routes/static-audit.routes.js';
 
 const PORT = parseInt(process.env.PORT || '5000', 10);
 const STARTUP_DB_RETRIES = 5;
@@ -98,6 +102,7 @@ async function getLastDetectionRun(): Promise<number> {
 async function start() {
   // Adatbázis inicializálás ELŐSZÖR (session store-nak szüksége van rá)
   await initializeDatabaseWithRetry();
+  await ensureErrorLogTable();
 
   const app = express();
   const frontendUrl = process.env.FRONTEND_URL;
@@ -144,6 +149,9 @@ async function start() {
     }),
   );
 
+  // X-Request-ID — must be first middleware
+  app.use(requestIdMiddleware);
+
   // Trust proxy (Cloudflare mögött)
   app.set('trust proxy', 1);
   app.use(express.json({ limit: '2mb' })); // Limit request body size (was 10mb — OOM risk on 512MB Render)
@@ -188,6 +196,9 @@ async function start() {
   app.use('/api/detected-tasks', detectedTasksRoutes);
   app.use('/api/sse', sseRoutes);
   app.use('/api/brief', briefRoutes);
+
+  app.use('/api/error-report', errorReportRoutes);
+  app.use('/api/static-audit', staticAuditRoutes);
 
   // Health check
   app.get('/api/health', async (_req, res) => {

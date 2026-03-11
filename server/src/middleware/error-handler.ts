@@ -1,6 +1,7 @@
 import logger from '../utils/logger.js';
 import type { Request, Response, NextFunction } from 'express';
 import { buildAllowedOrigins } from '../utils/cors-config.js';
+import { sendErrorReport } from '../lib/error-mailer.js';
 
 export class AppError extends Error {
   constructor(
@@ -57,4 +58,38 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
 
   // Never leak internal error details to the client
   res.status(500).json({ error: 'Belső szerverhiba' });
+
+  // Async error report (non-blocking — never crash the request handler)
+  sendErrorReport({
+    errorType: 'api_error',
+    message: message,
+    stack: stack,
+    url: req.originalUrl,
+    requestMethod: req.method,
+    requestId: req.headers['x-request-id'] as string | undefined,
+    timestamp: new Date().toISOString(),
+  }).catch(() => {});
 }
+
+// ─── Process-level error handlers ────────────────────────────────────────────
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught Exception:', err);
+  sendErrorReport({
+    errorType: 'uncaught_exception',
+    severity: 'CRITICAL',
+    message: err.message,
+    stack: err.stack,
+    timestamp: new Date().toISOString(),
+  }).catch(() => {});
+});
+
+process.on('unhandledRejection', (reason) => {
+  const err = reason instanceof Error ? reason : new Error(String(reason));
+  logger.error('Unhandled Rejection:', err);
+  sendErrorReport({
+    errorType: 'unhandled_rejection',
+    message: err.message,
+    stack: err.stack,
+    timestamp: new Date().toISOString(),
+  }).catch(() => {});
+});
