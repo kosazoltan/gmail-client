@@ -473,6 +473,21 @@ export async function initializeDatabase(): Promise<void> {
       );
     `);
 
+    // Startup-critical legacy column backfills must run before index creation.
+    // Older production schemas can miss these fields even though the current
+    // table definitions and startup queries already depend on them.
+    await client.query(`
+      ALTER TABLE ai_conversations ADD COLUMN IF NOT EXISTS updated_at BIGINT DEFAULT 0;
+      ALTER TABLE smart_folders ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
+      ALTER TABLE action_items ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'medium';
+      ALTER TABLE detected_tasks ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'medium';
+      ALTER TABLE detected_tasks ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'open';
+      ALTER TABLE detected_tasks ADD COLUMN IF NOT EXISTS snoozed_until BIGINT;
+      ALTER TABLE detected_tasks ADD COLUMN IF NOT EXISTS created_at BIGINT DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT;
+      ALTER TABLE email_event_candidates ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'suggested';
+      ALTER TABLE daily_briefs ADD COLUMN IF NOT EXISTS generated_at BIGINT DEFAULT 0;
+    `);
+
     // Indexes
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_emails_account ON emails(account_id);
@@ -521,7 +536,6 @@ export async function initializeDatabase(): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_action_items_account ON action_items(account_id);
       CREATE INDEX IF NOT EXISTS idx_action_items_done ON action_items(is_done);
       CREATE INDEX IF NOT EXISTS idx_action_items_due ON action_items(due_date);
-      CREATE INDEX IF NOT EXISTS idx_action_items_priority ON action_items(priority);
       CREATE INDEX IF NOT EXISTS idx_ai_messages_conversation ON ai_messages(conversation_id);
       CREATE INDEX IF NOT EXISTS idx_ai_messages_created ON ai_messages(created_at);
 
@@ -567,6 +581,11 @@ export async function initializeDatabase(): Promise<void> {
       ALTER TABLE action_items ADD COLUMN IF NOT EXISTS updated_at BIGINT;
       ALTER TABLE email_event_candidates ADD COLUMN IF NOT EXISTS google_event_link TEXT;
 
+    `);
+
+    // Create indexes for columns that may have been added by migrations above.
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_action_items_priority ON action_items(priority);
     `);
 
     // Fix INTEGER → BIGINT for epoch ms columns (INTEGER max 2.1B, Date.now() ~1.77T)
