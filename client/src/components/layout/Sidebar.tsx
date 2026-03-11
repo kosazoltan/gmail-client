@@ -19,8 +19,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  Database,
-  Keyboard,
   Paperclip,
   Search,
   Bookmark,
@@ -32,7 +30,6 @@ import {
   Receipt,
   Trash2,
   Tag,
-  Settings,
   CalendarClock,
   Mail,
   LayoutDashboard,
@@ -521,27 +518,7 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
 
       {/* Bottom actions - Settings & Accounts */}
       <div className="dark:border-dark-border space-y-1 border-t border-gray-200 px-2 py-2">
-        {/* Beállítások */}
-        <NavItem path="/settings" icon={Settings} label="Beállítások" sidebarOpen={isOpen} />
-
-        {/* Database / Adatbázis */}
-        <NavItem path="/database" icon={Database} label="Adatbázis" sidebarOpen={isOpen} />
-
-        {/* Billentyűparancsok gomb */}
-        {onShowShortcuts && (
-          <button
-            onClick={onShowShortcuts}
-            className={cn(
-              'dark:text-dark-text-muted dark:hover:bg-dark-bg-tertiary flex min-h-[40px] w-full touch-manipulation items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-gray-500 hover:bg-gray-100',
-              !isOpen && 'justify-center px-2',
-            )}
-            title="Billentyűparancsok (?)"
-            aria-label="Billentyűparancsok megjelenítése"
-          >
-            <Keyboard className="h-5 w-5" aria-hidden="true" />
-            {isOpen && <span>Billentyűparancsok</span>}
-          </button>
-        )}
+        {/* Intentionally left for future bottom actions */}
       </div>
 
       {/* Bejelentkezési segítség */}
