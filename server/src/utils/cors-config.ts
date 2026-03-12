@@ -36,6 +36,6 @@ export function isOriginAllowed(origin: string | undefined, allowedOrigins: stri
   const normalized = origin.trim();
   if (allowedOrigins.includes(normalized)) return true;
   // Allow any subdomain of mindenes.org (e.g. mail., app., preview.)
-  if (/^https?:\/\/([a-zA-Z0-9-]+\.)*mindenes\.org$/.test(normalized)) return true;
+  if (/^https:\/\/([a-zA-Z0-9-]+\.)*mindenes\.org$/.test(normalized)) return true;
   return false;
 }
