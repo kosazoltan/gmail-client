@@ -16,6 +16,38 @@ import { ThemeToggle } from './ThemeToggle';
 import { HeaderAccountSwitcher } from '../accounts/HeaderAccountSwitcher';
 import { toast } from '../../lib/toast';
 
+const API_BASE = import.meta.env.VITE_API_URL ?? '';
+
+function reportManualRefreshError(error: unknown): void {
+  try {
+    const err = error instanceof Error ? error : new Error(String(error));
+    const payload = {
+      errorType: 'manual_email_refresh',
+      message: err.message,
+      stack: err.stack,
+      repo: 'gmail-client',
+      context: 'manual-email-refresh',
+      url: window.location.href,
+      browser: navigator.userAgent,
+      timestamp: new Date().toISOString(),
+    };
+
+    navigator.sendBeacon
+      ? navigator.sendBeacon(
+          `${API_BASE}/api/error-report`,
+          new Blob([JSON.stringify(payload)], { type: 'application/json' }),
+        )
+      : fetch(`${API_BASE}/api/error-report`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          keepalive: true,
+        }).catch(() => {});
+  } catch {
+    // Never throw from error reporter
+  }
+}
+
 interface HeaderProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
@@ -74,8 +106,9 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar, onShowSho
           onSuccess: () => {
             toast.success('Levelek sikeresen szinkronizálva');
           },
-          onError: () => {
+          onError: (error) => {
             toast.error('Hiba történt a szinkronizálás során');
+            reportManualRefreshError(error);
           },
         },
       );
