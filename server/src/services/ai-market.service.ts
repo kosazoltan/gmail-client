@@ -418,12 +418,11 @@ async function createMarketAnalysisMessage(
   structured: boolean,
 ): Promise<Anthropic.Messages.Message> {
   const baseRequest: Anthropic.Messages.MessageCreateParams = {
-    model: 'claude-3-5-sonnet-20241022',
+    model: 'claude-haiku-4-5-20251015',
     stream: false,
     max_tokens: 3500,
     messages: [{ role: 'user', content: prompt }],
   };
-  // output_config.format (Structured Output) csak újabb modelleken támogatott — plain JSON prompt-ot használunk
   return anthropic.messages.create(baseRequest, { timeout: BRIEFING_ANALYSIS_REQUEST_TIMEOUT_MS });
 }
 
@@ -433,12 +432,11 @@ async function createDeepAnalysisMessage(
   structured: boolean,
 ): Promise<Anthropic.Messages.Message> {
   const baseRequest: Anthropic.Messages.MessageCreateParams = {
-    model: 'claude-3-5-sonnet-20241022',
+    model: 'claude-haiku-4-5-20251015',
     stream: false,
     max_tokens: 3000,
     messages: [{ role: 'user', content: prompt }],
   };
-  // output_config.format (Structured Output) csak újabb modelleken támogatott — plain JSON prompt-ot használunk
   return anthropic.messages.create(baseRequest, { timeout: DEEP_ANALYSIS_REQUEST_TIMEOUT_MS });
 }
 
