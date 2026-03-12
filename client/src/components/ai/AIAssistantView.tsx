@@ -265,6 +265,7 @@ export function AIAssistantView() {
 
   const renderResult = (result?: AgentExecutionResult | null) => {
     if (!result) return null;
+    if (result.kind === 'workflow_draft' && (!result.workflowDraft || !result.workflowDraft.steps)) return null;
 
     if (result.kind === 'search') {
       return (
