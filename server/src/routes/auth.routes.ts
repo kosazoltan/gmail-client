@@ -1,6 +1,15 @@
 import logger from '../utils/logger.js';
 import { Router } from 'express';
 import crypto from 'crypto';
+import { z } from 'zod';
+
+const logoutSchema = z.object({
+  accountId: z.string().min(1).max(255).optional(),
+});
+
+const switchAccountSchema = z.object({
+  accountId: z.string().min(1).max(255),
+});
 import { getAuthUrl, handleAuthCallback, getAllAccounts } from '../services/auth.service.js';
 import { startBackgroundSync } from '../services/sync.service.js';
 import { deleteSubscriptionsByAccount } from '../services/push.service.js';
@@ -81,7 +90,12 @@ router.get('/callback', async (req, res) => {
 
 // Kijelentkezés
 router.post('/logout', async (req, res) => {
-  const { accountId } = req.body;
+  const parsed = logoutSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Érvénytelen kérés', details: parsed.error.issues });
+    return;
+  }
+  const { accountId } = parsed.data;
   if (accountId && req.session.accountIds) {
     req.session.accountIds = req.session.accountIds.filter((id) => id !== accountId);
     if (req.session.activeAccountId === accountId) {
@@ -125,7 +139,12 @@ router.get('/session', async (req, res) => {
 
 // Aktív fiók váltás
 router.post('/switch-account', async (req, res) => {
-  const { accountId } = req.body;
+  const parsed = switchAccountSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Érvénytelen kérés', details: parsed.error.issues });
+    return;
+  }
+  const { accountId } = parsed.data;
   if (accountId && req.session.accountIds && req.session.accountIds.includes(accountId)) {
     req.session.activeAccountId = accountId;
 

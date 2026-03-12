@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import { rateLimit } from 'express-rate-limit';
 import { createSessionMiddleware, getSessionStore } from './middleware/session.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { deleteProtection } from './middleware/delete-protection.js';
@@ -157,8 +158,26 @@ async function start() {
   // Delete protection middleware — logs and blocks dangerous deletions
   app.use(deleteProtection);
 
+  // Rate limiting — auth endpoints (OAuth callback abuse protection)
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 20,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { status: 429, message: 'Túl sok auth kérés, próbáld újra 15 perc múlva.' },
+  });
+
+  // General API rate limiter
+  const apiLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 120,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { status: 429, message: 'API rate limit elérve.' },
+  });
+
   // Routes
-  app.use('/api/auth', authRoutes);
+  app.use('/api/auth', authLimiter, authRoutes);
   app.use('/api/emails', emailsRoutes);
   app.use('/api/accounts', accountsRoutes);
   app.use('/api/categories', categoriesRoutes);
