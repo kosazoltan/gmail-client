@@ -423,10 +423,8 @@ async function createMarketAnalysisMessage(
     max_tokens: 3500,
     messages: [{ role: 'user', content: prompt }],
   };
-  const request = structured
-    ? { ...baseRequest, output_config: { format: { type: 'json_schema' as const, schema: MARKET_ANALYSIS_OUTPUT_SCHEMA } } }
-    : baseRequest;
-  return anthropic.messages.create(request, { timeout: BRIEFING_ANALYSIS_REQUEST_TIMEOUT_MS });
+  // output_config.format (Structured Output) csak újabb modelleken támogatott — plain JSON prompt-ot használunk
+  return anthropic.messages.create(baseRequest, { timeout: BRIEFING_ANALYSIS_REQUEST_TIMEOUT_MS });
 }
 
 async function createDeepAnalysisMessage(
@@ -440,10 +438,8 @@ async function createDeepAnalysisMessage(
     max_tokens: 3000,
     messages: [{ role: 'user', content: prompt }],
   };
-  const request = structured
-    ? { ...baseRequest, output_config: { format: { type: 'json_schema' as const, schema: DEEP_ANALYSIS_OUTPUT_SCHEMA } } }
-    : baseRequest;
-  return anthropic.messages.create(request, { timeout: DEEP_ANALYSIS_REQUEST_TIMEOUT_MS });
+  // output_config.format (Structured Output) csak újabb modelleken támogatott — plain JSON prompt-ot használunk
+  return anthropic.messages.create(baseRequest, { timeout: DEEP_ANALYSIS_REQUEST_TIMEOUT_MS });
 }
 
 // RSS fetching REMOVED — news now comes from market-data.service.ts
