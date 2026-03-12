@@ -29,8 +29,13 @@ export function buildAllowedOrigins(): string[] {
  * - undefined/empty origin (mobile apps, Postman, server-to-server) → allow
  * - string "null" origin (PWA, Capacitor, some Electron builds) → allow
  * - exact match against allowed list
+ * - any *.mindenes.org subdomain (covers preview and future subdomains)
  */
 export function isOriginAllowed(origin: string | undefined, allowedOrigins: string[]): boolean {
   if (!origin || origin === 'null') return true;
-  return allowedOrigins.includes(origin.trim());
+  const normalized = origin.trim();
+  if (allowedOrigins.includes(normalized)) return true;
+  // Allow any subdomain of mindenes.org (e.g. mail., app., preview.)
+  if (/^https?:\/\/([a-zA-Z0-9-]+\.)*mindenes\.org$/.test(normalized)) return true;
+  return false;
 }
