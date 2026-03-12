@@ -1,9 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   useSmartFolders,
   useSmartFolderEmails,
   useCreateSmartFolder,
-  useDeleteSmartFolder,
   useGenerateSmartFolder,
   useClassifyEmails,
 } from '../../hooks/useSmartFolders';
@@ -12,15 +11,15 @@ import {
   Plus,
   Loader2,
   ArrowLeft,
-  Trash2,
   X,
   ChevronLeft,
   ChevronRight,
   Sparkles,
 } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { toast } from '../../lib/toast';
-import type { SmartFolderRule, Email } from '../../types';
+import type { SmartFolderRule, Email, SmartFolder } from '../../types';
 
 interface SmartFoldersViewProps {
   onEmailSelect?: (emailId: string) => void;
@@ -49,10 +48,11 @@ const OPERATOR_LABELS: Partial<Record<SmartFolderRule['operator'], string>> = {
   contains_any: 'tartalmazza bármelyiket',
 };
 
+const EMPTY_ARRAY: SmartFolder[] = [];
+
 export function SmartFoldersView({ onEmailSelect }: SmartFoldersViewProps) {
   const { data: foldersData, isLoading } = useSmartFolders();
   const createMutation = useCreateSmartFolder();
-  const deleteMutation = useDeleteSmartFolder();
   const generateMutation = useGenerateSmartFolder();
   const classifyMutation = useClassifyEmails();
 
@@ -61,10 +61,34 @@ export function SmartFoldersView({ onEmailSelect }: SmartFoldersViewProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAIModal, setShowAIModal] = useState(false);
   const [aiDescription, setAIDescription] = useState('');
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const { data: emailsData, isLoading: emailsLoading } = useSmartFolderEmails(selectedFolderId, page);
 
-  const folders = foldersData?.folders || [];
+  const folders = foldersData?.folders ?? EMPTY_ARRAY;
+  const requestedFolderId = searchParams.get('id');
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    if (folders.length === 0) {
+      if (selectedFolderId) setSelectedFolderId(null);
+      return;
+    }
+
+    const resolvedFolderId = folders.find(f => f.id === requestedFolderId)?.id ?? folders[0]?.id;
+    if (!resolvedFolderId) return;
+
+    if (selectedFolderId !== resolvedFolderId) {
+      setSelectedFolderId(resolvedFolderId);
+      setPage(1);
+    }
+
+    if (requestedFolderId !== resolvedFolderId) {
+      setSearchParams({ id: resolvedFolderId }, { replace: true });
+    }
+  }, [folders, isLoading, requestedFolderId, selectedFolderId, setSearchParams]);
 
   // Create modal state
   const [newName, setNewName] = useState('');
@@ -91,17 +115,6 @@ export function SmartFoldersView({ onEmailSelect }: SmartFoldersViewProps) {
         onError: (err) => toast.error(err instanceof Error ? err.message : 'Hiba történt'),
       },
     );
-  };
-
-  const handleDelete = (id: string, name: string) => {
-    if (!confirm(`Biztosan törlöd: "${name}"?`)) return;
-    deleteMutation.mutate(id, {
-      onSuccess: () => {
-        toast.success('Smart folder törölve');
-        if (selectedFolderId === id) setSelectedFolderId(null);
-      },
-      onError: (err) => toast.error(err instanceof Error ? err.message : 'Hiba történt'),
-    });
   };
 
   const handleAIGenerate = () => {
@@ -153,7 +166,7 @@ export function SmartFoldersView({ onEmailSelect }: SmartFoldersViewProps) {
       <div className="flex h-full flex-col">
         <div className="flex items-center gap-3 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
           <button
-            onClick={() => { setSelectedFolderId(null); setPage(1); }}
+            onClick={() => navigate('/inbox')}
             className="rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-800"
           >
             <ArrowLeft className="h-5 w-5 dark:text-gray-300" />
@@ -285,48 +298,19 @@ export function SmartFoldersView({ onEmailSelect }: SmartFoldersViewProps) {
           <div className="flex flex-col items-center justify-center py-12 text-gray-500">
             <FolderSearch className="h-12 w-12 mb-3 text-gray-300" />
             <p>Nincsenek smart folderek</p>
-            <p className="text-sm">Hozz létre egyet a fenti gombbal</p>
+            <p className="text-sm">Hozz létre smart foldereket, hogy lásd a leveleket</p>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="mt-4 flex items-center gap-2 rounded-lg bg-purple-500 px-4 py-2 text-sm font-medium text-white hover:bg-purple-600 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Hozz létre smart foldereket
+            </button>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100 dark:divide-gray-800">
-            {folders.map((folder) => (
-              <div
-                key={folder.id}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group"
-              >
-                <button
-                  onClick={() => { setSelectedFolderId(folder.id); setPage(1); }}
-                  className="flex min-w-0 flex-1 items-center gap-3"
-                >
-                  <span className="text-xl flex-shrink-0">{folder.icon}</span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium dark:text-gray-200 truncate">{folder.name}</span>
-                      {folder.isSystem && (
-                        <span className="text-[10px] rounded bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 text-gray-500 dark:text-gray-400">
-                          Rendszer
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {folder.rules.map(r => `${FIELD_LABELS[r.field] ?? r.field} ${OPERATOR_LABELS[r.operator] ?? r.operator} ${r.value ? `"${r.value}"` : ''}`).join(' + ')}
-                    </p>
-                  </div>
-                </button>
-                <span className="rounded-full bg-purple-100 dark:bg-purple-500/20 px-2 py-0.5 text-xs font-medium text-purple-600 dark:text-purple-400">
-                  {folder.emailCount ?? 0}
-                </span>
-                {!folder.isSystem && (
-                  <button
-                    onClick={() => handleDelete(folder.id, folder.name)}
-                    className="rounded p-1.5 text-gray-400 opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 transition-all"
-                    title="Törlés"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            ))}
+          <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+            <Loader2 className="h-6 w-6 animate-spin text-purple-500 mb-3" />
+            <p>Smart folder megnyitása…</p>
           </div>
         )}
       </div>
