@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { hu } from 'date-fns/locale';
@@ -21,33 +21,17 @@ import {
   Square,
   Trash2,
   TrendingUp,
-  Zap,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { toast } from '../../lib/toast';
 import { useDashboard } from '../../hooks/useDashboard';
-import {
-  useDetectedTaskStats,
-  useUpdateDetectedTask,
-} from '../../hooks/useDetectedTasks';
+import { useUpdateDetectedTask } from '../../hooks/useDetectedTasks';
 import { useLatestBrief, useGenerateBrief } from '../../hooks/useDailyBrief';
 import { useMarketAnalysis } from '../../hooks/useMarketAnalysis';
-import { useBatchDeleteEmails, useBatchMarkRead } from '../../hooks/useEmails';
+import { useBatchDeleteEmails, useBatchMarkRead, useDeleteEmail } from '../../hooks/useEmails';
 import type { ActionCenterItem, DashboardData, MarketRateInfo } from '../../types';
 
-const GREETINGS = [
-  { from: 0, to: 5, text: 'Jó éjszakát' },
-  { from: 5, to: 9, text: 'Jó reggelt' },
-  { from: 9, to: 18, text: 'Jó napot' },
-  { from: 18, to: 22, text: 'Jó estét' },
-  { from: 22, to: 24, text: 'Jó éjszakát' },
-];
-
 const DEFAULT_VISIBLE_ITEMS = 3;
-
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  return GREETINGS.find((g) => hour >= g.from && hour < g.to)?.text || 'Szia';
-}
 
 function isSafeExternalLink(link: string): boolean {
   return /^https:\/\//i.test(link);
@@ -110,10 +94,10 @@ function areAllSelected(selectedIds: Set<string>, ids: string[]): boolean {
 export function DashboardView() {
   const navigate = useNavigate();
   const { data, isLoading, error } = useDashboard();
-  const { data: detectedTaskStats } = useDetectedTaskStats();
   const updateTask = useUpdateDetectedTask();
   const batchDeleteEmails = useBatchDeleteEmails();
   const batchMarkRead = useBatchMarkRead();
+  const deleteEmail = useDeleteEmail();
 
   const { data: briefData } = useLatestBrief();
   const generateBrief = useGenerateBrief();
@@ -121,32 +105,14 @@ export function DashboardView() {
 
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedEmailIds, setSelectedEmailIds] = useState<Set<string>>(new Set());
-
-  const today = new Date();
-  const formattedDate = format(today, 'yyyy. MMMM d., EEEE', { locale: hu });
+  const [hiddenActionItemIds, setHiddenActionItemIds] = useState<Set<string>>(new Set());
+  const [hiddenTaskIds, setHiddenTaskIds] = useState<Set<string>>(new Set());
 
   const actionCenter = data?.actionCenter?.blocks;
   const openTasks = data?.openTasks || [];
   const upcomingEvents = data?.todayEvents?.slice(0, DEFAULT_VISIBLE_ITEMS) || [];
   const topMarketRates = marketData?.rates.slice(0, 3) || [];
   const selectedCount = selectedEmailIds.size;
-
-  const urgentTasks = Math.max(
-    detectedTaskStats?.high ?? 0,
-    actionCenter?.urgentClientMatters?.length ?? 0,
-  );
-  const openTaskCount = data?.openTasksCount ?? 0;
-  const todayEventCount = data?.todayEventsCount ?? 0;
-  const unread = data?.unreadCount ?? 0;
-
-  const briefingText = useMemo(() => {
-    const parts: string[] = [];
-    if (urgentTasks > 0) parts.push(`${urgentTasks} sürgős feladat`);
-    if (todayEventCount > 0) parts.push(`${todayEventCount} esemény ma`);
-    if (unread > 0) parts.push(`${unread} olvasatlan levél`);
-    if (openTaskCount > 0) parts.push(`${openTaskCount} nyitott teendő`);
-    return parts.length > 0 ? parts.join(' · ') : 'Minden rendben, ma nincs sürgős emberi teendő.';
-  }, [openTaskCount, todayEventCount, unread, urgentTasks]);
 
   const handleOpenApp = (link: string | null) => {
     if (!link) return;
@@ -164,6 +130,66 @@ export function DashboardView() {
 
   const handleCompleteTask = (taskId: string) => {
     updateTask.mutate({ id: taskId, data: { status: 'done' } });
+  };
+
+  const hideActionItem = (id: string) => {
+    setHiddenActionItemIds((prev) => new Set(prev).add(id));
+  };
+
+  const restoreActionItem = (id: string) => {
+    setHiddenActionItemIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  };
+
+  const hideTask = (id: string) => {
+    setHiddenTaskIds((prev) => new Set(prev).add(id));
+  };
+
+  const restoreTask = (id: string) => {
+    setHiddenTaskIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  };
+
+  const handleDeleteActionItem = (item: ActionCenterItem) => {
+    const ids = getSelectableEmailIds(item);
+    if (ids.length === 0) return;
+
+    hideActionItem(item.id);
+
+    const onError = () => {
+      restoreActionItem(item.id);
+      toast.error('Hiba az email törlésekor');
+    };
+
+    if (ids.length === 1) {
+      deleteEmail.mutate({ emailId: ids[0], accountId: item.accountId ?? undefined }, { onError });
+      return;
+    }
+
+    batchDeleteEmails.mutate({ emailIds: ids, accountId: item.accountId ?? undefined }, { onError });
+  };
+
+  const handleDeleteTask = (task: DashboardData['openTasks'][number]) => {
+    const ids = getTaskSelectableIds(task);
+    if (ids.length === 0) return;
+
+    hideTask(task.id);
+
+    deleteEmail.mutate(
+      { emailId: ids[0], accountId: task.accountId ?? undefined },
+      {
+        onError: () => {
+          restoreTask(task.id);
+          toast.error('Hiba az email törlésekor');
+        },
+      },
+    );
   };
 
   const toggleItemSelection = (ids: string[]) => {
@@ -242,72 +268,6 @@ export function DashboardView() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#4f6ef7] to-[#7c3aed] p-5 text-white shadow-lg sm:p-8">
-        <div className="absolute right-0 top-0 h-32 w-32 translate-x-8 -translate-y-8 rounded-full bg-white/10 blur-2xl sm:h-48 sm:w-48" />
-        <div className="absolute bottom-0 left-0 h-24 w-24 -translate-x-6 translate-y-6 rounded-full bg-white/5 blur-xl" />
-
-        <div className="relative z-10">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="mb-1 flex items-center gap-3">
-                <Sparkles className="h-6 w-6 text-yellow-300" />
-                <span className="text-sm font-medium text-white/80">Napi AI Briefing</span>
-              </div>
-              <h1 className="text-2xl font-bold sm:text-3xl">{getGreeting()}!</h1>
-              <p className="mt-1 text-sm text-white/70">{formattedDate}</p>
-            </div>
-
-            <button
-              onClick={() => {
-                if (selectionMode) {
-                  exitSelectionMode();
-                } else {
-                  setSelectionMode(true);
-                }
-              }}
-              className="rounded-lg bg-white/15 px-3 py-1.5 text-xs font-medium text-white/90 backdrop-blur-sm transition-colors hover:bg-white/25"
-            >
-              {selectionMode ? 'Kijelölés bezárása' : 'Kijelöléses mód'}
-            </button>
-          </div>
-
-          <div className="mt-4 flex items-center gap-2 rounded-xl bg-white/15 px-4 py-3 backdrop-blur-sm">
-            <Zap className="h-5 w-5 flex-shrink-0 text-yellow-300" />
-            <p className="text-sm font-medium">{briefingText}</p>
-          </div>
-
-          {briefData?.brief?.isFresh && briefData.brief.summary && (
-            <div className="mt-3 rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm">
-              <p className="text-sm text-white/90">{briefData.brief.summary}</p>
-              {briefData.brief.highlights.length > 0 && (
-                <ul className="mt-2 space-y-1">
-                  {briefData.brief.highlights.slice(0, 3).map((highlight, index) => (
-                    <li key={index} className="flex items-center gap-2 text-xs text-white/75">
-                      <span className="h-1 w-1 rounded-full bg-yellow-300" />
-                      {highlight}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-
-          {!briefData?.brief?.isFresh && (
-            <button
-              onClick={() => generateBrief.mutate()}
-              disabled={generateBrief.isPending}
-              className="mt-3 flex items-center gap-2 rounded-lg bg-white/15 px-3 py-1.5 text-xs font-medium text-white/80 backdrop-blur-sm transition-colors hover:bg-white/25 disabled:opacity-50"
-            >
-              {generateBrief.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Sparkles className="h-3.5 w-3.5" />
-              )}
-              AI Brief generálása
-            </button>
-          )}
-        </div>
-      </div>
 
       {selectionMode && (
         <div className="dark:bg-dark-bg-secondary dark:border-dark-border flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -350,12 +310,26 @@ export function DashboardView() {
         title="Mai teendők"
         description="A levelek és AI-feladatok, amelyekhez ma tényleges emberi döntés kell."
         action={
-          <button
-            onClick={() => navigate('/tasks')}
-            className="flex items-center gap-1 text-sm text-[#4f6ef7] hover:underline"
-          >
-            Feladatok <ArrowRight className="h-3.5 w-3.5" />
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                if (selectionMode) {
+                  exitSelectionMode();
+                } else {
+                  setSelectionMode(true);
+                }
+              }}
+              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              {selectionMode ? 'Kijelölés bezárása' : 'Kijelöléses mód'}
+            </button>
+            <button
+              onClick={() => navigate('/tasks')}
+              className="flex items-center gap-1 text-sm text-[#4f6ef7] hover:underline"
+            >
+              Feladatok <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
         }
       >
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
@@ -367,6 +341,8 @@ export function DashboardView() {
             selectionMode={selectionMode}
             selectedEmailIds={selectedEmailIds}
             onToggleSelection={toggleItemSelection}
+            onDeleteItem={handleDeleteActionItem}
+            hiddenItemIds={hiddenActionItemIds}
           />
           <ActionCenterCard
             title="Válaszra vár"
@@ -376,6 +352,8 @@ export function DashboardView() {
             selectionMode={selectionMode}
             selectedEmailIds={selectedEmailIds}
             onToggleSelection={toggleItemSelection}
+            onDeleteItem={handleDeleteActionItem}
+            hiddenItemIds={hiddenActionItemIds}
           />
           <OpenTasksCard
             title="AI feladatok"
@@ -386,6 +364,8 @@ export function DashboardView() {
             selectionMode={selectionMode}
             selectedEmailIds={selectedEmailIds}
             onToggleSelection={toggleItemSelection}
+            onDeleteTask={handleDeleteTask}
+            hiddenTaskIds={hiddenTaskIds}
           />
         </div>
       </DashboardSection>
@@ -501,6 +481,8 @@ function ActionCenterCard({
   selectedEmailIds,
   onToggleSelection,
   compact = false,
+  onDeleteItem,
+  hiddenItemIds,
 }: {
   title: string;
   items?: ActionCenterItem[];
@@ -510,9 +492,11 @@ function ActionCenterCard({
   selectedEmailIds: Set<string>;
   onToggleSelection: (ids: string[]) => void;
   compact?: boolean;
+  onDeleteItem?: (item: ActionCenterItem) => void;
+  hiddenItemIds?: Set<string>;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const list = items ?? [];
+  const list = (items ?? []).filter((item) => !hiddenItemIds?.has(item.id));
   const visibleItems = expanded ? list : list.slice(0, DEFAULT_VISIBLE_ITEMS);
 
   return (
@@ -647,6 +631,15 @@ function ActionCenterCard({
                       <Calendar className="h-4 w-4" />
                     </a>
                   )}
+                  {onDeleteItem && getSelectableEmailIds(item).length > 0 && (
+                    <button
+                      onClick={() => onDeleteItem(item)}
+                      className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
+                      title="Törlés"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -666,6 +659,8 @@ function OpenTasksCard({
   selectionMode,
   selectedEmailIds,
   onToggleSelection,
+  onDeleteTask,
+  hiddenTaskIds,
 }: {
   title: string;
   tasks: DashboardData['openTasks'];
@@ -675,20 +670,23 @@ function OpenTasksCard({
   selectionMode: boolean;
   selectedEmailIds: Set<string>;
   onToggleSelection: (ids: string[]) => void;
+  onDeleteTask?: (task: DashboardData['openTasks'][number]) => void;
+  hiddenTaskIds?: Set<string>;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const visibleTasks = expanded ? tasks : tasks.slice(0, DEFAULT_VISIBLE_ITEMS);
+  const filteredTasks = tasks.filter((task) => !hiddenTaskIds?.has(task.id));
+  const visibleTasks = expanded ? filteredTasks : filteredTasks.slice(0, DEFAULT_VISIBLE_ITEMS);
 
   return (
     <div className="dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h3 className="dark:text-dark-text text-base font-semibold text-gray-900">{title}</h3>
-        {tasks.length > DEFAULT_VISIBLE_ITEMS && (
+        {filteredTasks.length > DEFAULT_VISIBLE_ITEMS && (
           <button
             onClick={() => setExpanded((prev) => !prev)}
             className="flex items-center gap-1 text-xs text-[#4f6ef7] hover:underline"
           >
-            {expanded ? 'Kevesebb' : `Még ${tasks.length - DEFAULT_VISIBLE_ITEMS}`}
+            {expanded ? 'Kevesebb' : `Még ${filteredTasks.length - DEFAULT_VISIBLE_ITEMS}`}
             <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', expanded && 'rotate-180')} />
           </button>
         )}
@@ -765,6 +763,15 @@ function OpenTasksCard({
                   >
                     <ArrowRight className="h-4 w-4" />
                   </button>
+                  {onDeleteTask && getTaskSelectableIds(task).length > 0 && (
+                    <button
+                      onClick={() => onDeleteTask(task)}
+                      className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
+                      title="Törlés"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               </div>
             );
