@@ -7,6 +7,7 @@ export function buildAllowedOrigins(): string[] {
   return [
     frontendUrl,
     'https://mindenes.org',
+    'https://www.mindenes.org',
     'https://mail.mindenes.org',
     'http://localhost:5173',
     'http://localhost:5000',
