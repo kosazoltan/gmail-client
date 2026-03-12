@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { callAI, isAIAvailable } from '../ai/provider.js';
 import { queryAll, queryOne, execute } from '../db/index.js';
 import logger from '../utils/logger.js';
 import crypto from 'crypto';
@@ -56,17 +56,7 @@ export interface WeeklyReportData {
   summary: string;
 }
 
-// --- Anthropic client ---
-
-let client: Anthropic | null = null;
-
-function getClient(): Anthropic | null {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
-  if (!client) {
-    client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  }
-  return client;
-}
+// --- AI client removed: using centralized provider ---
 
 // --- Helper: get email by id ---
 
@@ -190,8 +180,7 @@ export async function extractActionItems(
     }));
   }
 
-  const anthropic = getClient();
-  if (!anthropic) {
+  if (!isAIAvailable()) {
     // Fallback: simple keyword-based extraction
     return extractActionItemsFallback(email, {
       workflowOrigin: options?.workflowOrigin ?? 'fallback',
@@ -215,13 +204,9 @@ Return ONLY a JSON array. Each item:
 If no action items, return [].`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251015', // Haiku: egyszer� JSON kinyer�s
-      max_tokens: 1000,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    const response = await callAI([{ role: 'user', content: prompt }], { maxTokens: 1000 });
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : '[]';
+    const text = response.text || '[]';
     const stripped = text.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/gi, '');
     const jsonMatch = stripped.match(/\[[\s\S]*\]/);
     const items: Array<{
@@ -353,8 +338,7 @@ export async function detectSentiment(emailId: string): Promise<SentimentResult>
   const email = await getEmailById(emailId);
   if (!email) throw new Error('Email nem található');
 
-  const anthropic = getClient();
-  if (!anthropic) {
+  if (!isAIAvailable()) {
     return detectSentimentFallback(email);
   }
 
@@ -368,13 +352,9 @@ Body: ${bodyText}
 Return ONLY JSON: {"sentiment": "urgent|positive|negative|neutral", "confidence": 0.0-1.0, "reason": "brief explanation in Hungarian"}`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251015', // Haiku: egyszer� klasszifik�ci�
-      max_tokens: 300,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    const response = await callAI([{ role: 'user', content: prompt }], { maxTokens: 300 });
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
+    const text = response.text || '{}';
     const stripped = text.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/gi, '');
     const jsonMatch = stripped.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
@@ -411,8 +391,7 @@ export async function suggestReply(emailId: string): Promise<ReplySuggestion[]> 
   const email = await getEmailById(emailId);
   if (!email) throw new Error('Email nem található');
 
-  const anthropic = getClient();
-  if (!anthropic) {
+  if (!isAIAvailable()) {
     return suggestReplyFallback(email);
   }
 
@@ -436,13 +415,9 @@ Return ONLY JSON array:
 ]`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6-20260217',
-      max_tokens: 2000,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    const response = await callAI([{ role: 'user', content: prompt }], { maxTokens: 2000 });
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : '[]';
+    const text = response.text || '[]';
     const stripped = text.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/gi, '');
     const jsonMatch = stripped.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
@@ -663,8 +638,7 @@ export async function generateWeeklyReport(accountId: string): Promise<WeeklyRep
   // Generate AI summary if available
   let summary = `Heti összesítő: ${totalEmails} email érkezett, ebből ${unreadCount} olvasatlan. ${unansweredCount} levél vár válaszra. ${actionItemsPending} nyitott teendő.`;
 
-  const anthropic = getClient();
-  if (anthropic && totalEmails > 0) {
+  if (isAIAvailable() && totalEmails > 0) {
     const topSendersText = topSenders
       .slice(0, 5)
       .map(s => `${s.from_name || s.from_email} (${s.cnt} levél)`)
@@ -675,12 +649,9 @@ export async function generateWeeklyReport(accountId: string): Promise<WeeklyRep
       .join(', ');
 
     try {
-      const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6-20260217',
-        max_tokens: 500,
-        messages: [{
-          role: 'user',
-          content: `Készíts rövid heti email összefoglalót magyarul egy cégvezető számára (90 valutaváltó iroda igazgatója).
+      const response = await callAI([{
+        role: 'user',
+        content: `Készíts rövid heti email összefoglalót magyarul egy cégvezető számára (90 valutaváltó iroda igazgatója).
 
 Adatok:
 - Összes email: ${totalEmails}
@@ -691,9 +662,8 @@ Adatok:
 - Top témák: ${topTopicsText}
 
 Írj 3-4 mondatos, lényegre törő összefoglalót. Emeld ki ami fontos/sürgős.`,
-        }],
-      });
-      const text = response.content[0].type === 'text' ? response.content[0].text : '';
+      }], { maxTokens: 500 });
+      const text = response.text;
       if (text.length > 20) summary = text;
     } catch (err) {
       logger.warn('AI weekly summary failed, using fallback:', err);

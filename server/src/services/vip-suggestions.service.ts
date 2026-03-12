@@ -1,16 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { callAI, isAIAvailable } from '../ai/provider.js';
 import { queryAll } from '../db/index.js';
 import logger from '../utils/logger.js';
-
-let client: Anthropic | null = null;
-
-function getClient(): Anthropic | null {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
-  if (!client) {
-    client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  }
-  return client;
-}
 
 interface SenderInfo {
   email: string;
@@ -27,9 +17,8 @@ interface VipSuggestion {
 }
 
 export async function suggestVipSenders(accountId: string): Promise<VipSuggestion[]> {
-  const anthropic = getClient();
-  if (!anthropic) {
-    logger.warn('VIP suggestions: ANTHROPIC_API_KEY nincs beállítva');
+  if (!isAIAvailable()) {
+    logger.warn('VIP suggestions: AI provider nincs beállítva');
     return getFallbackSuggestions(accountId);
   }
 
@@ -77,13 +66,9 @@ Válaszolj KIZÁRÓLAG az alábbi JSON formátumban (semmi más szöveg):
 - maximum 15 elem`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 2000,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    const response = await callAI([{ role: 'user', content: prompt }], { maxTokens: 2000 });
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : '';
+    const text = response.text;
     const stripped = text.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/gi, '');
     const jsonMatch = stripped.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {

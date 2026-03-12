@@ -1,3 +1,4 @@
+﻿import { isAIAvailable } from '../ai/provider.js';
 import { Router } from 'express';
 import logger from '../utils/logger.js';
 import { generateAIAnalysis, generateDeepAnalysis } from '../services/ai-market.service.js';
@@ -61,7 +62,7 @@ interface NewsItem {
   title: string;
   source: string;
   originalLanguage: string;
-  impact: 'Magas' | 'Közepes' | 'Alacsony';
+  impact: string;
   pairs: string[];
   summary: string;
   publishedAt: string;
@@ -102,33 +103,33 @@ type MarketFallbackReason = 'missing_api_key' | 'timeout' | 'generation_failed';
 function getBriefingFallbackMessage(reason: MarketFallbackReason): string {
   switch (reason) {
     case 'missing_api_key':
-      return 'Sablon-alapú becslés fut, mert a market AI API kulcs nincs beállítva a szerveren.';
+      return 'Sablon-alapĂş becslĂ©s fut, mert a market AI API kulcs nincs beĂˇllĂ­tva a szerveren.';
     case 'timeout':
-      return 'Sablon-alapú becslés fut, mert a market AI elemzés időtúllépés miatt fallbackre váltott.';
+      return 'Sablon-alapĂş becslĂ©s fut, mert a market AI elemzĂ©s idĹ‘tĂşllĂ©pĂ©s miatt fallbackre vĂˇltott.';
     default:
-      return 'Sablon-alapú becslés fut, mert a market AI elemzés hibára futott vagy érvénytelen választ adott.';
+      return 'Sablon-alapĂş becslĂ©s fut, mert a market AI elemzĂ©s hibĂˇra futott vagy Ă©rvĂ©nytelen vĂˇlaszt adott.';
   }
 }
 
 function sanitizeFallbackText(text: string): string {
   return text
-    .replace(/Sablon alapu elemzes/gi, 'Sablon-alapú elemzés')
-    .replace(/Mely elemzes/gi, 'Mély elemzés')
-    .replace(/atmenetileg/gi, 'átmenetileg')
-    .replace(/elerheto/gi, 'elérhető')
-    .replace(/elo arfolyamok/gi, 'élő árfolyamok')
-    .replace(/elorejelzes/gi, 'előrejelzés')
-    .replace(/Kezi elemzes/gi, 'Kézi elemzés')
-    .replace(/dontest/gi, 'döntést')
-    .replace(/korultekinto/gi, 'körültekintő')
-    .replace(/probald ujra/gi, 'próbáld újra')
-    .replace(/Osszessegeben/gi, 'Összességében')
-    .replace(/dominal/gi, 'dominál')
-    .replace(/etvaggy/gi, 'étvágy')
-    .replace(/erosodese/gi, 'erősödése')
-    .replace(/jellmezo/gi, 'jellemző')
-    .replace(/kockazatkerules/gi, 'kockázatkerülés')
-    .replace(/novekedhet/gi, 'növekedhet');
+    .replace(/Sablon alapu elemzes/gi, 'Sablon-alapĂş elemzĂ©s')
+    .replace(/Mely elemzes/gi, 'MĂ©ly elemzĂ©s')
+    .replace(/atmenetileg/gi, 'Ăˇtmenetileg')
+    .replace(/elerheto/gi, 'elĂ©rhetĹ‘')
+    .replace(/elo arfolyamok/gi, 'Ă©lĹ‘ Ăˇrfolyamok')
+    .replace(/elorejelzes/gi, 'elĹ‘rejelzĂ©s')
+    .replace(/Kezi elemzes/gi, 'KĂ©zi elemzĂ©s')
+    .replace(/dontest/gi, 'dĂ¶ntĂ©st')
+    .replace(/korultekinto/gi, 'kĂ¶rĂĽltekintĹ‘')
+    .replace(/probald ujra/gi, 'prĂłbĂˇld Ăşjra')
+    .replace(/Osszessegeben/gi, 'Ă–sszessĂ©gĂ©ben')
+    .replace(/dominal/gi, 'dominĂˇl')
+    .replace(/etvaggy/gi, 'Ă©tvĂˇgy')
+    .replace(/erosodese/gi, 'erĹ‘sĂ¶dĂ©se')
+    .replace(/jellmezo/gi, 'jellemzĹ‘')
+    .replace(/kockazatkerules/gi, 'kockĂˇzatkerĂĽlĂ©s')
+    .replace(/novekedhet/gi, 'nĂ¶vekedhet');
 }
 
 // --- Institutional Sources ---
@@ -282,7 +283,7 @@ function generatePositioning(rates: RateInfo[]): PositioningItem[] {
 
 function generateCatalyst(pair: string): string {
   const catalysts: Record<string, string[]> = {
-    EURUSD: ['Fed beszed / FOMC jegyzokonyv', 'Eurozonás PMI adatok', 'US foglalkoztatasi adat (NFP)'],
+    EURUSD: ['Fed beszed / FOMC jegyzokonyv', 'EurozonĂˇs PMI adatok', 'US foglalkoztatasi adat (NFP)'],
     EURHUF: ['MNB kamatdontes / kommunikacio', 'Regionalis kotvenypiaci mozgas', 'EU forrasok kiutalasa'],
     GBPHUF: ['BoE kamatdontes', 'UK CPI inflacio adat', 'MNB monetaris politika'],
     CHFHUF: ['SNB monetaris politika', 'MNB kamatdontes', 'Svajci inflacio adat'],
@@ -324,82 +325,82 @@ function generateNewsItems(rates: RateInfo[]): NewsItem[] {
   const now = new Date();
   const newsPool: NewsItem[] = [
     {
-      title: 'Fed tisztségviselők óvatosan a kamatvágásokról',
+      title: 'Fed tisztsĂ©gviselĹ‘k Ăłvatosan a kamatvĂˇgĂˇsokrĂłl',
       source: 'Reuters',
       originalLanguage: 'en',
       impact: 'Magas' as const,
       pairs: ['EURUSD', 'XAUUSD', 'USDHUF'],
-      summary: `A Fed tisztségviselői óvatosabb hangot ütöttek meg a kamatvágásokkal kapcsolatban. A dollár ${eurUsd && eurUsd.changePercent < 0 ? 'erősödött' : 'gyengült'} a nyilatkozatok hatására. Az USD/HUF ${usdHuf?.rate?.toFixed(2) ?? '365'} környékén kereskedik.`,
+      summary: `A Fed tisztsĂ©gviselĹ‘i Ăłvatosabb hangot ĂĽtĂ¶ttek meg a kamatvĂˇgĂˇsokkal kapcsolatban. A dollĂˇr ${eurUsd && eurUsd.changePercent < 0 ? 'erĹ‘sĂ¶dĂ¶tt' : 'gyengĂĽlt'} a nyilatkozatok hatĂˇsĂˇra. Az USD/HUF ${usdHuf?.rate?.toFixed(2) ?? '365'} kĂ¶rnyĂ©kĂ©n kereskedik.`,
       publishedAt: new Date(now.getTime() - 2 * 3600000).toISOString(),
       url: 'https://www.reuters.com/markets/currencies/',
     },
     {
-      title: `Aranyár ${xauUsd && xauUsd.changePercent > 0 ? 'új csúcson' : 'korrekcióban'} - geopolitikai feszültség`,
+      title: `AranyĂˇr ${xauUsd && xauUsd.changePercent > 0 ? 'Ăşj csĂşcson' : 'korrekciĂłban'} - geopolitikai feszĂĽltsĂ©g`,
       source: 'Bloomberg',
       originalLanguage: 'en',
       impact: 'Magas' as const,
       pairs: ['XAUUSD', 'XAUEUR', 'XAUHUF'],
-      summary: `Az arany ${xauUsd?.rate?.toFixed(2) ?? 'N/A'} USD/oz (${xauHuf?.rate?.toLocaleString('hu-HU') ?? 'N/A'} Ft/oz) szinten kereskedik. A geopolitikai feszültségek és a jegybanki aranyvásárlások támogatják az árat.`,
+      summary: `Az arany ${xauUsd?.rate?.toFixed(2) ?? 'N/A'} USD/oz (${xauHuf?.rate?.toLocaleString('hu-HU') ?? 'N/A'} Ft/oz) szinten kereskedik. A geopolitikai feszĂĽltsĂ©gek Ă©s a jegybanki aranyvĂˇsĂˇrlĂˇsok tĂˇmogatjĂˇk az Ăˇrat.`,
       publishedAt: new Date(now.getTime() - 4 * 3600000).toISOString(),
       url: 'https://www.bloomberg.com/markets/commodities',
     },
     {
-      title: `MNB: A forint stabil, az EUR/HUF ${eurHuf?.rate?.toFixed(2) ?? '395'} környékén`,
+      title: `MNB: A forint stabil, az EUR/HUF ${eurHuf?.rate?.toFixed(2) ?? '395'} kĂ¶rnyĂ©kĂ©n`,
       source: 'Portfolio.hu',
       originalLanguage: 'hu',
-      impact: 'Közepes' as const,
+      impact: 'KĂ¶zepes' as const,
       pairs: ['EURHUF', 'USDHUF'],
-      summary: `A Magyar Nemzeti Bank kommunikációja szerint a monetáris politika támogatja a forint stabilitását. Az EUR/HUF ${eurHuf?.rate?.toFixed(2) ?? '395'}, az USD/HUF ${usdHuf?.rate?.toFixed(2) ?? '365'} környékén kereskedik.`,
+      summary: `A Magyar Nemzeti Bank kommunikĂˇciĂłja szerint a monetĂˇris politika tĂˇmogatja a forint stabilitĂˇsĂˇt. Az EUR/HUF ${eurHuf?.rate?.toFixed(2) ?? '395'}, az USD/HUF ${usdHuf?.rate?.toFixed(2) ?? '365'} kĂ¶rnyĂ©kĂ©n kereskedik.`,
       publishedAt: new Date(now.getTime() - 5 * 3600000).toISOString(),
       url: 'https://www.portfolio.hu/deviza',
     },
     {
-      title: 'ECB: Infláció továbbra is a célszint felett',
+      title: 'ECB: InflĂˇciĂł tovĂˇbbra is a cĂ©lszint felett',
       source: 'ECB',
       originalLanguage: 'en',
-      impact: 'Közepes' as const,
+      impact: 'KĂ¶zepes' as const,
       pairs: ['EURUSD', 'EURHUF', 'CHFHUF'],
-      summary: 'Az Európai Központi Bank legfrissebb közleménye szerint az eurózónás infláció továbbra is a 2%-os célszint felett marad. A kamatpálya bizonytalan.',
+      summary: 'Az EurĂłpai KĂ¶zponti Bank legfrissebb kĂ¶zlemĂ©nye szerint az eurĂłzĂłnĂˇs inflĂˇciĂł tovĂˇbbra is a 2%-os cĂ©lszint felett marad. A kamatpĂˇlya bizonytalan.',
       publishedAt: new Date(now.getTime() - 7 * 3600000).toISOString(),
       url: 'https://www.ecb.europa.eu/press/pr/html/index.en.html',
     },
     {
-      title: 'GBP/EUR mozgás a BoE kamatdöntés előtt',
+      title: 'GBP/EUR mozgĂˇs a BoE kamatdĂ¶ntĂ©s elĹ‘tt',
       source: 'Financial Times',
       originalLanguage: 'en',
       impact: 'Alacsony' as const,
       pairs: ['GBPHUF'],
-      summary: 'A piac a Bank of England következő kamatdöntését várja. A font/forint árfolyam mozgásban.',
+      summary: 'A piac a Bank of England kĂ¶vetkezĹ‘ kamatdĂ¶ntĂ©sĂ©t vĂˇrja. A font/forint Ăˇrfolyam mozgĂˇsban.',
       publishedAt: new Date(now.getTime() - 10 * 3600000).toISOString(),
       url: 'https://www.ft.com/currencies',
     },
     {
-      title: 'Svájci frank: menedékdeviza szerepe erősödik',
+      title: 'SvĂˇjci frank: menedĂ©kdeviza szerepe erĹ‘sĂ¶dik',
       source: 'NZZ',
       originalLanguage: 'de',
       impact: 'Alacsony' as const,
       pairs: ['CHFHUF'],
-      summary: 'A geopolitikai bizonytalanság közepette a svájci frank menedékdeviza szerepe ismét felértékelődött. A CHF/HUF árfolyam emelkedhet.',
+      summary: 'A geopolitikai bizonytalansĂˇg kĂ¶zepette a svĂˇjci frank menedĂ©kdeviza szerepe ismĂ©t felĂ©rtĂ©kelĹ‘dĂ¶tt. A CHF/HUF Ăˇrfolyam emelkedhet.',
       publishedAt: new Date(now.getTime() - 12 * 3600000).toISOString(),
       url: 'https://www.nzz.ch/finanzen/devisen',
     },
     {
       title: `Arany forintban: ${xauHuf?.rate?.toLocaleString('hu-HU') ?? 'N/A'} Ft/oz`,
-      source: 'Privátbankár',
+      source: 'PrivĂˇtbankĂˇr',
       originalLanguage: 'hu',
-      impact: 'Közepes' as const,
+      impact: 'KĂ¶zepes' as const,
       pairs: ['XAUHUF', 'XAUUSD'],
-      summary: `A magyar befektetők számára fontos arany/forint árfolyam ${xauHuf?.rate?.toLocaleString('hu-HU') ?? 'N/A'} Ft/oz szinten áll. A forintgyengülés és az aranyár emelkedése együttesen hajtja a HUF-ban denominált aranyárat.`,
+      summary: `A magyar befektetĹ‘k szĂˇmĂˇra fontos arany/forint Ăˇrfolyam ${xauHuf?.rate?.toLocaleString('hu-HU') ?? 'N/A'} Ft/oz szinten Ăˇll. A forintgyengĂĽlĂ©s Ă©s az aranyĂˇr emelkedĂ©se egyĂĽttesen hajtja a HUF-ban denominĂˇlt aranyĂˇrat.`,
       publishedAt: new Date(now.getTime() - 6 * 3600000).toISOString(),
       url: 'https://privatbankar.hu/befektetes/arany/',
     },
     {
-      title: 'ING: Közép-európai devizák kilátásai',
+      title: 'ING: KĂ¶zĂ©p-eurĂłpai devizĂˇk kilĂˇtĂˇsai',
       source: 'ING Think',
       originalLanguage: 'en',
-      impact: 'Közepes' as const,
+      impact: 'KĂ¶zepes' as const,
       pairs: ['EURHUF', 'USDHUF', 'CHFHUF'],
-      summary: `Az ING elemzői szerint a közép-európai devizák (forint, zloty, korona) kilátásai vegyesek. Az EUR/HUF ${eurHuf?.rate?.toFixed(2) ?? '395'} körüli sávban stabilizálódhat.`,
+      summary: `Az ING elemzĹ‘i szerint a kĂ¶zĂ©p-eurĂłpai devizĂˇk (forint, zloty, korona) kilĂˇtĂˇsai vegyesek. Az EUR/HUF ${eurHuf?.rate?.toFixed(2) ?? '395'} kĂ¶rĂĽli sĂˇvban stabilizĂˇlĂłdhat.`,
       publishedAt: new Date(now.getTime() - 8 * 3600000).toISOString(),
       url: 'https://think.ing.com/articles/fx-daily/',
     },
@@ -480,7 +481,7 @@ router.get('/briefing', async (req, res) => {
     if (cachedBriefing) {
       return res.json({ success: true, data: { ...cachedBriefing, cached: true } });
     }
-    return res.status(503).json({ success: false, error: 'Elemzés folyamatban, kérlek próbáld újra 30 másodperc múlva.' });
+    return res.status(503).json({ success: false, error: 'ElemzĂ©s folyamatban, kĂ©rlek prĂłbĂˇld Ăşjra 30 mĂˇsodperc mĂşlva.' });
   }
 
   isGenerating = true;
@@ -494,13 +495,13 @@ router.get('/briefing', async (req, res) => {
     logger.info(`[BRIEFING] Step 1 done: ${rates.length} rates, ${marketNews.length} news in ${Date.now() - t0}ms`);
 
     // AI elemzes (ha van API kulcs), egyebkent sablon fallback
-    // Promise.race: hard 45s timeout — if AI hangs, fall back to template
+    // Promise.race: hard 45s timeout â€” if AI hangs, fall back to template
     logger.info(`[BRIEFING] Step 2: generateAIAnalysis starting... (ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ? 'SET' : 'MISSING'})`);
     const t1 = Date.now();
     const aiResult = await Promise.race([
       generateAIAnalysis(rates, marketNews),
       new Promise<'timeout'>((resolve) => setTimeout(() => {
-        logger.warn(`generateAIAnalysis hard timeout (${BRIEFING_ROUTE_TIMEOUT_MS}ms) — falling back to template or cached AI result`);
+        logger.warn(`generateAIAnalysis hard timeout (${BRIEFING_ROUTE_TIMEOUT_MS}ms) â€” falling back to template or cached AI result`);
         resolve('timeout');
       }, BRIEFING_ROUTE_TIMEOUT_MS)),
     ]);
@@ -526,7 +527,7 @@ router.get('/briefing', async (req, res) => {
       overallSentiment = aiResult.overallSentiment;
     } else {
       logger.info('[BRIEFING] Step 3: generating template fallback...');
-      fallbackReason = !process.env.ANTHROPIC_API_KEY
+      fallbackReason = !isAIAvailable()
         ? 'missing_api_key'
         : aiResult === 'timeout'
           ? 'timeout'
@@ -547,8 +548,8 @@ router.get('/briefing', async (req, res) => {
       // Mark template-based analyses clearly
       analyses = analyses.map(a => ({
         ...a,
-        source: `${a.source} (sablon becslés)`,
-        summary: a.summary + ' ⚠️ Ez automatikus sablon-alapú becslés az élő árfolyamadatok alapján, nem valódi intézményi elemzés.',
+        source: `${a.source} (sablon becslĂ©s)`,
+        summary: a.summary + ' âš ď¸Ź Ez automatikus sablon-alapĂş becslĂ©s az Ă©lĹ‘ Ăˇrfolyamadatok alapjĂˇn, nem valĂłdi intĂ©zmĂ©nyi elemzĂ©s.',
       }));
       logger.info(`[BRIEFING] Step 3 done: template fallback in ${Date.now() - t1}ms`);
     }
@@ -633,7 +634,7 @@ router.post('/deep-analysis', async (req, res) => {
     }
     return res.status(503).json({
       success: false,
-      error: 'Mély elemzés folyamatban, kérlek próbáld újra 30 másodperc múlva.',
+      error: 'MĂ©ly elemzĂ©s folyamatban, kĂ©rlek prĂłbĂˇld Ăşjra 30 mĂˇsodperc mĂşlva.',
     });
   }
 
@@ -648,14 +649,14 @@ router.post('/deep-analysis', async (req, res) => {
     const result = await Promise.race([
       generateDeepAnalysis(rates, trendData),
       new Promise<'timeout'>((resolve) => setTimeout(() => {
-        logger.warn(`generateDeepAnalysis hard timeout (${DEEP_ANALYSIS_ROUTE_TIMEOUT_MS}ms) — falling back to template or cached AI result`);
+        logger.warn(`generateDeepAnalysis hard timeout (${DEEP_ANALYSIS_ROUTE_TIMEOUT_MS}ms) â€” falling back to template or cached AI result`);
         resolve('timeout');
       }, DEEP_ANALYSIS_ROUTE_TIMEOUT_MS)),
     ]);
 
     if (!result || result === 'timeout') {
       // Template-based fallback when AI is unavailable
-      const fallbackReason: MarketFallbackReason = !process.env.ANTHROPIC_API_KEY
+      const fallbackReason: MarketFallbackReason = !isAIAvailable()
         ? 'missing_api_key'
         : result === 'timeout'
           ? 'timeout'
@@ -687,12 +688,12 @@ router.post('/deep-analysis', async (req, res) => {
         summary: sanitizeFallbackText(`Sablon alapu elemzes - ${fallbackMessage}`),
         currencies: fallbackCurrencies,
         gold: {
-          trend: rates.find(r => r.pair === 'XAUUSD') ? 'Adatok alapján' : 'Nem elérhető',
-          forecast: 'Sablon-alapú elemzés - nincs AI előrejelzés.',
-          recommendation: 'Kézi elemzés javasolt.',
+          trend: rates.find(r => r.pair === 'XAUUSD') ? 'Adatok alapjĂˇn' : 'Nem elĂ©rhetĹ‘',
+          forecast: 'Sablon-alapĂş elemzĂ©s - nincs AI elĹ‘rejelzĂ©s.',
+          recommendation: 'KĂ©zi elemzĂ©s javasolt.',
         },
-        overallRecommendation: 'Sablon-alapú elemzés - az AI átmenetileg nem elérhető. Az élő árfolyamok és trend adatok alapján hozzon döntést.',
-        risks: ['Az elemzés sablon alapú, nem AI-generált - körültekintő döntéshozatal javasolt.'],
+        overallRecommendation: 'Sablon-alapĂş elemzĂ©s - az AI Ăˇtmenetileg nem elĂ©rhetĹ‘. Az Ă©lĹ‘ Ăˇrfolyamok Ă©s trend adatok alapjĂˇn hozzon dĂ¶ntĂ©st.',
+        risks: ['Az elemzĂ©s sablon alapĂş, nem AI-generĂˇlt - kĂ¶rĂĽltekintĹ‘ dĂ¶ntĂ©shozatal javasolt.'],
         generatedAt: new Date().toISOString(),
         cached: false,
         trendData,
@@ -729,7 +730,7 @@ router.post('/deep-analysis', async (req, res) => {
     logger.error('Deep analysis hiba:', error);
     return res.status(500).json({
       success: false,
-      error: 'Mély elemzés generálása sikertelen',
+      error: 'MĂ©ly elemzĂ©s generĂˇlĂˇsa sikertelen',
     });
   } finally {
     isDeepAnalysisGenerating = false;
@@ -769,3 +770,4 @@ router.get('/crypto', async (req, res) => {
 });
 
 export default router;
+

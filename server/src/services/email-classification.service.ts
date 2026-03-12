@@ -1,16 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { callAI, isAIAvailable } from '../ai/provider.js';
 import { queryAll, queryOne, execute } from '../db/index.js';
 import logger from '../utils/logger.js';
-
-let client: Anthropic | null = null;
-
-function getClient(): Anthropic | null {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
-  if (!client) {
-    client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  }
-  return client;
-}
 
 const AI_TAGS = ['financial', 'legal', 'attachments', 'urgent', 'newsletter', 'other'] as const;
 
@@ -18,9 +8,8 @@ export async function classifyEmailsBatch(
   accountId: string,
   limit = 50,
 ): Promise<{ classified: number }> {
-  const anthropic = getClient();
-  if (!anthropic) {
-    logger.warn('Email classification: ANTHROPIC_API_KEY nincs beállítva');
+  if (!isAIAvailable()) {
+    logger.warn('Email classification: AI provider nincs beállítva');
     return { classified: 0 };
   }
 
@@ -38,7 +27,7 @@ export async function classifyEmailsBatch(
     const text = [email.subject || '', email.snippet || ''].filter(Boolean).join('\n');
     if (!text.trim()) continue;
 
-    const tags = await classifySingleEmail(anthropic, text);
+    const tags = await classifySingleEmail(text);
     if (tags.length > 0) {
       await execute('UPDATE emails SET ai_tags = ? WHERE id = ? AND account_id = ?', [
         JSON.stringify(tags),
@@ -52,14 +41,11 @@ export async function classifyEmailsBatch(
   return { classified };
 }
 
-async function classifySingleEmail(
-  anthropic: InstanceType<typeof Anthropic>,
-  text: string,
-): Promise<string[]> {
+async function classifySingleEmail(text: string): Promise<string[]> {
   const truncated = text.slice(0, 2000);
   const prompt = `Az alábbi email tárgya és részlete alapján add meg a kategóriákat. Válaszolj CSAK JSON formátumban, egy tag tömb: ["financial", "legal", "attachments", "urgent", "newsletter", "other"]
 
-Lehetséges tagök: financial (pénzügyi, számla, bank, fizetés), legal (jogi, jogász, compliance, szerződés), attachments (csatolmány említése), urgent (sürgős), newsletter (hírlevél), other (egyéb)
+Lehetséges tagek: financial (pénzügyi, számla, bank, fizetés), legal (jogi, jogász, compliance, szerződés), attachments (csatolmány említése), urgent (sürgős), newsletter (hírlevél), other (egyéb)
 
 Email:
 ${truncated}
@@ -67,13 +53,8 @@ ${truncated}
 Példa válasz: ["financial"] vagy ["legal", "urgent"] vagy ["other"]`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 128,
-      messages: [{ role: 'user', content: prompt }],
-    });
-
-    const raw = response.content[0].type === 'text' ? response.content[0].text : '';
+    const response = await callAI([{ role: 'user', content: prompt }], { maxTokens: 128 });
+    const raw = response.text;
     const jsonMatch = raw.match(/\[[\s\S]*?\]/);
     if (!jsonMatch) return [];
 

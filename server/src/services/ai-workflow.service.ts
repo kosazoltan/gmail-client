@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { callAI } from '../ai/provider.js';
 import type { WorkflowStep } from './workflow.service.js';
 
 export const AGENT_TRIGGER_TYPES = ['new_email', 'schedule', 'manual'] as const;
@@ -193,18 +193,11 @@ function buildFallbackDraft(prompt: string): WorkflowDraft {
 }
 
 export async function generateWorkflowDraftFromPrompt(
-  anthropic: Anthropic | null,
   prompt: string,
 ): Promise<{ workflow: WorkflowDraft; warnings: string[]; source: 'ai' | 'fallback' }> {
-  if (!anthropic) {
-    return { workflow: buildFallbackDraft(prompt), warnings: [], source: 'fallback' };
-  }
-
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1400,
-      messages: [
+    const response = await callAI(
+      [
         {
           role: 'user',
           content: `A feladatod, hogy egy ZMail workflow draftot készíts természetes nyelvű leírásból.
@@ -238,9 +231,10 @@ Válasz formátum:
 }`,
         },
       ],
-    });
+      { maxTokens: 1400 },
+    );
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
+    const text = response.text || '{}';
     const stripped = text.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/gi, '');
     const jsonMatch = stripped.match(/\{[\s\S]*\}/);
     const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : {};

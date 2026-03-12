@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { callAI, isAIAvailable } from '../ai/provider.js';
 import {
   createWorkflowDraftTool,
   listSmartFoldersTool,
@@ -168,19 +168,16 @@ function createFallbackPlan(message: string): AgentPlan {
 }
 
 export async function planAgentAction(
-  anthropic: Anthropic | null,
   message: string,
   emailContext = '',
 ): Promise<AgentPlan> {
-  if (!anthropic) {
+  if (!isAIAvailable()) {
     return createFallbackPlan(message);
   }
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 700,
-      messages: [
+    const response = await callAI(
+      [
         {
           role: 'user',
           content: `Te a ZMail planner rétege vagy. Válassz pontosan egy toolt a listából, majd adj vissza KIZÁRÓLAG egy JSON objektumot.
@@ -217,9 +214,10 @@ Válasz JSON:
 }`,
         },
       ],
-    });
+      { maxTokens: 700 },
+    );
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
+    const text = response.text || '{}';
     const parsed = extractJsonObject(text);
     if (!parsed || typeof parsed.toolName !== 'string') {
       return createFallbackPlan(message);
@@ -236,39 +234,36 @@ Válasz JSON:
 }
 
 export async function answerWithAi(
-  anthropic: Anthropic | null,
   message: string,
   history: Array<{ role: 'user' | 'assistant'; content: string }>,
   emailContext = '',
 ): Promise<string> {
-  if (!anthropic) {
-    return 'Az AI asszisztens jelenleg nem elérhető. Kérem ellenőrizze az ANTHROPIC_API_KEY beállítást.';
-  }
-
-  const messages = history.slice(-20);
+  const msgs = history.slice(-20);
   const userContent = emailContext ? `${message}\n\n${emailContext}` : message;
-  const response = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 1800,
-    system:
-      'Te egy magyar nyelvű ZMail asszisztens vagy. Röviden, hasznosan válaszolj. Ha nincs szükség app-akcióra, normál szöveges segítséget adj.',
-    messages: [...messages, { role: 'user', content: userContent }],
-  });
+  const response = await callAI(
+    [
+      {
+        role: 'system',
+        content:
+          'Te egy magyar nyelvű ZMail asszisztens vagy. Röviden, hasznosan válaszolj. Ha nincs szükség app-akcióra, normál szöveges segítséget adj.',
+      },
+      ...msgs,
+      { role: 'user', content: userContent },
+    ],
+    { maxTokens: 1800 },
+  );
 
-  return response.content[0].type === 'text'
-    ? response.content[0].text
-    : 'Nem sikerült választ generálni.';
+  return response.text || 'Nem sikerült választ generálni.';
 }
 
 export async function executeAgentPlan(params: {
   accountId: string;
-  anthropic: Anthropic | null;
   message: string;
   plan: AgentPlan;
   history: Array<{ role: 'user' | 'assistant'; content: string }>;
   emailContext?: string;
 }): Promise<AgentResponse> {
-  const { accountId, anthropic, message, plan, history, emailContext = '' } = params;
+  const { accountId, message, plan, history, emailContext = '' } = params;
 
   switch (plan.toolName) {
     case 'searchEmails': {
@@ -319,7 +314,7 @@ export async function executeAgentPlan(params: {
       const prompt = typeof plan.args.prompt === 'string' && plan.args.prompt.trim()
         ? plan.args.prompt
         : message;
-      const generated = await createWorkflowDraftTool(anthropic, prompt);
+      const generated = await createWorkflowDraftTool(prompt);
       return {
         reply: plan.reply || 'Készítettem egy workflow draftot, amit a builderben rögtön szerkeszthetsz vagy elmenthetsz.',
         result: {
@@ -335,7 +330,7 @@ export async function executeAgentPlan(params: {
       const prompt = typeof plan.args.prompt === 'string' && plan.args.prompt.trim()
         ? plan.args.prompt
         : message;
-      const generated = await createWorkflowDraftTool(anthropic, prompt);
+      const generated = await createWorkflowDraftTool(prompt);
       return {
         reply: plan.reply || 'A workflow draft elkészült. Mentés előtt kérek egy megerősítést.',
         result: {
@@ -420,7 +415,7 @@ export async function executeAgentPlan(params: {
 
     case 'answer':
     default: {
-      const reply = await answerWithAi(anthropic, message, history, emailContext);
+      const reply = await answerWithAi(message, history, emailContext);
       return { reply };
     }
   }

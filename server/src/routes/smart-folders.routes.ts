@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import Anthropic from '@anthropic-ai/sdk';
+import { callAI, isAIAvailable } from '../ai/provider.js';
 import logger from '../utils/logger.js';
 import {
   getSmartFolders,
@@ -13,17 +13,6 @@ import {
 import type { SmartFolderRule } from '../services/smart-folders.service.js';
 
 const router = Router();
-
-// Anthropic client (lazy init)
-let aiClient: Anthropic | null = null;
-
-function getAIClient(): Anthropic | null {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
-  if (!aiClient) {
-    aiClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  }
-  return aiClient;
-}
 
 // Valid fields and operators for rule validation
 import {
@@ -89,9 +78,7 @@ router.post('/generate', async (req, res) => {
     }
 
     const trimmed = description.trim().slice(0, 500); // Max 500 char input
-    const client = getAIClient();
-
-    if (!client) {
+    if (!isAIAvailable()) {
       // Fallback: keyword-based generation
       logger.info('AI Smart Folder generate: no API key, using fallback');
       const result = generateFallbackRules(trimmed);
@@ -107,10 +94,8 @@ router.post('/generate', async (req, res) => {
     }
 
     // AI-based generation
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      messages: [
+    const response = await callAI(
+      [
         {
           role: 'user',
           content: `Generálj email szűrési szabályokat a következő leírás alapján: "${trimmed}"
@@ -134,16 +119,11 @@ Szabályok:
 - Magyar és angol kulcsszavakat is kezelj`,
         },
       ],
-    });
-
-    // Extract text from response
-    const textBlock = response.content.find(b => b.type === 'text');
-    if (!textBlock || textBlock.type !== 'text') {
-      throw new Error('AI nem adott szöveges választ');
-    }
+      { maxTokens: 1024 },
+    );
 
     // Parse JSON from response (handle markdown code blocks)
-    let jsonStr = textBlock.text.trim();
+    let jsonStr = response.text.trim();
     const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
       jsonStr = jsonMatch[1].trim();

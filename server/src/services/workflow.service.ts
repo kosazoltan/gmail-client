@@ -8,18 +8,7 @@ import { upsertDetectedTaskForEmail } from './task-detection.service.js';
 import { v4 as uuid } from 'uuid';
 import logger from '../utils/logger.js';
 
-// --- Anthropic client singleton ---
-
-let _anthropicClient: InstanceType<typeof import('@anthropic-ai/sdk').default> | null = null;
-
-async function getAnthropicClient() {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
-  if (!_anthropicClient) {
-    const Anthropic = (await import('@anthropic-ai/sdk')).default;
-    _anthropicClient = new Anthropic();
-  }
-  return _anthropicClient;
-}
+import { callAI } from '../ai/provider.js';
 
 // --- Interfaces ---
 
@@ -668,31 +657,24 @@ export async function handleAIAnalyzeStep(
   const analysisType = (config.analysisType as string) ?? 'summary';
 
   // Try AI analysis via Anthropic
-  const aiClient = await getAnthropicClient();
-  if (aiClient && emails.length > 0) {
+  if (emails.length > 0) {
     try {
-      const client = aiClient;
-
       const emailSummaries = emails.slice(0, 10).map((e) =>
         `From: ${e.from_name ?? ''} <${e.from_email ?? ''}>\nSubject: ${e.subject ?? ''}\nSnippet: ${(e.snippet ?? '').substring(0, 200)}`,
       ).join('\n---\n');
 
-      const response = await client.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: `Elemezd az alábbi emaileket. Adj rövid összefoglalót, prioritást, és javasolt teendőket:\n\n${emailSummaries}`,
-        }],
-      });
+      const response = await callAI([{
+        role: 'user',
+        content: `Elemezd az alábbi emaileket. Adj rövid összefoglalót, prioritást, és javasolt teendőket:\n\n${emailSummaries}`,
+      }], { maxTokens: 1000 });
 
-      const analysis = response.content[0].type === 'text' ? response.content[0].text : '';
+      const analysis = response.text;
       return {
         success: true,
         data: { analysisType, emailCount: emails.length, analysis },
       };
     } catch (err) {
-      logger.warn('AI analyze step: Anthropic call failed:', err instanceof Error ? err.message : err);
+      logger.warn('AI analyze step: AI call failed:', err instanceof Error ? err.message : err);
     }
   }
 
@@ -1007,26 +989,19 @@ async function handleAIReplyStep(
 ): Promise<StepResult> {
   const template = (config.template as string) ?? '';
 
-  // Try AI reply generation via Anthropic
-  const replyClient = await getAnthropicClient();
-  if (replyClient && emails.length > 0) {
+  // Try AI reply generation
+  if (emails.length > 0) {
     try {
-      const client = replyClient;
-
       const drafts: Array<{ emailId: string; to: string | null; subject: string; suggestedReply: string }> = [];
 
       for (const email of emails.slice(0, 5)) {
         const templateInstruction = template ? `\nHasználd ezt a sablont/stílust: ${template}` : '';
-        const response = await client.messages.create({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 500,
-          messages: [{
-            role: 'user',
-            content: `Készíts rövid, professzionális válaszlevelet erre az emailre:\n\nFeladó: ${email.from_name ?? ''}\nTárgy: ${email.subject ?? ''}\nTartalom: ${(email.snippet ?? '').substring(0, 500)}${templateInstruction}\n\nVálasz:`,
-          }],
-        });
+        const response = await callAI([{
+          role: 'user',
+          content: `Készíts rövid, professzionális válaszlevelet erre az emailre:\n\nFeladó: ${email.from_name ?? ''}\nTárgy: ${email.subject ?? ''}\nTartalom: ${(email.snippet ?? '').substring(0, 500)}${templateInstruction}\n\nVálasz:`,
+        }], { maxTokens: 500 });
 
-        const reply = response.content[0].type === 'text' ? response.content[0].text : '';
+        const reply = response.text;
         drafts.push({
           emailId: email.id,
           to: email.from_email,
@@ -1037,7 +1012,7 @@ async function handleAIReplyStep(
 
       return { success: true, data: { drafts } };
     } catch (err) {
-      logger.warn('AI reply step: Anthropic call failed:', err instanceof Error ? err.message : err);
+      logger.warn('AI reply step: AI call failed:', err instanceof Error ? err.message : err);
     }
   }
 

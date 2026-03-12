@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import Anthropic from '@anthropic-ai/sdk';
+import { callAI, isAIAvailable } from '../ai/provider.js';
 import { queryOne, queryAll, execute } from '../db/index.js';
 import {
   executeAgentPlan,
@@ -12,15 +12,7 @@ import logger from '../utils/logger.js';
 
 const router = Router();
 
-let client: Anthropic | null = null;
 
-function getClient(): Anthropic | null {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
-  if (!client) {
-    client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  }
-  return client;
-}
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -146,12 +138,10 @@ router.post('/chat', async (req, res) => {
     const activeConversationId = await resolveConversation(accountId, conversationId, message, emailId);
     const history = await loadConversationHistory(activeConversationId);
     const emailContext = await buildEmailContext(accountId, emailId);
-    const anthropic = getClient();
 
-    const plan = await planAgentAction(anthropic, message.trim(), emailContext);
+    const plan = await planAgentAction(message.trim(), emailContext);
     const agentResponse = await executeAgentPlan({
       accountId,
-      anthropic,
       message: message.trim(),
       plan,
       history,
@@ -349,25 +339,19 @@ router.post('/smart-search', async (req, res) => {
       return res.status(400).json({ error: 'A query mező kötelező' });
     }
 
-    const anthropic = getClient();
-
     if (suggestionsOnly) {
       // Return search suggestions
-      if (!anthropic) {
+      if (!isAIAvailable()) {
         return res.json({ suggestions: [] });
       }
 
       try {
-        const response = await anthropic.messages.create({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 300,
-          messages: [{
-            role: 'user',
-            content: `A user is searching their email inbox. They typed: "${query}". Suggest 3 possible refined search queries in Hungarian. Return ONLY a JSON array of strings.`,
-          }],
-        });
+        const response = await callAI([{
+          role: 'user',
+          content: `A user is searching their email inbox. They typed: "${query}". Suggest 3 possible refined search queries in Hungarian. Return ONLY a JSON array of strings.`,
+        }], { maxTokens: 300 });
 
-        const text = response.content[0].type === 'text' ? response.content[0].text : '[]';
+        const text = response.text || '[]';
         const stripped = text.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/gi, '');
         const jsonMatch = stripped.match(/\[[\s\S]*\]/);
         const suggestions = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
@@ -380,17 +364,13 @@ router.post('/smart-search', async (req, res) => {
     const searchTerm = query.trim();
     const searchResult = await searchEmails(accountId, { query: searchTerm, limit: 20 });
     let interpretation = '';
-    if (anthropic) {
+    if (isAIAvailable()) {
       try {
-        const aiRes = await anthropic.messages.create({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 100,
-          messages: [{
-            role: 'user',
-            content: `Briefly explain in Hungarian what this email search query means: "${searchTerm}". One short sentence.`,
-          }],
-        });
-        interpretation = aiRes.content[0].type === 'text' ? aiRes.content[0].text : '';
+        const aiRes = await callAI([{
+          role: 'user',
+          content: `Briefly explain in Hungarian what this email search query means: "${searchTerm}". One short sentence.`,
+        }], { maxTokens: 100 });
+        interpretation = aiRes.text;
       } catch {
         // Silent fail
       }

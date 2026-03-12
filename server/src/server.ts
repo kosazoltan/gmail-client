@@ -7,7 +7,7 @@ import { errorHandler } from './middleware/error-handler.js';
 import { deleteProtection } from './middleware/delete-protection.js';
 import { initializeDatabase, closeDatabase, queryOne, execute } from './db/index.js';
 import type { Server } from 'http';
-import { startBackgroundSync, stopAllBackgroundSyncs, reprocessRecentOperationalSignals } from './services/sync.service.js';
+import { startBackgroundSync, stopAllBackgroundSyncs, reprocessRecentOperationalSignals, syncAccount } from './services/sync.service.js';
 import { getAllAccounts } from './services/auth.service.js';
 import { v4 as uuidv4 } from 'uuid';
 import logger from './utils/logger.js';
@@ -210,6 +210,14 @@ async function start() {
   } catch (error) {
     logger.error('Startup account preload failed; continuing without eager background sync', error);
   }
+  // Azonnali szinkronizálás induláskor — ne kelljen kézzel frissíteni
+  for (const account of existingAccounts) {
+    syncAccount(account.id).catch(err =>
+      logger.error(`Startup immediate sync failed for ${account.email}`, err)
+    );
+  }
+
+  // Háttér szinkronizálás 30s késlelt. indítás (periódikus 5 percenként)
   setTimeout(async () => {
     for (const account of existingAccounts) {
       try {

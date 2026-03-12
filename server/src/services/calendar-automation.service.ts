@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import Anthropic from '@anthropic-ai/sdk';
+import { callAI } from '../ai/provider.js';
 import { google } from 'googleapis';
 import { queryAll, queryOne, execute } from '../db/index.js';
 import { getOAuth2ClientForAccount } from './auth.service.js';
@@ -47,15 +47,7 @@ interface EmailRow {
   date: number;
 }
 
-let client: Anthropic | null = null;
 
-function getClient(): Anthropic | null {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
-  if (!client) {
-    client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  }
-  return client;
-}
 
 function stripHtml(text: string | null | undefined): string {
   return (text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -99,9 +91,6 @@ function extractParticipants(email: EmailRow): string[] {
 }
 
 async function extractEventsWithAI(email: EmailRow): Promise<Array<Omit<EventCandidate, 'id' | 'accountId' | 'emailId' | 'threadId' | 'status' | 'googleEventId' | 'googleEventLink' | 'createdAt' | 'updatedAt'>>> {
-  const anthropic = getClient();
-  if (!anthropic) return [];
-
   const body = stripHtml(email.body).slice(0, 6000);
   const prompt = `Elemezd az alábbi emailt és nyerd ki belőle az összes konkrét találkozót, határidőt vagy emlékeztető-jellegű eseményt.
 
@@ -131,13 +120,9 @@ Body:
 ${body}`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251015',
-      max_tokens: 1600,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    const response = await callAI([{ role: 'user', content: prompt }], { maxTokens: 1600 });
 
-    const text = response.content[0]?.type === 'text' ? response.content[0].text : '[]';
+    const text = response.text || '[]';
     const stripped = text.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/gi, '');
     const jsonMatch = stripped.match(/\[[\s\S]*\]/);
     const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) as Array<{

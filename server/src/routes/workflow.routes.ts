@@ -10,7 +10,7 @@ import {
   getWorkflowRuns,
 } from '../services/workflow.service.js';
 import type { WorkflowStep } from '../services/workflow.service.js';
-import Anthropic from '@anthropic-ai/sdk';
+
 import {
   generateWorkflowDraftFromPrompt,
   validateWorkflowDraft,
@@ -19,15 +19,7 @@ import logger from '../utils/logger.js';
 
 const router = Router();
 
-let anthropicClient: Anthropic | null = null;
 
-function getAnthropicClient(): Anthropic | null {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
-  if (!anthropicClient) {
-    anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  }
-  return anthropicClient;
-}
 
 // GET /api/workflows — list workflows (account szűrés)
 router.get('/', async (req, res) => {
@@ -98,7 +90,7 @@ router.post('/generate', async (req, res) => {
       return res.status(400).json({ error: 'A prompt megadása kötelező' });
     }
 
-    const generated = await generateWorkflowDraftFromPrompt(getAnthropicClient(), prompt.trim());
+    const generated = await generateWorkflowDraftFromPrompt(prompt.trim());
     const validated = validateWorkflowDraft(generated.workflow);
     res.json({
       workflow: validated.workflow,

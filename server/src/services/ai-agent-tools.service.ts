@@ -5,7 +5,7 @@ import {
   generateWorkflowDraftFromPrompt,
   type WorkflowDraft,
 } from './ai-workflow.service.js';
-import type Anthropic from '@anthropic-ai/sdk';
+
 
 export interface EmailSearchHit {
   id: string;
@@ -111,10 +111,9 @@ export async function listSmartFoldersTool(accountId: string) {
 }
 
 export async function createWorkflowDraftTool(
-  anthropic: Anthropic | null,
   prompt: string,
 ): Promise<{ workflow: WorkflowDraft; warnings: string[]; source: 'ai' | 'fallback' }> {
-  return generateWorkflowDraftFromPrompt(anthropic, prompt);
+  return generateWorkflowDraftFromPrompt(prompt);
 }
 
 export async function saveWorkflowTool(accountId: string, workflow: WorkflowDraft) {

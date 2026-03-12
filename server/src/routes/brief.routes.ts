@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { v4 as uuid } from 'uuid';
 import { queryAll, queryOne, execute } from '../db/index.js';
 import logger from '../utils/logger.js';
+import { callAI } from '../ai/provider.js';
 
 const router = Router();
 
@@ -58,13 +59,8 @@ async function generateAISummary(accountId: string): Promise<{
     .join('\n');
 
   try {
-    const { default: Anthropic } = await import('@anthropic-ai/sdk');
-    const client = new Anthropic();
-
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20250401',
-      max_tokens: 500,
-      messages: [
+    const response = await callAI(
+      [
         {
           role: 'user',
           content: `Az alábbiakban a mai emailek listája. Készíts rövid magyar nyelvű összefoglalót (max 3-4 mondat), emeld ki a legfontosabb 2-3 tételt, és add meg hány sürgős email van.
@@ -80,12 +76,13 @@ Válaszolj JSON formátumban:
 }`,
         },
       ],
-    });
+      { maxTokens: 500 },
+    );
 
-    const textContent = response.content.find((c) => c.type === 'text');
-    if (textContent && textContent.type === 'text') {
+    const aiText = response.text;
+    if (aiText) {
       try {
-        const jsonMatch = textContent.text.match(/\{[\s\S]*\}/);
+        const jsonMatch = aiText.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
           return {
@@ -98,7 +95,7 @@ Válaszolj JSON formátumban:
         }
       } catch {
         return {
-          summary: textContent.text.substring(0, 500),
+          summary: aiText.substring(0, 500),
           highlights: [],
           actionItemsCount: 0,
           urgentCount: unreadCount > 5 ? Math.floor(unreadCount / 3) : 0,

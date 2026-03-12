@@ -7,7 +7,7 @@ import {
   getAttachmentOwner,
 } from '../services/attachment.service.js';
 import { parseDocument, isAnalyzable } from '../services/document-parser.service.js';
-import Anthropic from '@anthropic-ai/sdk';
+import { callAI, isAIAvailable } from '../ai/provider.js';
 
 const router = Router();
 
@@ -128,12 +128,10 @@ router.post('/:id/analyze', async (req, res) => {
       });
     }
 
-    // Anthropic API ellenőrzés
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return res.status(500).json({ error: 'ANTHROPIC_API_KEY nincs konfigurálva' });
+    // AI API ellenőrzés
+    if (!isAIAvailable()) {
+      return res.status(500).json({ error: 'AI provider nincs konfigurálva' });
     }
-
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     // Szöveg limitálás (max ~8000 karakter az AI-nak)
     const truncatedText = parsed.text.length > 8000
@@ -145,10 +143,8 @@ router.post('/:id/analyze', async (req, res) => {
       .replace(/[^\w.\-_() áéíóöőúüűÁÉÍÓÖŐÚÜŰ]/g, '_')
       .substring(0, 100);
 
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251015',
-      max_tokens: 1024,
-      messages: [
+    const response = await callAI(
+      [
         {
           role: 'user',
           content: `Elemezd az alábbi dokumentumot. Válaszolj KIZÁRÓLAG érvényes JSON formátumban, semmilyen más szöveget ne adj hozzá.
@@ -169,12 +165,11 @@ ${truncatedText}
 ---`,
         },
       ],
-    });
+      { maxTokens: 1024 },
+    );
 
     // Válasz feldolgozás
-    const aiText = response.content.length > 0 && response.content[0].type === 'text'
-      ? response.content[0].text
-      : '';
+    const aiText = response.text;
 
     if (!aiText) {
       return res.status(500).json({ error: 'Az AI nem adott vissza szöveges választ' });
