@@ -32,17 +32,19 @@ function reportManualRefreshError(error: unknown): void {
       timestamp: new Date().toISOString(),
     };
 
-    navigator.sendBeacon
-      ? navigator.sendBeacon(
-          `${API_BASE}/api/error-report`,
-          new Blob([JSON.stringify(payload)], { type: 'application/json' }),
-        )
-      : fetch(`${API_BASE}/api/error-report`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          keepalive: true,
-        }).catch(() => {});
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(
+        `${API_BASE}/api/error-report`,
+        new Blob([JSON.stringify(payload)], { type: 'application/json' }),
+      );
+    } else {
+      fetch(`${API_BASE}/api/error-report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        keepalive: true,
+      }).catch(() => {});
+    }
   } catch {
     // Never throw from error reporter
   }
@@ -82,13 +84,13 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar, onShowSho
 
   // URL query szinkronizálása a localQuery-vel (pl. back button esetén)
   useEffect(() => {
-    if (isSearchPage && urlSearchQuery) {
-      setLocalQuery(urlSearchQuery);
+    if (isSearchPage && urlSearchQuery && urlSearchQuery !== localQuery) {
+      setTimeout(() => setLocalQuery(urlSearchQuery), 0);
     } else if (!isSearchPage && localQuery && !searchQuery) {
       // Ha elhagyjuk a keresési oldalt és nincs külső searchQuery, töröljük a localQuery-t
-      setLocalQuery('');
+      setTimeout(() => setLocalQuery(''), 0);
     }
-  }, [urlSearchQuery, isSearchPage]);
+  }, [isSearchPage, urlSearchQuery, localQuery, searchQuery]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
