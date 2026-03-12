@@ -17,12 +17,6 @@ export function buildAllowedOrigins(): string[] {
     'https://mindenes.org',
     'https://www.mindenes.org',
     'https://mail.mindenes.org',
-    // Render service direct URL (onrender.com) — used when custom domain is not active
-    // or when the frontend is accessed via the Render URL directly
-    'https://gmail-client-api.onrender.com',
-    'https://gmail-client-backend.onrender.com',
-    // Vercel deployment URL (frontend on Vercel)
-    'https://gmail-client-frontend.vercel.app',
     'http://localhost:5173',
     'http://localhost:5000',
     ...additionalOrigins,
