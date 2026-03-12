@@ -136,7 +136,7 @@ async function start() {
           callback(null, true);
         } else {
           logger.warn(`CORS blocked origin: "${origin}". Allowed: ${allowedOrigins.join(', ')}`);
-          callback(new Error('Not allowed by CORS'));
+          callback(new Error(`Not allowed by CORS: origin "${origin}" not in allowed list`));
         }
       },
       credentials: true,
