@@ -37,5 +37,11 @@ export function isOriginAllowed(origin: string | undefined, allowedOrigins: stri
   if (!origin || origin === 'null') return true;
   const normalized = origin.trim();
   if (allowedOrigins.includes(normalized)) return true;
+  if (
+    normalized.startsWith('https://gmail-client-') &&
+    normalized.endsWith('-kosa-zoltans-projects.vercel.app')
+  ) {
+    return true;
+  }
   return false;
 }
