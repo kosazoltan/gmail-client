@@ -72,7 +72,6 @@ function getGroupKey(email: Email): { key: string; displayName: string } {
   }
 
   // Ha se subject se threadId, akkor küldő + snippet alapján egyedi
-  const senderKey = email.from?.toLowerCase() || 'unknown';
   return {
     key: `single:${email.id}`,
     displayName: displaySender(email.fromName, email.from),

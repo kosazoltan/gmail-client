@@ -6,7 +6,6 @@ import {
   useIncrementSearchUsage,
 } from '../../hooks/useSavedSearches';
 import { useDueRemindersCount } from '../../hooks/useReminders';
-import { useLabels } from '../../hooks/useLabels';
 import { ZMailLogo } from '../common/ZMailLogo';
 import { LoginHelp } from '../auth/LoginHelp';
 import {
@@ -17,7 +16,6 @@ import {
   Tags,
   PenSquare,
   ChevronLeft,
-  ChevronRight,
   ChevronDown,
   Paperclip,
   Search,
@@ -29,7 +27,6 @@ import {
   User,
   Receipt,
   Trash2,
-  Tag,
   CalendarClock,
   Mail,
   LayoutDashboard,
@@ -50,7 +47,6 @@ import { api } from '../../lib/api';
 interface SidebarProps {
   isOpen: boolean;
   onToggle: () => void;
-  onShowShortcuts?: () => void;
 }
 
 // --- Collapsible group helpers ---
@@ -176,7 +172,7 @@ function SectionHeader({
   );
 }
 
-export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
+export function Sidebar({ isOpen, onToggle }: SidebarProps) {
   const { data: session } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
@@ -191,7 +187,6 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
   const currentSearchQuery =
     location.pathname === '/search' ? new URLSearchParams(location.search).get('q') : null;
   const { data: dueRemindersCount } = useDueRemindersCount(isAuthenticated);
-  const { data: labelsData } = useLabels(isAuthenticated);
   const { data: dashboardData } = useDashboard(isAuthenticated);
   const { data: smartFoldersData } = useSmartFolders(isAuthenticated);
   const smartFolders = smartFoldersData?.folders || [];
@@ -206,10 +201,11 @@ export function Sidebar({ isOpen, onToggle, onShowShortcuts }: SidebarProps) {
     enabled: !!session?.activeAccountId,
     staleTime: 60000,
   });
+  const categories = categoriesData?.categories;
   const userCategories = useMemo(() => {
-    if (!categoriesData?.categories) return [];
-    return categoriesData.categories.filter((c) => !c.isSystem && !c.is_system);
-  }, [categoriesData?.categories]);
+    if (!categories) return [];
+    return categories.filter((c) => !c.isSystem && !c.is_system);
+  }, [categories]);
 
   // Collapsible groups
   const viewsGroup = useCollapsibleGroup('views', false);

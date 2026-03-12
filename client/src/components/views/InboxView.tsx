@@ -127,7 +127,7 @@ export function InboxView() {
         },
       );
     },
-    [selectedIds, batchMarkRead],
+    [selectedIds, batchMarkRead, accountId],
   );
 
   const handleBatchDelete = useCallback(() => {
@@ -147,7 +147,7 @@ export function InboxView() {
         }
       },
     });
-  }, [selectedIds, batchDeleteEmails, selectedEmail]);
+  }, [selectedIds, batchDeleteEmails, selectedEmail, accountId]);
 
   // Navigáció következő emailre
   const handleNextEmail = useCallback(() => {
@@ -197,7 +197,7 @@ export function InboxView() {
     });
     // Frissítsük a helyi állapotot is
     setSelectedEmail((prev) => (prev ? { ...prev, isStarred: !prev.isStarred } : null));
-  }, [selectedEmail, toggleStar]);
+  }, [selectedEmail, toggleStar, accountId]);
 
   // Olvasott/olvasatlan toggle
   const handleToggleRead = useCallback(() => {
@@ -208,7 +208,7 @@ export function InboxView() {
       accountId,
     });
     setSelectedEmail((prev) => (prev ? { ...prev, isRead: !prev.isRead } : null));
-  }, [selectedEmail, markRead]);
+  }, [selectedEmail, markRead, accountId]);
 
   // Törlés
   const handleDelete = useCallback(() => {
@@ -227,7 +227,9 @@ export function InboxView() {
 
     const match = emails.find((email) => email.id === emailIdFromQuery);
     if (match) {
-      setSelectedEmail((prev) => (prev?.id === match.id ? prev : match));
+      queueMicrotask(() => {
+        setSelectedEmail((prev) => (prev?.id === match.id ? prev : match));
+      });
       return;
     }
 
@@ -279,7 +281,7 @@ export function InboxView() {
         setShowDeleteConfirm(false);
       },
     });
-  }, [selectedEmail, deleteEmail]);
+  }, [selectedEmail, deleteEmail, accountId]);
 
   // Billentyűparancsok
   useKeyboardShortcuts({

@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Trash2, Mail, MailOpen, Pin, Archive, Star, Clock, X } from 'lucide-react';
+import { Trash2, Mail, MailOpen, Archive, Star, Clock, X } from 'lucide-react';
 import { EmailItem } from './EmailItem';
 import { useSettings, defaultSettings, getSwipeActionColor } from '../../hooks/useSettings';
 import type { Email, SwipeAction } from '../../types';
@@ -113,11 +113,12 @@ export function SwipeableEmailItem({
         case 'read':
           onToggleRead?.(email.id, !email.isRead);
           break;
-        case 'star':
+        case 'star': {
           // For star action, we need a synthetic click event
           const syntheticEvent = { stopPropagation: () => {} } as React.MouseEvent;
           onToggleStar(syntheticEvent);
           break;
+        }
         case 'snooze':
           onSnooze?.(email.id);
           break;

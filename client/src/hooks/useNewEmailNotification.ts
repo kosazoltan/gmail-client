@@ -72,6 +72,8 @@ export function useNewEmailNotification(enabled: boolean) {
     [queryClient],
   );
 
+  const connectRef = useRef<() => void>(() => {});
+
   const connect = useCallback(() => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
@@ -96,10 +98,14 @@ export function useNewEmailNotification(enabled: boolean) {
       if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
         const delay = Math.min(SSE_BASE_DELAY * Math.pow(2, reconnectAttemptsRef.current), SSE_MAX_DELAY);
         reconnectAttemptsRef.current++;
-        reconnectTimeoutRef.current = setTimeout(connect, delay);
+        reconnectTimeoutRef.current = setTimeout(() => connectRef.current(), delay);
       }
     };
   }, [handleNewEmail]);
+
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   // H2: Window focus SSE recovery — reset after max reconnect attempts exhausted
   useEffect(() => {

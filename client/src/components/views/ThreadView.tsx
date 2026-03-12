@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useThreadConversation } from '../../hooks/useEmails';
 import { useSession } from '../../hooks/useAccounts';
-import { useReplyEmail, type EmailAttachment } from '../../hooks/useEmails';
+import { useReplyEmail } from '../../hooks/useEmails';
 import {
   Loader2,
   ArrowLeft,
@@ -11,7 +11,6 @@ import {
   ChevronDown,
   ChevronUp,
   Paperclip,
-  Star,
   Mail,
 } from 'lucide-react';
 import { cn, formatFileSize } from '../../lib/utils';

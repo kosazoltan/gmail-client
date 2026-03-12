@@ -22,15 +22,16 @@ export function LabelView() {
 
   // Címke név lekérése
   const { data: labelsData } = useLabels();
+  const labels = labelsData?.labels;
   const label = useMemo(() => {
-    if (!labelsData?.labels || !labelId) return null;
-    return labelsData.labels.find((l) => l.id === labelId);
-  }, [labelsData?.labels, labelId]);
+    if (!labels || !labelId) return null;
+    return labels.find((l) => l.id === labelId);
+  }, [labels, labelId]);
 
   // Gmail label keresés szintaxis: label:LABEL_NAME
   const searchQuery = labelId ? `label:${labelId}` : '';
   const { data, isLoading } = useSearch(searchQuery, { accountId });
-  const emails = data?.emails || [];
+  const emails = useMemo(() => data?.emails ?? [], [data?.emails]);
 
   const emailsRef = useRef(emails);
   useEffect(() => {

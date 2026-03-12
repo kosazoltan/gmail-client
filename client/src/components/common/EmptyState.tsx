@@ -1,14 +1,4 @@
-import {
-  Inbox,
-  Search,
-  Clock,
-  Trash2,
-  Paperclip,
-  Newspaper,
-  Bell,
-  CalendarClock,
-  type LucideIcon,
-} from 'lucide-react';
+import { Inbox, type LucideIcon } from 'lucide-react';
 
 interface EmptyStateProps {
   icon?: LucideIcon;

@@ -153,8 +153,10 @@ export function CalendarView() {
 
     const targetDate = dateParam ? new Date(`${dateParam}T12:00:00`) : new Date();
     if (!Number.isNaN(targetDate.getTime())) {
-      setSelectedDate(targetDate);
-      setViewMode('day');
+      queueMicrotask(() => {
+        setSelectedDate(targetDate);
+        setViewMode('day');
+      });
     }
   }, [searchParams]);
 
@@ -166,8 +168,10 @@ export function CalendarView() {
     const targetEvent = events.find((event) => event.id === targetEventId);
     if (!targetEvent) return;
 
-    openEditModal(targetEvent);
-    autoOpenedEventIdRef.current = targetEventId;
+    queueMicrotask(() => {
+      openEditModal(targetEvent);
+      autoOpenedEventIdRef.current = targetEventId;
+    });
   }, [events, openEditModal, searchParams]);
 
   const handleSave = useCallback(async () => {

@@ -8,10 +8,10 @@ import { useNewEmailNotification } from '../../hooks/useNewEmailNotification';
 import { useSession } from '../../hooks/useAccounts';
 
 export function AppLayout() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 1024);
   const [searchQuery, setSearchQuery] = useState('');
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
   const location = useLocation();
   const { data: session } = useSession();
 
@@ -29,7 +29,6 @@ export function AppLayout() {
       }
     };
 
-    checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
@@ -37,7 +36,7 @@ export function AppLayout() {
   // Mobilon navigáláskor automatikusan bezárja a sidebárt
   useEffect(() => {
     if (isMobile) {
-      setSidebarOpen(false);
+      queueMicrotask(() => setSidebarOpen(false));
     }
   }, [location.pathname, isMobile]);
 
@@ -66,7 +65,6 @@ export function AppLayout() {
         <Sidebar
           isOpen={sidebarOpen || isMobile}
           onToggle={() => setSidebarOpen(!sidebarOpen)}
-          onShowShortcuts={() => setShowShortcutsHelp(true)}
         />
       </div>
 

@@ -11,10 +11,9 @@ import {
   Clock,
   Paperclip,
   Send,
-  Loader2,
   Download,
 } from 'lucide-react';
-import { formatFullDate, displaySender, getInitials, emailToColor, cn } from '../../lib/utils';
+import { displaySender, getInitials, emailToColor, cn } from '../../lib/utils';
 import { AttachmentView } from './AttachmentView';
 import { api } from '../../lib/api';
 import type { ThreadEmail } from '../../types';
@@ -31,13 +30,12 @@ interface ConversationViewProps {
 function MessageBubble({
   email,
   isSent,
-  accountEmail,
+  accountEmail: _accountEmail,
   isExpanded,
   onToggleExpand,
   onReply,
   onReplyAll,
   onForward,
-  isLatest,
 }: {
   email: ThreadEmail;
   isSent: boolean;
@@ -47,7 +45,6 @@ function MessageBubble({
   onReply: () => void;
   onReplyAll?: () => void;
   onForward?: () => void;
-  isLatest: boolean;
 }) {
   const downloadTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const sender = displaySender(email.fromName, email.from);
@@ -164,7 +161,7 @@ function MessageBubble({
         'textarea',
       ],
       ALLOWED_URI_REGEXP:
-        /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+        /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|data):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
     });
   }, [email.bodyHtml]);
 
@@ -389,31 +386,35 @@ export function ConversationView({
   onReplyAll,
   onForward,
 }: ConversationViewProps) {
+  const memoEmails = useMemo(() => emails ?? [], [emails]);
+
   // Az utolsó email alapból kibontva, a többi összecsukva
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
-    if (emails.length === 0) return new Set();
+    if (memoEmails.length === 0) return new Set();
     // Utolsó email kibontva
-    return new Set([emails[emails.length - 1].id]);
+    return new Set([memoEmails[memoEmails.length - 1].id]);
   });
   const scrollEndRef = useRef<HTMLDivElement>(null);
 
   // Ha változik az email lista (új email érkezik), bővítsük a kibontottakat
   useEffect(() => {
-    if (emails.length > 0) {
-      const latestId = emails[emails.length - 1].id;
+    if (memoEmails.length === 0) return;
+    const latestId = memoEmails[memoEmails.length - 1].id;
+
+    queueMicrotask(() => {
       setExpandedIds((prev) => {
         if (prev.has(latestId)) return prev;
         const newSet = new Set(prev);
         newSet.add(latestId);
         return newSet;
       });
-    }
-  }, [emails]);
+    });
+  }, [memoEmails]);
 
   // Scroll az aljára ha új email érkezik
   useEffect(() => {
     scrollEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [emails.length]);
+  }, [memoEmails.length]);
 
   const toggleExpand = (emailId: string) => {
     setExpandedIds((prev) => {
@@ -428,13 +429,13 @@ export function ConversationView({
   };
 
   const expandAll = () => {
-    setExpandedIds(new Set(emails.map((e) => e.id)));
+    setExpandedIds(new Set(memoEmails.map((e) => e.id)));
   };
 
   const collapseAll = () => {
     // Mindig hagyjuk az utolsót kibontva
-    if (emails.length > 0) {
-      setExpandedIds(new Set([emails[emails.length - 1].id]));
+    if (memoEmails.length > 0) {
+      setExpandedIds(new Set([memoEmails[memoEmails.length - 1].id]));
     } else {
       setExpandedIds(new Set());
     }
@@ -452,19 +453,19 @@ export function ConversationView({
   };
 
   // Statisztikák
-  const sentCount = emails.filter(isSentEmail).length;
-  const receivedCount = emails.length - sentCount;
-  const unreadCount = emails.filter((e) => !e.isRead && !isSentEmail(e)).length;
+  const sentCount = memoEmails.filter(isSentEmail).length;
+  const receivedCount = memoEmails.length - sentCount;
+  const unreadCount = memoEmails.filter((e) => !e.isRead && !isSentEmail(e)).length;
 
   return (
     <div className="flex flex-col gap-1 sm:gap-2">
       {/* Thread statisztika sáv */}
-      {emails.length > 1 && (
+      {memoEmails.length > 1 && (
         <div className="mb-1 flex items-center justify-between px-1 sm:px-2">
           <div className="dark:text-dark-text-secondary flex items-center gap-2 text-[10px] text-gray-500 sm:gap-3 sm:text-xs">
             <span className="flex items-center gap-1">
               <Clock className="h-3 w-3" />
-              {emails.length} üzenet
+              {memoEmails.length} üzenet
             </span>
             {sentCount > 0 && (
               <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
@@ -497,7 +498,7 @@ export function ConversationView({
       )}
 
       {/* Üzenetek listája */}
-      {emails.map((email, index) => (
+      {memoEmails.map((email, _index) => (
         <MessageBubble
           key={email.id}
           email={email}
@@ -508,7 +509,6 @@ export function ConversationView({
           onReply={() => onReply(email)}
           onReplyAll={onReplyAll ? () => onReplyAll(email) : undefined}
           onForward={onForward ? () => onForward(email) : undefined}
-          isLatest={index === emails.length - 1}
         />
       ))}
 

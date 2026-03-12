@@ -73,7 +73,9 @@ export function SmartFoldersView({ onEmailSelect }: SmartFoldersViewProps) {
     if (isLoading) return;
 
     if (folders.length === 0) {
-      if (selectedFolderId) setSelectedFolderId(null);
+      if (selectedFolderId) {
+        queueMicrotask(() => setSelectedFolderId(null));
+      }
       return;
     }
 
@@ -81,8 +83,10 @@ export function SmartFoldersView({ onEmailSelect }: SmartFoldersViewProps) {
     if (!resolvedFolderId) return;
 
     if (selectedFolderId !== resolvedFolderId) {
-      setSelectedFolderId(resolvedFolderId);
-      setPage(1);
+      queueMicrotask(() => {
+        setSelectedFolderId(resolvedFolderId);
+        setPage(1);
+      });
     }
 
     if (requestedFolderId !== resolvedFolderId) {

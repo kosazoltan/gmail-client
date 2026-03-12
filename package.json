@@ -1,16 +1,17 @@
 {
-  "name": "gmail-client",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css}\""
-  },
-  "dependencies": {
-    "ssh2": "^1.17.0"
-  },
-  "devDependencies": {
-    "prettier": "^3.8.1",
-    "prettier-plugin-tailwindcss": "^0.7.2"
-  }
+    "name":  "gmail-client",
+    "version":  "1.0.0",
+    "private":  true,
+    "scripts":  {
+                    "format":  "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
+                    "format:check":  "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
+                    "lint":  "cd client \u0026\u0026 npx eslint . --max-warnings 0"
+                },
+    "dependencies":  {
+                         "ssh2":  "^1.17.0"
+                     },
+    "devDependencies":  {
+                            "prettier":  "^3.8.1",
+                            "prettier-plugin-tailwindcss":  "^0.7.2"
+                        }
 }

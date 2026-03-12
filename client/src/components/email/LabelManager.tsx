@@ -77,18 +77,16 @@ export function LabelManager({ emailId, currentLabels, onClose }: LabelManagerPr
   const [showNewLabel, setShowNewLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
 
-  const labels = data?.labels ?? [];
-
   // Memoizált szűrés a teljesítmény érdekében
-  const { userLabels, systemLabels } = useMemo(
-    () => ({
+  const { userLabels, systemLabels } = useMemo(() => {
+    const labels = data?.labels ?? [];
+    return {
       userLabels: labels.filter((l) => l.type === 'user'),
       systemLabels: labels.filter(
         (l) => l.type === 'system' && (SHOWN_SYSTEM_LABELS as readonly string[]).includes(l.id),
       ),
-    }),
-    [labels],
-  );
+    };
+  }, [data?.labels]);
 
   const handleToggleLabel = useCallback(
     (label: GmailLabel) => {

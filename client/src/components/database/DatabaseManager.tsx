@@ -6,7 +6,6 @@ import {
   Database,
   HardDrive,
   Trash2,
-  Download,
   RefreshCw,
   Search,
   ChevronLeft,
@@ -15,7 +14,6 @@ import {
   Paperclip,
   Mail,
   MailOpen,
-  Archive,
   AlertTriangle,
 } from 'lucide-react';
 

@@ -94,8 +94,8 @@ export function EmailDetail({
   const [sendingQuickReply, setSendingQuickReply] = useState(false);
 
   // Thread adatok
-  const hasThread = threadData && threadData.emails && threadData.emails.length > 1;
-  const threadEmails = threadData?.emails || [];
+  const threadEmails = useMemo(() => threadData?.emails ?? [], [threadData?.emails]);
+  const hasThread = threadEmails.length > 1;
   const threadAccountEmail = threadData?.accountEmail || null;
 
   // FIX: Track download timeouts for cleanup on unmount
@@ -213,7 +213,7 @@ export function EmailDetail({
       ],
       // Engedélyezzük a data: URI-kat képekhez (base64 inline images)
       ALLOWED_URI_REGEXP:
-        /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+        /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|data):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
     });
   }, [email?.bodyHtml]);
 
@@ -228,7 +228,7 @@ export function EmailDetail({
     if (email && !email.isRead && !markRead.isPending) {
       markReadRef.current.mutate({ emailId: email.id, isRead: true, accountId });
     }
-  }, [email?.id, email?.isRead, markRead.isPending, accountId]);
+  }, [email, markRead.isPending, accountId]);
 
   // FIX: Cleanup download timeouts on unmount to prevent memory leak
   useEffect(() => {
@@ -467,7 +467,7 @@ export function EmailDetail({
                       try {
                         await exportEmailToPdf(email);
                         toast.success('PDF sikeresen exportálva');
-                      } catch (error) {
+                      } catch {
                         toast.error('PDF exportálás sikertelen');
                       }
                     }}
@@ -485,7 +485,7 @@ export function EmailDetail({
                         try {
                           await translateEmail(email.subject, email.body || email.snippet, 'hu');
                           toast.success('Fordítás kész');
-                        } catch (error) {
+                        } catch {
                           toast.error('Fordítás sikertelen');
                         }
                       }

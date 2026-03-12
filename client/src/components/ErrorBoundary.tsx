@@ -13,17 +13,19 @@ const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 function reportError(payload: Record<string, unknown>): void {
   try {
-    navigator.sendBeacon
-      ? navigator.sendBeacon(
-          `${API_BASE}/api/error-report`,
-          new Blob([JSON.stringify(payload)], { type: 'application/json' }),
-        )
-      : fetch(`${API_BASE}/api/error-report`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          keepalive: true,
-        }).catch(() => {});
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(
+        `${API_BASE}/api/error-report`,
+        new Blob([JSON.stringify(payload)], { type: 'application/json' }),
+      );
+    } else {
+      fetch(`${API_BASE}/api/error-report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        keepalive: true,
+      }).catch(() => {});
+    }
   } catch {
     // Never throw from error reporter
   }

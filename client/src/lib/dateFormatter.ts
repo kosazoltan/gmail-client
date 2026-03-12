@@ -11,9 +11,6 @@ export function formatEmailDate(date: Date | number): string {
 
   const now = new Date();
 
-  // Milliszekundumok közötti különbség
-  const diff = now.getTime() - emailDate.getTime();
-
   // Napok közötti különbség (0:00-tól számítva)
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const emailDay = new Date(emailDate.getFullYear(), emailDate.getMonth(), emailDate.getDate());

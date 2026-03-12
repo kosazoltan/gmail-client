@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   useTaskLists,
@@ -115,20 +115,20 @@ function DetectedTasksTab() {
     priority: priorityFilter === 'all' ? undefined : priorityFilter,
   });
   const { scanState, startScan } = useScanStream();
-  const hasAutoScanned = useRef(false);
+  const [hasAutoScanned, setHasAutoScanned] = useState(false);
 
   // Auto-scan: ha nincs task és stats mind 0 → első scan 180 nap
   useEffect(() => {
     if (
       statsData &&
       statsData.open === 0 &&
-      !hasAutoScanned.current &&
+      !hasAutoScanned &&
       !scanState.isScanning
     ) {
-      hasAutoScanned.current = true;
+      queueMicrotask(() => setHasAutoScanned(true));
       startScan(180);
     }
-  }, [statsData, scanState.isScanning, startScan]);
+  }, [statsData, scanState.isScanning, startScan, hasAutoScanned]);
 
   const handleScan = () => {
     // Kézi frissítés: MINDIG 30 nap (aktuális hónap)
@@ -249,7 +249,7 @@ function DetectedTasksTab() {
           {scanState.isScanning ? (
             // Progress bar fentebb mutatja a státuszt
             <span>Átvizsgálás folyamatban... ⏳</span>
-          ) : hasAutoScanned.current || scanState.phase === 'done' ? (
+          ) : hasAutoScanned || scanState.phase === 'done' ? (
             <span>Nincs megválaszolatlan email. Minden rendben! 🎉</span>
           ) : (
             <span>Kattints a &apos;Frissítés&apos; gombra az emailek átvizsgálásához</span>

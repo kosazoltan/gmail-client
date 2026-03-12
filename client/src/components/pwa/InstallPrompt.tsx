@@ -10,22 +10,16 @@ export function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const deferredPromptRef = useRef<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
-  const [isStandalone, setIsStandalone] = useState(false);
+  const [isIOS] = useState(() => /iPad|iPhone|iPod/.test(navigator.userAgent));
+  const [isStandalone] = useState(
+    () =>
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as Navigator & { standalone?: boolean }).standalone === true,
+  );
 
   useEffect(() => {
-    // Ellenőrizzük, hogy már telepítve van-e (standalone mód)
-    const isInStandaloneMode =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
-    setIsStandalone(isInStandaloneMode);
-
-    // iOS detektálás
-    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    setIsIOS(isIOSDevice);
-
     // Ha már telepítve van, nem mutatjuk a promptot
-    if (isInStandaloneMode) {
+    if (isStandalone) {
       return;
     }
 
@@ -57,7 +51,7 @@ export function InstallPrompt() {
     // This prevents the aggressive "install now!" on every page load
     timer = setTimeout(() => {
       // Only show prompt if iOS or Chrome install event was captured
-      if (isIOSDevice || deferredPromptRef.current) {
+      if (isIOS || deferredPromptRef.current) {
         setShowPrompt(true);
       }
     }, 30000); // 30 másodperc várakozás
@@ -67,7 +61,7 @@ export function InstallPrompt() {
       if (timer) clearTimeout(timer);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
-  }, []);
+  }, [isIOS, isStandalone]);
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;

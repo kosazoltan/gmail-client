@@ -6,9 +6,9 @@ import {
   useSwitchAccount,
   useUpdateAccountColor,
 } from '../../hooks/useAccounts';
-import { getInitials, emailToColor, cn } from '../../lib/utils';
+import { getInitials, cn } from '../../lib/utils';
 import { ChevronDown, Plus, LogOut, Check, Palette } from 'lucide-react';
-import type { Account } from '../../types';
+import { getAccountColor } from './accountUtils';
 
 // Előre definiált színek
 const PRESET_COLORS = [
@@ -29,12 +29,6 @@ const PRESET_COLORS = [
   '#EC4899', // Rózsaszín
   '#6B7280', // Szürke
 ];
-
-// Fiók színének meghatározása - ha van saját szín, azt használja, különben generál
-function getAccountColor(account: Account | undefined): string {
-  if (!account) return '#6B7280';
-  return account.color || emailToColor(account.email);
-}
 
 interface AccountSwitcherProps {
   compact?: boolean;
@@ -249,5 +243,3 @@ function AccountDropdown({
   );
 }
 
-// Export a getAccountColor függvényt, hogy más komponensek is használhassák
-export { getAccountColor };

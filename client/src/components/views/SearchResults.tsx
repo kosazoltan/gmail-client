@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useSearch } from '../../hooks/useSearch';
 import { useSession } from '../../hooks/useAccounts';
@@ -45,7 +45,7 @@ export function SearchResults() {
     accountId,
     allAccounts: allAccounts || undefined,
   });
-  const emails = data?.emails || [];
+  const emails = useMemo(() => data?.emails ?? [], [data?.emails]);
 
   const toggleSelectionMode = useCallback(() => {
     if (allAccounts) return;

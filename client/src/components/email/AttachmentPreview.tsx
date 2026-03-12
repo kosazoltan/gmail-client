@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import {
   X,
   Download,
-  ExternalLink,
   FileText,
   Image,
   FileSpreadsheet,

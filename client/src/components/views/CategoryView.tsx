@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
@@ -242,7 +242,7 @@ export function CategoryView() {
     if (!targetCategoryId || categories.length === 0) return;
     const targetCategory = categories.find((category) => category.id === targetCategoryId);
     if (targetCategory && selectedCategory?.id !== targetCategory.id) {
-      setSelectedCategory(targetCategory);
+      setTimeout(() => setSelectedCategory(targetCategory), 0);
     }
   }, [categoryData?.categories, searchParams, selectedCategory?.id]);
 
@@ -250,8 +250,10 @@ export function CategoryView() {
     const categories = categoryData?.categories || [];
     if (!selectedCategory) return;
     if (!categories.some((category) => category.id === selectedCategory.id)) {
-      setSelectedCategory(null);
-      setSelectedEmail(null);
+      queueMicrotask(() => {
+        setSelectedCategory(null);
+        setSelectedEmail(null);
+      });
     }
   }, [accountId, categoryData?.categories, selectedCategory]);
 
@@ -299,6 +301,28 @@ export function CategoryView() {
   const categories = categoryData?.categories || [];
   const systemCategories = categories.filter((c) => c.isSystem || c.is_system);
   const userCategories = categories.filter((c) => !c.isSystem && !c.is_system);
+
+  const emails = useMemo(() => categoryEmails?.emails ?? [], [categoryEmails?.emails]);
+  const isUserCategory = !!selectedCategory && !selectedCategory.isSystem && !selectedCategory.is_system;
+
+  // Ref a friss emails lista eléréséhez (stale closure fix)
+  const emailsRef = useRef(emails);
+  useEffect(() => {
+    emailsRef.current = emails;
+  }, [emails]);
+
+  const handleRemoveFromCategory = useCallback(
+    (emailId: string) => {
+      if (selectedCategory) {
+        removeEmailFromCategory.mutate({ categoryId: selectedCategory.id, emailId });
+        if (selectedEmail?.id === emailId) {
+          const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);
+          setSelectedEmail(nextEmail);
+        }
+      }
+    },
+    [selectedCategory, selectedEmail, removeEmailFromCategory],
+  );
 
   if (!selectedCategory) {
     return (
@@ -497,28 +521,6 @@ export function CategoryView() {
       </div>
     );
   }
-
-  const emails = categoryEmails?.emails || [];
-  const isUserCategory = !selectedCategory.isSystem && !selectedCategory.is_system;
-
-  // Ref a friss emails lista eléréséhez (stale closure fix)
-  const emailsRef = useRef(emails);
-  useEffect(() => {
-    emailsRef.current = emails;
-  }, [emails]);
-
-  const handleRemoveFromCategory = useCallback(
-    (emailId: string) => {
-      if (selectedCategory) {
-        removeEmailFromCategory.mutate({ categoryId: selectedCategory.id, emailId });
-        if (selectedEmail?.id === emailId) {
-          const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);
-          setSelectedEmail(nextEmail);
-        }
-      }
-    },
-    [selectedCategory, selectedEmail, removeEmailFromCategory],
-  );
 
   const leftPanel = (
     <>

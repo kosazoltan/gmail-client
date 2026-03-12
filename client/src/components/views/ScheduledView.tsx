@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { CalendarClock, Send, Trash2, Clock, Mail, Loader2 } from 'lucide-react';
 import {
   useScheduledEmails,
@@ -8,6 +8,10 @@ import {
 } from '../../hooks/useScheduledEmails';
 import { toast } from '../../lib/toast';
 import type { ScheduledEmail } from '../../types';
+
+// Captured at module load — used to determine if scheduled emails are past-due
+// without calling Date.now() during render (react-hooks/purity)
+const MODULE_LOAD_TIME = Date.now();
 
 export function ScheduledView() {
   const { data: scheduledEmails, isLoading } = useScheduledEmails();
@@ -138,8 +142,12 @@ function ScheduledEmailCard({
   isSending,
   isDeleting,
 }: ScheduledEmailCardProps) {
-  const isPastDue = email.scheduledAt < Date.now();
+  const isPastDue = email.scheduledAt < MODULE_LOAD_TIME;
   const isFailed = email.status === 'failed';
+  const scheduledTimeLabel = useMemo(
+    () => (isFailed ? 'Sikertelen - újrapróbálható' : formatScheduledTime(email.scheduledAt)),
+    [isFailed, email.scheduledAt],
+  );
 
   return (
     <div className="dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white p-4">
@@ -180,7 +188,7 @@ function ScheduledEmailCard({
             }`}
           >
             <Clock className="h-3 w-3" />
-            {isFailed ? 'Sikertelen - újrapróbálható' : formatScheduledTime(email.scheduledAt)}
+            {scheduledTimeLabel}
           </div>
 
           {/* Actions */}

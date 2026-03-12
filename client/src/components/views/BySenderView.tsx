@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
@@ -33,7 +33,7 @@ export function BySenderView() {
     enabled: !!selectedSender,
   });
 
-  const emails = senderEmails?.emails || [];
+  const emails = useMemo(() => senderEmails?.emails ?? [], [senderEmails?.emails]);
 
   // Ref a friss emails lista eléréséhez (stale closure fix)
   const emailsRef = useRef(emails);

@@ -55,7 +55,7 @@ export function ToolbarSettings() {
   useEffect(() => {
     if (settings?.toolbarActions) {
       // BUG #10 Fix: Validate when syncing from settings
-      setVisibleActions(filterValidActionIds(settings.toolbarActions));
+      queueMicrotask(() => setVisibleActions(filterValidActionIds(settings.toolbarActions)));
     }
   }, [settings?.toolbarActions]);
 

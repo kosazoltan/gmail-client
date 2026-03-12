@@ -31,7 +31,7 @@ interface ActionResult {
 }
 
 export function InlineCopilotBar({
-  emailId,
+  emailId: _emailId,
   emailSubject,
   emailBody,
   emailSnippet,
@@ -84,7 +84,7 @@ export function InlineCopilotBar({
           break;
         }
       }
-    } catch (err) {
+    } catch {
       toast.error('AI művelet sikertelen. Próbáld újra.');
     } finally {
       setLoading(null);

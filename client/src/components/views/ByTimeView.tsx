@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
@@ -32,7 +32,7 @@ export function ByTimeView() {
     enabled: !!selectedPeriod,
   });
 
-  const emails = periodEmails?.emails || [];
+  const emails = useMemo(() => periodEmails?.emails ?? [], [periodEmails?.emails]);
 
   // Ref a friss emails lista eléréséhez (stale closure fix)
   const emailsRef = useRef(emails);

@@ -9,7 +9,6 @@ import { EmailDetail } from '../email/EmailDetail';
 import { ResizablePanels } from '../common/ResizablePanels';
 import { MessageSquare, ArrowLeft, Loader2 } from 'lucide-react';
 import type { Email, Topic } from '../../types';
-import { getNextEmailAfterDelete } from '../../lib/emailNavigation';
 
 export function ByTopicView() {
   const navigate = useNavigate();

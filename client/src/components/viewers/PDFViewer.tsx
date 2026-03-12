@@ -15,7 +15,7 @@ export function PDFViewer({ url, filename, onClose }: PDFViewerProps) {
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [scale, setScale] = useState<number>(1.0);
-  const pdfDocumentRef = useRef<any>(null);
+  const pdfDocumentRef = useRef<{ destroy: () => Promise<void> } | null>(null);
 
   function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
     setNumPages(numPages);

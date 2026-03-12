@@ -181,7 +181,7 @@ export function EmailCompose() {
       selection?.removeAllRanges();
       selection?.addRange(range);
     }
-  }, []);
+  }, [body]);
 
   // Body frissítése contenteditable div-ből
   const handleBodyInput = () => {
@@ -191,7 +191,7 @@ export function EmailCompose() {
   };
 
   // Billentyűzet esemény - új szöveg kék színűvé tétele
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = (_e: React.KeyboardEvent<HTMLDivElement>) => {
     // Ha válaszolunk (isReply), akkor az új szöveg kék legyen
     if (isReply && bodyEditorRef.current) {
       // Beállítjuk a szöveg színét kékre az új karakterekhez
@@ -238,7 +238,7 @@ export function EmailCompose() {
       const content = await fileToBase64(file);
 
       newAttachments.push({
-        id: `${Date.now()}-${Math.random().toString(36).substring(7)}`,
+        id: crypto.randomUUID(),
         filename: file.name,
         mimeType: file.type || 'application/octet-stream',
         size: file.size,

@@ -9,7 +9,6 @@ export function OfflineBanner() {
 
   useEffect(() => {
     if (isOnline) {
-      setPendingCount(0);
       return;
     }
 

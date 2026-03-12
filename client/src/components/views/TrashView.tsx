@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
 import { useTrash } from '../../hooks/useTrash';
@@ -20,7 +20,7 @@ export function TrashView() {
 
   const accountId = session?.activeAccountId || undefined;
   const { data, isLoading } = useTrash({ accountId, page: 1 });
-  const emails = data?.emails || [];
+  const emails = useMemo(() => data?.emails ?? [], [data?.emails]);
 
   const emailsRef = useRef(emails);
   useEffect(() => {
