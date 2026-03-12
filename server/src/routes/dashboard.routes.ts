@@ -82,6 +82,9 @@ router.get('/', async (req, res) => {
     );
     const unreadCount = Number(unreadResult?.count ?? 0);
 
+    const accountRow = await queryOne<{ email: string }>('SELECT email FROM accounts WHERE id = ?', [accountId]);
+    const accountEmail = accountRow?.email?.toLowerCase() ?? null;
+
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
     const tasksApi = google.tasks({ version: 'v1', auth: oauth2Client });
 
@@ -107,6 +110,7 @@ router.get('/', async (req, res) => {
       calendarResponse.status === 'fulfilled'
         ? (calendarResponse.value.data.items || []).map((event) => {
             const isAllDay = !event.start?.dateTime;
+            const organizerEmail = event.organizer?.email || event.creator?.email || null;
             return {
               id: event.id || '',
               summary: event.summary || '(Nincs cím)',
@@ -115,6 +119,8 @@ router.get('/', async (req, res) => {
               isAllDay,
               location: event.location || null,
               htmlLink: event.htmlLink || null,
+              organizerEmail,
+              isOrganizer: Boolean(accountEmail && organizerEmail && organizerEmail.toLowerCase() === accountEmail),
             };
           })
         : [];

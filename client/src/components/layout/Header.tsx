@@ -21,6 +21,17 @@ const API_BASE = import.meta.env.VITE_API_URL ?? '';
 function reportManualRefreshError(error: unknown): void {
   try {
     const err = error instanceof Error ? error : new Error(String(error));
+    const isProduction =
+      window.location.hostname === 'mindenes.org' || window.location.hostname === 'www.mindenes.org';
+    if (!isProduction) {
+      console.warn('Skipping error report in non-production environment', err);
+      return;
+    }
+
+    if (err.message?.includes('Not allowed by CORS')) {
+      return;
+    }
+
     const payload = {
       errorType: 'manual_email_refresh',
       message: err.message,

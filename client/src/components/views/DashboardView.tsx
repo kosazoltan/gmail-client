@@ -29,6 +29,7 @@ import { useUpdateDetectedTask } from '../../hooks/useDetectedTasks';
 import { useLatestBrief, useGenerateBrief } from '../../hooks/useDailyBrief';
 import { useMarketAnalysis } from '../../hooks/useMarketAnalysis';
 import { useBatchDeleteEmails, useBatchMarkRead, useDeleteEmail } from '../../hooks/useEmails';
+import { useDeleteCalendarEvent } from '../../hooks/useCalendar';
 import type { ActionCenterItem, DashboardData, MarketRateInfo } from '../../types';
 
 const DEFAULT_VISIBLE_ITEMS = 3;
@@ -79,7 +80,8 @@ function isOverdue(dateString: string): boolean {
 }
 
 function getSelectableEmailIds(item: Pick<ActionCenterItem, 'emailId' | 'emailIds'>): string[] {
-  if (item.emailIds?.length) return item.emailIds;
+  const ids = (item.emailIds ?? []).filter((id): id is string => Boolean(id));
+  if (ids.length > 0) return ids;
   return item.emailId ? [item.emailId] : [];
 }
 
@@ -98,6 +100,7 @@ export function DashboardView() {
   const batchDeleteEmails = useBatchDeleteEmails();
   const batchMarkRead = useBatchMarkRead();
   const deleteEmail = useDeleteEmail();
+  const deleteCalendarEvent = useDeleteCalendarEvent();
 
   const { data: briefData } = useLatestBrief();
   const generateBrief = useGenerateBrief();
@@ -107,10 +110,11 @@ export function DashboardView() {
   const [selectedEmailIds, setSelectedEmailIds] = useState<Set<string>>(new Set());
   const [hiddenActionItemIds, setHiddenActionItemIds] = useState<Set<string>>(new Set());
   const [hiddenTaskIds, setHiddenTaskIds] = useState<Set<string>>(new Set());
+  const [hiddenEventIds, setHiddenEventIds] = useState<Set<string>>(new Set());
 
   const actionCenter = data?.actionCenter?.blocks;
   const openTasks = data?.openTasks || [];
-  const upcomingEvents = data?.todayEvents?.slice(0, DEFAULT_VISIBLE_ITEMS) || [];
+  const upcomingEvents = data?.todayEvents?.filter((event) => !hiddenEventIds.has(event.id)).slice(0, DEFAULT_VISIBLE_ITEMS) || [];
   const topMarketRates = marketData?.rates.slice(0, 3) || [];
   const selectedCount = selectedEmailIds.size;
 
@@ -153,6 +157,28 @@ export function DashboardView() {
       const next = new Set(prev);
       next.delete(id);
       return next;
+    });
+  };
+
+  const hideEvent = (id: string) => {
+    setHiddenEventIds((prev) => new Set(prev).add(id));
+  };
+
+  const restoreEvent = (id: string) => {
+    setHiddenEventIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  };
+
+  const handleDeleteCalendarEvent = (eventId: string) => {
+    hideEvent(eventId);
+    deleteCalendarEvent.mutate(eventId, {
+      onError: () => {
+        restoreEvent(eventId);
+        toast.error('Hiba a naptári esemény törlésekor');
+      },
     });
   };
 
@@ -397,6 +423,7 @@ export function DashboardView() {
             title="Mai naptári események"
             events={upcomingEvents}
             onOpenCalendar={handleOpenCalendar}
+            onDeleteEvent={handleDeleteCalendarEvent}
           />
           <ActionCenterCard
             title="Figyelendő ügyek"
@@ -786,10 +813,12 @@ function CalendarCard({
   title,
   events,
   onOpenCalendar,
+  onDeleteEvent,
 }: {
   title: string;
   events: DashboardData['todayEvents'];
   onOpenCalendar: (eventId: string, start: string) => void;
+  onDeleteEvent?: (eventId: string) => void;
 }) {
   return (
     <div className="dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -805,28 +834,45 @@ function CalendarCard({
       ) : (
         <div className="space-y-2">
           {events.map((event) => (
-            <button
+            <div
               key={event.id}
-              onClick={() => onOpenCalendar(event.id, event.start)}
               className={cn(
-                'dark:border-dark-border dark:hover:bg-dark-bg-tertiary w-full rounded-lg border p-3 text-left transition-colors hover:bg-gray-50',
+                'dark:border-dark-border group relative w-full rounded-lg border p-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary',
                 event.isAllDay
                   ? 'border-gray-200 bg-gray-50/50 dark:bg-dark-bg-tertiary/50'
                   : 'border-purple-200 bg-purple-50/30 dark:border-purple-500/20 dark:bg-purple-500/5',
               )}
             >
-              <p className="dark:text-dark-text truncate text-sm font-medium text-gray-900">{event.summary}</p>
-              <div className="dark:text-dark-text-muted mt-1 flex items-center gap-2 text-xs text-gray-500">
-                <Clock className="h-3 w-3" />
-                {event.isAllDay ? 'Egész napos' : `${formatTime(event.start)} – ${formatTime(event.end)}`}
-              </div>
-              {event.location && (
-                <div className="dark:text-dark-text-muted mt-0.5 flex items-center gap-2 text-xs text-gray-500">
-                  <MapPin className="h-3 w-3" />
-                  <span className="truncate">{event.location}</span>
+              <button
+                onClick={() => onOpenCalendar(event.id, event.start)}
+                className="block w-full text-left"
+              >
+                <p className="dark:text-dark-text truncate text-sm font-medium text-gray-900">{event.summary}</p>
+                <div className="dark:text-dark-text-muted mt-1 flex items-center gap-2 text-xs text-gray-500">
+                  <Clock className="h-3 w-3" />
+                  {event.isAllDay ? 'Egész napos' : `${formatTime(event.start)} – ${formatTime(event.end)}`}
                 </div>
+                {event.location && (
+                  <div className="dark:text-dark-text-muted mt-0.5 flex items-center gap-2 text-xs text-gray-500">
+                    <MapPin className="h-3 w-3" />
+                    <span className="truncate">{event.location}</span>
+                  </div>
+                )}
+              </button>
+
+              {onDeleteEvent && event.isOrganizer && (
+                <button
+                  onClick={(eventClick) => {
+                    eventClick.stopPropagation();
+                    onDeleteEvent(event.id);
+                  }}
+                  className="absolute right-2 top-2 rounded-lg p-1.5 text-red-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-500/10"
+                  title="Törlés"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               )}
-            </button>
+            </div>
           ))}
         </div>
       )}

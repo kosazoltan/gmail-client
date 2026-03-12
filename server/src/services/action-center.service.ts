@@ -170,9 +170,11 @@ function summarizeOperationalGroup(items: ActionCenterItem[]): ActionCenterItem 
     priority: highestPriority(sorted),
     suggestedAction: 'Nyisd meg a legfrissebb levelet, a hasonló rendszerjelzések összevonva jelennek meg.',
     emailId: newest.emailId,
-    emailIds: sorted.flatMap((item) =>
-      item.emailIds?.length ? item.emailIds : item.emailId ? [item.emailId] : [],
-    ),
+    emailIds: sorted.flatMap((item) => {
+      const ids = (item.emailIds ?? []).filter((id): id is string => Boolean(id));
+      if (ids.length > 0) return ids;
+      return item.emailId ? [item.emailId] : [];
+    }),
     groupSize: count,
   };
 }

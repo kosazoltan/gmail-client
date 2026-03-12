@@ -13,6 +13,17 @@ const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
 function reportError(payload: Record<string, unknown>): void {
   try {
+    const isProduction =
+      window.location.hostname === 'mindenes.org' || window.location.hostname === 'www.mindenes.org';
+    if (!isProduction) {
+      return;
+    }
+
+    const message = typeof payload.message === 'string' ? payload.message : '';
+    if (message.includes('Not allowed by CORS')) {
+      return;
+    }
+
     if (navigator.sendBeacon) {
       navigator.sendBeacon(
         `${API_BASE}/api/error-report`,

@@ -304,6 +304,8 @@ export interface CalendarEvent {
   colorId: string | null;
   status: string | null;
   hangoutLink: string | null;
+  organizerEmail?: string | null;
+  isOrganizer?: boolean;
 }
 
 // Google Task
@@ -337,6 +339,8 @@ export interface DashboardData {
     isAllDay: boolean;
     location: string | null;
     htmlLink?: string | null;
+    organizerEmail?: string | null;
+    isOrganizer?: boolean;
   }>;
   todayEventsCount: number;
   openTasks: Array<{
