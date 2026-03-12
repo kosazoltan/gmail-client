@@ -34,9 +34,5 @@ export function isOriginAllowed(origin: string | undefined, allowedOrigins: stri
   if (!origin || origin === 'null') return true;
   const normalized = origin.trim();
   if (allowedOrigins.includes(normalized)) return true;
-
-  // Allow Vercel preview deployments for kosa-zoltans-projects
-  if (/^https:\/\/.*-kosa-zoltans-projects\.vercel\.app$/.test(normalized)) return true;
-
   return false;
 }
