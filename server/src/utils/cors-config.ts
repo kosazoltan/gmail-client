@@ -33,15 +33,12 @@ export function buildAllowedOrigins(): string[] {
  * - string "null" origin (PWA, Capacitor, some Electron builds) → allow
  * - exact match against allowed list
  */
+const vercelPreviewOriginPattern = /^https:\/\/gmail-client-[a-z0-9-]+-kosa-zoltans-projects\.vercel\.app$/i;
+
 export function isOriginAllowed(origin: string | undefined, allowedOrigins: string[]): boolean {
   if (!origin || origin === 'null') return true;
   const normalized = origin.trim();
   if (allowedOrigins.includes(normalized)) return true;
-  if (
-    normalized.startsWith('https://gmail-client-') &&
-    normalized.endsWith('-kosa-zoltans-projects.vercel.app')
-  ) {
-    return true;
-  }
+  if (vercelPreviewOriginPattern.test(normalized)) return true;
   return false;
 }
