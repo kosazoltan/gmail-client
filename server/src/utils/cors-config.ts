@@ -17,6 +17,7 @@ export function buildAllowedOrigins(): string[] {
     'https://mindenes.org',
     'https://www.mindenes.org',
     'https://mail.mindenes.org',
+    'https://gmail-client-7gc9rv71u-kosa-zoltans-projects.vercel.app',
     'http://localhost:5173',
     'http://localhost:5000',
     ...additionalOrigins,
