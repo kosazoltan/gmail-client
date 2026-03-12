@@ -418,7 +418,7 @@ async function createMarketAnalysisMessage(
   structured: boolean,
 ): Promise<Anthropic.Messages.Message> {
   const baseRequest: Anthropic.Messages.MessageCreateParams = {
-    model: 'claude-haiku-4-5-20251015',
+    model: 'claude-sonnet-4-20250514',
     stream: false,
     max_tokens: 3500,
     messages: [{ role: 'user', content: prompt }],
@@ -432,7 +432,7 @@ async function createDeepAnalysisMessage(
   structured: boolean,
 ): Promise<Anthropic.Messages.Message> {
   const baseRequest: Anthropic.Messages.MessageCreateParams = {
-    model: 'claude-haiku-4-5-20251015',
+    model: 'claude-sonnet-4-20250514',
     stream: false,
     max_tokens: 3000,
     messages: [{ role: 'user', content: prompt }],
