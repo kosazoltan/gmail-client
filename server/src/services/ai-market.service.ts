@@ -421,6 +421,7 @@ async function createMarketAnalysisMessage(
     model: 'claude-sonnet-4-20250514',
     stream: false,
     max_tokens: 3500,
+    system: 'You are a professional forex analyst. You MUST respond with ONLY a valid JSON object. No explanations, no markdown code blocks, no text before or after. Start your response with { and end with }.',
     messages: [{ role: 'user', content: prompt }],
   };
   return anthropic.messages.create(baseRequest, { timeout: BRIEFING_ANALYSIS_REQUEST_TIMEOUT_MS });
@@ -435,6 +436,7 @@ async function createDeepAnalysisMessage(
     model: 'claude-sonnet-4-20250514',
     stream: false,
     max_tokens: 3000,
+    system: 'You are a professional forex analyst. You MUST respond with ONLY a valid JSON object. No explanations, no markdown code blocks, no text before or after. Start your response with { and end with }.',
     messages: [{ role: 'user', content: prompt }],
   };
   return anthropic.messages.create(baseRequest, { timeout: DEEP_ANALYSIS_REQUEST_TIMEOUT_MS });
