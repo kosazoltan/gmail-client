@@ -418,7 +418,7 @@ async function createMarketAnalysisMessage(
   structured: boolean,
 ): Promise<Anthropic.Messages.Message> {
   const baseRequest: Anthropic.Messages.MessageCreateParams = {
-    model: 'claude-sonnet-4-5-20250929',
+    model: 'claude-3-5-sonnet-20241022',
     stream: false,
     max_tokens: 3500,
     messages: [{ role: 'user', content: prompt }],
@@ -435,7 +435,7 @@ async function createDeepAnalysisMessage(
   structured: boolean,
 ): Promise<Anthropic.Messages.Message> {
   const baseRequest: Anthropic.Messages.MessageCreateParams = {
-    model: 'claude-sonnet-4-5-20250929',
+    model: 'claude-3-5-sonnet-20241022',
     stream: false,
     max_tokens: 3000,
     messages: [{ role: 'user', content: prompt }],
@@ -621,7 +621,12 @@ ${lastResponseText.slice(0, 1400)}`;
         return null;
       }
     }
-    logger.error('AI elemzés hiba:', err instanceof Error ? err.message : err);
+    logger.error('AI elemzés hiba:', {
+      name: (err as Error)?.name,
+      message: (err as Error)?.message,
+      status: (err as { status?: number })?.status,
+      error: String(err),
+    });
     return null;
   }
 }
@@ -810,7 +815,12 @@ ${lastResponseText.slice(0, 1600)}`;
         return null;
       }
     }
-    logger.error('AI elemzés hiba:', err instanceof Error ? err.message : err);
+    logger.error('AI elemzés hiba:', {
+      name: (err as Error)?.name,
+      message: (err as Error)?.message,
+      status: (err as { status?: number })?.status,
+      error: String(err),
+    });
     return null;
   }
 }
