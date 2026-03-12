@@ -48,7 +48,7 @@ import detectedTasksRoutes from './routes/detected-tasks.routes.js';
 import sseRoutes from './routes/sse.routes.js';
 import briefRoutes, { generateAISummary } from './routes/brief.routes.js';
 import { detectUnansweredEmails, processExpiredSnoozedTasks } from './services/task-detection.service.js';
-import { buildAllowedOrigins } from './utils/cors-config.js';
+import { buildAllowedOrigins, isOriginAllowed } from './utils/cors-config.js';
 import { requestIdMiddleware } from './middleware/request-id.js';
 import { ensureErrorLogTable } from './db/error-log.js';
 import errorReportRoutes from './routes/error-report.routes.js';
@@ -130,16 +130,11 @@ async function start() {
   app.use(
     cors({
       origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps, Postman)
-        if (!origin) return callback(null, true);
-
-        // Normalize origin for comparison (trim whitespace)
-        const normalizedOrigin = origin.trim();
-
-        if (allowedOrigins.includes(normalizedOrigin)) {
+        // isOriginAllowed handles: no origin, "null" string (PWA/Electron), exact list match
+        if (isOriginAllowed(origin, allowedOrigins)) {
           callback(null, true);
         } else {
-          logger.warn(`CORS blocked origin: "${origin}" (normalized: "${normalizedOrigin}"). Allowed: ${allowedOrigins.join(', ')}`);
+          logger.warn(`CORS blocked origin: "${origin}". Allowed: ${allowedOrigins.join(', ')}`);
           callback(new Error('Not allowed by CORS'));
         }
       },

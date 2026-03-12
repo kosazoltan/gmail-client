@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash, createHmac } from 'crypto';
 import nodemailer from 'nodemailer';
 import { execute, queryOne } from '../db/index.js';
 import logger from '../utils/logger.js';
@@ -56,6 +56,12 @@ function createTransport() {
 // ─── Email body ──────────────────────────────────────────────────────────────
 function buildEmailHtml(payload: ErrorReportPayload, occurrenceCount: number): string {
   const ts = payload.timestamp ?? new Date().toISOString();
+
+  // HMAC signing
+  const fpRaw = `${APP_NAME}|${payload.errorType}|${payload.message.slice(0, 200)}`;
+  const fpHash = createHash('md5').update(fpRaw).digest('hex');
+  const sig = createHmac('sha256', HMAC_SECRET).update(`${fpHash}:${ts}`).digest('hex');
+
   return `
 <h2 style="color:#c0392b">[${payload.severity ?? 'ERROR'}] ${APP_NAME} — ${payload.errorType}</h2>
 <table style="border-collapse:collapse;font-family:monospace;font-size:13px">
@@ -76,6 +82,10 @@ function buildEmailHtml(payload: ErrorReportPayload, occurrenceCount: number): s
 <pre style="background:#f4f4f4;padding:12px;border-radius:4px">${payload.message}</pre>
 ${payload.stack ? `<h3>Stack Trace</h3><pre style="background:#f4f4f4;padding:12px;border-radius:4px;font-size:11px">${payload.stack}</pre>` : ''}
 ${payload.breadcrumbs?.length ? `<h3>Breadcrumbs</h3><pre style="background:#f4f4f4;padding:12px;border-radius:4px;font-size:11px">${JSON.stringify(payload.breadcrumbs, null, 2)}</pre>` : ''}
+<!-- ERRORLOG_SIGNATURE:${sig}:${ts} -->
+<!-- ERRORLOG_FINGERPRINT:${fpHash} -->
+<!-- ERRORLOG_APP:${APP_NAME} -->
+<!-- ERRORLOG_REPO:${REPO_PATH} -->
 `.trim();
 }
 
