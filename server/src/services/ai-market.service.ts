@@ -417,46 +417,16 @@ async function createMarketAnalysisMessage(
   prompt: string,
   structured: boolean,
 ): Promise<Anthropic.Messages.Message> {
-  try {
-    const baseRequest: Anthropic.Messages.MessageCreateParams = {
-      model: 'claude-sonnet-4-20250514',
-      stream: false,
-      max_tokens: 4500,
-      messages: [{ role: 'user', content: prompt }],
-    };
-    const requestWithFormat = structured
-      ? {
-        ...baseRequest,
-        output_config: {
-          format: {
-            type: 'json_schema' as const,
-            schema: MARKET_ANALYSIS_OUTPUT_SCHEMA,
-          },
-        },
-      }
-      : baseRequest;
-    return await anthropic.messages.create(
-      requestWithFormat,
-      { timeout: BRIEFING_ANALYSIS_REQUEST_TIMEOUT_MS },
-    );
-  } catch (error) {
-    if (structured) {
-      logger.warn(
-        'Structured output unavailable for market analysis, falling back to plain JSON prompt:',
-        error instanceof Error ? error.message : error,
-      );
-      return anthropic.messages.create(
-        {
-          model: 'claude-sonnet-4-20250514',
-          stream: false,
-          max_tokens: 4500,
-          messages: [{ role: 'user', content: prompt }],
-        },
-        { timeout: BRIEFING_ANALYSIS_REQUEST_TIMEOUT_MS },
-      );
-    }
-    throw error;
-  }
+  const baseRequest: Anthropic.Messages.MessageCreateParams = {
+    model: 'claude-sonnet-4-5-20250929',
+    stream: false,
+    max_tokens: 3500,
+    messages: [{ role: 'user', content: prompt }],
+  };
+  const request = structured
+    ? { ...baseRequest, output_config: { format: { type: 'json_schema' as const, schema: MARKET_ANALYSIS_OUTPUT_SCHEMA } } }
+    : baseRequest;
+  return anthropic.messages.create(request, { timeout: BRIEFING_ANALYSIS_REQUEST_TIMEOUT_MS });
 }
 
 async function createDeepAnalysisMessage(
@@ -464,46 +434,16 @@ async function createDeepAnalysisMessage(
   prompt: string,
   structured: boolean,
 ): Promise<Anthropic.Messages.Message> {
-  try {
-    const baseRequest: Anthropic.Messages.MessageCreateParams = {
-      model: 'claude-sonnet-4-20250514',
-      stream: false,
-      max_tokens: 4000,
-      messages: [{ role: 'user', content: prompt }],
-    };
-    const requestWithFormat = structured
-      ? {
-        ...baseRequest,
-        output_config: {
-          format: {
-            type: 'json_schema' as const,
-            schema: DEEP_ANALYSIS_OUTPUT_SCHEMA,
-          },
-        },
-      }
-      : baseRequest;
-    return await anthropic.messages.create(
-      requestWithFormat,
-      { timeout: DEEP_ANALYSIS_REQUEST_TIMEOUT_MS },
-    );
-  } catch (error) {
-    if (structured) {
-      logger.warn(
-        'Structured output unavailable for deep analysis, falling back to plain JSON prompt:',
-        error instanceof Error ? error.message : error,
-      );
-      return anthropic.messages.create(
-        {
-          model: 'claude-sonnet-4-20250514',
-          stream: false,
-          max_tokens: 4000,
-          messages: [{ role: 'user', content: prompt }],
-        },
-        { timeout: DEEP_ANALYSIS_REQUEST_TIMEOUT_MS },
-      );
-    }
-    throw error;
-  }
+  const baseRequest: Anthropic.Messages.MessageCreateParams = {
+    model: 'claude-sonnet-4-5-20250929',
+    stream: false,
+    max_tokens: 3000,
+    messages: [{ role: 'user', content: prompt }],
+  };
+  const request = structured
+    ? { ...baseRequest, output_config: { format: { type: 'json_schema' as const, schema: DEEP_ANALYSIS_OUTPUT_SCHEMA } } }
+    : baseRequest;
+  return anthropic.messages.create(request, { timeout: DEEP_ANALYSIS_REQUEST_TIMEOUT_MS });
 }
 
 // RSS fetching REMOVED — news now comes from market-data.service.ts
@@ -672,7 +612,16 @@ ${lastResponseText.slice(0, 1400)}`;
     logger.error('Deep analysis invalid after retries:', lastValidationReason);
     return null;
   } catch (err) {
-    logger.error('Deep analysis hiba:', err instanceof Error ? err.message : err);
+    // Timeout vagy rate limit esetén NE retry-olj — úgysem segít
+    if (err instanceof Error) {
+      const isTimeout = err.message.includes('timeout') || err.message.includes('timed out') || ('status' in err && (err as { status?: number }).status === 408);
+      const isRateLimit = 'status' in err && (err as { status?: number }).status === 429;
+      if (isTimeout || isRateLimit) {
+        logger.warn(`AI elemzés megszakítva (${isTimeout ? 'timeout' : 'rate limit'}), nem retry-olunk`);
+        return null;
+      }
+    }
+    logger.error('AI elemzés hiba:', err instanceof Error ? err.message : err);
     return null;
   }
 }
@@ -794,7 +743,7 @@ KOVETELMENYEK:
     const allowedNewsUrls = new Set(newsItems.map((item) => item.url).filter(Boolean));
 
     for (let attempt = 1; attempt <= MAX_GENERATION_ATTEMPTS; attempt++) {
-      const response = await createMarketAnalysisMessage(anthropic, attemptPrompt, attempt === 1);
+      const response = await createMarketAnalysisMessage(anthropic, attemptPrompt, attempt === 1 /* structured only on first attempt */);
       const elapsed = Date.now() - startTime;
       logger.info(`AI piaci elemzes attempt ${attempt}/${MAX_GENERATION_ATTEMPTS} (${elapsed}ms, ${response.usage?.input_tokens ?? '?'} input / ${response.usage?.output_tokens ?? '?'} output token)`);
 
@@ -852,7 +801,16 @@ ${lastResponseText.slice(0, 1600)}`;
     logger.error('AI piaci elemzes invalid after retries:', lastValidationReason);
     return null;
   } catch (err) {
-    logger.error('AI piaci elemzes hiba:', err instanceof Error ? err.message : err);
+    // Timeout vagy rate limit esetén NE retry-olj — úgysem segít
+    if (err instanceof Error) {
+      const isTimeout = err.message.includes('timeout') || err.message.includes('timed out') || ('status' in err && (err as { status?: number }).status === 408);
+      const isRateLimit = 'status' in err && (err as { status?: number }).status === 429;
+      if (isTimeout || isRateLimit) {
+        logger.warn(`AI elemzés megszakítva (${isTimeout ? 'timeout' : 'rate limit'}), nem retry-olunk`);
+        return null;
+      }
+    }
+    logger.error('AI elemzés hiba:', err instanceof Error ? err.message : err);
     return null;
   }
 }
