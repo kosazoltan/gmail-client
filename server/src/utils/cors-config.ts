@@ -20,6 +20,8 @@ export function buildAllowedOrigins(): string[] {
     'https://gmail-client-7gc9rv71u-kosa-zoltans-projects.vercel.app',
     'https://gmail-client-m9scbaznv-kosa-zoltans-projects.vercel.app',
     'https://gmail-client-ly41jy423-kosa-zoltans-projects.vercel.app',
+    'https://gmail-client-62dqbihas-kosa-zoltans-projects.vercel.app',
+    'https://gmail-client-b9du39b54-kosa-zoltans-projects.vercel.app',
     'http://localhost:5173',
     'http://localhost:5000',
     ...additionalOrigins,
@@ -37,11 +39,5 @@ export function isOriginAllowed(origin: string | undefined, allowedOrigins: stri
   if (!origin || origin === 'null') return true;
   const normalized = origin.trim();
   if (allowedOrigins.includes(normalized)) return true;
-  if (
-    normalized.startsWith('https://gmail-client-') &&
-    normalized.endsWith('-kosa-zoltans-projects.vercel.app')
-  ) {
-    return true;
-  }
   return false;
 }
