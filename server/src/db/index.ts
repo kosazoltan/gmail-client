@@ -599,6 +599,7 @@ export async function initializeDatabase(): Promise<void> {
       'ALTER TABLE accounts ALTER COLUMN created_at TYPE BIGINT',
       'ALTER TABLE emails ALTER COLUMN date TYPE BIGINT',
       'ALTER TABLE topics ALTER COLUMN last_message_at TYPE BIGINT',
+      'ALTER TABLE sender_groups ALTER COLUMN last_message_at TYPE BIGINT',
       'ALTER TABLE sync_log ALTER COLUMN started_at TYPE BIGINT',
       'ALTER TABLE sync_log ALTER COLUMN completed_at TYPE BIGINT',
       'ALTER TABLE contacts ALTER COLUMN last_used_at TYPE BIGINT',
