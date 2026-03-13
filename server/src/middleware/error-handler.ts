@@ -1,6 +1,6 @@
 import logger from '../utils/logger.js';
 import type { Request, Response, NextFunction } from 'express';
-import { buildAllowedOrigins } from '../utils/cors-config.js';
+import { buildAllowedOrigins, isOriginAllowed } from '../utils/cors-config.js';
 import { sendErrorReport } from '../lib/error-mailer.js';
 
 export class AppError extends Error {
@@ -29,7 +29,7 @@ function setCorsHeadersOnError(req: Request, res: Response): void {
   const allowedOrigins = buildAllowedOrigins();
 
   const normalizedOrigin = origin.trim();
-  if (allowedOrigins.includes(normalizedOrigin)) {
+  if (isOriginAllowed(normalizedOrigin, allowedOrigins)) {
     res.setHeader('Access-Control-Allow-Origin', normalizedOrigin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
   }

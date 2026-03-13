@@ -34,16 +34,19 @@ export function buildAllowedOrigins(): string[] {
  * - undefined/empty origin (mobile apps, Postman, server-to-server) → allow
  * - string "null" origin (PWA, Capacitor, some Electron builds) → allow
  * - exact match against allowed list
+ * - Vercel preview URLs for this project
  */
 export function isOriginAllowed(origin: string | undefined, allowedOrigins: string[]): boolean {
   if (!origin || origin === 'null') return true;
   const normalized = origin.trim();
   if (allowedOrigins.includes(normalized)) return true;
-  if (
-    normalized.startsWith('https://gmail-client-') &&
-    normalized.endsWith('-kosa-zoltans-projects.vercel.app')
-  ) {
-    return true;
-  }
+  if (isVercelPreviewOrigin(normalized)) return true;
   return false;
+}
+
+function isVercelPreviewOrigin(origin: string): boolean {
+  // Allow Vercel preview deployments for this project only
+  const vercelPreviewRegex =
+    /^https:\/\/gmail-client-[a-z0-9-]+-kosa-zoltans-projects\.vercel\.app\/?$/i;
+  return vercelPreviewRegex.test(origin);
 }
