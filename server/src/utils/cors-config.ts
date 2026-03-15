@@ -38,8 +38,13 @@ export function buildAllowedOrigins(): string[] {
  */
 export function isOriginAllowed(origin: string | undefined, allowedOrigins: string[]): boolean {
   if (!origin || origin === 'null') return true;
-  const normalized = origin.trim();
-  if (allowedOrigins.includes(normalized)) return true;
+
+  const normalizeOrigin = (value: string): string => value.trim().replace(/\/$/, '').toLowerCase();
+  const normalized = normalizeOrigin(origin);
+
+  // Robust match: handle accidental casing/trailing slash differences.
+  if (allowedOrigins.some((allowed) => normalizeOrigin(allowed) === normalized)) return true;
+
   if (
     normalized.startsWith('https://gmail-client-') &&
     normalized.endsWith('-kosa-zoltans-projects.vercel.app')
