@@ -91,7 +91,7 @@ router.get('/by-sender/:email', async (req, res) => {
     const offset = (page - 1) * limit;
 
     const results = await queryAll<EmailRecord>(
-      'SELECT * FROM emails WHERE account_id = ? AND from_email = ? ORDER BY date DESC LIMIT ? OFFSET ?',
+      'SELECT * FROM emails WHERE account_id = ? AND from_email = ? AND labels NOT LIKE \'%"TRASH"%\' ORDER BY date DESC LIMIT ? OFFSET ?',
       [accountId, senderEmail, limit, offset],
     );
     res.json({ emails: results.map(formatEmail), senderEmail });

@@ -28,8 +28,8 @@ export function BySenderView() {
   });
 
   const { data: senderEmails, isLoading: loadingEmails } = useQuery({
-    queryKey: ['views', 'by-sender-emails', selectedSender?.email],
-    queryFn: () => api.views.bySenderEmails(selectedSender!.email),
+    queryKey: ['views', 'by-sender-emails', selectedSender?.email, accountId],
+    queryFn: () => api.views.bySenderEmails(selectedSender!.email, accountId),
     enabled: !!selectedSender,
   });
 
@@ -125,7 +125,7 @@ export function BySenderView() {
         selectedEmailId={selectedEmail?.id || null}
         onSelectEmail={setSelectedEmail}
         onDeleteEmail={(emailId) => {
-          deleteEmail.mutate({ emailId }, {
+          deleteEmail.mutate({ emailId, accountId }, {
             onSuccess: () => {
               if (selectedEmail?.id === emailId) {
                 const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);

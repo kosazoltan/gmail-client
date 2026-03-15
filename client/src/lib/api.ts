@@ -240,10 +240,12 @@ export const api = {
       if (params?.accountId) query.set('accountId', params.accountId);
       return request<{ senders: import('../types').SenderGroup[] }>(`/views/by-sender?${query}`);
     },
-    bySenderEmails: (email: string) =>
-      request<{ emails: import('../types').Email[]; senderEmail: string }>(
-        `/views/by-sender/${encodeURIComponent(email)}`,
-      ),
+    bySenderEmails: (email: string, accountId?: string) => {
+      const query = accountId ? `?accountId=${encodeURIComponent(accountId)}` : '';
+      return request<{ emails: import('../types').Email[]; senderEmail: string }>(
+        `/views/by-sender/${encodeURIComponent(email)}${query}`,
+      );
+    },
     byTopic: (params?: { page?: number }) => {
       const query = params?.page ? `?page=${params.page}` : '';
       return request<{ topics: import('../types').Topic[] }>(`/views/by-topic${query}`);
