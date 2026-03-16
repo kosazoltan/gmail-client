@@ -711,6 +711,9 @@ export function EmailDetail({
                 <ConversationView
                   emails={threadEmails}
                   accountEmail={threadAccountEmail}
+                  onDelete={(threadEmailId: string) => {
+                    deleteEmail.mutate({ emailId: threadEmailId, accountId });
+                  }}
                   onReply={(threadEmail: ThreadEmail) => {
                     onReply({
                       to: threadEmail.from || '',

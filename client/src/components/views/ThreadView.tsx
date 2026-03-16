@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useThreadConversation } from '../../hooks/useEmails';
+import { useThreadConversation, useDeleteEmail } from '../../hooks/useEmails';
 import { useSession } from '../../hooks/useAccounts';
 import { useReplyEmail } from '../../hooks/useEmails';
 import {
@@ -12,6 +12,7 @@ import {
   ChevronUp,
   Paperclip,
   Mail,
+  Trash2,
 } from 'lucide-react';
 import { cn, formatFileSize } from '../../lib/utils';
 import { toast } from '../../lib/toast';
@@ -48,11 +49,13 @@ function EmailMessage({
   accountEmail,
   isLast,
   defaultExpanded,
+  onDelete,
 }: {
   email: ThreadEmail;
   accountEmail: string | null;
   isLast: boolean;
   defaultExpanded: boolean;
+  onDelete?: () => void;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const isSent = email.isSent || (accountEmail && email.from === accountEmail);
@@ -104,6 +107,19 @@ function EmailMessage({
         <span className="dark:text-dark-text-muted shrink-0 text-xs text-gray-400">
           {formatDate(email.date)}
         </span>
+        {onDelete && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="shrink-0 rounded-lg p-1 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+            aria-label="Törlés"
+            title="Üzenet törlése"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )}
         {expanded ? (
           <ChevronUp className="h-4 w-4 shrink-0 text-gray-400" />
         ) : (
@@ -185,6 +201,7 @@ export function ThreadView() {
   // threadId is actually the emailId — we pass it to getThread which finds the thread
   const { data, isLoading, error } = useThreadConversation(threadId || null, accountId);
   const replyEmail = useReplyEmail();
+  const deleteEmail = useDeleteEmail();
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const [showReply, setShowReply] = useState(false);
@@ -274,6 +291,7 @@ export function ThreadView() {
             accountEmail={data.accountEmail}
             isLast={idx === emails.length - 1}
             defaultExpanded={idx === emails.length - 1 || emails.length <= 3}
+            onDelete={emails.length > 1 ? () => deleteEmail.mutate({ emailId: email.id, accountId }) : undefined}
           />
         ))}
       </div>

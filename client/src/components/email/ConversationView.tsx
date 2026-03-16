@@ -12,6 +12,7 @@ import {
   Paperclip,
   Send,
   Download,
+  Trash2,
 } from 'lucide-react';
 import { displaySender, getInitials, emailToColor, cn } from '../../lib/utils';
 import { AttachmentView } from './AttachmentView';
@@ -24,6 +25,7 @@ interface ConversationViewProps {
   onReply: (email: ThreadEmail) => void;
   onReplyAll?: (email: ThreadEmail) => void;
   onForward?: (email: ThreadEmail) => void;
+  onDelete?: (emailId: string) => void;
 }
 
 // Egyetlen üzenet buborék a beszélgetésben
@@ -36,6 +38,7 @@ function MessageBubble({
   onReply,
   onReplyAll,
   onForward,
+  onDelete,
 }: {
   email: ThreadEmail;
   isSent: boolean;
@@ -45,6 +48,7 @@ function MessageBubble({
   onReply: () => void;
   onReplyAll?: () => void;
   onForward?: () => void;
+  onDelete?: () => void;
 }) {
   const downloadTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const sender = displaySender(email.fromName, email.from);
@@ -371,6 +375,18 @@ function MessageBubble({
                   <span className="hidden sm:inline">Továbbítás</span>
                 </button>
               )}
+              {onDelete && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete();
+                  }}
+                  className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-medium text-red-500 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10 sm:px-3 sm:py-1.5 sm:text-xs"
+                >
+                  <Trash2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                  <span className="hidden sm:inline">Törlés</span>
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -385,6 +401,7 @@ export function ConversationView({
   onReply,
   onReplyAll,
   onForward,
+  onDelete,
 }: ConversationViewProps) {
   const memoEmails = useMemo(() => emails ?? [], [emails]);
 
@@ -509,6 +526,7 @@ export function ConversationView({
           onReply={() => onReply(email)}
           onReplyAll={onReplyAll ? () => onReplyAll(email) : undefined}
           onForward={onForward ? () => onForward(email) : undefined}
+          onDelete={onDelete ? () => onDelete(email.id) : undefined}
         />
       ))}
 
