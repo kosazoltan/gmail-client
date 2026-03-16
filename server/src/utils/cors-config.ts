@@ -5,14 +5,15 @@
 export function buildAllowedOrigins(): string[] {
   const frontendUrl = process.env.FRONTEND_URL?.trim();
 
-  // ADDITIONAL_ORIGINS: comma-separated extra origins (e.g. Render preview URLs)
-  // Example: ADDITIONAL_ORIGINS=https://gmail-client-pr123.onrender.com,https://staging.mindenes.org
-  const additionalOrigins = (process.env.ADDITIONAL_ORIGINS ?? '')
-    .split(',')
+  // ALLOWED_ORIGINS / ADDITIONAL_ORIGINS: comma-separated extra origins
+  // (e.g. Render preview URLs)
+  // Example: ALLOWED_ORIGINS=https://api.mindenes.org,https://staging.mindenes.org
+  const envOrigins = [process.env.ALLOWED_ORIGINS ?? '', process.env.ADDITIONAL_ORIGINS ?? '']
+    .flatMap((value) => value.split(','))
     .map((o) => o.trim())
     .filter(Boolean);
 
-  return [
+  return Array.from(new Set([
     frontendUrl,
     'https://mindenes.org',
     'https://www.mindenes.org',
@@ -25,8 +26,8 @@ export function buildAllowedOrigins(): string[] {
     'https://gmail-client-b9du39b54-kosa-zoltans-projects.vercel.app',
     'http://localhost:5173',
     'http://localhost:5000',
-    ...additionalOrigins,
-  ].filter((x): x is string => Boolean(x));
+    ...envOrigins,
+  ].filter((x): x is string => Boolean(x))));
 }
 
 /**
