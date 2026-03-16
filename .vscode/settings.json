@@ -1,16 +1,18 @@
 {
-  "simpleBrowser.focusLockIndicator.enabled": false,
-  "livePreview.portNumber": 5173,
-  "livePreview.autoRefreshPreview": "On All Changes In Editor",
-
-  "typescript.preferences.importModuleSpecifier": "relative",
   "editor.formatOnSave": true,
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit"
+  },
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   }
 }
