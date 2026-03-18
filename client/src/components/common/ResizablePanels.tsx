@@ -39,12 +39,24 @@ export function ResizablePanels({
   });
 
   const [isDragging, setIsDragging] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < 768;
+  });
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Szélesség mentése localStorage-be
   useEffect(() => {
     localStorage.setItem(storageKey, leftWidth.toString());
   }, [leftWidth, storageKey]);
+
+  // Mobil nézet detektálás (lista legyen teljes szélességben)
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   // Drag kezelés
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -106,7 +118,7 @@ export function ResizablePanels({
       <div
         className={`dark:border-dark-border h-full overflow-auto border-r border-gray-200 ${rightPanelActive ? 'hidden md:block' : 'block'} `}
         style={{
-          flex: `0 0 ${leftWidth}%`,
+          flex: `0 0 ${isMobile ? 100 : leftWidth}%`,
           maxWidth: rightPanelActive ? undefined : '100%',
         }}
       >
