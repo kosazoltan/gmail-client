@@ -168,20 +168,22 @@ export function EmailCompose() {
     };
   }, []);
 
-  // Inicializálás: contenteditable div feltöltése formázott szöveggel
+  // Inicializálás: a contenteditable mezőt egyszer töltjük fel,
+  // különben minden billentyűleütésnél újrarender és szétesik a kurzor/karakter sorrend.
   useEffect(() => {
-    if (bodyEditorRef.current && body) {
-      bodyEditorRef.current.innerHTML = formatEmailBody(body);
-      // Kurzor a szöveg elejére helyezése (íráshoz)
-      bodyEditorRef.current.focus();
-      const range = document.createRange();
-      range.selectNodeContents(bodyEditorRef.current);
-      range.collapse(true);
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(range);
-    }
-  }, [body]);
+    if (!bodyEditorRef.current) return;
+
+    bodyEditorRef.current.innerHTML = formatEmailBody(body);
+    // Kurzor a szöveg elejére helyezése (válasznál felül kezdünk írni)
+    bodyEditorRef.current.focus();
+    const range = document.createRange();
+    range.selectNodeContents(bodyEditorRef.current);
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Body frissítése contenteditable div-ből
   const handleBodyInput = () => {
@@ -203,7 +205,22 @@ export function EmailCompose() {
     if (template.subject && !subject) {
       setSubject(template.subject);
     }
-    setBody((prev) => (prev ? prev + '\n\n' + template.body : template.body));
+
+    const nextBody = body ? `${body}\n\n${template.body}` : template.body;
+    setBody(nextBody);
+
+    // A body state frissítés nem ír vissza automatikusan az editorba (szándékosan,
+    // hogy gépelés közben ne ugráljon a kurzor), ezért itt manuálisan szinkronizálunk.
+    if (bodyEditorRef.current) {
+      bodyEditorRef.current.innerHTML = formatEmailBody(nextBody);
+      bodyEditorRef.current.focus();
+      const range = document.createRange();
+      range.selectNodeContents(bodyEditorRef.current);
+      range.collapse(false); // kurzor a végére
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    }
   };
 
   // Fájl kiválasztása
