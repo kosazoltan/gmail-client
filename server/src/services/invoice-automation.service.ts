@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'crypto';
 import { isIP } from 'net';
+import { lookup } from 'dns/promises';
 import { google } from 'googleapis';
 import { queryAll, queryOne, execute } from '../db/index.js';
 import logger from '../utils/logger.js';
@@ -109,6 +110,25 @@ function normalizeInvoiceUrl(rawUrl: string): string {
   }
 }
 
+async function isSafePublicHttpsUrl(rawUrl: string): Promise<boolean> {
+  try {
+    const u = new URL(rawUrl);
+    if (u.protocol !== 'https:') return false;
+    if (isPrivateOrLocalHost(u.hostname)) return false;
+
+    const resolved = await lookup(u.hostname, { all: true, verbatim: true });
+    if (!resolved || resolved.length === 0) return false;
+
+    for (const r of resolved) {
+      if (isPrivateOrLocalHost(r.address)) return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function resolveCompany(email: InvoiceEmailRow): Promise<string> {
   const text = normalize(`${email.subject || ''} ${email.snippet || ''} ${email.body || ''}`);
 
@@ -208,30 +228,43 @@ async function markHandledLink(accountId: string, emailId: string, link: string,
 
 async function downloadInvoiceFromLink(url: string): Promise<{ buffer: Buffer; fileName: string; contentType: string | null } | null> {
   try {
-    const normalizedUrl = normalizeInvoiceUrl(url);
-    const parsed = new URL(normalizedUrl);
-    if (parsed.protocol !== 'https:') return null;
-    if (isPrivateOrLocalHost(parsed.hostname)) return null;
+    let currentUrl = normalizeInvoiceUrl(url);
+    if (!(await isSafePublicHttpsUrl(currentUrl))) return null;
 
     const timeoutMs = 15000;
     const maxBytes = 15 * 1024 * 1024;
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), timeoutMs);
 
-    const resp = await fetch(parsed.toString(), {
-      redirect: 'follow',
-      signal: controller.signal,
-    });
-    clearTimeout(t);
+    let resp: Response | null = null;
+    for (let hop = 0; hop < 4; hop++) {
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), timeoutMs);
+      const r = await fetch(currentUrl, {
+        redirect: 'manual',
+        signal: controller.signal,
+      });
+      clearTimeout(t);
 
-    if (!resp.ok) return null;
+      if (r.status >= 300 && r.status < 400) {
+        const location = r.headers.get('location');
+        if (!location) return null;
+        const next = new URL(location, currentUrl).toString();
+        if (!(await isSafePublicHttpsUrl(next))) return null;
+        currentUrl = normalizeInvoiceUrl(next);
+        continue;
+      }
+
+      resp = r;
+      break;
+    }
+
+    if (!resp || !resp.ok) return null;
 
     const contentType = resp.headers.get('content-type');
     const disp = resp.headers.get('content-disposition') || '';
     const contentLength = Number(resp.headers.get('content-length') || '0');
     if (Number.isFinite(contentLength) && contentLength > maxBytes) return null;
 
-    if (!likelyInvoiceContentType(contentType) && !/invoice|szamla|pdf/i.test(parsed.toString()) && !/invoice|szamla|pdf/i.test(disp)) {
+    if (!likelyInvoiceContentType(contentType) && !/invoice|szamla|pdf/i.test(currentUrl) && !/invoice|szamla|pdf/i.test(disp)) {
       return null;
     }
 
@@ -254,7 +287,7 @@ async function downloadInvoiceFromLink(url: string): Promise<{ buffer: Buffer; f
 
     const byDisp = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(disp);
     const fileNameRaw = decodeURIComponent(byDisp?.[1] || byDisp?.[2] || '').trim();
-    const fromUrl = parsed.pathname.split('/').pop() || '';
+    const fromUrl = new URL(currentUrl).pathname.split('/').pop() || '';
     const fileName = (fileNameRaw || fromUrl || `invoice-${Date.now()}.pdf`).replace(/[^\w.\-() ]/g, '_');
 
     return { buffer: buf, fileName, contentType };
@@ -287,11 +320,10 @@ async function runDailyInvoiceCollectorForAccount(account: { id: string; email: 
        AND date >= ?
        AND labels NOT LIKE '%TRASH%'
        AND (
-         LOWER(subject) LIKE '%számla%' OR LOWER(subject) LIKE '%invoice%'
-         OR LOWER(snippet) LIKE '%számla%' OR LOWER(snippet) LIKE '%invoice%'
-         OR LOWER(body) LIKE '%számla%' OR LOWER(body) LIKE '%invoice%'
-         OR LOWER(body_html) LIKE '%számla%' OR LOWER(body_html) LIKE '%invoice%'
-         OR LOWER(body) LIKE '%payment%' OR LOWER(body_html) LIKE '%payment%'
+         LOWER(subject) LIKE '%számla%' OR LOWER(subject) LIKE '%invoice%' OR LOWER(subject) LIKE '%e-számla%'
+         OR LOWER(snippet) LIKE '%számla%' OR LOWER(snippet) LIKE '%invoice%' OR LOWER(snippet) LIKE '%díjbekérő%'
+         OR LOWER(body) LIKE '%számla%' OR LOWER(body) LIKE '%invoice%' OR LOWER(body) LIKE '%fizetés%' OR LOWER(body) LIKE '%payment%' OR LOWER(body) LIKE '%receipt%' OR LOWER(body) LIKE '%díjbekérő%'
+         OR LOWER(body_html) LIKE '%számla%' OR LOWER(body_html) LIKE '%invoice%' OR LOWER(body_html) LIKE '%fizetés%' OR LOWER(body_html) LIKE '%payment%' OR LOWER(body_html) LIKE '%receipt%' OR LOWER(body_html) LIKE '%díjbekérő%'
        )
      ORDER BY date DESC
      LIMIT 200`,
@@ -423,21 +455,25 @@ function budapestNow(now = new Date()): { hour: number; minute: number; day: num
   return { hour: b.getHours(), minute: b.getMinutes(), day: b.getDate(), monthKeyPrev, dateKey };
 }
 
-async function hasDailyCollectedMarker(accountId: string, dateKey: string): Promise<boolean> {
-  const row = await queryOne<{ value: string }>(
-    'SELECT value FROM user_settings WHERE account_id = ? AND key = ?',
-    [accountId, `invoice_daily_collected_${dateKey}`],
+async function claimDailyCollectionSlot(accountId: string, dateKey: string): Promise<boolean> {
+  const key = `invoice_daily_collected_${dateKey}`;
+  const row = await queryOne<{ key: string }>(
+    `INSERT INTO user_settings (id, account_id, key, value, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(account_id, key) DO NOTHING
+     RETURNING key`,
+    [randomUUID(), accountId, key, JSON.stringify({ status: 'started', at: Date.now() }), Date.now()],
   );
-  return Boolean(row);
+  return Boolean(row?.key);
 }
 
 async function markDailyCollected(accountId: string, dateKey: string): Promise<void> {
-  await execute(
-    `INSERT INTO user_settings (id, account_id, key, value, updated_at)
-     VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(account_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
-    [randomUUID(), accountId, `invoice_daily_collected_${dateKey}`, JSON.stringify({ at: Date.now() }), Date.now()],
-  );
+  await execute('UPDATE user_settings SET value = ?, updated_at = ? WHERE account_id = ? AND key = ?', [
+    JSON.stringify({ status: 'done', at: Date.now() }),
+    Date.now(),
+    accountId,
+    `invoice_daily_collected_${dateKey}`,
+  ]);
 }
 
 export async function runInvoiceAutomation(accounts: Array<{ id: string; email: string }>): Promise<void> {
@@ -448,8 +484,8 @@ export async function runInvoiceAutomation(accounts: Array<{ id: string; email: 
   for (const account of accounts) {
     try {
       if (dueDaily) {
-        const alreadyToday = await hasDailyCollectedMarker(account.id, dateKey);
-        if (!alreadyToday) {
+        const claimed = await claimDailyCollectionSlot(account.id, dateKey);
+        if (claimed) {
           await runDailyInvoiceCollectorForAccount(account);
           await markDailyCollected(account.id, dateKey);
         }
