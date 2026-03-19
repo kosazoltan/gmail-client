@@ -108,8 +108,11 @@ async function start() {
   await initializeDatabaseWithRetry();
   await ensureErrorLogTable();
 
-  // Hard-fail config gate for invoice automation recipients
-  validateInvoiceAutomationConfig();
+  // Invoice automation config check (non-fatal): alert + auto re-check handled by scheduler.
+  const invoiceCfg = validateInvoiceAutomationConfig();
+  if (!invoiceCfg.ok) {
+    logger.error(`🔴 Invoice automation recipient config hiányos startupkor: ${invoiceCfg.missing.join(', ')}`);
+  }
 
   const app = express();
   const frontendUrl = process.env.FRONTEND_URL;

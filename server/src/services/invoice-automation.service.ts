@@ -60,13 +60,13 @@ function getMissingRecipientEnvVars(): string[] {
   return Array.from(required).filter((k) => !(process.env[k] || '').trim());
 }
 
-export function validateInvoiceAutomationConfig(): void {
+export function validateInvoiceAutomationConfig(): { ok: boolean; missing: string[] } {
   const missing = getMissingRecipientEnvVars();
   if (missing.length > 0) {
-    const msg = `🔴 INVOICE_AUTOMATION_HARD_FAIL: Missing env vars: ${missing.join(', ')}`;
-    logger.error(msg);
-    throw new Error(msg);
+    logger.error(`🔴 INVOICE_AUTOMATION_ALERT: Missing env vars: ${missing.join(', ')}`);
+    return { ok: false, missing };
   }
+  return { ok: true, missing: [] };
 }
 
 function normalize(text: string): string {
@@ -571,7 +571,40 @@ async function markDailyCollected(accountId: string, dateKey: string): Promise<v
   ]);
 }
 
+async function notifyConfigIssue(account: { id: string; email: string }, missing: string[]): Promise<void> {
+  const markerKey = `invoice_config_alert_${new Date().toISOString().slice(0, 10)}`;
+  const already = await queryOne<{ value: string }>('SELECT value FROM user_settings WHERE account_id = ? AND key = ?', [account.id, markerKey]);
+  if (already) return;
+
+  try {
+    const { oauth2Client } = await getOAuth2ClientForAccount(account.id);
+    const gmail = getGmailClient(oauth2Client);
+    await sendEmail(gmail, {
+      to: account.email,
+      subject: '🔴 Invoice automation konfigurációs riasztás',
+      body: `Hiányzó recipient env változók: ${missing.join(', ')}\nA szerver nem állt le. Junior automatikusan újraellenőrzi a következő ciklusban.`,
+    });
+  } catch (err) {
+    logger.error(`Invoice config alert email failed for ${account.email}`, err);
+  }
+
+  await execute(
+    `INSERT INTO user_settings (id, account_id, key, value, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(account_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+    [randomUUID(), account.id, markerKey, JSON.stringify({ missing, at: Date.now() }), Date.now()],
+  );
+}
+
 export async function runInvoiceAutomation(accounts: Array<{ id: string; email: string }>): Promise<void> {
+  const config = validateInvoiceAutomationConfig();
+  if (!config.ok) {
+    for (const account of accounts) {
+      await notifyConfigIssue(account, config.missing).catch(() => {});
+    }
+    return;
+  }
+
   const { hour, day, monthKeyPrev, dateKey } = budapestNow();
   const dueDaily = hour >= 7;
   const dueMonthly = day === 1 && hour >= 7;
