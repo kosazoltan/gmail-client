@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'crypto';
+import { isIP } from 'net';
 import { google } from 'googleapis';
 import { queryAll, queryOne, execute } from '../db/index.js';
 import logger from '../utils/logger.js';
@@ -75,6 +76,39 @@ function sha(input: string): string {
   return createHash('sha256').update(input).digest('hex');
 }
 
+function isPrivateOrLocalHost(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  if (h === 'localhost' || h.endsWith('.local')) return true;
+
+  const ipVer = isIP(h);
+  if (!ipVer) return false;
+
+  if (ipVer === 4) {
+    if (h.startsWith('10.')) return true;
+    if (h.startsWith('127.')) return true;
+    if (h.startsWith('192.168.')) return true;
+    const second = Number(h.split('.')[1] || '0');
+    if (h.startsWith('172.') && second >= 16 && second <= 31) return true;
+  }
+
+  if (ipVer === 6) {
+    if (h === '::1' || h.startsWith('fc') || h.startsWith('fd') || h.startsWith('fe80')) return true;
+  }
+
+  return false;
+}
+
+function normalizeInvoiceUrl(rawUrl: string): string {
+  try {
+    const u = new URL(rawUrl);
+    const removable = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'gclid'];
+    for (const key of removable) u.searchParams.delete(key);
+    return u.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
 async function resolveCompany(email: InvoiceEmailRow): Promise<string> {
   const text = normalize(`${email.subject || ''} ${email.snippet || ''} ${email.body || ''}`);
 
@@ -106,7 +140,7 @@ Body: ${(email.body || '').slice(0, 600)}`,
   }
 }
 
-async function getRecipientEmails(accountId: string, company: string): Promise<string[]> {
+async function getRecipientEmails(_accountId: string, company: string): Promise<string[]> {
   const cfg = COMPANY_TARGETS[company];
   if (!cfg) return [];
 
@@ -114,20 +148,8 @@ async function getRecipientEmails(accountId: string, company: string): Promise<s
     .map((k) => (process.env[k] || '').trim())
     .filter(Boolean);
 
-  const found = await queryAll<{ email: string }>(
-    `SELECT DISTINCT email FROM contacts WHERE account_id = ? AND (
-      LOWER(name) LIKE ? OR LOWER(name) LIKE ? OR LOWER(name) LIKE ?
-    )`,
-    [
-      accountId,
-      `%${normalize(cfg.fallbackNames[0] || '')}%`,
-      `%${normalize(cfg.fallbackNames[1] || '')}%`,
-      `%kardos%`,
-    ],
-  ).catch(() => []);
-
-  const merged = [...fromEnv, ...found.map((f) => f.email)].filter(Boolean);
-  return Array.from(new Set(merged));
+  // Recipient safety: only explicit env allowlist is allowed for monthly accounting distribution.
+  return Array.from(new Set(fromEnv));
 }
 
 async function ensureDriveFolder(
@@ -167,13 +189,15 @@ async function saveInvoiceRecord(record: StoredInvoice): Promise<void> {
 }
 
 async function alreadyHandledLink(accountId: string, emailId: string, link: string): Promise<boolean> {
-  const key = `invoice_link_${emailId}_${sha(link).slice(0, 20)}`;
+  const normalized = normalizeInvoiceUrl(link);
+  const key = `invoice_link_${emailId}_${sha(normalized).slice(0, 20)}`;
   const row = await queryOne<{ value: string }>('SELECT value FROM user_settings WHERE account_id = ? AND key = ?', [accountId, key]);
   return Boolean(row);
 }
 
 async function markHandledLink(accountId: string, emailId: string, link: string, payload: object): Promise<void> {
-  const key = `invoice_link_${emailId}_${sha(link).slice(0, 20)}`;
+  const normalized = normalizeInvoiceUrl(link);
+  const key = `invoice_link_${emailId}_${sha(normalized).slice(0, 20)}`;
   await execute(
     `INSERT INTO user_settings (id, account_id, key, value, updated_at)
      VALUES (?, ?, ?, ?, ?)
@@ -184,23 +208,53 @@ async function markHandledLink(accountId: string, emailId: string, link: string,
 
 async function downloadInvoiceFromLink(url: string): Promise<{ buffer: Buffer; fileName: string; contentType: string | null } | null> {
   try {
-    const resp = await fetch(url, { redirect: 'follow' });
+    const normalizedUrl = normalizeInvoiceUrl(url);
+    const parsed = new URL(normalizedUrl);
+    if (parsed.protocol !== 'https:') return null;
+    if (isPrivateOrLocalHost(parsed.hostname)) return null;
+
+    const timeoutMs = 15000;
+    const maxBytes = 15 * 1024 * 1024;
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), timeoutMs);
+
+    const resp = await fetch(parsed.toString(), {
+      redirect: 'follow',
+      signal: controller.signal,
+    });
+    clearTimeout(t);
+
     if (!resp.ok) return null;
 
     const contentType = resp.headers.get('content-type');
     const disp = resp.headers.get('content-disposition') || '';
+    const contentLength = Number(resp.headers.get('content-length') || '0');
+    if (Number.isFinite(contentLength) && contentLength > maxBytes) return null;
 
-    if (!likelyInvoiceContentType(contentType) && !/invoice|szamla|pdf/i.test(url) && !/invoice|szamla|pdf/i.test(disp)) {
+    if (!likelyInvoiceContentType(contentType) && !/invoice|szamla|pdf/i.test(parsed.toString()) && !/invoice|szamla|pdf/i.test(disp)) {
       return null;
     }
 
-    const ab = await resp.arrayBuffer();
-    const buf = Buffer.from(ab);
+    const reader = resp.body?.getReader();
+    if (!reader) return null;
+
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > maxBytes) return null;
+      chunks.push(value);
+    }
+
+    const buf = Buffer.concat(chunks.map((c) => Buffer.from(c)));
     if (buf.length === 0) return null;
 
     const byDisp = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(disp);
     const fileNameRaw = decodeURIComponent(byDisp?.[1] || byDisp?.[2] || '').trim();
-    const fromUrl = url.split('/').pop() || '';
+    const fromUrl = parsed.pathname.split('/').pop() || '';
     const fileName = (fileNameRaw || fromUrl || `invoice-${Date.now()}.pdf`).replace(/[^\w.\-() ]/g, '_');
 
     return { buffer: buf, fileName, contentType };
@@ -213,6 +267,16 @@ async function runDailyInvoiceCollectorForAccount(account: { id: string; email: 
   const { oauth2Client } = await getOAuth2ClientForAccount(account.id);
   const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
+  try {
+    await drive.about.get({ fields: 'user(emailAddress)' });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/insufficient|permission|scope|forbidden/i.test(msg)) {
+      throw new Error('Drive scope hiányzik. Kérlek jelentkezz be újra Google OAuth consent-tel (drive.file scope).');
+    }
+    throw err;
+  }
+
   const now = Date.now();
   const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
 
@@ -223,7 +287,11 @@ async function runDailyInvoiceCollectorForAccount(account: { id: string; email: 
        AND date >= ?
        AND labels NOT LIKE '%TRASH%'
        AND (
-         LOWER(subject) LIKE '%számla%' OR LOWER(subject) LIKE '%invoice%' OR LOWER(snippet) LIKE '%számla%' OR LOWER(snippet) LIKE '%invoice%'
+         LOWER(subject) LIKE '%számla%' OR LOWER(subject) LIKE '%invoice%'
+         OR LOWER(snippet) LIKE '%számla%' OR LOWER(snippet) LIKE '%invoice%'
+         OR LOWER(body) LIKE '%számla%' OR LOWER(body) LIKE '%invoice%'
+         OR LOWER(body_html) LIKE '%számla%' OR LOWER(body_html) LIKE '%invoice%'
+         OR LOWER(body) LIKE '%payment%' OR LOWER(body_html) LIKE '%payment%'
        )
      ORDER BY date DESC
      LIMIT 200`,
@@ -330,11 +398,13 @@ async function runMonthlyDistributionForAccount(account: { id: string; email: st
 
     const body = `Sziasztok,\n\n${monthKey} havi ${company} számlagyűjtés:\n\n${lines}\n\nAutomatikus küldés: Junior Invoice Automation.`;
 
-    await sendEmail(gmail, {
-      to: recipients.join(','),
-      subject: `[Junior] ${monthKey} havi számlagyűjtés - ${company}`,
-      body,
-    });
+    for (const recipient of recipients) {
+      await sendEmail(gmail, {
+        to: recipient,
+        subject: `[Junior] ${monthKey} havi számlagyűjtés - ${company}`,
+        body,
+      });
+    }
 
     await execute(
       `INSERT INTO user_settings (id, account_id, key, value, updated_at)
@@ -345,22 +415,44 @@ async function runMonthlyDistributionForAccount(account: { id: string; email: st
   }
 }
 
-function budapestNow(now = new Date()): { hour: number; minute: number; day: number; monthKeyPrev: string } {
+function budapestNow(now = new Date()): { hour: number; minute: number; day: number; monthKeyPrev: string; dateKey: string } {
   const b = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Budapest' }));
   const prevMonth = new Date(Date.UTC(b.getUTCFullYear(), b.getUTCMonth() - 1, 1));
   const monthKeyPrev = `${prevMonth.getUTCFullYear()}-${String(prevMonth.getUTCMonth() + 1).padStart(2, '0')}`;
-  return { hour: b.getHours(), minute: b.getMinutes(), day: b.getDate(), monthKeyPrev };
+  const dateKey = `${b.getFullYear()}-${String(b.getMonth() + 1).padStart(2, '0')}-${String(b.getDate()).padStart(2, '0')}`;
+  return { hour: b.getHours(), minute: b.getMinutes(), day: b.getDate(), monthKeyPrev, dateKey };
+}
+
+async function hasDailyCollectedMarker(accountId: string, dateKey: string): Promise<boolean> {
+  const row = await queryOne<{ value: string }>(
+    'SELECT value FROM user_settings WHERE account_id = ? AND key = ?',
+    [accountId, `invoice_daily_collected_${dateKey}`],
+  );
+  return Boolean(row);
+}
+
+async function markDailyCollected(accountId: string, dateKey: string): Promise<void> {
+  await execute(
+    `INSERT INTO user_settings (id, account_id, key, value, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(account_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+    [randomUUID(), accountId, `invoice_daily_collected_${dateKey}`, JSON.stringify({ at: Date.now() }), Date.now()],
+  );
 }
 
 export async function runInvoiceAutomation(accounts: Array<{ id: string; email: string }>): Promise<void> {
-  const { hour, day, monthKeyPrev } = budapestNow();
+  const { hour, day, monthKeyPrev, dateKey } = budapestNow();
   const dueDaily = hour >= 7;
   const dueMonthly = day === 1 && hour >= 7;
 
   for (const account of accounts) {
     try {
       if (dueDaily) {
-        await runDailyInvoiceCollectorForAccount(account);
+        const alreadyToday = await hasDailyCollectedMarker(account.id, dateKey);
+        if (!alreadyToday) {
+          await runDailyInvoiceCollectorForAccount(account);
+          await markDailyCollected(account.id, dateKey);
+        }
       }
 
       if (dueMonthly) {
