@@ -96,6 +96,15 @@ function heuristicClassify(email: DigestCandidate): Omit<DigestItem, 'appLink' |
   };
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function buildLinks(emailId: string, accountId: string, frontendBase: string): { appLink: string; gmailLink: string } {
   const safeBase = frontendBase.replace(/\/$/, '');
   return {
@@ -198,7 +207,7 @@ ${JSON.stringify(compact)}`,
   }
 }
 
-async function buildDigestEmailBody(accountId: string, accountEmail: string, frontendBase: string): Promise<{ subject: string; html: string; text: string; totalEmails: number; importantCount: number }> {
+async function buildDigestEmailBody(accountId: string, accountEmail: string, frontendBase: string, slotHour: number): Promise<{ subject: string; html: string; text: string; totalEmails: number; importantCount: number }> {
   const now = Date.now();
   const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
 
@@ -222,18 +231,26 @@ async function buildDigestEmailBody(accountId: string, accountEmail: string, fro
   const section = (title: string, items: DigestItem[]) => {
     if (items.length === 0) return '';
     return `
-<h3>${title}</h3>
+<h3>${escapeHtml(title)}</h3>
 <ul>
-${items.map((i) => `<li><strong>${i.title}</strong> — ${i.from}<br>${i.reason}<br><a href="${i.appLink}">Megnyitás a kliensben</a> · <a href="${i.gmailLink}">Megnyitás Gmailben</a></li>`).join('\n')}
+${items.map((i) => `<li><strong>${escapeHtml(i.title)}</strong> — ${escapeHtml(i.from)}<br>${escapeHtml(i.reason)}<br><a href="${i.appLink}">Megnyitás a kliensben</a> · <a href="${i.gmailLink}">Megnyitás Gmailben</a></li>`).join('\n')}
 </ul>`;
   };
 
   const summaryLine = `Elmúlt 7 nap: ${emails.length} email átnézve, ${prioritized.length} fontos elem kiemelve.`;
-  const subject = `📬 AI Email összefoglaló (${new Date().toLocaleDateString('hu-HU')})`;
+  const slotTag = `[${String(slotHour).padStart(2, '0')}:00]`;
+  const subject = `📬 ${slotTag} AI Email összefoglaló (${new Date().toLocaleDateString('hu-HU')})`;
+
+  const unreadLink = `${frontendBase}/search?q=${encodeURIComponent('is:unread')}&accountId=${encodeURIComponent(accountId)}`;
+  const unreadAttachmentLink = `${frontendBase}/search?q=${encodeURIComponent('is:unread has:attachment')}&accountId=${encodeURIComponent(accountId)}`;
 
   const html = `
 <p>Szia,</p>
+<p><strong>Címzett fiók:</strong> ${escapeHtml(accountEmail)}</p>
 <p>${summaryLine}</p>
+<p><strong>Gyorslinkek (csak olvasatlanok):</strong><br>
+<a href="${unreadLink}">Összes olvasatlan megnyitása</a> ·
+<a href="${unreadAttachmentLink}">Olvasatlan mellékletes emailek</a></p>
 ${section('🔴 Kritikus', groups.kritikus)}
 ${section('🟠 Magas', groups.magas)}
 ${section('🟡 Közepes', groups.kozepes)}
@@ -244,25 +261,42 @@ ${section('🟡 Közepes', groups.kozepes)}
     .map((i) => `- [${i.priority.toUpperCase()}|${i.category}] ${i.title} (${i.from})\n  ${i.reason}\n  App: ${i.appLink}\n  Gmail: ${i.gmailLink}`)
     .join('\n\n');
 
-  const text = `${summaryLine}\n\n${textItems || 'Nincs kiemelt tétel.'}`;
+  const text = `${summaryLine}\n\nGyorslinkek:\n- Olvasatlanok: ${unreadLink}\n- Olvasatlan + melléklet: ${unreadAttachmentLink}\n\n${textItems || 'Nincs kiemelt tétel.'}`;
 
   return { subject, html, text, totalEmails: emails.length, importantCount: prioritized.length };
 }
 
-async function alreadySentForSlot(accountId: string, dateKey: string, hour: number): Promise<boolean> {
+async function claimSlot(accountId: string, dateKey: string, hour: number): Promise<boolean> {
   const key = `ai_digest_sent_${dateKey}_${hour}`;
-  const row = await queryOne<{ value: string }>('SELECT value FROM user_settings WHERE account_id = ? AND key = ?', [accountId, key]);
-  return Boolean(row);
+  const now = Date.now();
+  const row = await queryOne<{ key: string }>(
+    `INSERT INTO user_settings (id, account_id, key, value, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(account_id, key) DO NOTHING
+     RETURNING key`,
+    [randomUUID(), accountId, key, JSON.stringify({ status: 'claimed', claimedAt: now }), now],
+  );
+  return Boolean(row?.key);
 }
 
 async function markSentForSlot(accountId: string, dateKey: string, hour: number, payload: Record<string, unknown>): Promise<void> {
   const key = `ai_digest_sent_${dateKey}_${hour}`;
-  await execute(
-    `INSERT INTO user_settings (id, account_id, key, value, updated_at)
-     VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(account_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
-    [randomUUID(), accountId, key, JSON.stringify(payload), Date.now()],
-  );
+  await execute('UPDATE user_settings SET value = ?, updated_at = ? WHERE account_id = ? AND key = ?', [
+    JSON.stringify(payload),
+    Date.now(),
+    accountId,
+    key,
+  ]);
+}
+
+async function markSlotFailed(accountId: string, dateKey: string, hour: number, reason: string): Promise<void> {
+  const key = `ai_digest_sent_${dateKey}_${hour}`;
+  await execute('UPDATE user_settings SET value = ?, updated_at = ? WHERE account_id = ? AND key = ?', [
+    JSON.stringify({ status: 'failed', reason: reason.slice(0, 200), failedAt: Date.now() }),
+    Date.now(),
+    accountId,
+    key,
+  ]);
 }
 
 export async function runAiDigestScheduler(accounts: Array<{ id: string; email: string }>, frontendUrl?: string): Promise<void> {
@@ -276,9 +310,10 @@ export async function runAiDigestScheduler(accounts: Array<{ id: string; email: 
 
   for (const account of accounts) {
     try {
-      if (await alreadySentForSlot(account.id, dateKey, hour)) continue;
+      const claimed = await claimSlot(account.id, dateKey, hour);
+      if (!claimed) continue;
 
-      const digest = await buildDigestEmailBody(account.id, account.email, frontendBase);
+      const digest = await buildDigestEmailBody(account.id, account.email, frontendBase, hour);
       const { oauth2Client } = await getOAuth2ClientForAccount(account.id);
       const gmail = getGmailClient(oauth2Client);
 
@@ -289,6 +324,7 @@ export async function runAiDigestScheduler(accounts: Array<{ id: string; email: 
       });
 
       await markSentForSlot(account.id, dateKey, hour, {
+        status: 'sent',
         sentAt: Date.now(),
         totalEmails: digest.totalEmails,
         importantCount: digest.importantCount,
@@ -296,6 +332,8 @@ export async function runAiDigestScheduler(accounts: Array<{ id: string; email: 
 
       logger.info(`AI digest email sent for ${account.email} at slot ${hour}:00`);
     } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      await markSlotFailed(account.id, dateKey, hour, reason).catch(() => {});
       logger.error(`AI digest scheduler failed for ${account.email}`, err);
     }
   }

@@ -41,6 +41,7 @@ interface ParsedSearch {
   afterTs?: number;
   beforeTs?: number;
   hasAttachment?: boolean;
+  isRead?: boolean;
 }
 
 function parseLabelsJson(labels: string | null): string[] {
@@ -112,6 +113,7 @@ function parseSearchQuery(query: string): ParsedSearch {
   let afterTs: number | undefined;
   let beforeTs: number | undefined;
   let hasAttachment: boolean | undefined;
+  let isRead: boolean | undefined;
 
   for (let token of rawTokens) {
     let exclude = false;
@@ -140,6 +142,17 @@ function parseSearchQuery(query: string): ParsedSearch {
         hasAttachment = !exclude;
         continue;
       }
+      if (key === 'is') {
+        const v = value.toLowerCase();
+        if (v === 'unread') {
+          isRead = false;
+          continue;
+        }
+        if (v === 'read') {
+          isRead = true;
+          continue;
+        }
+      }
 
       if (key === 'from' || key === 'to' || key === 'cc' || key === 'subject' || key === 'body') {
         terms.push({ field: key, value, exclude });
@@ -150,7 +163,7 @@ function parseSearchQuery(query: string): ParsedSearch {
     terms.push({ field: 'any', value: token, exclude });
   }
 
-  return { terms, afterTs, beforeTs, hasAttachment };
+  return { terms, afterTs, beforeTs, hasAttachment, isRead };
 }
 
 function columnsForField(field: SearchField): string[] {
@@ -175,15 +188,20 @@ function buildWhereClause(accountId: string, parsed: ParsedSearch): { whereSql: 
   const whereParts: string[] = ['account_id = ?', "labels NOT LIKE '%TRASH%'"];
 
   if (typeof parsed.afterTs === 'number') {
-    whereParts.push('date >= ?');
+    // Gmail-like semantics: strictly newer than date
+    whereParts.push('date > ?');
     params.push(parsed.afterTs);
   }
   if (typeof parsed.beforeTs === 'number') {
-    whereParts.push('date <= ?');
+    // Gmail-like semantics: strictly older than date
+    whereParts.push('date < ?');
     params.push(parsed.beforeTs);
   }
   if (typeof parsed.hasAttachment === 'boolean') {
     whereParts.push(parsed.hasAttachment ? 'has_attachments = 1' : 'has_attachments = 0');
+  }
+  if (typeof parsed.isRead === 'boolean') {
+    whereParts.push(parsed.isRead ? 'is_read = 1' : 'is_read = 0');
   }
 
   for (const term of parsed.terms) {
@@ -283,7 +301,7 @@ export async function searchEmails(options: SearchOptions) {
   const { whereSql, params } = buildWhereClause(accountId, parsed);
 
   const rows = await queryAll<EmailRecord>(
-    `SELECT * FROM emails WHERE ${whereSql} ORDER BY date DESC LIMIT 1000`,
+    `SELECT * FROM emails WHERE ${whereSql} ORDER BY date DESC`,
     params,
   );
 
@@ -313,7 +331,7 @@ export async function searchEmailsAllAccounts(options: CrossAccountSearchOptions
   for (const accountId of accountIds) {
     const { whereSql, params } = buildWhereClause(accountId, parsed);
     const rows = await queryAll<EmailRecord>(
-      `SELECT * FROM emails WHERE ${whereSql} ORDER BY date DESC LIMIT 500`,
+      `SELECT * FROM emails WHERE ${whereSql} ORDER BY date DESC`,
       params,
     );
 
@@ -328,12 +346,15 @@ export async function searchEmailsAllAccounts(options: CrossAccountSearchOptions
     }
   }
 
-  const ranked = allRows
+  const rankedAll = allRows
     .map((email) => ({ email, score: relevanceScore(email, parsed) }))
     .sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
       return b.email.date - a.email.date;
-    })
+    });
+
+  const total = rankedAll.length;
+  const ranked = rankedAll
     .slice(0, limit)
     .map(({ email }) => ({
       ...formatEmail(email),
@@ -344,8 +365,8 @@ export async function searchEmailsAllAccounts(options: CrossAccountSearchOptions
 
   return {
     emails: ranked,
-    total: ranked.length,
+    total,
     page: 1,
-    totalPages: 1,
+    totalPages: Math.ceil(total / limit),
   };
 }
