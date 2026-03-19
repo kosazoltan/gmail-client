@@ -49,6 +49,7 @@ import detectedTasksRoutes from './routes/detected-tasks.routes.js';
 import sseRoutes from './routes/sse.routes.js';
 import briefRoutes, { generateAISummary } from './routes/brief.routes.js';
 import { runAiDigestScheduler } from './services/digest-scheduler.service.js';
+import { runInvoiceAutomation } from './services/invoice-automation.service.js';
 import { detectUnansweredEmails, processExpiredSnoozedTasks } from './services/task-detection.service.js';
 import { buildAllowedOrigins, isOriginAllowed } from './utils/cors-config.js';
 import { requestIdMiddleware } from './middleware/request-id.js';
@@ -360,6 +361,14 @@ async function start() {
       await runAiDigestScheduler(accounts, frontendUrl);
     } catch (err) {
       logger.error('AI digest scheduler error:', err);
+    }
+
+    // Invoice automation (daily 07:00 catch-up + monthly day-1 distribution)
+    try {
+      const accounts = await getAllAccounts();
+      await runInvoiceAutomation(accounts);
+    } catch (err) {
+      logger.error('Invoice automation error:', err);
     }
   }, 300000); // Check every 5 minutes
 
