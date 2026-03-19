@@ -299,42 +299,112 @@ async function markSlotFailed(accountId: string, dateKey: string, hour: number, 
   ]);
 }
 
-export async function runAiDigestScheduler(accounts: Array<{ id: string; email: string }>, frontendUrl?: string): Promise<void> {
-  const now = new Date();
-  const { dateKey, hour, minute } = toBudapestDateParts(now);
+export interface DigestSchedulerRunOptions {
+  dryRun?: boolean;
+  forceSlots?: number[];
+  now?: Date;
+}
 
-  if (!DIGEST_HOURS.includes(hour as 7 | 12 | 17)) return;
-  if (minute > 10) return;
+export interface DigestSchedulerRunResult {
+  accountId: string;
+  accountEmail: string;
+  slot: number;
+  status: 'sent' | 'dry-run' | 'skipped-already-sent' | 'failed';
+  subject?: string;
+  totalEmails?: number;
+  importantCount?: number;
+  reason?: string;
+}
+
+export async function runAiDigestScheduler(
+  accounts: Array<{ id: string; email: string }>,
+  frontendUrl?: string,
+  options: DigestSchedulerRunOptions = {},
+): Promise<DigestSchedulerRunResult[]> {
+  const now = options.now || new Date();
+  const { dateKey, hour } = toBudapestDateParts(now);
+
+  const dueSlots = (options.forceSlots && options.forceSlots.length > 0)
+    ? options.forceSlots.filter((s) => DIGEST_HOURS.includes(s as 7 | 12 | 17))
+    : DIGEST_HOURS.filter((s) => s <= hour);
+
+  if (dueSlots.length === 0) return [];
 
   const frontendBase = (frontendUrl || process.env.FRONTEND_URL || 'https://mindenes.org').replace(/\/$/, '');
+  const results: DigestSchedulerRunResult[] = [];
 
   for (const account of accounts) {
-    try {
-      const claimed = await claimSlot(account.id, dateKey, hour);
-      if (!claimed) continue;
+    for (const slot of dueSlots) {
+      try {
+        const digest = await buildDigestEmailBody(account.id, account.email, frontendBase, slot);
 
-      const digest = await buildDigestEmailBody(account.id, account.email, frontendBase, hour);
-      const { oauth2Client } = await getOAuth2ClientForAccount(account.id);
-      const gmail = getGmailClient(oauth2Client);
+        if (options.dryRun) {
+          results.push({
+            accountId: account.id,
+            accountEmail: account.email,
+            slot,
+            status: 'dry-run',
+            subject: digest.subject,
+            totalEmails: digest.totalEmails,
+            importantCount: digest.importantCount,
+          });
+          continue;
+        }
 
-      await sendEmail(gmail, {
-        to: account.email,
-        subject: digest.subject,
-        body: `${digest.text}\n\n<!-- HTML version below -->\n${digest.html}`,
-      });
+        const claimed = await claimSlot(account.id, dateKey, slot);
+        if (!claimed) {
+          results.push({
+            accountId: account.id,
+            accountEmail: account.email,
+            slot,
+            status: 'skipped-already-sent',
+          });
+          continue;
+        }
 
-      await markSentForSlot(account.id, dateKey, hour, {
-        status: 'sent',
-        sentAt: Date.now(),
-        totalEmails: digest.totalEmails,
-        importantCount: digest.importantCount,
-      });
+        const { oauth2Client } = await getOAuth2ClientForAccount(account.id);
+        const gmail = getGmailClient(oauth2Client);
 
-      logger.info(`AI digest email sent for ${account.email} at slot ${hour}:00`);
-    } catch (err) {
-      const reason = err instanceof Error ? err.message : String(err);
-      await markSlotFailed(account.id, dateKey, hour, reason).catch(() => {});
-      logger.error(`AI digest scheduler failed for ${account.email}`, err);
+        await sendEmail(gmail, {
+          to: account.email,
+          subject: digest.subject,
+          body: `${digest.text}\n\n<!-- HTML version below -->\n${digest.html}`,
+        });
+
+        await markSentForSlot(account.id, dateKey, slot, {
+          status: 'sent',
+          sentAt: Date.now(),
+          slot,
+          totalEmails: digest.totalEmails,
+          importantCount: digest.importantCount,
+        });
+
+        logger.info(`AI digest email sent for ${account.email} at slot ${slot}:00`);
+        results.push({
+          accountId: account.id,
+          accountEmail: account.email,
+          slot,
+          status: 'sent',
+          subject: digest.subject,
+          totalEmails: digest.totalEmails,
+          importantCount: digest.importantCount,
+        });
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        if (!options.dryRun) {
+          await markSlotFailed(account.id, dateKey, slot, reason).catch(() => {});
+        }
+        logger.error(`AI digest scheduler failed for ${account.email} slot ${slot}:00`, err);
+        results.push({
+          accountId: account.id,
+          accountEmail: account.email,
+          slot,
+          status: 'failed',
+          reason,
+        });
+      }
     }
   }
+
+  return results;
 }
