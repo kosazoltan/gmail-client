@@ -695,10 +695,18 @@ router.delete('/:id', async (req, res) => {
   }
 
   try {
+    logger.info('Email törlés kérés érkezett', {
+      route: 'DELETE /api/emails/:id',
+      emailId,
+      accountId,
+      requestId: req.headers['x-request-id'] || null,
+    });
+
     const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
 
     await trashMessage(gmail, emailId);
+    logger.info('Gmail trash sikeres', { emailId, accountId });
 
     // Frissítsük az adatbázisban is - hozzáadjuk a TRASH labelt
     const email = await queryOne<{ labels: string | null }>(
@@ -716,11 +724,25 @@ router.delete('/:id', async (req, res) => {
         emailId,
         accountId,
       ]);
+
+      logger.info('Local DB TRASH label update sikeres', {
+        emailId,
+        accountId,
+        labelsBefore: currentLabels,
+        labelsAfter: newLabels,
+      });
+    } else {
+      logger.warn('Local DB email record nem található törlés után', { emailId, accountId });
     }
 
     res.json({ success: true });
   } catch (error) {
-    logger.error('Törlés hiba:', error);
+    logger.error('Törlés hiba:', {
+      emailId,
+      accountId,
+      requestId: req.headers['x-request-id'] || null,
+      error,
+    });
     res.status(500).json({ error: 'Törlés sikertelen' });
   }
 });
