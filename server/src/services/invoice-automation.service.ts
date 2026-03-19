@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'crypto';
+import { readFileSync, existsSync } from 'fs';
 import { isIP } from 'net';
 import { lookup } from 'dns/promises';
 import { google } from 'googleapis';
@@ -58,6 +59,33 @@ function getMissingRecipientEnvVars(): string[] {
     for (const k of cfg.envRecipients) required.add(k);
   }
   return Array.from(required).filter((k) => !(process.env[k] || '').trim());
+}
+
+function getJuniorAlertEmail(): string {
+  return (process.env.JUNIOR_ALERT_EMAIL || process.env.AUTOMATION_ALERT_EMAIL || '').trim();
+}
+
+function tryAutoReloadAccountingEnv(): void {
+  const candidates = [process.env.OPENCLAW_ENV_PATH, '.env.local', '.env']
+    .filter((p): p is string => Boolean(p));
+
+  for (const p of candidates) {
+    try {
+      if (!existsSync(p)) continue;
+      const content = readFileSync(p, 'utf8');
+      for (const line of content.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
+        const [rawKey, ...rest] = trimmed.split('=');
+        const key = rawKey.trim();
+        if (!key.startsWith('ACCOUNTING_') && key !== 'JUNIOR_ALERT_EMAIL' && key !== 'AUTOMATION_ALERT_EMAIL') continue;
+        const value = rest.join('=').trim().replace(/^"|"$/g, '');
+        if (!process.env[key] && value) process.env[key] = value;
+      }
+    } catch {
+      // no-op
+    }
+  }
 }
 
 export function validateInvoiceAutomationConfig(): { ok: boolean; missing: string[] } {
@@ -576,16 +604,22 @@ async function notifyConfigIssue(account: { id: string; email: string }, missing
   const already = await queryOne<{ value: string }>('SELECT value FROM user_settings WHERE account_id = ? AND key = ?', [account.id, markerKey]);
   if (already) return;
 
+  const juniorAlertEmail = getJuniorAlertEmail();
+
   try {
-    const { oauth2Client } = await getOAuth2ClientForAccount(account.id);
-    const gmail = getGmailClient(oauth2Client);
-    await sendEmail(gmail, {
-      to: account.email,
-      subject: '🔴 Invoice automation konfigurációs riasztás',
-      body: `Hiányzó recipient env változók: ${missing.join(', ')}\nA szerver nem állt le. Junior automatikusan újraellenőrzi a következő ciklusban.`,
-    });
+    if (juniorAlertEmail) {
+      const { oauth2Client } = await getOAuth2ClientForAccount(account.id);
+      const gmail = getGmailClient(oauth2Client);
+      await sendEmail(gmail, {
+        to: juniorAlertEmail,
+        subject: '🔴 Junior riasztás: invoice automation env hiány',
+        body: `Hiányzó recipient env változók: ${missing.join(', ')}\nJunior automatikus önjavítás + újraellenőrzés indítva. Érintett fiók: ${account.email}`,
+      });
+    } else {
+      logger.error('JUNIOR_ALERT_EMAIL/AUTOMATION_ALERT_EMAIL nincs beállítva; email riasztás kihagyva.');
+    }
   } catch (err) {
-    logger.error(`Invoice config alert email failed for ${account.email}`, err);
+    logger.error(`Invoice config alert email failed for Junior recipient`, err);
   }
 
   await execute(
@@ -597,7 +631,13 @@ async function notifyConfigIssue(account: { id: string; email: string }, missing
 }
 
 export async function runInvoiceAutomation(accounts: Array<{ id: string; email: string }>): Promise<void> {
-  const config = validateInvoiceAutomationConfig();
+  let config = validateInvoiceAutomationConfig();
+  if (!config.ok) {
+    // Junior self-heal attempt: reload ACCOUNTING_* env values from env files and re-check immediately
+    tryAutoReloadAccountingEnv();
+    config = validateInvoiceAutomationConfig();
+  }
+
   if (!config.ok) {
     for (const account of accounts) {
       await notifyConfigIssue(account, config.missing).catch(() => {});
