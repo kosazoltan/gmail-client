@@ -28,6 +28,14 @@ interface EmailRecord {
   topic_id: string | null;
 }
 
+type SearchField = 'from' | 'to' | 'cc' | 'subject' | 'body' | 'any';
+
+interface ParsedTerm {
+  field: SearchField;
+  value: string;
+  exclude: boolean;
+}
+
 function parseLabelsJson(labels: string | null): string[] {
   if (!labels) return [];
   try {
@@ -57,47 +65,108 @@ function formatEmail(email: EmailRecord) {
   };
 }
 
-const SEARCH_QUERY = `SELECT * FROM emails
-     WHERE account_id = ?
-     AND labels NOT LIKE '%TRASH%'
-     AND (
-       subject LIKE ? COLLATE NOCASE OR
-       from_email LIKE ? COLLATE NOCASE OR
-       from_name LIKE ? COLLATE NOCASE OR
-       to_email LIKE ? COLLATE NOCASE OR
-       cc_email LIKE ? COLLATE NOCASE OR
-       body LIKE ? COLLATE NOCASE OR
-       body_html LIKE ? COLLATE NOCASE OR
-       snippet LIKE ? COLLATE NOCASE
-     )`;
+function tokenizeQuery(query: string): string[] {
+  const tokens: string[] = [];
+  const re = /"([^"]+)"|(\S+)/g;
+  let m: RegExpExecArray | null;
 
-const COUNT_QUERY = `SELECT COUNT(*) as total FROM emails
-     WHERE account_id = ?
-     AND labels NOT LIKE '%TRASH%'
-     AND (
-       subject LIKE ? COLLATE NOCASE OR
-       from_email LIKE ? COLLATE NOCASE OR
-       from_name LIKE ? COLLATE NOCASE OR
-       to_email LIKE ? COLLATE NOCASE OR
-       cc_email LIKE ? COLLATE NOCASE OR
-       body LIKE ? COLLATE NOCASE OR
-       body_html LIKE ? COLLATE NOCASE OR
-       snippet LIKE ? COLLATE NOCASE
-     )`;
+  while ((m = re.exec(query)) !== null) {
+    const token = (m[1] ?? m[2] ?? '').trim();
+    if (token) tokens.push(token);
+  }
+
+  return tokens;
+}
+
+function parseSearchQuery(query: string): ParsedTerm[] {
+  const rawTokens = tokenizeQuery(query);
+  const terms: ParsedTerm[] = [];
+
+  for (let token of rawTokens) {
+    let exclude = false;
+    if (token.startsWith('-') && token.length > 1) {
+      exclude = true;
+      token = token.slice(1);
+    }
+
+    const idx = token.indexOf(':');
+    if (idx > 0 && idx < token.length - 1) {
+      const key = token.slice(0, idx).toLowerCase();
+      const value = token.slice(idx + 1).trim();
+      if (!value) continue;
+
+      if (key === 'from' || key === 'to' || key === 'cc' || key === 'subject' || key === 'body') {
+        terms.push({ field: key, value, exclude });
+        continue;
+      }
+    }
+
+    terms.push({ field: 'any', value: token, exclude });
+  }
+
+  return terms;
+}
+
+function columnsForField(field: SearchField): string[] {
+  switch (field) {
+    case 'from':
+      return ['from_email', 'from_name'];
+    case 'to':
+      return ['to_email'];
+    case 'cc':
+      return ['cc_email'];
+    case 'subject':
+      return ['subject'];
+    case 'body':
+      return ['body', 'body_html', 'snippet'];
+    case 'any':
+    default:
+      return ['subject', 'from_email', 'from_name', 'to_email', 'cc_email', 'body', 'body_html', 'snippet'];
+  }
+}
+
+function buildWhereClause(accountId: string, query: string): { whereSql: string; params: unknown[] } {
+  const terms = parseSearchQuery(query);
+  const params: unknown[] = [accountId];
+  const whereParts: string[] = [
+    'account_id = ?',
+    "labels NOT LIKE '%TRASH%'",
+  ];
+
+  for (const term of terms) {
+    const columns = columnsForField(term.field);
+    const pattern = `%${term.value}%`;
+    const orParts: string[] = [];
+
+    for (const col of columns) {
+      orParts.push(`${col} LIKE ? COLLATE NOCASE`);
+      params.push(pattern);
+    }
+
+    const groupSql = `(${orParts.join(' OR ')})`;
+    whereParts.push(term.exclude ? `NOT ${groupSql}` : groupSql);
+  }
+
+  return {
+    whereSql: whereParts.join(' AND '),
+    params,
+  };
+}
 
 export async function searchEmails(options: SearchOptions) {
   const { accountId, query, page = 1, limit = 50 } = options;
   const offset = (page - 1) * limit;
-  const pattern = `%${query}%`;
+
+  const { whereSql, params } = buildWhereClause(accountId, query);
 
   const results = await queryAll<EmailRecord>(
-    SEARCH_QUERY + ' ORDER BY date DESC LIMIT ? OFFSET ?',
-    [accountId, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, limit, offset],
+    `SELECT * FROM emails WHERE ${whereSql} ORDER BY date DESC LIMIT ? OFFSET ?`,
+    [...params, limit, offset],
   );
 
   const countResult = await queryOne<{ total: number }>(
-    COUNT_QUERY,
-    [accountId, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern],
+    `SELECT COUNT(*) as total FROM emails WHERE ${whereSql}`,
+    params,
   );
 
   return {
@@ -117,9 +186,7 @@ interface CrossAccountSearchOptions {
 
 export async function searchEmailsAllAccounts(options: CrossAccountSearchOptions) {
   const { accountIds, accountMap, query, limit = 50 } = options;
-  const pattern = `%${query}%`;
 
-  // Collect results from all accounts
   const allResults: Array<ReturnType<typeof formatEmail> & {
     accountId: string;
     accountEmail: string;
@@ -129,17 +196,17 @@ export async function searchEmailsAllAccounts(options: CrossAccountSearchOptions
   let totalCount = 0;
 
   for (const accountId of accountIds) {
-    // Count per account
+    const { whereSql, params } = buildWhereClause(accountId, query);
+
     const countResult = await queryOne<{ total: number }>(
-      COUNT_QUERY,
-      [accountId, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern],
+      `SELECT COUNT(*) as total FROM emails WHERE ${whereSql}`,
+      params,
     );
     totalCount += countResult?.total || 0;
 
-    // Fetch up to limit per account (we'll sort and trim later)
     const results = await queryAll<EmailRecord>(
-      SEARCH_QUERY + ' ORDER BY date DESC LIMIT ?',
-      [accountId, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, limit],
+      `SELECT * FROM emails WHERE ${whereSql} ORDER BY date DESC LIMIT ?`,
+      [...params, limit],
     );
 
     const accountInfo = accountMap.get(accountId);
@@ -153,7 +220,6 @@ export async function searchEmailsAllAccounts(options: CrossAccountSearchOptions
     }
   }
 
-  // Sort all results by date DESC and take only `limit`
   allResults.sort((a, b) => b.date - a.date);
   const trimmed = allResults.slice(0, limit);
 

@@ -27,8 +27,6 @@ function validateAccountAccess(req: {
 // FTS query sanitization - speciális karakterek és operátorok eltávolítása
 function sanitizeFtsQuery(query: string): string {
   return query
-    .replace(/[^\w\sáéíóöőúüű@.\-]/gi, ' ')
-    .replace(/\b(AND|OR|NOT|NEAR)\b/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .substring(0, MAX_QUERY_LENGTH);
