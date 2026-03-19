@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { searchEmails, searchEmailsAllAccounts } from '../services/search.service.js';
 import { getAllAccounts } from '../services/auth.service.js';
+import logger from '../utils/logger.js';
 
 const router = Router();
 
@@ -13,10 +14,11 @@ function validateAccountAccess(req: {
   query: { accountId?: string };
   session: { activeAccountId?: string | null; accountIds?: string[] };
 }): string | null {
-  const accountId = (req.query.accountId as string) || req.session.activeAccountId;
+  const accountIds = req.session.accountIds || [];
+  const fallbackAccountId = accountIds[0] || null;
+  const accountId = (req.query.accountId as string) || req.session.activeAccountId || fallbackAccountId;
   if (!accountId) return null;
 
-  const accountIds = req.session.accountIds || [];
   if (!accountIds.includes(accountId)) return null;
 
   return accountId;
@@ -35,6 +37,15 @@ function sanitizeFtsQuery(query: string): string {
 // Keresés — opcionális cross-account mód: ?allAccounts=true
 router.get('/', async (req, res) => {
   const allAccounts = req.query.allAccounts === 'true';
+  const rawQuery = req.query.q as string;
+  logger.info('Search request', {
+    allAccounts,
+    hasQuery: Boolean(rawQuery),
+    queryLength: rawQuery?.length || 0,
+    activeAccountId: req.session.activeAccountId || null,
+    sessionAccountCount: (req.session.accountIds || []).length,
+    requestedAccountId: (req.query.accountId as string) || null,
+  });
 
   // Cross-account keresés
   if (allAccounts) {
@@ -44,7 +55,6 @@ router.get('/', async (req, res) => {
       return;
     }
 
-    const rawQuery = req.query.q as string;
     if (!rawQuery) {
       res.status(400).json({ error: 'Keresési kifejezés kötelező (q paraméter)' });
       return;
@@ -88,7 +98,6 @@ router.get('/', async (req, res) => {
     return;
   }
 
-  const rawQuery = req.query.q as string;
   if (!rawQuery) {
     res.status(400).json({ error: 'Keresési kifejezés kötelező (q paraméter)' });
     return;

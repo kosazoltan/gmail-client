@@ -40,8 +40,9 @@ export function SearchResults() {
   const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
   const lastClickedIndexRef = useRef<number>(-1);
 
-  const accountId = allAccounts ? undefined : (session?.activeAccountId || undefined);
-  const { data, isLoading } = useSearch(query, {
+  const fallbackAccountId = session?.accounts?.[0]?.id;
+  const accountId = allAccounts ? undefined : (session?.activeAccountId || fallbackAccountId || undefined);
+  const { data, isLoading, error } = useSearch(query, {
     accountId,
     allAccounts: allAccounts || undefined,
   });
@@ -220,6 +221,11 @@ export function SearchResults() {
               {data && (
                 <span className="dark:text-dark-text-muted ml-1 text-gray-400">
                   ({data.total} találat{allAccounts ? ', minden fiók' : ''})
+                </span>
+              )}
+              {error && (
+                <span className="ml-2 text-xs text-red-600 dark:text-red-400">
+                  (Keresési hiba)
                 </span>
               )}
             </h2>

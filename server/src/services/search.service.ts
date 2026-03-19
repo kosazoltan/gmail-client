@@ -64,7 +64,10 @@ const SEARCH_QUERY = `SELECT * FROM emails
        subject LIKE ? COLLATE NOCASE OR
        from_email LIKE ? COLLATE NOCASE OR
        from_name LIKE ? COLLATE NOCASE OR
+       to_email LIKE ? COLLATE NOCASE OR
+       cc_email LIKE ? COLLATE NOCASE OR
        body LIKE ? COLLATE NOCASE OR
+       body_html LIKE ? COLLATE NOCASE OR
        snippet LIKE ? COLLATE NOCASE
      )`;
 
@@ -75,7 +78,10 @@ const COUNT_QUERY = `SELECT COUNT(*) as total FROM emails
        subject LIKE ? COLLATE NOCASE OR
        from_email LIKE ? COLLATE NOCASE OR
        from_name LIKE ? COLLATE NOCASE OR
+       to_email LIKE ? COLLATE NOCASE OR
+       cc_email LIKE ? COLLATE NOCASE OR
        body LIKE ? COLLATE NOCASE OR
+       body_html LIKE ? COLLATE NOCASE OR
        snippet LIKE ? COLLATE NOCASE
      )`;
 
@@ -86,12 +92,12 @@ export async function searchEmails(options: SearchOptions) {
 
   const results = await queryAll<EmailRecord>(
     SEARCH_QUERY + ' ORDER BY date DESC LIMIT ? OFFSET ?',
-    [accountId, pattern, pattern, pattern, pattern, pattern, limit, offset],
+    [accountId, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, limit, offset],
   );
 
   const countResult = await queryOne<{ total: number }>(
     COUNT_QUERY,
-    [accountId, pattern, pattern, pattern, pattern, pattern],
+    [accountId, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern],
   );
 
   return {
@@ -126,14 +132,14 @@ export async function searchEmailsAllAccounts(options: CrossAccountSearchOptions
     // Count per account
     const countResult = await queryOne<{ total: number }>(
       COUNT_QUERY,
-      [accountId, pattern, pattern, pattern, pattern, pattern],
+      [accountId, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern],
     );
     totalCount += countResult?.total || 0;
 
     // Fetch up to limit per account (we'll sort and trim later)
     const results = await queryAll<EmailRecord>(
       SEARCH_QUERY + ' ORDER BY date DESC LIMIT ?',
-      [accountId, pattern, pattern, pattern, pattern, pattern, limit],
+      [accountId, pattern, pattern, pattern, pattern, pattern, pattern, pattern, pattern, limit],
     );
 
     const accountInfo = accountMap.get(accountId);
