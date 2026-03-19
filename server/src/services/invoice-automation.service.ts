@@ -61,10 +61,6 @@ function getMissingRecipientEnvVars(): string[] {
   return Array.from(required).filter((k) => !(process.env[k] || '').trim());
 }
 
-function getJuniorAlertEmail(): string {
-  return (process.env.JUNIOR_ALERT_EMAIL || process.env.AUTOMATION_ALERT_EMAIL || '').trim();
-}
-
 function tryAutoReloadAccountingEnv(): void {
   const candidates = [process.env.OPENCLAW_ENV_PATH, '.env.local', '.env']
     .filter((p): p is string => Boolean(p));
@@ -600,33 +596,28 @@ async function markDailyCollected(accountId: string, dateKey: string): Promise<v
 }
 
 async function notifyConfigIssue(account: { id: string; email: string }, missing: string[]): Promise<void> {
-  const markerKey = `invoice_config_alert_${new Date().toISOString().slice(0, 10)}`;
+  const markerKey = `invoice_config_instruction_alert_${new Date().toISOString().slice(0, 10)}`;
   const already = await queryOne<{ value: string }>('SELECT value FROM user_settings WHERE account_id = ? AND key = ?', [account.id, markerKey]);
   if (already) return;
 
-  const juniorAlertEmail = getJuniorAlertEmail();
+  const instruction = {
+    type: 'JUNIOR_PROCESS_ALERT',
+    severity: 'critical',
+    source: 'invoice_automation_config',
+    accountId: account.id,
+    accountEmail: account.email,
+    missingEnv: missing,
+    action: 'Junior azonnal javítsa a hiányzó ACCOUNTING_* env változókat, majd futtassa újra az invoice automatizációt.',
+    createdAt: Date.now(),
+  };
 
-  try {
-    if (juniorAlertEmail) {
-      const { oauth2Client } = await getOAuth2ClientForAccount(account.id);
-      const gmail = getGmailClient(oauth2Client);
-      await sendEmail(gmail, {
-        to: juniorAlertEmail,
-        subject: '🔴 Junior riasztás: invoice automation env hiány',
-        body: `Hiányzó recipient env változók: ${missing.join(', ')}\nJunior automatikus önjavítás + újraellenőrzés indítva. Érintett fiók: ${account.email}`,
-      });
-    } else {
-      logger.error('JUNIOR_ALERT_EMAIL/AUTOMATION_ALERT_EMAIL nincs beállítva; email riasztás kihagyva.');
-    }
-  } catch (err) {
-    logger.error(`Invoice config alert email failed for Junior recipient`, err);
-  }
+  logger.error(`🔴 PROGRAM ALERT [JUNIOR_PROCESS_ALERT]: ${instruction.action} Missing: ${missing.join(', ')}`);
 
   await execute(
     `INSERT INTO user_settings (id, account_id, key, value, updated_at)
      VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(account_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
-    [randomUUID(), account.id, markerKey, JSON.stringify({ missing, at: Date.now() }), Date.now()],
+    [randomUUID(), account.id, markerKey, JSON.stringify(instruction), Date.now()],
   );
 }
 
