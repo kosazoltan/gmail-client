@@ -147,6 +147,7 @@ export function useDeleteEmail() {
       queryClient.invalidateQueries({ queryKey: ['emails'] });
       queryClient.invalidateQueries({ queryKey: ['emails-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['email'] });
+      queryClient.invalidateQueries({ queryKey: ['thread'] });
       queryClient.invalidateQueries({ queryKey: ['inbox'] });
       queryClient.invalidateQueries({ queryKey: ['inbox-infinite'] }); // Infinite scroll inbox
       queryClient.invalidateQueries({ queryKey: ['unified-inbox'] });

@@ -207,6 +207,7 @@ export function ThreadView() {
   const [showReply, setShowReply] = useState(false);
   const [replyBody, setReplyBody] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [deletedEmailIds, setDeletedEmailIds] = useState<Set<string>>(new Set());
 
   // Scroll to bottom when data loads
   useEffect(() => {
@@ -240,8 +241,9 @@ export function ThreadView() {
     );
   }
 
-  const emails = data.emails || [];
-  const subject = emails[0]?.subject || '(nincs tárgy)';
+  const allEmails = data.emails || [];
+  const emails = allEmails.filter((email) => !deletedEmailIds.has(email.id));
+  const subject = emails[0]?.subject || allEmails[0]?.subject || '(nincs tárgy)';
   const lastEmail = emails[emails.length - 1];
 
   const handleSendReply = async () => {
@@ -265,6 +267,31 @@ export function ThreadView() {
     }
   };
 
+  const handleDeleteEmail = async (emailId: string) => {
+    if (emails.length <= 1) {
+      toast.error('Az utolsó üzenet innen nem törölhető. Töröld az email listából.');
+      return;
+    }
+
+    setDeletedEmailIds((prev) => {
+      const next = new Set(prev);
+      next.add(emailId);
+      return next;
+    });
+
+    try {
+      await deleteEmail.mutateAsync({ emailId, accountId });
+      toast.success('Üzenet törölve');
+    } catch {
+      setDeletedEmailIds((prev) => {
+        const next = new Set(prev);
+        next.delete(emailId);
+        return next;
+      });
+      toast.error('Nem sikerült törölni az üzenetet');
+    }
+  };
+
   return (
     <div className="mx-auto max-w-4xl p-6">
       {/* Header */}
@@ -283,18 +310,30 @@ export function ThreadView() {
       </div>
 
       {/* Thread emails */}
-      <div className="space-y-3">
-        {emails.map((email, idx) => (
-          <EmailMessage
-            key={email.id}
-            email={email}
-            accountEmail={data.accountEmail}
-            isLast={idx === emails.length - 1}
-            defaultExpanded={idx === emails.length - 1 || emails.length <= 3}
-            onDelete={emails.length > 1 ? () => deleteEmail.mutate({ emailId: email.id, accountId }) : undefined}
-          />
-        ))}
-      </div>
+      {emails.length === 0 ? (
+        <div className="dark:border-dark-border dark:bg-dark-bg-secondary rounded-xl border border-dashed p-6 text-center">
+          <p className="dark:text-dark-text-secondary text-sm text-gray-600">Nincs több üzenet ebben a beszélgetésben.</p>
+          <button
+            onClick={() => navigate(-1)}
+            className="mt-3 text-sm text-[#4f6ef7] hover:underline"
+          >
+            Vissza a listára
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {emails.map((email, idx) => (
+            <EmailMessage
+              key={email.id}
+              email={email}
+              accountEmail={data.accountEmail}
+              isLast={idx === emails.length - 1}
+              defaultExpanded={idx === emails.length - 1 || emails.length <= 3}
+              onDelete={emails.length > 1 ? () => void handleDeleteEmail(email.id) : undefined}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Reply section */}
       <div className="mt-4" ref={bottomRef}>
