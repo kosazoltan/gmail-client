@@ -49,7 +49,8 @@ import detectedTasksRoutes from './routes/detected-tasks.routes.js';
 import sseRoutes from './routes/sse.routes.js';
 import briefRoutes, { generateAISummary } from './routes/brief.routes.js';
 import { runAiDigestScheduler } from './services/digest-scheduler.service.js';
-import { runInvoiceAutomation } from './services/invoice-automation.service.js';
+import { runInvoiceAutomation, validateInvoiceAutomationConfig } from './services/invoice-automation.service.js';
+import invoiceAutomationRoutes from './routes/invoice-automation.routes.js';
 import { detectUnansweredEmails, processExpiredSnoozedTasks } from './services/task-detection.service.js';
 import { buildAllowedOrigins, isOriginAllowed } from './utils/cors-config.js';
 import { requestIdMiddleware } from './middleware/request-id.js';
@@ -106,6 +107,9 @@ async function start() {
   // Adatbázis inicializálás ELŐSZÖR (session store-nak szüksége van rá)
   await initializeDatabaseWithRetry();
   await ensureErrorLogTable();
+
+  // Hard-fail config gate for invoice automation recipients
+  validateInvoiceAutomationConfig();
 
   const app = express();
   const frontendUrl = process.env.FRONTEND_URL;
@@ -212,6 +216,7 @@ async function start() {
   app.use('/api/detected-tasks', detectedTasksRoutes);
   app.use('/api/sse', sseRoutes);
   app.use('/api/brief', briefRoutes);
+  app.use('/api/invoice-automation', invoiceAutomationRoutes);
 
   app.use('/api/error-report', errorReportRoutes);
   app.use('/api/static-audit', staticAuditRoutes);

@@ -45,9 +45,28 @@ interface StoredInvoice {
   createdAt: number;
 }
 
+type CompanyInvoiceMap = Map<string, StoredInvoice[]>;
+
 function monthKeyFromTs(ts: number): string {
   const d = new Date(ts);
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+function getMissingRecipientEnvVars(): string[] {
+  const required = new Set<string>();
+  for (const cfg of Object.values(COMPANY_TARGETS)) {
+    for (const k of cfg.envRecipients) required.add(k);
+  }
+  return Array.from(required).filter((k) => !(process.env[k] || '').trim());
+}
+
+export function validateInvoiceAutomationConfig(): void {
+  const missing = getMissingRecipientEnvVars();
+  if (missing.length > 0) {
+    const msg = `🔴 INVOICE_AUTOMATION_HARD_FAIL: Missing env vars: ${missing.join(', ')}`;
+    logger.error(msg);
+    throw new Error(msg);
+  }
 }
 
 function normalize(text: string): string {
@@ -390,10 +409,10 @@ async function runDailyInvoiceCollectorForAccount(account: { id: string; email: 
   }
 }
 
-async function runMonthlyDistributionForAccount(account: { id: string; email: string }, monthKey: string): Promise<void> {
+async function getMonthlyInvoicesByCompany(accountId: string, monthKey: string): Promise<CompanyInvoiceMap> {
   const records = await queryAll<{ key: string; value: string }>(
     `SELECT key, value FROM user_settings WHERE account_id = ? AND key LIKE 'invoice_auto_%'`,
-    [account.id],
+    [accountId],
   );
 
   const parsed = records
@@ -402,12 +421,88 @@ async function runMonthlyDistributionForAccount(account: { id: string; email: st
     })
     .filter((x): x is StoredInvoice => x !== null && x.monthKey === monthKey);
 
-  if (parsed.length === 0) return;
-
-  const byCompany = new Map<string, StoredInvoice[]>();
+  const byCompany: CompanyInvoiceMap = new Map<string, StoredInvoice[]>();
   for (const row of parsed) {
     if (!byCompany.has(row.company)) byCompany.set(row.company, []);
     byCompany.get(row.company)!.push(row);
+  }
+
+  return byCompany;
+}
+
+async function isMonthlyApproved(accountId: string, monthKey: string): Promise<boolean> {
+  const row = await queryOne<{ value: string }>(
+    'SELECT value FROM user_settings WHERE account_id = ? AND key = ?',
+    [accountId, `invoice_monthly_approved_${monthKey}`],
+  );
+  return Boolean(row);
+}
+
+async function hasMonthlyPreviewSent(accountId: string, monthKey: string): Promise<boolean> {
+  const row = await queryOne<{ value: string }>(
+    'SELECT value FROM user_settings WHERE account_id = ? AND key = ?',
+    [accountId, `invoice_monthly_preview_sent_${monthKey}`],
+  );
+  return Boolean(row);
+}
+
+async function markMonthlyPreviewSent(accountId: string, monthKey: string, payload: object): Promise<void> {
+  await execute(
+    `INSERT INTO user_settings (id, account_id, key, value, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(account_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+    [randomUUID(), accountId, `invoice_monthly_preview_sent_${monthKey}`, JSON.stringify(payload), Date.now()],
+  );
+}
+
+export async function approveMonthlyInvoiceDistribution(accountId: string, monthKey: string): Promise<void> {
+  await execute(
+    `INSERT INTO user_settings (id, account_id, key, value, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(account_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+    [randomUUID(), accountId, `invoice_monthly_approved_${monthKey}`, JSON.stringify({ approvedAt: Date.now() }), Date.now()],
+  );
+}
+
+async function sendMonthlyPreviewForApproval(
+  account: { id: string; email: string },
+  monthKey: string,
+  byCompany: CompanyInvoiceMap,
+): Promise<void> {
+  const { oauth2Client } = await getOAuth2ClientForAccount(account.id);
+  const gmail = getGmailClient(oauth2Client);
+
+  const blocks: string[] = [];
+  for (const [company, items] of byCompany.entries()) {
+    const recipients = await getRecipientEmails(account.id, company);
+    const lines = items.slice(0, 50).map((it) => `- ${it.fileName}: ${it.driveLink}`).join('\n');
+    blocks.push(`\n${company} (${items.length} db) -> ${recipients.join(', ')}\n${lines}`);
+  }
+
+  const approvalHint = `Jóváhagyáshoz hívd: POST /api/invoice-automation/approve { \"monthKey\": \"${monthKey}\" }`;
+  const body = `Előnézeti havi számla-kiküldés (${monthKey}) - JÓVÁHAGYÁS SZÜKSÉGES\n${blocks.join('\n')}\n\n${approvalHint}`;
+
+  await sendEmail(gmail, {
+    to: account.email,
+    subject: `[APPROVAL REQUIRED] ${monthKey} havi számla-kiküldési előnézet`,
+    body,
+  });
+
+  await markMonthlyPreviewSent(account.id, monthKey, { sentAt: Date.now(), companies: Array.from(byCompany.keys()) });
+}
+
+async function runMonthlyDistributionForAccount(account: { id: string; email: string }, monthKey: string): Promise<void> {
+  const byCompany = await getMonthlyInvoicesByCompany(account.id, monthKey);
+  if (byCompany.size === 0) return;
+
+  const approved = await isMonthlyApproved(account.id, monthKey);
+  if (!approved) {
+    const previewSent = await hasMonthlyPreviewSent(account.id, monthKey);
+    if (!previewSent) {
+      await sendMonthlyPreviewForApproval(account, monthKey, byCompany);
+      logger.warn(`Monthly invoice distribution waiting approval for ${account.email} (${monthKey})`);
+    }
+    return;
   }
 
   const { oauth2Client } = await getOAuth2ClientForAccount(account.id);
