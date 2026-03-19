@@ -281,7 +281,7 @@ function MessageBubble({
             <div className="px-3 py-2.5 sm:px-4 sm:py-3">
               {sanitizedHtml ? (
                 <div
-                  className="email-content prose prose-sm prose-img:rounded-lg prose-img:shadow-md max-w-none text-gray-900 dark:text-gray-300"
+                  className="email-content max-w-none overflow-x-auto text-gray-900 dark:text-gray-200"
                   dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                 />
               ) : email.body ? (

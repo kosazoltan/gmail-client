@@ -798,7 +798,7 @@ export function EmailDetail({
                     </pre>
                   ) : sanitizedHtml ? (
                     <div
-                      className="email-content prose prose-sm prose-headings:text-gray-900 dark:prose-headings:text-gray-200 prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-strong:text-gray-900 dark:prose-strong:text-gray-200 prose-blockquote:text-gray-600 dark:prose-blockquote:text-gray-400 prose-blockquote:border-gray-300 dark:prose-blockquote:border-gray-600 prose-code:text-gray-800 dark:prose-code:text-gray-300 prose-pre:bg-gray-100 dark:prose-pre:bg-gray-800 prose-hr:border-gray-200 dark:prose-hr:border-gray-700 prose-img:rounded-lg prose-img:shadow-md max-w-none text-gray-900 dark:text-gray-300"
+                      className="email-content max-w-none overflow-x-auto text-gray-900 dark:text-gray-200"
                       dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                     />
                   ) : email.body ? (

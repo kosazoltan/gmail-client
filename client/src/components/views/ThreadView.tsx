@@ -147,7 +147,7 @@ function EmailMessage({
           {/* Email body */}
           {email.bodyHtml ? (
             <div
-              className="prose prose-sm dark:prose-invert max-w-none overflow-auto"
+              className="email-content max-w-none overflow-x-auto text-gray-900 dark:text-gray-200"
               dangerouslySetInnerHTML={{
                 __html: DOMPurify.sanitize(email.bodyHtml, {
                   ADD_ATTR: ['target'],
