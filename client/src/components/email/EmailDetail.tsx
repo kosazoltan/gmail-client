@@ -798,7 +798,7 @@ export function EmailDetail({
                     </pre>
                   ) : sanitizedHtml ? (
                     <div
-                      className="email-content max-w-none overflow-x-auto text-gray-900 dark:text-gray-200"
+                      className="email-content email-content--preserve max-w-none overflow-x-auto text-gray-900"
                       dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                     />
                   ) : email.body ? (
