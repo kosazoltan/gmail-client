@@ -48,6 +48,7 @@ import aiChatRoutes from './routes/ai-chat.routes.js';
 import detectedTasksRoutes from './routes/detected-tasks.routes.js';
 import sseRoutes from './routes/sse.routes.js';
 import briefRoutes, { generateAISummary } from './routes/brief.routes.js';
+import { runAiDigestScheduler } from './services/digest-scheduler.service.js';
 import { detectUnansweredEmails, processExpiredSnoozedTasks } from './services/task-detection.service.js';
 import { buildAllowedOrigins, isOriginAllowed } from './utils/cors-config.js';
 import { requestIdMiddleware } from './middleware/request-id.js';
@@ -351,6 +352,14 @@ async function start() {
         logger.error('Daily brief: getAllAccounts() failed:', err);
         lastBriefDate = ''; // Reset so it retries next interval
       }
+    }
+
+    // AI digest scheduler (Budapest 07:00 / 12:00 / 17:00)
+    try {
+      const accounts = await getAllAccounts();
+      await runAiDigestScheduler(accounts, frontendUrl);
+    } catch (err) {
+      logger.error('AI digest scheduler error:', err);
     }
   }, 300000); // Check every 5 minutes
 

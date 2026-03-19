@@ -36,6 +36,13 @@ interface ParsedTerm {
   exclude: boolean;
 }
 
+interface ParsedSearch {
+  terms: ParsedTerm[];
+  afterTs?: number;
+  beforeTs?: number;
+  hasAttachment?: boolean;
+}
+
 function parseLabelsJson(labels: string | null): string[] {
   if (!labels) return [];
   try {
@@ -69,18 +76,42 @@ function tokenizeQuery(query: string): string[] {
   const tokens: string[] = [];
   const re = /"([^"]+)"|(\S+)/g;
   let m: RegExpExecArray | null;
-
   while ((m = re.exec(query)) !== null) {
     const token = (m[1] ?? m[2] ?? '').trim();
     if (token) tokens.push(token);
   }
-
   return tokens;
 }
 
-function parseSearchQuery(query: string): ParsedTerm[] {
+function parseDateToTs(raw: string): number | undefined {
+  const v = raw.trim();
+  if (!v) return undefined;
+
+  if (/^\d{4}\/\d{2}\/\d{2}$/.test(v)) {
+    const [y, m, d] = v.split('/').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
+    return Number.isNaN(dt.getTime()) ? undefined : dt.getTime();
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    const dt = new Date(`${v}T00:00:00.000Z`);
+    return Number.isNaN(dt.getTime()) ? undefined : dt.getTime();
+  }
+
+  const numeric = Number(v);
+  if (Number.isFinite(numeric) && numeric > 0) {
+    return numeric > 2_000_000_000 ? numeric : numeric * 1000;
+  }
+
+  return undefined;
+}
+
+function parseSearchQuery(query: string): ParsedSearch {
   const rawTokens = tokenizeQuery(query);
   const terms: ParsedTerm[] = [];
+  let afterTs: number | undefined;
+  let beforeTs: number | undefined;
+  let hasAttachment: boolean | undefined;
 
   for (let token of rawTokens) {
     let exclude = false;
@@ -95,6 +126,21 @@ function parseSearchQuery(query: string): ParsedTerm[] {
       const value = token.slice(idx + 1).trim();
       if (!value) continue;
 
+      if (key === 'after') {
+        const ts = parseDateToTs(value);
+        if (ts) afterTs = ts;
+        continue;
+      }
+      if (key === 'before') {
+        const ts = parseDateToTs(value);
+        if (ts) beforeTs = ts;
+        continue;
+      }
+      if (key === 'has' && value.toLowerCase() === 'attachment') {
+        hasAttachment = !exclude;
+        continue;
+      }
+
       if (key === 'from' || key === 'to' || key === 'cc' || key === 'subject' || key === 'body') {
         terms.push({ field: key, value, exclude });
         continue;
@@ -104,7 +150,7 @@ function parseSearchQuery(query: string): ParsedTerm[] {
     terms.push({ field: 'any', value: token, exclude });
   }
 
-  return terms;
+  return { terms, afterTs, beforeTs, hasAttachment };
 }
 
 function columnsForField(field: SearchField): string[] {
@@ -119,21 +165,28 @@ function columnsForField(field: SearchField): string[] {
       return ['subject'];
     case 'body':
       return ['body', 'body_html', 'snippet'];
-    case 'any':
     default:
       return ['subject', 'from_email', 'from_name', 'to_email', 'cc_email', 'body', 'body_html', 'snippet'];
   }
 }
 
-function buildWhereClause(accountId: string, query: string): { whereSql: string; params: unknown[] } {
-  const terms = parseSearchQuery(query);
+function buildWhereClause(accountId: string, parsed: ParsedSearch): { whereSql: string; params: unknown[] } {
   const params: unknown[] = [accountId];
-  const whereParts: string[] = [
-    'account_id = ?',
-    "labels NOT LIKE '%TRASH%'",
-  ];
+  const whereParts: string[] = ['account_id = ?', "labels NOT LIKE '%TRASH%'"];
 
-  for (const term of terms) {
+  if (typeof parsed.afterTs === 'number') {
+    whereParts.push('date >= ?');
+    params.push(parsed.afterTs);
+  }
+  if (typeof parsed.beforeTs === 'number') {
+    whereParts.push('date <= ?');
+    params.push(parsed.beforeTs);
+  }
+  if (typeof parsed.hasAttachment === 'boolean') {
+    whereParts.push(parsed.hasAttachment ? 'has_attachments = 1' : 'has_attachments = 0');
+  }
+
+  for (const term of parsed.terms) {
     const columns = columnsForField(term.field);
     const pattern = `%${term.value}%`;
     const orParts: string[] = [];
@@ -147,33 +200,100 @@ function buildWhereClause(accountId: string, query: string): { whereSql: string;
     whereParts.push(term.exclude ? `NOT ${groupSql}` : groupSql);
   }
 
+  return { whereSql: whereParts.join(' AND '), params };
+}
+
+function relevanceScore(email: EmailRecord, parsed: ParsedSearch): number {
+  let score = 0;
+  const subject = (email.subject || '').toLowerCase();
+  const from = `${email.from_name || ''} ${email.from_email || ''}`.toLowerCase();
+  const to = `${email.to_email || ''} ${email.cc_email || ''}`.toLowerCase();
+  const body = `${email.snippet || ''} ${email.body || ''} ${email.body_html || ''}`.toLowerCase();
+
+  for (const term of parsed.terms) {
+    if (term.exclude) continue;
+    const q = term.value.toLowerCase();
+    if (!q) continue;
+
+    const exactPhrase = term.value.includes(' ');
+    const phraseBoost = exactPhrase ? 2 : 1;
+
+    const matchAndWeight = (text: string, weight: number): number => {
+      if (!text.includes(q)) return 0;
+      let local = weight * phraseBoost;
+      if (text === q) local += 6;
+      return local;
+    };
+
+    switch (term.field) {
+      case 'subject':
+        score += matchAndWeight(subject, 8);
+        break;
+      case 'from':
+        score += matchAndWeight(from, 6);
+        break;
+      case 'to':
+      case 'cc':
+        score += matchAndWeight(to, 5);
+        break;
+      case 'body':
+        score += matchAndWeight(body, 4);
+        break;
+      default:
+        score += matchAndWeight(subject, 8);
+        score += matchAndWeight(from, 6);
+        score += matchAndWeight(to, 5);
+        score += matchAndWeight(body, 4);
+        break;
+    }
+  }
+
+  if (!email.is_read) score += 1;
+  if (email.is_starred) score += 2;
+
+  const ageHours = Math.max(0, (Date.now() - Number(email.date || 0)) / (1000 * 60 * 60));
+  if (ageHours <= 24) score += 1;
+  if (ageHours <= 6) score += 1;
+
+  return score;
+}
+
+function rankAndPaginate(results: EmailRecord[], parsed: ParsedSearch, page: number, limit: number) {
+  const ranked = results
+    .map((email) => ({ email, score: relevanceScore(email, parsed) }))
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return b.email.date - a.email.date;
+    });
+
+  const total = ranked.length;
+  const offset = (page - 1) * limit;
+  const pageRows = ranked.slice(offset, offset + limit).map((entry) => entry.email);
+
   return {
-    whereSql: whereParts.join(' AND '),
-    params,
+    emails: pageRows,
+    total,
+    totalPages: Math.ceil(total / limit),
   };
 }
 
 export async function searchEmails(options: SearchOptions) {
   const { accountId, query, page = 1, limit = 50 } = options;
-  const offset = (page - 1) * limit;
+  const parsed = parseSearchQuery(query);
+  const { whereSql, params } = buildWhereClause(accountId, parsed);
 
-  const { whereSql, params } = buildWhereClause(accountId, query);
-
-  const results = await queryAll<EmailRecord>(
-    `SELECT * FROM emails WHERE ${whereSql} ORDER BY date DESC LIMIT ? OFFSET ?`,
-    [...params, limit, offset],
-  );
-
-  const countResult = await queryOne<{ total: number }>(
-    `SELECT COUNT(*) as total FROM emails WHERE ${whereSql}`,
+  const rows = await queryAll<EmailRecord>(
+    `SELECT * FROM emails WHERE ${whereSql} ORDER BY date DESC LIMIT 1000`,
     params,
   );
 
+  const ranked = rankAndPaginate(rows, parsed, page, limit);
+
   return {
-    emails: results.map(formatEmail),
-    total: countResult?.total || 0,
+    emails: ranked.emails.map(formatEmail),
+    total: ranked.total,
     page,
-    totalPages: Math.ceil((countResult?.total || 0) / limit),
+    totalPages: ranked.totalPages,
   };
 }
 
@@ -186,33 +306,21 @@ interface CrossAccountSearchOptions {
 
 export async function searchEmailsAllAccounts(options: CrossAccountSearchOptions) {
   const { accountIds, accountMap, query, limit = 50 } = options;
+  const parsed = parseSearchQuery(query);
 
-  const allResults: Array<ReturnType<typeof formatEmail> & {
-    accountId: string;
-    accountEmail: string;
-    accountColor: string | null;
-  }> = [];
-
-  let totalCount = 0;
+  const allRows: Array<EmailRecord & { accountId: string; accountEmail: string; accountColor: string | null }> = [];
 
   for (const accountId of accountIds) {
-    const { whereSql, params } = buildWhereClause(accountId, query);
-
-    const countResult = await queryOne<{ total: number }>(
-      `SELECT COUNT(*) as total FROM emails WHERE ${whereSql}`,
+    const { whereSql, params } = buildWhereClause(accountId, parsed);
+    const rows = await queryAll<EmailRecord>(
+      `SELECT * FROM emails WHERE ${whereSql} ORDER BY date DESC LIMIT 500`,
       params,
-    );
-    totalCount += countResult?.total || 0;
-
-    const results = await queryAll<EmailRecord>(
-      `SELECT * FROM emails WHERE ${whereSql} ORDER BY date DESC LIMIT ?`,
-      [...params, limit],
     );
 
     const accountInfo = accountMap.get(accountId);
-    for (const row of results) {
-      allResults.push({
-        ...formatEmail(row),
+    for (const row of rows) {
+      allRows.push({
+        ...row,
         accountId,
         accountEmail: accountInfo?.email || accountId,
         accountColor: accountInfo?.color || null,
@@ -220,13 +328,24 @@ export async function searchEmailsAllAccounts(options: CrossAccountSearchOptions
     }
   }
 
-  allResults.sort((a, b) => b.date - a.date);
-  const trimmed = allResults.slice(0, limit);
+  const ranked = allRows
+    .map((email) => ({ email, score: relevanceScore(email, parsed) }))
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return b.email.date - a.email.date;
+    })
+    .slice(0, limit)
+    .map(({ email }) => ({
+      ...formatEmail(email),
+      accountId: email.accountId,
+      accountEmail: email.accountEmail,
+      accountColor: email.accountColor,
+    }));
 
   return {
-    emails: trimmed,
-    total: totalCount,
+    emails: ranked,
+    total: ranked.length,
     page: 1,
-    totalPages: Math.ceil(totalCount / limit),
+    totalPages: 1,
   };
 }
