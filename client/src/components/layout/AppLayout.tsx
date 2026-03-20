@@ -4,7 +4,7 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { KeyboardShortcutsHelp } from '../common/KeyboardShortcutsHelp';
 import { OfflineBanner } from '../common/OfflineBanner';
-import { useNewEmailNotification } from '../../hooks/useNewEmailNotification';
+import { useDesktopNotifications } from '../../hooks/useDesktopNotifications';
 import { useSession } from '../../hooks/useAccounts';
 
 export function AppLayout() {
@@ -15,8 +15,8 @@ export function AppLayout() {
   const location = useLocation();
   const { data: session } = useSession();
 
-  // Real-time new email notifications via SSE
-  useNewEmailNotification(!!session?.activeAccountId);
+  // Real-time new email desktop notifications via SSE
+  useDesktopNotifications(!!session?.activeAccountId);
 
   // Reszponzív sidebar kezelés
   useEffect(() => {
@@ -62,10 +62,7 @@ export function AppLayout() {
       <div
         className={` ${isMobile ? 'fixed inset-y-0 left-0 z-30' : 'relative'} ${isMobile && !sidebarOpen ? '-translate-x-full' : 'translate-x-0'} transition-transform duration-200`}
       >
-        <Sidebar
-          isOpen={sidebarOpen || isMobile}
-          onToggle={() => setSidebarOpen(!sidebarOpen)}
-        />
+        <Sidebar isOpen={sidebarOpen || isMobile} onToggle={() => setSidebarOpen(!sidebarOpen)} />
       </div>
 
       {/* Main content */}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAttachments } from '../../hooks/useAttachments';
 import { api } from '../../lib/api';
@@ -25,6 +25,8 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import type { AttachmentWithEmail, AttachmentAnalysis } from '../../types';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 import { EmptyState } from '../common/EmptyState';
 
 const typeFilters = [
@@ -115,6 +117,9 @@ export function AttachmentsView() {
   const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set());
   const [analysisErrors, setAnalysisErrors] = useState<Record<string, string>>({});
   const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
+  const [sizeFilter, setSizeFilter] = useState<'all' | 'lt1' | '1to10' | 'gt10'>('all');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   const { data, isLoading } = useAttachments({
     type: selectedType === 'all' ? undefined : selectedType,
@@ -124,6 +129,25 @@ export function AttachmentsView() {
     page,
     limit: 50,
   });
+
+  const filteredAttachments = useMemo(() => {
+    const list = data?.attachments || [];
+    return list.filter((a) => {
+      if (sizeFilter === 'lt1') return a.size < 1024 * 1024;
+      if (sizeFilter === '1to10') return a.size >= 1024 * 1024 && a.size <= 10 * 1024 * 1024;
+      if (sizeFilter === 'gt10') return a.size > 10 * 1024 * 1024;
+      return true;
+    });
+  }, [data?.attachments, sizeFilter]);
+
+  const duplicateKeys = useMemo(() => {
+    const map = new Map<string, number>();
+    filteredAttachments.forEach((a) => {
+      const key = `${a.filename}::${a.size}`;
+      map.set(key, (map.get(key) || 0) + 1);
+    });
+    return map;
+  }, [filteredAttachments]);
 
   const handleDownload = (attachment: AttachmentWithEmail) => {
     window.open(api.attachments.downloadUrl(attachment.id), '_blank');
@@ -135,6 +159,21 @@ export function AttachmentsView() {
 
   const toggleOrder = () => {
     setOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+  };
+
+  const handleBatchDownload = async () => {
+    const selected = filteredAttachments.filter((a) => selectedIds.has(a.id));
+    if (selected.length === 0) return;
+    const zip = new JSZip();
+    await Promise.all(
+      selected.map(async (att) => {
+        const response = await fetch(api.attachments.downloadUrl(att.id));
+        const blob = await response.blob();
+        zip.file(att.filename, blob);
+      }),
+    );
+    const out = await zip.generateAsync({ type: 'blob' });
+    saveAs(out, `zmail-mellekletek-${Date.now()}.zip`);
   };
 
   const handleAnalyze = async (attachment: AttachmentWithEmail) => {
@@ -220,6 +259,36 @@ export function AttachmentsView() {
         </div>
       </div>
 
+      <div className="dark:border-dark-border dark:bg-dark-bg-secondary flex flex-wrap items-center gap-2 border-b border-gray-200 px-4 py-2">
+        {[
+          { id: 'all', label: 'Méret: mind' },
+          { id: 'lt1', label: '< 1MB' },
+          { id: '1to10', label: '1-10MB' },
+          { id: 'gt10', label: '> 10MB' },
+        ].map((opt) => (
+          <button
+            key={opt.id}
+            onClick={() => setSizeFilter(opt.id as typeof sizeFilter)}
+            className={`rounded px-2 py-1 text-xs ${sizeFilter === opt.id ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}`}
+          >
+            {opt.label}
+          </button>
+        ))}
+        <button
+          onClick={() => setViewMode((v) => (v === 'list' ? 'grid' : 'list'))}
+          className="ml-auto rounded bg-gray-100 px-2 py-1 text-xs dark:bg-gray-700"
+        >
+          {viewMode === 'list' ? 'Grid' : 'Lista'} nézet
+        </button>
+        <button
+          onClick={handleBatchDownload}
+          disabled={selectedIds.size === 0}
+          className="rounded bg-[#4f6ef7] px-2 py-1 text-xs text-white disabled:opacity-50"
+        >
+          Letöltés ZIP ({selectedIds.size})
+        </button>
+      </div>
+
       {/* Típus szűrők */}
       <div className="dark:bg-dark-bg-secondary dark:border-dark-border flex items-center gap-1 overflow-x-auto border-b border-gray-200 bg-white px-4 py-2">
         {typeFilters.map((filter) => {
@@ -264,15 +333,21 @@ export function AttachmentsView() {
           <div className="flex h-64 items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
           </div>
-        ) : !data?.attachments.length ? (
+        ) : !filteredAttachments.length ? (
           <EmptyState
             icon={Paperclip}
             title="Nincsenek mellékletek"
             description="A levélmellékletek itt jelennek meg."
           />
         ) : (
-          <div className="dark:divide-dark-border divide-y divide-gray-100">
-            {data.attachments.map((attachment) => {
+          <div
+            className={
+              viewMode === 'grid'
+                ? 'grid grid-cols-1 gap-2 p-2 md:grid-cols-2 xl:grid-cols-3'
+                : 'dark:divide-dark-border divide-y divide-gray-100'
+            }
+          >
+            {filteredAttachments.map((attachment) => {
               const TypeIcon = getTypeIcon(attachment.type);
               const typeColor = getTypeColor(attachment.type);
               const analyzable = canAnalyze(attachment.mimeType);
@@ -284,6 +359,18 @@ export function AttachmentsView() {
               return (
                 <div key={attachment.id}>
                   <div className="dark:hover:bg-dark-bg-tertiary flex items-center gap-4 px-4 py-3 transition-colors hover:bg-gray-50">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(attachment.id)}
+                      onChange={() =>
+                        setSelectedIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(attachment.id)) next.delete(attachment.id);
+                          else next.add(attachment.id);
+                          return next;
+                        })
+                      }
+                    />
                     {/* Ikon */}
                     <div className={`rounded-lg p-2.5 ${typeColor}`}>
                       <TypeIcon className="h-5 w-5" />
@@ -293,6 +380,11 @@ export function AttachmentsView() {
                     <div className="min-w-0 flex-1">
                       <div className="dark:text-dark-text truncate text-sm font-medium text-gray-900">
                         {attachment.filename}
+                        {duplicateKeys.get(`${attachment.filename}::${attachment.size}`)! > 1 && (
+                          <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+                            Duplikált
+                          </span>
+                        )}
                       </div>
                       <div className="dark:text-dark-text-secondary mt-0.5 flex items-center gap-2 text-xs text-gray-500">
                         <span>{formatFileSize(attachment.size)}</span>

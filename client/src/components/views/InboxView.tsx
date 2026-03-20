@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSession } from '../../hooks/useAccounts';
 import { useInboxInfinite } from '../../hooks/useInbox';
@@ -12,6 +13,8 @@ import {
 import { useKeyboardShortcuts, useSearchFocus } from '../../hooks/useKeyboardShortcuts';
 import { useInfiniteScroll } from '../../hooks/useInfiniteScroll';
 import { ThreadedEmailList } from '../email/ThreadedEmailList';
+import { EmailList } from '../email/EmailList';
+import { BulkActionBar } from '../email/BulkActionBar';
 import { EmailDetail } from '../email/EmailDetail';
 import { KeyboardShortcutsHelp } from '../common/KeyboardShortcutsHelp';
 import { ResizablePanels } from '../common/ResizablePanels';
@@ -20,11 +23,13 @@ import { CheckSquare, X, Trash2, Square, CheckCheck, Loader2, MailOpen, Mail } f
 import type { Email } from '../../types';
 import { getNextEmailAfterDelete } from '../../lib/emailNavigation';
 import { api } from '../../lib/api';
+import { useSettings, defaultSettings } from '../../hooks/useSettings';
 
 export function InboxView() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { data: session } = useSession();
+  const queryClient = useQueryClient();
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -40,6 +45,8 @@ export function InboxView() {
   const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } = useInboxInfinite({
     accountId,
   });
+  const { data: settings } = useSettings();
+  const conversationView = settings?.conversationView ?? defaultSettings.conversationView ?? true;
 
   const { containerRef } = useInfiniteScroll({
     hasNextPage: !!hasNextPage,
@@ -137,17 +144,64 @@ export function InboxView() {
 
   const confirmBatchDelete = useCallback(() => {
     const idsToDelete = Array.from(selectedIds);
-    batchDeleteEmails.mutate({ emailIds: idsToDelete, accountId }, {
-      onSuccess: () => {
-        setShowBatchDeleteConfirm(false);
-        setSelectedIds(new Set());
-        setSelectionMode(false);
-        if (selectedEmail && selectedIds.has(selectedEmail.id)) {
-          setSelectedEmail(null);
-        }
+    batchDeleteEmails.mutate(
+      { emailIds: idsToDelete, accountId },
+      {
+        onSuccess: () => {
+          setShowBatchDeleteConfirm(false);
+          setSelectedIds(new Set());
+          setSelectionMode(false);
+          if (selectedEmail && selectedIds.has(selectedEmail.id)) {
+            setSelectedEmail(null);
+          }
+        },
       },
-    });
+    );
   }, [selectedIds, batchDeleteEmails, selectedEmail, accountId]);
+
+  const withSelectionRefresh = useCallback(
+    async (fn: () => Promise<void>) => {
+      await fn();
+      setSelectedIds(new Set());
+      setSelectionMode(false);
+      await queryClient.invalidateQueries({ queryKey: ['emails'] });
+    },
+    [queryClient],
+  );
+
+  const handleBulkArchive = useCallback(async () => {
+    if (!accountId || selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    await withSelectionRefresh(async () => {
+      await Promise.all(ids.map((id) => api.labels.moveEmail(id, ['ARCHIVE'], ['INBOX'])));
+    });
+  }, [accountId, selectedIds, withSelectionRefresh]);
+
+  const handleBulkStar = useCallback(async () => {
+    if (!accountId || selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    await withSelectionRefresh(async () => {
+      await Promise.all(ids.map((id) => api.emails.toggleStar(id, true, accountId)));
+    });
+  }, [accountId, selectedIds, withSelectionRefresh]);
+
+  const handleBulkLabel = useCallback(async () => {
+    if (!accountId || selectedIds.size === 0) return;
+    const label = window.prompt('Label ID vagy név');
+    if (!label) return;
+    const ids = Array.from(selectedIds);
+    await withSelectionRefresh(async () => {
+      await Promise.all(ids.map((id) => api.labels.addToEmail(id, [label])));
+    });
+  }, [accountId, selectedIds, withSelectionRefresh]);
+
+  const handleBulkSpam = useCallback(async () => {
+    if (!accountId || selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    await withSelectionRefresh(async () => {
+      await Promise.all(ids.map((id) => api.labels.moveEmail(id, ['SPAM'], ['INBOX'])));
+    });
+  }, [accountId, selectedIds, withSelectionRefresh]);
 
   // Navigáció következő emailre
   const handleNextEmail = useCallback(() => {
@@ -274,13 +328,16 @@ export function InboxView() {
     if (!selectedEmail) return;
     const emailIdToDelete = selectedEmail.id;
 
-    deleteEmail.mutate({ emailId: emailIdToDelete, accountId }, {
-      onSuccess: () => {
-        const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailIdToDelete);
-        setSelectedEmail(nextEmail);
-        setShowDeleteConfirm(false);
+    deleteEmail.mutate(
+      { emailId: emailIdToDelete, accountId },
+      {
+        onSuccess: () => {
+          const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailIdToDelete);
+          setSelectedEmail(nextEmail);
+          setShowDeleteConfirm(false);
+        },
       },
-    });
+    );
   }, [selectedEmail, deleteEmail, accountId]);
 
   // Billentyűparancsok
@@ -318,6 +375,19 @@ export function InboxView() {
 
   const leftPanel = (
     <div className="flex h-full flex-col">
+      <BulkActionBar
+        selectedIds={Array.from(selectedIds)}
+        onArchive={() => void handleBulkArchive()}
+        onDelete={handleBatchDelete}
+        onMarkRead={() => handleBatchMarkRead(true)}
+        onMarkUnread={() => handleBatchMarkRead(false)}
+        onStar={() => void handleBulkStar()}
+        onLabel={() => void handleBulkLabel()}
+        onSpam={() => void handleBulkSpam()}
+        onClearSelection={deselectAllEmails}
+        onSelectAll={selectAllEmails}
+        totalCount={emails.length}
+      />
       {/* Selection toolbar - sticky */}
       <div className="dark:bg-dark-bg-tertiary dark:border-dark-border sticky top-0 z-10 flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2">
         <button
@@ -406,33 +476,67 @@ export function InboxView() {
       </div>
 
       <div ref={containerRef} className="flex-1 overflow-auto">
-        <ThreadedEmailList
-          emails={emails}
-          isLoading={isLoading}
-          selectedEmailId={selectedEmail?.id || null}
-          onSelectEmail={setSelectedEmail}
-          onDeleteEmail={(emailId) => {
-            const emailIndex = emails.findIndex((e) => e.id === emailId);
-            deleteEmail.mutate({ emailId, accountId }, {
-              onSuccess: () => {
-                if (selectedEmail?.id === emailId) {
-                  // Ha az email nincs a listában vagy ez az egyetlen, null-ra állítjuk
-                  if (emailIndex < 0 || emails.length <= 1) {
-                    setSelectedEmail(null);
-                  } else if (emailIndex < emails.length - 1) {
-                    setSelectedEmail(emails[emailIndex + 1]);
-                  } else {
-                    setSelectedEmail(emails[emailIndex - 1]);
-                  }
-                }
-              },
-            });
-          }}
-          emptyMessage="Nincs beérkezett levél. Szinkronizálj a frissítéshez!"
-          selectionMode={selectionMode}
-          selectedIds={selectedIds}
-          onToggleSelect={toggleSelectEmail}
-        />
+        {conversationView ? (
+          <ThreadedEmailList
+            emails={emails}
+            isLoading={isLoading}
+            selectedEmailId={selectedEmail?.id || null}
+            onSelectEmail={setSelectedEmail}
+            onDeleteEmail={(emailId) => {
+              const emailIndex = emails.findIndex((e) => e.id === emailId);
+              deleteEmail.mutate(
+                { emailId, accountId },
+                {
+                  onSuccess: () => {
+                    if (selectedEmail?.id === emailId) {
+                      if (emailIndex < 0 || emails.length <= 1) {
+                        setSelectedEmail(null);
+                      } else if (emailIndex < emails.length - 1) {
+                        setSelectedEmail(emails[emailIndex + 1]);
+                      } else {
+                        setSelectedEmail(emails[emailIndex - 1]);
+                      }
+                    }
+                  },
+                },
+              );
+            }}
+            emptyMessage="Nincs beérkezett levél. Szinkronizálj a frissítéshez!"
+            selectionMode={selectionMode}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelectEmail}
+          />
+        ) : (
+          <EmailList
+            emails={emails}
+            isLoading={isLoading}
+            selectedEmailId={selectedEmail?.id || null}
+            onSelectEmail={setSelectedEmail}
+            onDeleteEmail={(emailId) => {
+              const emailIndex = emails.findIndex((e) => e.id === emailId);
+              deleteEmail.mutate(
+                { emailId, accountId },
+                {
+                  onSuccess: () => {
+                    if (selectedEmail?.id === emailId) {
+                      if (emailIndex < 0 || emails.length <= 1) {
+                        setSelectedEmail(null);
+                      } else if (emailIndex < emails.length - 1) {
+                        setSelectedEmail(emails[emailIndex + 1]);
+                      } else {
+                        setSelectedEmail(emails[emailIndex - 1]);
+                      }
+                    }
+                  },
+                },
+              );
+            }}
+            emptyMessage="Nincs beérkezett levél. Szinkronizálj a frissítéshez!"
+            selectionMode={selectionMode}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelectEmail}
+          />
+        )}
         {isFetchingNextPage && (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-5 w-5 animate-spin text-blue-500" />

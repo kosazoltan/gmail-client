@@ -48,7 +48,10 @@ function isRetryableError(err: unknown): boolean {
   return false;
 }
 
-async function request<T>(url: string, options?: RequestInit & { timeout?: number; retries?: number }): Promise<T> {
+async function request<T>(
+  url: string,
+  options?: RequestInit & { timeout?: number; retries?: number },
+): Promise<T> {
   const { timeout = DEFAULT_TIMEOUT, retries = MAX_RETRIES, ...fetchOptions } = options || {};
   const endpointPrefix = url.split('?')[0];
 
@@ -58,7 +61,7 @@ async function request<T>(url: string, options?: RequestInit & { timeout?: numbe
     // Wait before retry (not on first attempt)
     if (attempt > 0) {
       const delay = Math.min(INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1), MAX_RETRY_DELAY);
-      await new Promise(resolve => setTimeout(resolve, delay));
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
 
     const controller = new AbortController();
@@ -185,10 +188,13 @@ export const api = {
         scheduledId?: string;
         undoAvailable?: boolean;
         undoSeconds?: number;
-      }>(`/emails/send${data.accountId ? `?accountId=${encodeURIComponent(data.accountId)}` : ''}`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+      }>(
+        `/emails/send${data.accountId ? `?accountId=${encodeURIComponent(data.accountId)}` : ''}`,
+        {
+          method: 'POST',
+          body: JSON.stringify(data),
+        },
+      ),
     reply: (data: {
       to: string;
       subject?: string;
@@ -205,32 +211,49 @@ export const api = {
         scheduledId?: string;
         undoAvailable?: boolean;
         undoSeconds?: number;
-      }>(`/emails/reply${data.accountId ? `?accountId=${encodeURIComponent(data.accountId)}` : ''}`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+      }>(
+        `/emails/reply${data.accountId ? `?accountId=${encodeURIComponent(data.accountId)}` : ''}`,
+        {
+          method: 'POST',
+          body: JSON.stringify(data),
+        },
+      ),
     markRead: (id: string, isRead: boolean, accountId?: string) =>
-      request(`/emails/${id}/read${accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ isRead }),
-      }),
+      request(
+        `/emails/${id}/read${accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ isRead }),
+        },
+      ),
     toggleStar: (id: string, isStarred: boolean, accountId?: string) =>
-      request(`/emails/${id}/star${accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ isStarred }),
-      }),
+      request(
+        `/emails/${id}/star${accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ isStarred }),
+        },
+      ),
     delete: (id: string, accountId?: string) =>
-      request(`/emails/${id}${accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''}`, { method: 'DELETE' }),
+      request(`/emails/${id}${accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''}`, {
+        method: 'DELETE',
+      }),
     batchDelete: (emailIds: string[], accountId?: string) =>
-      request<{ deletedCount: number; failedCount: number }>(`/emails/batch-delete${accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''}`, {
-        method: 'POST',
-        body: JSON.stringify({ emailIds }),
-      }),
+      request<{ deletedCount: number; failedCount: number }>(
+        `/emails/batch-delete${accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''}`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ emailIds }),
+        },
+      ),
     batchMarkRead: (emailIds: string[], isRead: boolean, accountId?: string) =>
-      request<{ updatedCount: number }>('/emails/batch-read' + (accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''), {
-        method: 'PATCH',
-        body: JSON.stringify({ emailIds, isRead }),
-      }),
+      request<{ updatedCount: number }>(
+        '/emails/batch-read' + (accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''),
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ emailIds, isRead }),
+        },
+      ),
   },
 
   views: {
@@ -301,10 +324,27 @@ export const api = {
 
   categories: {
     list: () => request<{ categories: import('../types').Category[] }>('/categories'),
-    create: (data: { name: string; color?: string; icon?: string; description?: string; sort_order?: number }) =>
-      request<import('../types').Category>('/categories', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: { name?: string; color?: string; icon?: string; description?: string; sort_order?: number }) =>
-      request(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    create: (data: {
+      name: string;
+      color?: string;
+      icon?: string;
+      description?: string;
+      sort_order?: number;
+    }) =>
+      request<import('../types').Category>('/categories', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    update: (
+      id: string,
+      data: {
+        name?: string;
+        color?: string;
+        icon?: string;
+        description?: string;
+        sort_order?: number;
+      },
+    ) => request(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: string) => request(`/categories/${id}`, { method: 'DELETE' }),
     addEmail: (categoryId: string, emailId: string) =>
       request<{ success: boolean }>(`/categories/${categoryId}/add-email`, {
@@ -335,7 +375,10 @@ export const api = {
   },
 
   search: {
-    query: (q: string, params?: { page?: number; limit?: number; accountId?: string; allAccounts?: boolean }) => {
+    query: (
+      q: string,
+      params?: { page?: number; limit?: number; accountId?: string; allAccounts?: boolean },
+    ) => {
       const query = new URLSearchParams({ q });
       if (params?.page !== undefined) query.set('page', params.page.toString());
       if (params?.limit !== undefined) query.set('limit', params.limit.toString());
@@ -637,6 +680,26 @@ export const api = {
       request<{ success: boolean }>(`/settings/${key}`, { method: 'DELETE' }),
   },
 
+  quota: {
+    get: () => request<{ quota: { calls: number; limit: number; percent: number } }>('/quota'),
+  },
+
+  inboxRules: {
+    list: () => request<{ rules: Array<Record<string, unknown>> }>('/inbox-rules'),
+    create: (data: Record<string, unknown>) =>
+      request<{ rule: Record<string, unknown> }>('/inbox-rules', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: Record<string, unknown>) =>
+      request<{ rule: Record<string, unknown> }>(`/inbox-rules/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/inbox-rules/${id}`, { method: 'DELETE' }),
+  },
+
   scheduled: {
     list: () =>
       request<{
@@ -734,8 +797,7 @@ export const api = {
   },
 
   calendar: {
-    today: () =>
-      request<{ events: import('../types').CalendarEvent[] }>('/calendar/today'),
+    today: () => request<{ events: import('../types').CalendarEvent[] }>('/calendar/today'),
     week: () =>
       request<{
         events: import('../types').CalendarEvent[];
@@ -778,14 +840,15 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
-    delete: (id: string) =>
-      request<{ success: boolean }>(`/calendar/${id}`, { method: 'DELETE' }),
-    suggestions: () =>
-      request<{ events: Array<Record<string, unknown>> }>('/calendar/suggestions'),
+    delete: (id: string) => request<{ success: boolean }>(`/calendar/${id}`, { method: 'DELETE' }),
+    suggestions: () => request<{ events: Array<Record<string, unknown>> }>('/calendar/suggestions'),
     suggestionsFromEmail: (emailId: string) =>
-      request<{ events: Array<Record<string, unknown>> }>(`/calendar/suggestions/from-email/${emailId}`, {
-        method: 'POST',
-      }),
+      request<{ events: Array<Record<string, unknown>> }>(
+        `/calendar/suggestions/from-email/${emailId}`,
+        {
+          method: 'POST',
+        },
+      ),
     syncSuggestion: (id: string) =>
       request<{ event: Record<string, unknown> | null }>(`/calendar/suggestions/${id}/sync`, {
         method: 'POST',
@@ -793,8 +856,7 @@ export const api = {
   },
 
   tasks: {
-    lists: () =>
-      request<{ lists: import('../types').TaskList[] }>('/tasks/lists'),
+    lists: () => request<{ lists: import('../types').TaskList[] }>('/tasks/lists'),
     listTasks: (listId: string, showCompleted = true) =>
       request<{ tasks: import('../types').GoogleTask[] }>(
         `/tasks/list/${listId}?showCompleted=${showCompleted}`,
@@ -804,13 +866,10 @@ export const api = {
       taskId: string,
       data: { status?: string; title?: string; notes?: string; due?: string },
     ) =>
-      request<{ task: import('../types').GoogleTask }>(
-        `/tasks/list/${listId}/task/${taskId}`,
-        {
-          method: 'PATCH',
-          body: JSON.stringify(data),
-        },
-      ),
+      request<{ task: import('../types').GoogleTask }>(`/tasks/list/${listId}/task/${taskId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
     createTask: (listId: string, data: { title: string; notes?: string; due?: string }) =>
       request<{ task: import('../types').GoogleTask }>(`/tasks/list/${listId}`, {
         method: 'POST',
@@ -828,16 +887,25 @@ export const api = {
   },
 
   market: {
-    briefing: (refresh?: boolean) => request<import('../types').MarketBriefingResponse>(`/market/briefing${refresh ? '?refresh=true' : ''}`, {
-      timeout: 120000, // 120s — AI + RSS fetch can take 60-90s on cold start
-      retries: 1, // Only 1 retry — avoid 503 loop while server generates
-    }),
-    deepAnalysis: (refresh?: boolean) => request<import('../types').DeepAnalysisResponse>(`/market/deep-analysis${refresh ? '?refresh=true' : ''}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      timeout: 120000, // 120s — align with server-side AI timeout and fallback reuse
-    }),
-    trend: (days: number = 7) => request<import('../types').TrendResponse>(`/market/trend?days=${days}`),
+    briefing: (refresh?: boolean) =>
+      request<import('../types').MarketBriefingResponse>(
+        `/market/briefing${refresh ? '?refresh=true' : ''}`,
+        {
+          timeout: 120000, // 120s — AI + RSS fetch can take 60-90s on cold start
+          retries: 1, // Only 1 retry — avoid 503 loop while server generates
+        },
+      ),
+    deepAnalysis: (refresh?: boolean) =>
+      request<import('../types').DeepAnalysisResponse>(
+        `/market/deep-analysis${refresh ? '?refresh=true' : ''}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 120000, // 120s — align with server-side AI timeout and fallback reuse
+        },
+      ),
+    trend: (days: number = 7) =>
+      request<import('../types').TrendResponse>(`/market/trend?days=${days}`),
     news: () => request<import('../types').NewsResponse>('/market/news'),
     crypto: () => request<import('../types').CryptoResponse>('/market/crypto'),
   },
@@ -858,10 +926,10 @@ export const api = {
         body: JSON.stringify({ isDone }),
       }),
     detectSentiment: (emailId: string) =>
-      request<import('../types').SentimentResult>(
-        `/intelligence/sentiment/${emailId}`,
-        { method: 'POST', timeout: 60000 },
-      ),
+      request<import('../types').SentimentResult>(`/intelligence/sentiment/${emailId}`, {
+        method: 'POST',
+        timeout: 60000,
+      }),
     suggestReply: (emailId: string) =>
       request<{ success: boolean; suggestions: import('../types').ReplySuggestion[] }>(
         `/intelligence/suggest-reply/${emailId}`,
@@ -902,11 +970,7 @@ export const api = {
         page: number;
         totalPages: number;
       }>(`/smart-folders/${folderId}/emails?page=${page}`),
-    create: (data: {
-      name: string;
-      rules: import('../types').SmartFolderRule[];
-      icon?: string;
-    }) =>
+    create: (data: { name: string; rules: import('../types').SmartFolderRule[]; icon?: string }) =>
       request<{ success: boolean; folder: import('../types').SmartFolder }>('/smart-folders', {
         method: 'POST',
         body: JSON.stringify(data),
@@ -941,27 +1005,39 @@ export const api = {
         body: JSON.stringify({ description }),
       }),
     classify: (limit?: number) =>
-      request<{ success: boolean; classified: number; unclassified: number }>('/smart-folders/classify', {
-        method: 'POST',
-        body: JSON.stringify({ limit: limit ?? 50 }),
-      }),
-    classifyStatus: () =>
-      request<{ unclassified: number }>('/smart-folders/classify/status'),
+      request<{ success: boolean; classified: number; unclassified: number }>(
+        '/smart-folders/classify',
+        {
+          method: 'POST',
+          body: JSON.stringify({ limit: limit ?? 50 }),
+        },
+      ),
+    classifyStatus: () => request<{ unclassified: number }>('/smart-folders/classify/status'),
   },
 
   // Smart Features
   smart: {
     getDailyBrief: () => request<import('../types').DailyBriefData>('/smart/daily-brief'),
-    getPriorities: () => request<{ priorities: import('../types').PriorityEmail[] }>('/smart/priorities'),
+    getPriorities: () =>
+      request<{ priorities: import('../types').PriorityEmail[] }>('/smart/priorities'),
     getFollowUps: () => request<{ followups: import('../types').FollowUp[] }>('/smart/followups'),
-    getAnalytics: (period: string) => request<import('../types').AnalyticsData>(`/smart/analytics?period=${period}`),
+    getAnalytics: (period: string) =>
+      request<import('../types').AnalyticsData>(`/smart/analytics?period=${period}`),
+  },
+
+  analytics: {
+    get: () => request('/analytics'),
   },
 
   // Workflows
   workflows: {
     list: () => request<{ workflows: import('../types').WorkflowData[] }>('/workflows'),
     generate: (prompt: string) =>
-      request<{ workflow: import('../types').WorkflowData; warnings: string[]; source: 'ai' | 'fallback' }>('/workflows/generate', {
+      request<{
+        workflow: import('../types').WorkflowData;
+        warnings: string[];
+        source: 'ai' | 'fallback';
+      }>('/workflows/generate', {
         method: 'POST',
         body: JSON.stringify({ prompt }),
       }),
@@ -981,7 +1057,8 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ triggerEmailId: emailId, sourceEmailIds }),
       }),
-    runs: (id: string) => request<{ runs: import('../types').RunLogEntry[] }>(`/workflows/${id}/runs`),
+    runs: (id: string) =>
+      request<{ runs: import('../types').RunLogEntry[] }>(`/workflows/${id}/runs`),
   },
 
   // AI
@@ -991,18 +1068,26 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ message, conversationId, emailId }),
       }),
-    confirmAction: (pendingAction: import('../types').PendingAgentAction, conversationId?: string) =>
-      request<{ reply: string; result?: import('../types').AgentExecutionResult | null }>('/ai/confirm-action', {
-        method: 'POST',
-        body: JSON.stringify({ pendingAction, conversationId }),
-      }),
+    confirmAction: (
+      pendingAction: import('../types').PendingAgentAction,
+      conversationId?: string,
+    ) =>
+      request<{ reply: string; result?: import('../types').AgentExecutionResult | null }>(
+        '/ai/confirm-action',
+        {
+          method: 'POST',
+          body: JSON.stringify({ pendingAction, conversationId }),
+        },
+      ),
     smartSearch: (query: string, suggestionsOnly?: boolean) =>
       request<import('../types').SmartSearchResult>('/ai/smart-search', {
         method: 'POST',
         body: JSON.stringify({ query, suggestionsOnly }),
       }),
     getConversations: () =>
-      request<{ conversations: Array<{ id: string; title: string; updatedAt: number; createdAt: number }> }>('/ai/conversations'),
+      request<{
+        conversations: Array<{ id: string; title: string; updatedAt: number; createdAt: number }>;
+      }>('/ai/conversations'),
     getConversationMessages: (id: string) =>
       request<{
         messages: Array<{
@@ -1058,13 +1143,30 @@ export const api = {
       if (params?.priority) query.set('priority', params.priority);
       if (params?.page) query.set('page', params.page.toString());
       if (params?.limit) query.set('limit', params.limit.toString());
-      return request<{ tasks: import('../types').DetectedTask[]; total: number }>(`/detected-tasks?${query}`);
+      return request<{ tasks: import('../types').DetectedTask[]; total: number }>(
+        `/detected-tasks?${query}`,
+      );
     },
-    stats: () => request<{ open: number; high: number; medium: number; low: number }>('/detected-tasks/stats'),
-    scan: (daysBack: number) => request<{ newTasksCount: number; unsnoozedCount: number; tasks: import('../types').DetectedTask[] }>('/detected-tasks/scan', { method: 'POST', body: JSON.stringify({ daysBack }) }),
-    update: (id: string, data: { status: string }) => request<{ success: boolean }>(`/detected-tasks/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    delete: (id: string) => request<{ success: boolean }>(`/detected-tasks/${id}`, { method: 'DELETE' }),
-    snooze: (id: string, days: number) => request<{ success: boolean; snoozedUntil: number }>(`/detected-tasks/${id}/snooze`, { method: 'POST', body: JSON.stringify({ days }) }),
+    stats: () =>
+      request<{ open: number; high: number; medium: number; low: number }>('/detected-tasks/stats'),
+    scan: (daysBack: number) =>
+      request<{
+        newTasksCount: number;
+        unsnoozedCount: number;
+        tasks: import('../types').DetectedTask[];
+      }>('/detected-tasks/scan', { method: 'POST', body: JSON.stringify({ daysBack }) }),
+    update: (id: string, data: { status: string }) =>
+      request<{ success: boolean }>(`/detected-tasks/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<{ success: boolean }>(`/detected-tasks/${id}`, { method: 'DELETE' }),
+    snooze: (id: string, days: number) =>
+      request<{ success: boolean; snoozedUntil: number }>(`/detected-tasks/${id}/snooze`, {
+        method: 'POST',
+        body: JSON.stringify({ days }),
+      }),
   },
 
   translate: {

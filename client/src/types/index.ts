@@ -24,6 +24,7 @@ export interface Account {
   name: string;
   lastSyncAt: number | null;
   color?: string | null;
+  accountColor?: string | null;
 }
 
 export type SwipeAction = 'delete' | 'archive' | 'read' | 'star' | 'snooze' | 'none';
@@ -36,8 +37,15 @@ export interface UserSettings {
   quietHoursStart?: string;
   quietHoursEnd?: string;
   quietHoursWeekendOnly?: boolean;
+  desktopNotificationsEnabled?: boolean;
+  vipNotificationsOnly?: boolean;
+  notificationSoundEnabled?: boolean;
   toolbarActions?: string[];
   theme?: 'light' | 'dark' | 'system';
+  messageDensity?: 'compact' | 'normal' | 'comfortable';
+  conversationView?: boolean;
+  accountColors?: Record<string, string>;
+  accountSignatures?: Record<string, string>;
 }
 
 export interface Email {

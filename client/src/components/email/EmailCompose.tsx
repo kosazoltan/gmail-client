@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import { useSendEmail, useReplyEmail, type EmailAttachment } from '../../hooks/useEmails';
@@ -16,12 +16,14 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { EmailAutocomplete } from './EmailAutocomplete';
+import { ComposerToolbar } from './ComposerToolbar';
 import { TemplateSelector } from './TemplateSelector';
 import { TemplatesManager } from '../settings/TemplatesManager';
 import { ScheduleMenu, ScheduledBadge } from './ScheduleMenu';
 import { formatFileSize } from '../../lib/utils';
 import { toast } from '../../lib/toast';
 import { useSettings, defaultSettings } from '../../hooks/useSettings';
+import { useSession } from '../../hooks/useAccounts';
 import { useCreateScheduledEmail, useDeleteScheduledEmail } from '../../hooks/useScheduledEmails';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { saveDraft, deleteDraft as deleteOfflineDraft } from '../../lib/offline-store';
@@ -87,7 +89,9 @@ export function EmailCompose() {
   const sendTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const undoToastIdRef = useRef<string | null>(null);
   const isSendingRef = useRef(false);
+  const signatureAppliedRef = useRef(false);
   const { data: settings } = useSettings();
+  const { data: session } = useSession();
 
   const isOnline = useOnlineStatus();
 
@@ -102,11 +106,20 @@ export function EmailCompose() {
   const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
   const [isSendPending, setIsSendPending] = useState(false);
   const [scheduledAt, setScheduledAt] = useState<number | null>(null);
-  const [offlineDraftId] = useState(() => `draft-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
+  const [offlineDraftId] = useState(
+    () => `draft-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+  );
   const [offlineSaved, setOfflineSaved] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const threadId = searchParams.get('threadId') || undefined;
   const composeAccountId = searchParams.get('accountId') || undefined;
+  const activeAccountId =
+    composeAccountId || session?.activeAccountId || session?.accounts?.[0]?.id;
+  const accountSignatures = useMemo(
+    () => settings?.accountSignatures ?? defaultSettings.accountSignatures ?? {},
+    [settings?.accountSignatures],
+  );
 
   // Auto-save draft to IndexedDB every 5 seconds (debounced)
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -171,10 +184,23 @@ export function EmailCompose() {
   // Inicializálás: a contenteditable mezőt egyszer töltjük fel,
   // különben minden billentyűleütésnél újrarender és szétesik a kurzor/karakter sorrend.
   useEffect(() => {
-    if (!bodyEditorRef.current) return;
+    if (!bodyEditorRef.current || signatureAppliedRef.current) return;
 
-    bodyEditorRef.current.innerHTML = formatEmailBody(body);
-    // Kurzor a szöveg elejére helyezése (válasznál felül kezdünk írni)
+    const accountSignatureHtml = activeAccountId ? accountSignatures[activeAccountId] || '' : '';
+    const temp = document.createElement('div');
+    temp.innerHTML = accountSignatureHtml;
+    const signatureText = temp.innerText.trim();
+
+    const withSignature =
+      signatureText && !isReply
+        ? body
+          ? `${body}\n\n--\n${signatureText}`
+          : `\n\n--\n${signatureText}`
+        : body;
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setBody(withSignature);
+    bodyEditorRef.current.innerHTML = formatEmailBody(withSignature);
     bodyEditorRef.current.focus();
     const range = document.createRange();
     range.selectNodeContents(bodyEditorRef.current);
@@ -182,8 +208,8 @@ export function EmailCompose() {
     const selection = window.getSelection();
     selection?.removeAllRanges();
     selection?.addRange(range);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    signatureAppliedRef.current = true;
+  }, [activeAccountId, accountSignatures, body, isReply]);
 
   // Body frissítése contenteditable div-ből
   const handleBodyInput = () => {
@@ -193,11 +219,28 @@ export function EmailCompose() {
   };
 
   // Billentyűzet esemény - új szöveg kék színűvé tétele
-  const handleKeyDown = (_e: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      const url = prompt('Link URL');
+      if (url) document.execCommand('createLink', false, url);
+      return;
+    }
+
     // Ha válaszolunk (isReply), akkor az új szöveg kék legyen
     if (isReply && bodyEditorRef.current) {
-      // Beállítjuk a szöveg színét kékre az új karakterekhez
       document.execCommand('foreColor', false, '#2563eb');
+    }
+  };
+
+  const handlePaste = async (e: React.ClipboardEvent<HTMLDivElement>) => {
+    const files = Array.from(e.clipboardData.files || []).filter((f) =>
+      f.type.startsWith('image/'),
+    );
+    if (files.length > 0) {
+      e.preventDefault();
+      await addFilesAsAttachments(files);
+      toast.success(`${files.length} kép mellékletként hozzáadva`);
     }
   };
 
@@ -223,10 +266,8 @@ export function EmailCompose() {
     }
   };
 
-  // Fájl kiválasztása
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+  const addFilesAsAttachments = async (files: File[]) => {
+    if (!files.length) return;
 
     const newAttachments: LocalAttachment[] = [];
 
@@ -236,7 +277,7 @@ export function EmailCompose() {
 
     let currentTotal = attachments.reduce((sum, a) => sum + a.size, 0);
 
-    for (const file of Array.from(files)) {
+    for (const file of files) {
       // Max 25MB per file (Gmail limit)
       if (file.size > MAX_FILE_SIZE) {
         alert(`A "${file.name}" fájl túl nagy (max 25MB)`);
@@ -266,6 +307,13 @@ export function EmailCompose() {
     }
 
     setAttachments((prev) => [...prev, ...newAttachments]);
+  };
+
+  // Fájl kiválasztása
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    await addFilesAsAttachments(Array.from(files));
 
     // Reset input
     if (fileInputRef.current) {
@@ -414,14 +462,17 @@ export function EmailCompose() {
 
         // Delayed navigate: várjuk meg az undo időablak lejártát, UTÁNA navigálunk el
         // Így a toast végig látható és a user tud visszavonni
-        sendTimeoutRef.current = setTimeout(() => {
-          sendTimeoutRef.current = null;
-          if (window.history.length > 1) {
-            navigate(-1);
-          } else {
-            navigate('/', { replace: true });
-          }
-        }, (undoSeconds + 1) * 1000);
+        sendTimeoutRef.current = setTimeout(
+          () => {
+            sendTimeoutRef.current = null;
+            if (window.history.length > 1) {
+              navigate(-1);
+            } else {
+              navigate('/', { replace: true });
+            }
+          },
+          (undoSeconds + 1) * 1000,
+        );
 
         return; // Ne fusson le a normál navigate alul
       } else {
@@ -555,20 +606,48 @@ export function EmailCompose() {
             />
           </div>
 
-          <div
-            ref={bodyEditorRef}
-            contentEditable
-            onInput={handleBodyInput}
-            onKeyDown={handleKeyDown}
-            className="dark:border-dark-border max-h-[500px] min-h-[240px] w-full overflow-y-auto rounded-xl border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-900 transition-colors outline-none focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20 dark:text-gray-300 [&_*]:!text-[inherit] [&_div]:!text-[inherit]"
-            style={{
-              whiteSpace: 'pre-wrap',
-              wordWrap: 'break-word',
-            }}
-            data-placeholder={
-              body ? '' : 'Levél szövege... (Válaszoláskor az új szöveged kék színnel jelenik meg)'
-            }
+          <ComposerToolbar
+            editorRef={bodyEditorRef}
+            onInsertImageUrl={(url) => document.execCommand('insertImage', false, url)}
           />
+
+          <div
+            className="relative"
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragOver(true);
+            }}
+            onDragLeave={() => setIsDragOver(false)}
+            onDrop={async (e) => {
+              e.preventDefault();
+              setIsDragOver(false);
+              const files = Array.from(e.dataTransfer.files || []);
+              await addFilesAsAttachments(files);
+            }}
+          >
+            <div
+              ref={bodyEditorRef}
+              contentEditable
+              onInput={handleBodyInput}
+              onPaste={handlePaste}
+              onKeyDown={handleKeyDown}
+              className="dark:border-dark-border max-h-[500px] min-h-[240px] w-full overflow-y-auto rounded-xl border border-gray-200 bg-transparent px-3 py-2 text-sm text-gray-900 transition-colors outline-none focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20 dark:text-gray-300 [&_*]:!text-[inherit] [&_div]:!text-[inherit]"
+              style={{
+                whiteSpace: 'pre-wrap',
+                wordWrap: 'break-word',
+              }}
+              data-placeholder={
+                body
+                  ? ''
+                  : 'Levél szövege... (Válaszoláskor az új szöveged kék színnel jelenik meg)'
+              }
+            />
+            {isDragOver && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl border-2 border-dashed border-[#4f6ef7] bg-[#4f6ef7]/10 text-sm font-medium text-[#4f6ef7]">
+                Húzd ide a mellékletet
+              </div>
+            )}
+          </div>
 
           {/* Offline indikátor */}
           {!isOnline && (

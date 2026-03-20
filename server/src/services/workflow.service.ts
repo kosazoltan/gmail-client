@@ -3,7 +3,10 @@ import { sendPushToAccount } from './push.service.js';
 import { getOAuth2ClientForAccount } from './auth.service.js';
 import { getGmailClient, sendEmail } from './gmail.service.js';
 import { extractActionItems } from './email-intelligence.service.js';
-import { extractAndStoreEventCandidatesForEmail, syncEventCandidateToCalendar } from './calendar-automation.service.js';
+import {
+  extractAndStoreEventCandidatesForEmail,
+  syncEventCandidateToCalendar,
+} from './calendar-automation.service.js';
 import { upsertDetectedTaskForEmail } from './task-detection.service.js';
 import { v4 as uuid } from 'uuid';
 import logger from '../utils/logger.js';
@@ -13,7 +16,24 @@ import { callAI } from '../ai/provider.js';
 // --- Interfaces ---
 
 export interface WorkflowStep {
-  type: 'filter' | 'ai_analyze' | 'categorize' | 'label' | 'forward' | 'summarize' | 'extract' | 'group' | 'notify' | 'save_report' | 'ai_reply' | 'condition' | 'extract_action_items' | 'detect_followup_risk' | 'extract_calendar_event' | 'create_calendar_event' | 'raise_dashboard_alert';
+  type:
+    | 'filter'
+    | 'ai_analyze'
+    | 'categorize'
+    | 'label'
+    | 'forward'
+    | 'summarize'
+    | 'extract'
+    | 'group'
+    | 'notify'
+    | 'save_report'
+    | 'ai_reply'
+    | 'condition'
+    | 'extract_action_items'
+    | 'detect_followup_risk'
+    | 'extract_calendar_event'
+    | 'create_calendar_event'
+    | 'raise_dashboard_alert';
   name?: string;
   config: Record<string, unknown>;
 }
@@ -172,14 +192,18 @@ function parseCronDays(segment?: string): number[] | undefined {
 }
 
 function normalizeScheduleConfig(triggerConfig: Record<string, unknown>): Record<string, unknown> {
-  const hour = typeof triggerConfig.hour === 'number'
-    ? triggerConfig.hour
-    : Number.parseInt(String(triggerConfig.hour ?? ''), 10);
-  const minute = typeof triggerConfig.minute === 'number'
-    ? triggerConfig.minute
-    : Number.parseInt(String(triggerConfig.minute ?? ''), 10);
+  const hour =
+    typeof triggerConfig.hour === 'number'
+      ? triggerConfig.hour
+      : Number.parseInt(String(triggerConfig.hour ?? ''), 10);
+  const minute =
+    typeof triggerConfig.minute === 'number'
+      ? triggerConfig.minute
+      : Number.parseInt(String(triggerConfig.minute ?? ''), 10);
   const days = Array.isArray(triggerConfig.days)
-    ? triggerConfig.days.map((value) => Number.parseInt(String(value), 10)).filter((value) => Number.isInteger(value))
+    ? triggerConfig.days
+        .map((value) => Number.parseInt(String(value), 10))
+        .filter((value) => Number.isInteger(value))
     : undefined;
 
   if (Number.isInteger(hour) && Number.isInteger(minute)) {
@@ -214,7 +238,10 @@ function normalizeScheduleConfig(triggerConfig: Record<string, unknown>): Record
   };
 }
 
-function normalizeStepConfigForType(stepType: WorkflowStep['type'], config: Record<string, unknown>): Record<string, unknown> {
+function normalizeStepConfigForType(
+  stepType: WorkflowStep['type'],
+  config: Record<string, unknown>,
+): Record<string, unknown> {
   if (stepType === 'filter') {
     if (typeof config.field === 'string' && typeof config.value === 'string') {
       return config;
@@ -238,11 +265,12 @@ function normalizeStepConfigForType(stepType: WorkflowStep['type'], config: Reco
   if (stepType === 'notify') {
     return {
       title: typeof config.title === 'string' ? config.title : 'Workflow értesítés',
-      body: typeof config.body === 'string'
-        ? config.body
-        : typeof config.message === 'string'
-          ? config.message
-          : undefined,
+      body:
+        typeof config.body === 'string'
+          ? config.body
+          : typeof config.message === 'string'
+            ? config.message
+            : undefined,
     };
   }
 
@@ -260,9 +288,10 @@ function normalizeWorkflowStep(step: WorkflowStep): WorkflowStep {
 function normalizeWorkflowForRuntime(workflow: Workflow): Workflow {
   return {
     ...workflow,
-    triggerConfig: workflow.triggerType === 'schedule'
-      ? normalizeScheduleConfig(workflow.triggerConfig)
-      : workflow.triggerConfig,
+    triggerConfig:
+      workflow.triggerType === 'schedule'
+        ? normalizeScheduleConfig(workflow.triggerConfig)
+        : workflow.triggerConfig,
     steps: workflow.steps.map(normalizeWorkflowStep),
   };
 }
@@ -289,7 +318,9 @@ export async function createWorkflow(
       name,
       description,
       toStorageTriggerType(triggerType),
-      JSON.stringify(triggerType === 'schedule' ? normalizeScheduleConfig(triggerConfig) : triggerConfig),
+      JSON.stringify(
+        triggerType === 'schedule' ? normalizeScheduleConfig(triggerConfig) : triggerConfig,
+      ),
       JSON.stringify(steps.map(normalizeWorkflowStep)),
       now,
       now,
@@ -302,7 +333,8 @@ export async function createWorkflow(
     name,
     description,
     triggerType: normalizeTriggerType(triggerType),
-    triggerConfig: triggerType === 'schedule' ? normalizeScheduleConfig(triggerConfig) : triggerConfig,
+    triggerConfig:
+      triggerType === 'schedule' ? normalizeScheduleConfig(triggerConfig) : triggerConfig,
     steps: steps.map(normalizeWorkflowStep),
     isActive: true,
     runCount: 0,
@@ -335,7 +367,9 @@ export async function getWorkflow(id: string): Promise<Workflow | undefined> {
 
 export async function updateWorkflow(
   id: string,
-  updates: Partial<Pick<Workflow, 'name' | 'description' | 'triggerType' | 'triggerConfig' | 'steps'>>,
+  updates: Partial<
+    Pick<Workflow, 'name' | 'description' | 'triggerType' | 'triggerConfig' | 'steps'>
+  >,
 ): Promise<Workflow | undefined> {
   const existing = await queryOne<WorkflowRow>('SELECT * FROM workflows WHERE id = ?', [id]);
   if (!existing) return undefined;
@@ -358,11 +392,14 @@ export async function updateWorkflow(
   }
   if (updates.triggerConfig !== undefined) {
     fields.push('trigger_config = ?');
-    params.push(JSON.stringify(
-      updates.triggerType === 'schedule' || (updates.triggerType === undefined && existing.trigger_type === 'scheduled')
-        ? normalizeScheduleConfig(updates.triggerConfig)
-        : updates.triggerConfig,
-    ));
+    params.push(
+      JSON.stringify(
+        updates.triggerType === 'schedule' ||
+          (updates.triggerType === undefined && existing.trigger_type === 'scheduled')
+          ? normalizeScheduleConfig(updates.triggerConfig)
+          : updates.triggerConfig,
+      ),
+    );
   }
   if (updates.steps !== undefined) {
     fields.push('steps = ?');
@@ -402,7 +439,11 @@ export async function processScheduledWorkflows(): Promise<void> {
   const scheduled = rows.map(rowToWorkflow);
 
   for (const wf of scheduled) {
-    const config = normalizeScheduleConfig(wf.triggerConfig) as { hour?: number; minute?: number; days?: number[] };
+    const config = normalizeScheduleConfig(wf.triggerConfig) as {
+      hour?: number;
+      minute?: number;
+      days?: number[];
+    };
     const targetHour = config.hour ?? 7;
     const targetMinute = config.minute ?? 0;
     const targetDays = config.days ?? [1, 2, 3, 4, 5]; // weekdays by default
@@ -420,19 +461,24 @@ export async function processScheduledWorkflows(): Promise<void> {
 
 export async function executeWorkflow(
   workflowId: string,
-  options?: string | {
-    triggerEmailId?: string;
-    sourceEmailIds?: string[];
-  },
+  options?:
+    | string
+    | {
+        triggerEmailId?: string;
+        sourceEmailIds?: string[];
+      },
 ): Promise<WorkflowRun | undefined> {
   const workflow = await getWorkflow(workflowId);
   if (!workflow) return undefined;
   const triggerEmailId = typeof options === 'string' ? options : options?.triggerEmailId;
-  const sourceEmailIds = typeof options === 'string'
-    ? []
-    : Array.isArray(options?.sourceEmailIds)
-      ? options.sourceEmailIds.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-      : [];
+  const sourceEmailIds =
+    typeof options === 'string'
+      ? []
+      : Array.isArray(options?.sourceEmailIds)
+        ? options.sourceEmailIds.filter(
+            (value): value is string => typeof value === 'string' && value.trim().length > 0,
+          )
+        : [];
 
   const runId = uuid();
   const now = Date.now();
@@ -452,7 +498,10 @@ export async function executeWorkflow(
       [workflow.accountId, ...sourceEmailIds],
     );
   } else if (triggerEmailId) {
-    const email = await queryOne<EmailRow>('SELECT * FROM emails WHERE id = ? AND account_id = ?', [triggerEmailId, workflow.accountId]);
+    const email = await queryOne<EmailRow>('SELECT * FROM emails WHERE id = ? AND account_id = ?', [
+      triggerEmailId,
+      workflow.accountId,
+    ]);
     if (email) emails = [email];
   }
 
@@ -575,7 +624,10 @@ async function getWorkflowRun(runId: string): Promise<WorkflowRun | undefined> {
   return row ? rowToWorkflowRun(row) : undefined;
 }
 
-export async function getWorkflowRuns(workflowId: string, limit: number = 20): Promise<WorkflowRun[]> {
+export async function getWorkflowRuns(
+  workflowId: string,
+  limit: number = 20,
+): Promise<WorkflowRun[]> {
   const rows = await queryAll<WorkflowRunRow>(
     'SELECT * FROM workflow_runs WHERE workflow_id = ? ORDER BY started_at DESC LIMIT ?',
     [workflowId, limit],
@@ -604,15 +656,21 @@ export async function handleFilterStep(
   // Pre-fetch VIP list if needed
   let vipEmails: string[] = [];
   if (operator === 'in_vip_list') {
-    const vips = await queryAll<{ email: string }>('SELECT email FROM vip_senders WHERE account_id = ?', [context?.accountId ?? '']);
-    vipEmails = vips.map(v => v.email.toLowerCase());
+    const vips = await queryAll<{ email: string }>(
+      'SELECT email FROM vip_senders WHERE account_id = ?',
+      [context?.accountId ?? ''],
+    );
+    vipEmails = vips.map((v) => v.email.toLowerCase());
   }
 
   const filtered = emails.filter((email) => {
-    const numericFieldValue = field === 'date_age_days'
-      ? Math.floor((Date.now() - Number(email.date ?? 0)) / (24 * 60 * 60 * 1000))
-      : null;
-    const fieldValue = numericFieldValue ?? String((email as unknown as Record<string, unknown>)[field] ?? '').toLowerCase();
+    const numericFieldValue =
+      field === 'date_age_days'
+        ? Math.floor((Date.now() - Number(email.date ?? 0)) / (24 * 60 * 60 * 1000))
+        : null;
+    const fieldValue =
+      numericFieldValue ??
+      String((email as unknown as Record<string, unknown>)[field] ?? '').toLowerCase();
     const matchValue = typeof value === 'string' ? value.toLowerCase() : '';
     const numericMatchValue = Number(value);
 
@@ -659,14 +717,23 @@ export async function handleAIAnalyzeStep(
   // Try AI analysis via Anthropic
   if (emails.length > 0) {
     try {
-      const emailSummaries = emails.slice(0, 10).map((e) =>
-        `From: ${e.from_name ?? ''} <${e.from_email ?? ''}>\nSubject: ${e.subject ?? ''}\nSnippet: ${(e.snippet ?? '').substring(0, 200)}`,
-      ).join('\n---\n');
+      const emailSummaries = emails
+        .slice(0, 10)
+        .map(
+          (e) =>
+            `From: ${e.from_name ?? ''} <${e.from_email ?? ''}>\nSubject: ${e.subject ?? ''}\nSnippet: ${(e.snippet ?? '').substring(0, 200)}`,
+        )
+        .join('\n---\n');
 
-      const response = await callAI([{
-        role: 'user',
-        content: `Elemezd az alábbi emaileket. Adj rövid összefoglalót, prioritást, és javasolt teendőket:\n\n${emailSummaries}`,
-      }], { maxTokens: 1000 });
+      const response = await callAI(
+        [
+          {
+            role: 'user',
+            content: `Elemezd az alábbi emaileket. Adj rövid összefoglalót, prioritást, és javasolt teendőket:\n\n${emailSummaries}`,
+          },
+        ],
+        { maxTokens: 1000 },
+      );
 
       const analysis = response.text;
       return {
@@ -768,7 +835,7 @@ export async function handleForwardStep(
         const subject = `Fwd: ${email.subject ?? '(no subject)'}`;
         const body = `---------- Forwarded message ----------<br>From: ${email.from_name ?? ''} &lt;${email.from_email ?? ''}&gt;<br>Subject: ${email.subject ?? ''}<br><br>${email.body ?? email.snippet ?? ''}`;
 
-        await sendEmail(gmail, { to, subject, body });
+        await sendEmail(gmail, context.accountId, { to, subject, body });
         sentCount++;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -818,10 +885,7 @@ export function handleSummarizeStep(
   };
 }
 
-export function handleExtractStep(
-  emails: EmailRow[],
-  config: Record<string, unknown>,
-): StepResult {
+export function handleExtractStep(emails: EmailRow[], config: Record<string, unknown>): StepResult {
   const extractFields = (config.fields as string[]) ?? ['subject', 'from_email', 'date'];
   const extracted = emails.map((email) => {
     const result: Record<string, unknown> = { id: email.id };
@@ -908,7 +972,14 @@ async function handleRaiseDashboardAlertStep(
     await execute(
       `INSERT INTO reminders (id, email_id, account_id, remind_at, note, is_completed, created_at)
        VALUES (?, ?, ?, ?, ?, 0, ?)`,
-      [uuid(), email.id, context.accountId, Date.now() + reminderOffsetHours * 60 * 60 * 1000, note, Date.now()],
+      [
+        uuid(),
+        email.id,
+        context.accountId,
+        Date.now() + reminderOffsetHours * 60 * 60 * 1000,
+        note,
+        Date.now(),
+      ],
     );
     remindersCreated++;
   }
@@ -918,10 +989,7 @@ async function handleRaiseDashboardAlertStep(
   };
 }
 
-export function handleGroupStep(
-  emails: EmailRow[],
-  config: Record<string, unknown>,
-): StepResult {
+export function handleGroupStep(emails: EmailRow[], config: Record<string, unknown>): StepResult {
   const groupBy = (config.groupBy as string) ?? 'from_email';
   const groups: Record<string, EmailRow[]> = {};
 
@@ -952,7 +1020,10 @@ export async function handleNotifyStep(
     await sendPushToAccount(context.accountId, { title, body });
     return { success: true, data: { notified: true, title, body } };
   } catch (err) {
-    logger.warn('Push notification failed in workflow step:', err instanceof Error ? err.message : err);
+    logger.warn(
+      'Push notification failed in workflow step:',
+      err instanceof Error ? err.message : err,
+    );
     // Don't fail the workflow just because push failed
     return { success: true, data: { notified: false, reason: 'Push notification failed' } };
   }
@@ -977,7 +1048,13 @@ export async function handleSaveReportStep(
     `INSERT INTO user_settings (id, account_id, key, value, updated_at)
      VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(account_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
-    [uuid(), context.accountId, `workflow_report_${reportName}`, JSON.stringify(reportData), Date.now()],
+    [
+      uuid(),
+      context.accountId,
+      `workflow_report_${reportName}`,
+      JSON.stringify(reportData),
+      Date.now(),
+    ],
   );
 
   return { success: true, data: { reportName, saved: true } };
@@ -992,14 +1069,24 @@ async function handleAIReplyStep(
   // Try AI reply generation
   if (emails.length > 0) {
     try {
-      const drafts: Array<{ emailId: string; to: string | null; subject: string; suggestedReply: string }> = [];
+      const drafts: Array<{
+        emailId: string;
+        to: string | null;
+        subject: string;
+        suggestedReply: string;
+      }> = [];
 
       for (const email of emails.slice(0, 5)) {
         const templateInstruction = template ? `\nHasználd ezt a sablont/stílust: ${template}` : '';
-        const response = await callAI([{
-          role: 'user',
-          content: `Készíts rövid, professzionális válaszlevelet erre az emailre:\n\nFeladó: ${email.from_name ?? ''}\nTárgy: ${email.subject ?? ''}\nTartalom: ${(email.snippet ?? '').substring(0, 500)}${templateInstruction}\n\nVálasz:`,
-        }], { maxTokens: 500 });
+        const response = await callAI(
+          [
+            {
+              role: 'user',
+              content: `Készíts rövid, professzionális válaszlevelet erre az emailre:\n\nFeladó: ${email.from_name ?? ''}\nTárgy: ${email.subject ?? ''}\nTartalom: ${(email.snippet ?? '').substring(0, 500)}${templateInstruction}\n\nVálasz:`,
+            },
+          ],
+          { maxTokens: 500 },
+        );
 
         const reply = response.text;
         drafts.push({
@@ -1096,41 +1183,112 @@ export async function createDefaultWorkflows(accountId: string): Promise<Workflo
 
   // 1. Napi összefoglaló — reggel 7:00
   workflows.push(
-    await createWorkflow(accountId, 'Napi összefoglaló', 'Reggel 7:00-kor összefoglalja a tegnapi emaileket', 'scheduled', { hour: 7, minute: 0, days: [0, 1, 2, 3, 4, 5, 6] }, [
-      { type: 'filter', name: 'Elmúlt 1 nap emailjei', config: { field: 'date_age_days', operator: 'lte', value: '1' } },
-      { type: 'summarize', name: 'Összefoglalás', config: { maxLength: 300 } },
-      { type: 'notify', name: 'Értesítés', config: { title: 'Napi összefoglaló', body: 'Tegnapi emailek összefoglalója elkészült' } },
-    ]),
+    await createWorkflow(
+      accountId,
+      'Napi összefoglaló',
+      'Reggel 7:00-kor összefoglalja a tegnapi emaileket',
+      'scheduled',
+      { hour: 7, minute: 0, days: [0, 1, 2, 3, 4, 5, 6] },
+      [
+        {
+          type: 'filter',
+          name: 'Elmúlt 1 nap emailjei',
+          config: { field: 'date_age_days', operator: 'lte', value: '1' },
+        },
+        { type: 'summarize', name: 'Összefoglalás', config: { maxLength: 300 } },
+        {
+          type: 'notify',
+          name: 'Értesítés',
+          config: { title: 'Napi összefoglaló', body: 'Tegnapi emailek összefoglalója elkészült' },
+        },
+      ],
+    ),
   );
 
   // 2. VIP értesítés — on_receive
   workflows.push(
-    await createWorkflow(accountId, 'VIP értesítés', 'VIP feladótól érkező emailnél azonnali push notification', 'on_receive', { checkVip: true }, [
-      { type: 'filter', name: 'VIP szűrés', config: { field: 'from_email', operator: 'in_vip_list', value: '' } },
-      { type: 'condition', name: 'Van VIP email?', config: { field: 'emailCount', operator: 'gt', value: 0, trueStep: 2, falseStep: 3 } },
-      { type: 'notify', name: 'VIP értesítés', config: { title: '⭐ VIP email érkezett!', body: 'Új email egy VIP feladótól' } },
-    ]),
+    await createWorkflow(
+      accountId,
+      'VIP értesítés',
+      'VIP feladótól érkező emailnél azonnali push notification',
+      'on_receive',
+      { checkVip: true },
+      [
+        {
+          type: 'filter',
+          name: 'VIP szűrés',
+          config: { field: 'from_email', operator: 'in_vip_list', value: '' },
+        },
+        {
+          type: 'condition',
+          name: 'Van VIP email?',
+          config: { field: 'emailCount', operator: 'gt', value: 0, trueStep: 2, falseStep: 3 },
+        },
+        {
+          type: 'notify',
+          name: 'VIP értesítés',
+          config: { title: '⭐ VIP email érkezett!', body: 'Új email egy VIP feladótól' },
+        },
+      ],
+    ),
   );
 
   // 3. Számlák gyűjtő — on_receive
   workflows.push(
-    await createWorkflow(accountId, 'Számlák gyűjtő', 'Számla/invoice tárgyú emailek automatikus kategorizálása és összeg kinyerése', 'on_receive', { subjectMatch: ['számla', 'invoice', 'faktura'] }, [
-      { type: 'filter', name: 'Számla szűrés', config: { field: 'subject', operator: 'contains', value: 'számla' } },
-      { type: 'extract', name: 'Adatok kinyerése', config: { fields: ['subject', 'from_email', 'from_name', 'date', 'snippet'] } },
-      { type: 'categorize', name: 'Kategorizálás', config: { categoryId: 'invoices' } },
-      { type: 'save_report', name: 'Számla napló', config: { reportName: 'invoices' } },
-    ]),
+    await createWorkflow(
+      accountId,
+      'Számlák gyűjtő',
+      'Számla/invoice tárgyú emailek automatikus kategorizálása és összeg kinyerése',
+      'on_receive',
+      { subjectMatch: ['számla', 'invoice', 'faktura'] },
+      [
+        {
+          type: 'filter',
+          name: 'Számla szűrés',
+          config: { field: 'subject', operator: 'contains', value: 'számla' },
+        },
+        {
+          type: 'extract',
+          name: 'Adatok kinyerése',
+          config: { fields: ['subject', 'from_email', 'from_name', 'date', 'snippet'] },
+        },
+        { type: 'categorize', name: 'Kategorizálás', config: { categoryId: 'invoices' } },
+        { type: 'save_report', name: 'Számla napló', config: { reportName: 'invoices' } },
+      ],
+    ),
   );
 
   // 4. Heti riport — weekly
   workflows.push(
-    await createWorkflow(accountId, 'Heti riport', 'Heti statisztika: email mennyiség, top feladók, válaszidők', 'scheduled', { hour: 8, minute: 0, days: [1] }, [
-      { type: 'filter', name: 'Elmúlt 7 nap emailjei', config: { field: 'date_age_days', operator: 'lte', value: '7' } },
-      { type: 'group', name: 'Feladók csoportosítása', config: { groupBy: 'from_email' } },
-      { type: 'summarize', name: 'Statisztika', config: { maxLength: 500 } },
-      { type: 'save_report', name: 'Heti riport mentés', config: { reportName: 'weekly_report' } },
-      { type: 'notify', name: 'Riport értesítés', config: { title: '📊 Heti email riport', body: 'Az elmúlt hét email statisztikája elkészült' } },
-    ]),
+    await createWorkflow(
+      accountId,
+      'Heti riport',
+      'Heti statisztika: email mennyiség, top feladók, válaszidők',
+      'scheduled',
+      { hour: 8, minute: 0, days: [1] },
+      [
+        {
+          type: 'filter',
+          name: 'Elmúlt 7 nap emailjei',
+          config: { field: 'date_age_days', operator: 'lte', value: '7' },
+        },
+        { type: 'group', name: 'Feladók csoportosítása', config: { groupBy: 'from_email' } },
+        { type: 'summarize', name: 'Statisztika', config: { maxLength: 500 } },
+        {
+          type: 'save_report',
+          name: 'Heti riport mentés',
+          config: { reportName: 'weekly_report' },
+        },
+        {
+          type: 'notify',
+          name: 'Riport értesítés',
+          config: {
+            title: '📊 Heti email riport',
+            body: 'Az elmúlt hét email statisztikája elkészült',
+          },
+        },
+      ],
+    ),
   );
 
   return workflows;

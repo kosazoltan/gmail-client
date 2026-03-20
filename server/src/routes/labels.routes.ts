@@ -160,7 +160,7 @@ router.post('/email/:emailId/add', async (req, res) => {
     const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
 
-    await modifyMessage(gmail, emailId, { addLabels: labelIds });
+    await modifyMessage(gmail, emailId, accountId, { addLabels: labelIds });
 
     // FIX: Wrap DB update in try-catch for Gmail-DB consistency
     // If DB update fails after Gmail success, log warning but return success
@@ -220,7 +220,7 @@ router.post('/email/:emailId/remove', async (req, res) => {
     const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
 
-    await modifyMessage(gmail, emailId, { removeLabels: labelIds });
+    await modifyMessage(gmail, emailId, accountId, { removeLabels: labelIds });
 
     // FIX: Wrap DB update in try-catch for Gmail-DB consistency
     // If DB update fails after Gmail success, log warning but return success
@@ -284,7 +284,7 @@ router.post('/email/:emailId/move', async (req, res) => {
     const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
 
-    await modifyMessage(gmail, emailId, {
+    await modifyMessage(gmail, emailId, accountId, {
       addLabels: validAddLabelIds,
       removeLabels: validRemoveLabelIds,
     });

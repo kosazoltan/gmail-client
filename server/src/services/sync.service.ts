@@ -15,7 +15,10 @@ import { sendPushToAccount } from './push.service.js';
 import { getActiveWorkflowsForAccount, executeWorkflow } from './workflow.service.js';
 import { extractActionItems } from './email-intelligence.service.js';
 import { extractAndStoreEventCandidatesForEmail } from './calendar-automation.service.js';
-import { upsertDetectedTaskForEmail, resolveDetectedTasksForThread } from './task-detection.service.js';
+import {
+  upsertDetectedTaskForEmail,
+  resolveDetectedTasksForThread,
+} from './task-detection.service.js';
 import { broadcastNewEmail } from '../routes/sse.routes.js';
 
 const OPERATIONAL_REPROCESS_KEY = 'operational_reprocess_last_run';
@@ -47,7 +50,10 @@ interface GmailMessage {
 }
 
 async function ensureRemindersForActionItems(accountId: string, emailId: string): Promise<void> {
-  const items = await queryOne<{ count: number }>('SELECT COUNT(*) as count FROM action_items WHERE email_id = ? AND account_id = ?', [emailId, accountId]);
+  const items = await queryOne<{ count: number }>(
+    'SELECT COUNT(*) as count FROM action_items WHERE email_id = ? AND account_id = ?',
+    [emailId, accountId],
+  );
   if (!Number(items?.count ?? 0)) return;
 
   const dueItems = await queryOne<{ due_date: number | null }>(
@@ -68,7 +74,11 @@ async function ensureRemindersForActionItems(accountId: string, emailId: string)
   const note = 'Automatikusan létrehozott AI emlékeztető';
   if (existingReminder) {
     if (existingReminder.remind_at !== remindAt || existingReminder.note !== note) {
-      await execute('UPDATE reminders SET remind_at = ?, note = ? WHERE id = ?', [remindAt, note, existingReminder.id]);
+      await execute('UPDATE reminders SET remind_at = ?, note = ? WHERE id = ?', [
+        remindAt,
+        note,
+        existingReminder.id,
+      ]);
     }
     return;
   }
@@ -79,7 +89,12 @@ async function ensureRemindersForActionItems(accountId: string, emailId: string)
   );
 }
 
-async function processOperationalSignals(accountId: string, emailId: string, isSent: boolean, threadId: string | null): Promise<void> {
+async function processOperationalSignals(
+  accountId: string,
+  emailId: string,
+  isSent: boolean,
+  threadId: string | null,
+): Promise<void> {
   try {
     if (isSent) {
       await resolveDetectedTasksForThread(accountId, threadId);
@@ -139,7 +154,12 @@ async function handleInsertedEmailEffects(
     }
   }
 
-  await processOperationalSignals(accountId, msg.id, msg.labels.includes('SENT'), msg.threadId ?? null);
+  await processOperationalSignals(
+    accountId,
+    msg.id,
+    msg.labels.includes('SENT'),
+    msg.threadId ?? null,
+  );
 
   if (options.runUserWorkflows) {
     await runWorkflowTriggersForEmail(accountId, msg.id);
@@ -178,7 +198,7 @@ export async function reprocessRecentOperationalSignals(
   let processed = 0;
   for (const email of emails) {
     try {
-      const labels = email.labels ? JSON.parse(email.labels) as string[] : [];
+      const labels = email.labels ? (JSON.parse(email.labels) as string[]) : [];
       const isSent = labels.includes('SENT');
       if (isSent) {
         await resolveDetectedTasksForThread(accountId, email.thread_id);
@@ -213,16 +233,14 @@ export async function syncAccount(accountId: string, fullSync = false) {
   }
 
   const syncPromise = (async () => {
-  const logId = uuidv4();
+    const logId = uuidv4();
 
-  // Wrap initial sync_log insert in try-catch to handle DB failures
+    // Wrap initial sync_log insert in try-catch to handle DB failures
     try {
-      await execute('INSERT INTO sync_log (id, account_id, started_at, status) VALUES (?, ?, ?, ?)', [
-        logId,
-        accountId,
-        Date.now(),
-        'running',
-      ]);
+      await execute(
+        'INSERT INTO sync_log (id, account_id, started_at, status) VALUES (?, ?, ?, ?)',
+        [logId, accountId, Date.now(), 'running'],
+      );
     } catch (error) {
       logger.error('Failed to create sync log:', error);
       throw new Error('Cannot start sync: database error');
@@ -299,7 +317,7 @@ async function fullSyncMessages(
   let totalProcessed = 0;
 
   do {
-    const result = await listMessages(gmail, {
+    const result = await listMessages(gmail, accountId, {
       query,
       maxResults: 100,
       pageToken,
@@ -322,7 +340,7 @@ async function fullSyncMessages(
     for (let i = 0; i < batch.length; i += 10) {
       const chunk = batch.slice(i, i + 10);
       const messagePromises = chunk.map((id) =>
-        getMessage(gmail, id).catch((err) => {
+        getMessage(gmail, id, accountId).catch((err) => {
           logger.error(`Hiba üzenet letöltésekor (${id}):`, err.message);
           return null;
         }),
@@ -376,7 +394,7 @@ async function incrementalSync(
 
     for (const msgId of newMessageIds) {
       try {
-        const msg = await getMessage(gmail, msgId);
+        const msg = await getMessage(gmail, msgId, accountId);
         const isNew = await saveEmail(accountId, msg);
         if (isNew) {
           processedCount++;
@@ -545,7 +563,9 @@ async function findOrCreateTopic(
   );
 
   if (existing) {
-    await execute('UPDATE topics SET message_count = message_count + 1 WHERE id = ?', [existing.id]);
+    await execute('UPDATE topics SET message_count = message_count + 1 WHERE id = ?', [
+      existing.id,
+    ]);
     return existing.id;
   }
 

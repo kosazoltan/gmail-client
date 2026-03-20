@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Star, Paperclip, Trash2, Check, Pin, Mail, MailOpen, Crown } from 'lucide-react';
 import { cn, formatEmailDate, displaySender, getInitials, emailToColor } from '../../lib/utils';
+import { useSettings, defaultSettings } from '../../hooks/useSettings';
+import { setDraggedEmail } from '../../hooks/useDragDrop';
 import type { Email } from '../../types';
 
 interface EmailItemProps {
@@ -36,6 +38,8 @@ export function EmailItem({
   const sender = displaySender(email.fromName, email.from);
   const initials = getInitials(sender);
   const avatarColor = emailToColor(email.from || '');
+  const { data: settings } = useSettings();
+  const density = settings?.messageDensity ?? defaultSettings.messageDensity ?? 'normal';
 
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
@@ -61,10 +65,17 @@ export function EmailItem({
   return (
     <>
       <div
+        draggable={true}
+        onDragStart={(e) => {
+          setDraggedEmail(e.dataTransfer, { emailId: email.id, accountId: email.accountId });
+        }}
         onClick={handleItemClick}
         onContextMenu={handleContextMenu}
         className={cn(
-          'dark:border-dark-border flex cursor-pointer items-start gap-2 border-b border-gray-100 px-3 py-2 transition-colors sm:gap-3 sm:px-4 sm:py-3',
+          'dark:border-dark-border flex cursor-pointer items-start gap-2 border-b border-gray-100 transition-colors sm:gap-3',
+          density === 'compact' && 'px-2 py-1.5 sm:px-3 sm:py-2',
+          density === 'normal' && 'px-3 py-2 sm:px-4 sm:py-3',
+          density === 'comfortable' && 'px-4 py-3 sm:px-5 sm:py-4',
           isSelected && !selectionMode
             ? 'border-l-2 border-l-blue-500 bg-blue-50 dark:bg-blue-500/10'
             : 'dark:hover:bg-dark-bg-tertiary hover:bg-gray-50',
@@ -73,6 +84,14 @@ export function EmailItem({
           email.isRead && !isSelected && !isChecked && 'dark:bg-dark-bg/50 bg-gray-50/50',
         )}
       >
+        {email.accountColor && (
+          <span
+            className="mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full"
+            style={{ backgroundColor: email.accountColor }}
+            title={email.accountEmail || 'Fiók szín'}
+          />
+        )}
+
         {/* Checkbox vagy Avatar */}
         {selectionMode ? (
           <button
@@ -110,7 +129,8 @@ export function EmailItem({
               )}
               <span
                 className={cn(
-                  'truncate text-xs sm:text-sm',
+                  'truncate',
+                  density === 'comfortable' ? 'text-sm sm:text-base' : 'text-xs sm:text-sm',
                   !email.isRead
                     ? 'dark:text-dark-text font-semibold text-gray-900'
                     : 'dark:text-dark-text-secondary text-gray-700',
@@ -124,20 +144,43 @@ export function EmailItem({
             </span>
           </div>
 
-          <div
-            className={cn(
-              'mt-0.5 truncate text-xs sm:text-sm',
-              !email.isRead
-                ? 'dark:text-dark-text font-medium text-gray-800'
-                : 'dark:text-dark-text-secondary text-gray-600',
-            )}
-          >
-            {email.subject || '(Nincs tárgy)'}
-          </div>
+          {density === 'compact' ? (
+            <div
+              className={cn(
+                'truncate text-xs sm:text-sm',
+                !email.isRead
+                  ? 'dark:text-dark-text font-medium text-gray-800'
+                  : 'dark:text-dark-text-secondary text-gray-600',
+              )}
+            >
+              {email.subject || '(Nincs tárgy)'}
+            </div>
+          ) : (
+            <>
+              <div
+                className={cn(
+                  'mt-0.5 truncate',
+                  density === 'comfortable' ? 'text-sm sm:text-base' : 'text-xs sm:text-sm',
+                  !email.isRead
+                    ? 'dark:text-dark-text font-medium text-gray-800'
+                    : 'dark:text-dark-text-secondary text-gray-600',
+                )}
+              >
+                {email.subject || '(Nincs tárgy)'}
+              </div>
 
-          <div className="dark:text-dark-text-muted mt-0.5 hidden truncate text-[10px] text-gray-400 sm:block sm:text-xs">
-            {email.snippet || ''}
-          </div>
+              <div
+                className={cn(
+                  'dark:text-dark-text-muted mt-0.5 hidden text-gray-400 sm:block',
+                  density === 'comfortable'
+                    ? 'line-clamp-2 text-xs sm:text-sm'
+                    : 'truncate text-[10px] sm:text-xs',
+                )}
+              >
+                {email.snippet || ''}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Műveletek */}

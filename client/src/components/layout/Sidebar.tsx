@@ -43,6 +43,9 @@ import { useDetectedTaskStats } from '../../hooks/useDetectedTasks';
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
+import { useMoveEmail } from '../../hooks/useLabels';
+import { getDraggedEmail, useDragDrop } from '../../hooks/useDragDrop';
+import { toast } from '../../lib/toast';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -55,14 +58,18 @@ function getStoredGroupState(key: string, defaultOpen: boolean): boolean {
   try {
     const stored = localStorage.getItem(`sidebar-group-${key}`);
     if (stored !== null) return stored === 'true';
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return defaultOpen;
 }
 
 function setStoredGroupState(key: string, isOpen: boolean): void {
   try {
     localStorage.setItem(`sidebar-group-${key}`, String(isOpen));
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 function useCollapsibleGroup(key: string, defaultOpen = true) {
@@ -86,6 +93,7 @@ function NavItem({
   badge,
   badgeColor = 'blue',
   sidebarOpen,
+  onDropEmail,
 }: {
   path: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -93,6 +101,7 @@ function NavItem({
   badge?: number;
   badgeColor?: 'blue' | 'purple' | 'green' | 'red' | 'orange';
   sidebarOpen: boolean;
+  onDropEmail?: (payload: { emailId: string; accountId?: string }) => void;
 }) {
   const badgeColors: Record<string, string> = {
     blue: 'bg-[#4f6ef7]/10 text-[#4f6ef7] dark:bg-[#4f6ef7]/20 dark:text-[#6d8cff]',
@@ -102,18 +111,33 @@ function NavItem({
     orange: 'bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400',
   };
 
+  const drag = useDragDrop();
+
   return (
     <NavLink
       to={path}
       end={path === '/'}
       aria-label={label}
       title={label}
+      onDragOver={onDropEmail ? drag.onDragOver : undefined}
+      onDragLeave={onDropEmail ? drag.onDragLeave : undefined}
+      onDrop={
+        onDropEmail
+          ? (e) => {
+              e.preventDefault();
+              const payload = getDraggedEmail(e.dataTransfer);
+              if (payload) onDropEmail(payload);
+              drag.resetDragState();
+            }
+          : undefined
+      }
       className={({ isActive }) =>
         cn(
           'flex min-h-[40px] touch-manipulation items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
           isActive
             ? 'bg-[#4f6ef7]/10 font-medium text-[#4f6ef7] dark:bg-[#4f6ef7]/15 dark:text-[#6d8cff]'
             : 'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+          drag.isDraggingOver && 'border-2 border-dashed border-[#4f6ef7] bg-[#4f6ef7]/10',
           !sidebarOpen && 'justify-center px-2',
         )
       }
@@ -128,7 +152,12 @@ function NavItem({
         <div className="flex flex-1 items-center justify-between">
           <span>{label}</span>
           {badge !== undefined && badge > 0 && (
-            <span className={cn('rounded-full px-1.5 py-0.5 text-xs font-medium', badgeColors[badgeColor])}>
+            <span
+              className={cn(
+                'rounded-full px-1.5 py-0.5 text-xs font-medium',
+                badgeColors[badgeColor],
+              )}
+            >
               {badge > 99 ? '99+' : badge}
             </span>
           )}
@@ -163,10 +192,7 @@ function SectionHeader({
       <Icon className="h-3 w-3" aria-hidden="true" />
       <span className="flex-1 text-left">{label}</span>
       <ChevronDown
-        className={cn(
-          'h-3 w-3 transition-transform duration-200',
-          !isOpen && '-rotate-90',
-        )}
+        className={cn('h-3 w-3 transition-transform duration-200', !isOpen && '-rotate-90')}
       />
     </button>
   );
@@ -182,6 +208,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
   const incrementUsage = useIncrementSearchUsage();
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [showLoginHelp, setShowLoginHelp] = useState(false);
+  const moveEmail = useMoveEmail();
 
   const savedSearches = savedSearchesData?.searches || [];
   const currentSearchQuery =
@@ -221,6 +248,29 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
     deleteSavedSearch.mutate(id, {
       onSuccess: () => setDeleteConfirmId(null),
     });
+  };
+
+  const dropTargets: Record<string, { labelId: string; label: string }> = {
+    '/': { labelId: 'INBOX', label: 'Inbox' },
+    '/trash': { labelId: 'TRASH', label: 'Kuka' },
+    '/newsletters': { labelId: 'CATEGORY_PROMOTIONS', label: 'Hírlevelek' },
+    '/personal': { labelId: 'CATEGORY_PERSONAL', label: 'Személyes' },
+  };
+
+  const handleDropToPath = (path: string, payload: { emailId: string; accountId?: string }) => {
+    const target = dropTargets[path];
+    if (!target) return;
+    moveEmail.mutate(
+      {
+        emailId: payload.emailId,
+        addLabelIds: [target.labelId],
+        removeLabelIds: target.labelId === 'INBOX' ? [] : ['INBOX'],
+      },
+      {
+        onSuccess: () => toast.success(`Email áthelyezve: ${target.label}`),
+        onError: () => toast.error('Áthelyezés sikertelen'),
+      },
+    );
   };
 
   return (
@@ -280,11 +330,12 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
           badge={unreadCount}
           badgeColor="blue"
           sidebarOpen={isOpen}
+          onDropEmail={(payload) => handleDropToPath('/', payload)}
         />
         <NavItem path="/compose" icon={PenSquare} label="Compose" sidebarOpen={isOpen} />
 
         {/* Separator */}
-        <div className="dark:border-dark-border mx-2 border-t border-gray-200/60 my-1.5" />
+        <div className="dark:border-dark-border mx-2 my-1.5 border-t border-gray-200/60" />
 
         {/* === NÉZETEK csoport (összecsukható) === */}
         <SectionHeader
@@ -298,14 +349,42 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
           <>
             <NavItem path="/unified" icon={Mail} label="Minden levél" sidebarOpen={isOpen} />
             <NavItem path="/by-sender" icon={Users} label="Küldő szerint" sidebarOpen={isOpen} />
-            <NavItem path="/personal" icon={User} label="Személyes" sidebarOpen={isOpen} />
-            <NavItem path="/trash" icon={Trash2} label="Trash" sidebarOpen={isOpen} />
-            <NavItem path="/newsletters" icon={Newspaper} label="Hírlevelek" sidebarOpen={isOpen} />
-            <NavItem path="/by-topic" icon={MessageSquare} label="Téma szerint" sidebarOpen={isOpen} />
+            <NavItem
+              path="/personal"
+              icon={User}
+              label="Személyes"
+              sidebarOpen={isOpen}
+              onDropEmail={(payload) => handleDropToPath('/personal', payload)}
+            />
+            <NavItem
+              path="/trash"
+              icon={Trash2}
+              label="Trash"
+              sidebarOpen={isOpen}
+              onDropEmail={(payload) => handleDropToPath('/trash', payload)}
+            />
+            <NavItem
+              path="/newsletters"
+              icon={Newspaper}
+              label="Hírlevelek"
+              sidebarOpen={isOpen}
+              onDropEmail={(payload) => handleDropToPath('/newsletters', payload)}
+            />
+            <NavItem
+              path="/by-topic"
+              icon={MessageSquare}
+              label="Téma szerint"
+              sidebarOpen={isOpen}
+            />
             <NavItem path="/by-time" icon={Clock} label="Időszak szerint" sidebarOpen={isOpen} />
             <NavItem path="/by-category" icon={Tags} label="Kategóriák" sidebarOpen={isOpen} />
             <NavItem path="/invoices" icon={Receipt} label="Számlák" sidebarOpen={isOpen} />
-            <NavItem path="/attachments" icon={Paperclip} label="Mellékletek" sidebarOpen={isOpen} />
+            <NavItem
+              path="/attachments"
+              icon={Paperclip}
+              label="Mellékletek"
+              sidebarOpen={isOpen}
+            />
             <NavItem
               path="/reminders"
               icon={Bell}
@@ -314,12 +393,17 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
               badgeColor="orange"
               sidebarOpen={isOpen}
             />
-            <NavItem path="/scheduled" icon={CalendarClock} label="Ütemezett" sidebarOpen={isOpen} />
+            <NavItem
+              path="/scheduled"
+              icon={CalendarClock}
+              label="Ütemezett"
+              sidebarOpen={isOpen}
+            />
           </>
         )}
 
         {/* Separator */}
-        <div className="dark:border-dark-border mx-2 border-t border-gray-200/60 my-1.5" />
+        <div className="dark:border-dark-border mx-2 my-1.5 border-t border-gray-200/60" />
 
         {/* === AI NÉZETEK csoport (összecsukható) === */}
         <SectionHeader
@@ -331,7 +415,12 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
         />
         {(aiGroup.isOpen || !isOpen) && (
           <>
-            <NavItem path="/ai-assistant" icon={Sparkles} label="AI Asszisztens" sidebarOpen={isOpen} />
+            <NavItem
+              path="/ai-assistant"
+              icon={Sparkles}
+              label="AI Asszisztens"
+              sidebarOpen={isOpen}
+            />
             <NavItem
               path="/smart-folders"
               icon={FolderSearch}
@@ -344,7 +433,11 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
               path="/tasks"
               icon={CheckSquare}
               label="Tasks"
-              badge={detectedTaskCount > 0 ? detectedTaskCount : (dashboardData?.openTasksCount || undefined)}
+              badge={
+                detectedTaskCount > 0
+                  ? detectedTaskCount
+                  : dashboardData?.openTasksCount || undefined
+              }
               badgeColor={detectedTaskCount > 0 ? 'red' : 'green'}
               sidebarOpen={isOpen}
             />
@@ -357,6 +450,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
               sidebarOpen={isOpen}
             />
             <NavItem path="/market" icon={BarChart3} label="Market" sidebarOpen={isOpen} />
+            <NavItem path="/analytics" icon={BarChart3} label="Statisztikák" sidebarOpen={isOpen} />
           </>
         )}
 
@@ -380,7 +474,9 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                 title={`${folder.name} (${folder.emailCount ?? 0})`}
                 aria-label={`Smart Folder: ${folder.name}`}
               >
-                <span className="flex-shrink-0 text-sm" aria-hidden="true">{folder.icon}</span>
+                <span className="flex-shrink-0 text-sm" aria-hidden="true">
+                  {folder.icon}
+                </span>
                 <div className="flex min-w-0 flex-1 items-center justify-between">
                   <span className="truncate text-xs">{folder.name}</span>
                   <span className="dark:text-dark-text-muted ml-2 text-[10px] text-gray-400">
@@ -433,7 +529,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
         )}
 
         {/* Separator */}
-        <div className="dark:border-dark-border mx-2 border-t border-gray-200/60 my-1.5" />
+        <div className="dark:border-dark-border mx-2 my-1.5 border-t border-gray-200/60" />
 
         {/* === Mentett keresések (összecsukható) === */}
         {savedSearches.length > 0 && (

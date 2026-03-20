@@ -2,9 +2,10 @@ import { SwipeableEmailItem } from './SwipeableEmailItem';
 import { useToggleStar, useMarkRead } from '../../hooks/useEmails';
 import { useSnoozeEmail, getSnoozeOptions } from '../../hooks/useSnooze';
 import { useVipEmails, isVipEmail } from '../../hooks/useVip';
+import { useAccounts } from '../../hooks/useAccounts';
 import { Loader2, MailX } from 'lucide-react';
 import { toast } from '../../lib/toast';
-import type { Email } from '../../types';
+import type { Email, Account } from '../../types';
 
 interface UnifiedEmailListProps {
   emails: Email[];
@@ -36,6 +37,7 @@ export function UnifiedEmailList({
   const markRead = useMarkRead();
   const snoozeEmail = useSnoozeEmail();
   const { data: vipEmails } = useVipEmails();
+  const { data: accounts = [] } = useAccounts();
 
   const handleToggleRead = (emailId: string, isRead: boolean, accountId?: string) => {
     markRead.mutate({ emailId, isRead, accountId });
@@ -79,41 +81,50 @@ export function UnifiedEmailList({
 
   return (
     <div className="flex flex-col">
-      {emails.map((email) => (
-        <div key={email.id} className="relative">
-          {/* Account color indicator */}
-          {email.accountColor && (
-            <div
-              className="absolute top-0 bottom-0 left-0 w-1"
-              style={{ backgroundColor: email.accountColor }}
-              title={email.accountEmail || 'Account'}
-            />
-          )}
-          <div className={email.accountColor ? 'ml-1' : ''}>
-            <SwipeableEmailItem
-              email={email}
-              isSelected={email.id === selectedEmailId}
-              onClick={() => onSelectEmail(email)}
-              onToggleStar={(e) => {
-                e.stopPropagation();
-                toggleStar.mutate({
-                  emailId: email.id,
-                  isStarred: !email.isStarred,
-                  accountId: email.accountId,
-                });
-              }}
-              onDelete={onDeleteEmail}
-              onArchive={onArchiveEmail}
-              onSnooze={handleQuickSnooze}
-              onToggleRead={(emailId, isRead) => handleToggleRead(emailId, isRead, email.accountId)}
-              selectionMode={selectionMode}
-              isChecked={selectedIds.has(email.id)}
-              onToggleCheck={onToggleSelect}
-              isVip={isVipEmail(email.from, vipEmails)}
-            />
+      {emails.map((email) => {
+        const mappedAccountColor = accounts.find(
+          (a: Account) => a.id === email.accountId,
+        )?.accountColor;
+        const effectiveAccountColor = email.accountColor || mappedAccountColor || undefined;
+
+        return (
+          <div key={email.id} className="relative">
+            {/* Account color indicator */}
+            {effectiveAccountColor && (
+              <div
+                className="absolute top-0 bottom-0 left-0 w-1"
+                style={{ backgroundColor: effectiveAccountColor }}
+                title={email.accountEmail || 'Account'}
+              />
+            )}
+            <div className={effectiveAccountColor ? 'ml-1' : ''}>
+              <SwipeableEmailItem
+                email={{ ...email, accountColor: effectiveAccountColor }}
+                isSelected={email.id === selectedEmailId}
+                onClick={() => onSelectEmail(email)}
+                onToggleStar={(e) => {
+                  e.stopPropagation();
+                  toggleStar.mutate({
+                    emailId: email.id,
+                    isStarred: !email.isStarred,
+                    accountId: email.accountId,
+                  });
+                }}
+                onDelete={onDeleteEmail}
+                onArchive={onArchiveEmail}
+                onSnooze={handleQuickSnooze}
+                onToggleRead={(emailId, isRead) =>
+                  handleToggleRead(emailId, isRead, email.accountId)
+                }
+                selectionMode={selectionMode}
+                isChecked={selectedIds.has(email.id)}
+                onToggleCheck={onToggleSelect}
+                isVip={isVipEmail(email.from, vipEmails)}
+              />
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

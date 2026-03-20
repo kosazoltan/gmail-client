@@ -44,8 +44,15 @@ export const defaultSettings: UserSettings = {
   quietHoursStart: '22:00',
   quietHoursEnd: '07:00',
   quietHoursWeekendOnly: false,
+  desktopNotificationsEnabled: false,
+  vipNotificationsOnly: false,
+  notificationSoundEnabled: false,
   toolbarActions: ['reply', 'forward', 'star', 'delete', 'snooze', 'remind'],
   theme: 'system',
+  messageDensity: 'normal',
+  conversationView: true,
+  accountColors: {},
+  accountSignatures: {},
 };
 
 // Helper a swipe action címkéhez

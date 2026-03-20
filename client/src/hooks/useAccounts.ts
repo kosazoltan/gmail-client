@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, getFailureCount } from '../lib/api';
+import type { Account } from '../types';
 
 export function useSession() {
   return useQuery({
@@ -23,7 +24,13 @@ export function useSession() {
 export function useAccounts() {
   return useQuery({
     queryKey: ['accounts'],
-    queryFn: () => api.accounts.getAll(),
+    queryFn: async () => {
+      const result = await api.accounts.getAll();
+      return (result.accounts as Account[]).map((account: Account) => ({
+        ...account,
+        accountColor: account.accountColor ?? account.color,
+      }));
+    },
   });
 }
 

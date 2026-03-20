@@ -79,8 +79,14 @@ router.put('/:key', async (req, res) => {
     'quietHoursEnd',
     'quietHoursEnabled',
     'quietHoursWeekendOnly',
+    'desktopNotificationsEnabled',
+    'vipNotificationsOnly',
+    'notificationSoundEnabled',
     'toolbarActions',
     'theme',
+    'autoLockEnabled',
+    'lockTimeoutMinutes',
+    'lockPinHash',
   ];
 
   if (!allowedKeys.includes(key)) {

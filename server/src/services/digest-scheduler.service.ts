@@ -59,7 +59,11 @@ function heuristicClassify(email: DigestCandidate): Omit<DigestItem, 'appLink' |
   let category: DigestItem['category'] = 'egyeb';
   let reason = 'Fontosnak tűnő levél az elmúlt 7 napból.';
 
-  if (/(hatarido|deadline|surgos|urgent|asap|azonnal|teendo|todo|feladat|fizetesi felszolitas)/.test(text)) {
+  if (
+    /(hatarido|deadline|surgos|urgent|asap|azonnal|teendo|todo|feladat|fizetesi felszolitas)/.test(
+      text,
+    )
+  ) {
     priority = 'kritikus';
     category = 'teendo';
     reason = 'Határidős/teendő jellegű tartalom.';
@@ -105,7 +109,11 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function buildLinks(emailId: string, accountId: string, frontendBase: string): { appLink: string; gmailLink: string } {
+function buildLinks(
+  emailId: string,
+  accountId: string,
+  frontendBase: string,
+): { appLink: string; gmailLink: string } {
   const safeBase = frontendBase.replace(/\/$/, '');
   return {
     appLink: `${safeBase}/?emailId=${encodeURIComponent(emailId)}&accountId=${encodeURIComponent(accountId)}`,
@@ -129,27 +137,30 @@ async function aiPrioritize(
   }));
 
   if (!isAIAvailable()) {
-    return compact.map((e) => {
-      const row = heuristicClassify({
-        id: e.id,
-        subject: e.subject,
-        from_email: e.from,
-        from_name: e.from,
-        snippet: e.snippet,
-        body: '',
-        date: e.date,
-        is_read: e.unread ? 0 : 1,
-        has_attachments: e.hasAttachments ? 1 : 0,
-      });
-      return { ...row, ...buildLinks(e.id, accountId, frontendBase) };
-    }).slice(0, 15);
+    return compact
+      .map((e) => {
+        const row = heuristicClassify({
+          id: e.id,
+          subject: e.subject,
+          from_email: e.from,
+          from_name: e.from,
+          snippet: e.snippet,
+          body: '',
+          date: e.date,
+          is_read: e.unread ? 0 : 1,
+          has_attachments: e.hasAttachments ? 1 : 0,
+        });
+        return { ...row, ...buildLinks(e.id, accountId, frontendBase) };
+      })
+      .slice(0, 15);
   }
 
   try {
-    const response = await callAI([
-      {
-        role: 'user',
-        content: `Vezetői email triage feladat magyarul. Az elmúlt 7 nap emailjeiből válogasd ki a valóban fontosakat.
+    const response = await callAI(
+      [
+        {
+          role: 'user',
+          content: `Vezetői email triage feladat magyarul. Az elmúlt 7 nap emailjeiből válogasd ki a valóban fontosakat.
 
 Prioritás: kritikus/magas/kozepes
 Kategória: teendo/arajanlat/naptar/penzugy/egyeb
@@ -160,8 +171,10 @@ JSON tömböt adj vissza, mezők:
 
 EMAIL ADATOK:
 ${JSON.stringify(compact)}`,
-      },
-    ], { maxTokens: 1800 });
+        },
+      ],
+      { maxTokens: 1800 },
+    );
 
     const text = response.text || '';
     const jsonMatch = text.match(/\[[\s\S]*\]/);
@@ -207,7 +220,18 @@ ${JSON.stringify(compact)}`,
   }
 }
 
-async function buildDigestEmailBody(accountId: string, accountEmail: string, frontendBase: string, slotHour: number): Promise<{ subject: string; html: string; text: string; totalEmails: number; importantCount: number }> {
+async function buildDigestEmailBody(
+  accountId: string,
+  accountEmail: string,
+  frontendBase: string,
+  slotHour: number,
+): Promise<{
+  subject: string;
+  html: string;
+  text: string;
+  totalEmails: number;
+  importantCount: number;
+}> {
   const now = Date.now();
   const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
 
@@ -258,7 +282,10 @@ ${section('🟡 Közepes', groups.kozepes)}
 `;
 
   const textItems = prioritized
-    .map((i) => `- [${i.priority.toUpperCase()}|${i.category}] ${i.title} (${i.from})\n  ${i.reason}\n  App: ${i.appLink}\n  Gmail: ${i.gmailLink}`)
+    .map(
+      (i) =>
+        `- [${i.priority.toUpperCase()}|${i.category}] ${i.title} (${i.from})\n  ${i.reason}\n  App: ${i.appLink}\n  Gmail: ${i.gmailLink}`,
+    )
     .join('\n\n');
 
   const text = `${summaryLine}\n\nGyorslinkek:\n- Olvasatlanok: ${unreadLink}\n- Olvasatlan + melléklet: ${unreadAttachmentLink}\n\n${textItems || 'Nincs kiemelt tétel.'}`;
@@ -279,24 +306,35 @@ async function claimSlot(accountId: string, dateKey: string, hour: number): Prom
   return Boolean(row?.key);
 }
 
-async function markSentForSlot(accountId: string, dateKey: string, hour: number, payload: Record<string, unknown>): Promise<void> {
+async function markSentForSlot(
+  accountId: string,
+  dateKey: string,
+  hour: number,
+  payload: Record<string, unknown>,
+): Promise<void> {
   const key = `ai_digest_sent_${dateKey}_${hour}`;
-  await execute('UPDATE user_settings SET value = ?, updated_at = ? WHERE account_id = ? AND key = ?', [
-    JSON.stringify(payload),
-    Date.now(),
-    accountId,
-    key,
-  ]);
+  await execute(
+    'UPDATE user_settings SET value = ?, updated_at = ? WHERE account_id = ? AND key = ?',
+    [JSON.stringify(payload), Date.now(), accountId, key],
+  );
 }
 
-async function markSlotFailed(accountId: string, dateKey: string, hour: number, reason: string): Promise<void> {
+async function markSlotFailed(
+  accountId: string,
+  dateKey: string,
+  hour: number,
+  reason: string,
+): Promise<void> {
   const key = `ai_digest_sent_${dateKey}_${hour}`;
-  await execute('UPDATE user_settings SET value = ?, updated_at = ? WHERE account_id = ? AND key = ?', [
-    JSON.stringify({ status: 'failed', reason: reason.slice(0, 200), failedAt: Date.now() }),
-    Date.now(),
-    accountId,
-    key,
-  ]);
+  await execute(
+    'UPDATE user_settings SET value = ?, updated_at = ? WHERE account_id = ? AND key = ?',
+    [
+      JSON.stringify({ status: 'failed', reason: reason.slice(0, 200), failedAt: Date.now() }),
+      Date.now(),
+      accountId,
+      key,
+    ],
+  );
 }
 
 export interface DigestSchedulerRunOptions {
@@ -324,13 +362,17 @@ export async function runAiDigestScheduler(
   const now = options.now || new Date();
   const { dateKey, hour } = toBudapestDateParts(now);
 
-  const dueSlots = (options.forceSlots && options.forceSlots.length > 0)
-    ? options.forceSlots.filter((s) => DIGEST_HOURS.includes(s as 7 | 12 | 17))
-    : DIGEST_HOURS.filter((s) => s <= hour);
+  const dueSlots =
+    options.forceSlots && options.forceSlots.length > 0
+      ? options.forceSlots.filter((s) => DIGEST_HOURS.includes(s as 7 | 12 | 17))
+      : DIGEST_HOURS.filter((s) => s <= hour);
 
   if (dueSlots.length === 0) return [];
 
-  const frontendBase = (frontendUrl || process.env.FRONTEND_URL || 'https://mindenes.org').replace(/\/$/, '');
+  const frontendBase = (frontendUrl || process.env.FRONTEND_URL || 'https://mindenes.org').replace(
+    /\/$/,
+    '',
+  );
   const results: DigestSchedulerRunResult[] = [];
 
   for (const account of accounts) {
@@ -365,7 +407,7 @@ export async function runAiDigestScheduler(
         const { oauth2Client } = await getOAuth2ClientForAccount(account.id);
         const gmail = getGmailClient(oauth2Client);
 
-        await sendEmail(gmail, {
+        await sendEmail(gmail, account.id, {
           to: account.email,
           subject: digest.subject,
           body: `${digest.text}\n\n<!-- HTML version below -->\n${digest.html}`,

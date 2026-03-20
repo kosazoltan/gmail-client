@@ -19,11 +19,11 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
-      "eslint --fix",
-      "prettier --write"
+      "npx eslint --fix",
+      "npx prettier --write"
     ],
     "*.{json,md,html}": [
-      "prettier --write"
+      "npx prettier --write"
     ]
   }
 }

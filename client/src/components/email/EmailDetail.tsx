@@ -26,20 +26,21 @@ import {
   Tag,
   Download,
   FileText,
+  Printer,
   Languages,
   X,
   MessageSquare,
-  Send,
 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { SnoozeMenu } from './SnoozeMenu';
 import { ReminderMenu } from './ReminderMenu';
 import { LabelManager } from './LabelManager';
-import { exportEmailToPdf } from '../../lib/pdfExport';
+import { exportEmailToPdf, exportThreadToPdf } from '../../lib/pdfExport';
 import { toast } from '../../lib/toast';
 import { useEmailTranslation } from '../../hooks/useTranslate';
 import type { ThreadEmail } from '../../types';
 import { InlineCopilotBar } from '../ai/InlineCopilotBar';
+import { QuickReply } from './QuickReply';
 
 interface EmailDetailProps {
   emailId: string | null;
@@ -89,8 +90,6 @@ export function EmailDetail({
   const [showConversation, setShowConversation] = useState(true);
   const { translatedContent, isTranslating, translateEmail, clearTranslation } =
     useEmailTranslation();
-  const [quickReplyText, setQuickReplyText] = useState('');
-  const [showQuickReply, setShowQuickReply] = useState(false);
   const [sendingQuickReply, setSendingQuickReply] = useState(false);
 
   // Thread adatok
@@ -284,19 +283,17 @@ export function EmailDetail({
     return date.toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' });
   };
 
-  const handleQuickReply = async () => {
-    if (!quickReplyText.trim() || !email.from) return;
+  const handleQuickReply = async (text: string) => {
+    if (!text.trim() || !email.from) return;
     setSendingQuickReply(true);
     try {
       await replyEmail.mutateAsync({
         to: email.from,
         subject: `Re: ${email.subject || ''}`,
-        body: quickReplyText.trim(),
+        body: text.trim(),
         threadId: email.threadId || undefined,
       });
       toast.success('Válasz elküldve');
-      setQuickReplyText('');
-      setShowQuickReply(false);
     } catch {
       toast.error('Hiba a válasz küldésekor');
     } finally {
@@ -383,11 +380,24 @@ export function EmailDetail({
             <Forward className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
 
+          <button
+            onClick={() => window.print()}
+            className="dark:text-dark-text-secondary touch-manipulation rounded-lg p-1.5 text-gray-500 transition-all duration-200 hover:bg-sky-50 hover:text-sky-600 sm:p-2.5 dark:hover:bg-sky-500/10 dark:hover:text-sky-400"
+            aria-label="Nyomtatás"
+            title="Nyomtatás"
+          >
+            <Printer className="h-4 w-4 sm:h-5 sm:w-5" />
+          </button>
+
           {/* PDF Export közvetlen gomb */}
           <button
             onClick={async () => {
               try {
-                await exportEmailToPdf(email);
+                if (hasThread && threadEmails.length > 1) {
+                  await exportThreadToPdf(threadEmails);
+                } else {
+                  await exportEmailToPdf(email);
+                }
                 toast.success('PDF sikeresen exportálva');
               } catch {
                 toast.error('PDF exportálás sikertelen');
@@ -544,16 +554,19 @@ export function EmailDetail({
               <button
                 onClick={() => {
                   setDeleteError(null);
-                  deleteEmail.mutate({ emailId: email.id, accountId }, {
-                    onSuccess: () => {
-                      setShowDeleteConfirm(false);
-                      onBack();
+                  deleteEmail.mutate(
+                    { emailId: email.id, accountId },
+                    {
+                      onSuccess: () => {
+                        setShowDeleteConfirm(false);
+                        onBack();
+                      },
+                      onError: (error) => {
+                        console.error('Delete failed:', error);
+                        setDeleteError('Nem sikerült törölni az emailt. Próbáld újra.');
+                      },
                     },
-                    onError: (error) => {
-                      console.error('Delete failed:', error);
-                      setDeleteError('Nem sikerült törölni az emailt. Próbáld újra.');
-                    },
-                  });
+                  );
                 }}
                 disabled={deleteEmail.isPending}
                 className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
@@ -864,58 +877,7 @@ export function EmailDetail({
 
           {/* Quick Reply */}
           <div className="mt-3">
-            {showQuickReply ? (
-              <div className="dark:bg-dark-bg-secondary dark:border-dark-border overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm sm:rounded-2xl">
-                <div className="p-3 sm:p-4">
-                  <textarea
-                    value={quickReplyText}
-                    onChange={(e) => setQuickReplyText(e.target.value)}
-                    placeholder="Válasz írása..."
-                    rows={4}
-                    autoFocus
-                    className="dark:bg-dark-bg-tertiary dark:border-dark-border dark:text-dark-text dark:placeholder:text-dark-text-muted w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 transition-colors outline-none placeholder:text-gray-400 focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                        e.preventDefault();
-                        handleQuickReply();
-                      }
-                    }}
-                  />
-                  <div className="mt-2 flex items-center justify-between">
-                    <span className="dark:text-dark-text-muted text-xs text-gray-400">
-                      Ctrl+Enter a küldéshez
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setShowQuickReply(false);
-                          setQuickReplyText('');
-                        }}
-                        className="dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary rounded-lg px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-100"
-                      >
-                        Mégse
-                      </button>
-                      <button
-                        onClick={handleQuickReply}
-                        disabled={!quickReplyText.trim() || sendingQuickReply}
-                        className="flex items-center gap-1.5 rounded-lg bg-[#4f6ef7] px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#3d5ce5] disabled:opacity-50"
-                      >
-                        <Send className="h-3.5 w-3.5" />
-                        {sendingQuickReply ? 'Küldés...' : 'Küldés'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowQuickReply(true)}
-                className="dark:bg-dark-bg-secondary dark:border-dark-border dark:text-dark-text-muted dark:hover:text-dark-text-secondary dark:hover:border-dark-border flex w-full items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 text-sm text-gray-400 shadow-sm transition-all hover:border-gray-200 hover:text-gray-600 sm:rounded-2xl"
-              >
-                <Reply className="h-4 w-4" />
-                <span>Kattints a gyors válaszhoz...</span>
-              </button>
-            )}
+            <QuickReply onSend={handleQuickReply} isSending={sendingQuickReply} />
           </div>
         </div>
       </div>

@@ -301,7 +301,7 @@ router.post('/:id/send-now', async (req, res) => {
       }
     }
 
-    await sendEmail(gmail, {
+    await sendEmail(gmail, accountId, {
       to: scheduledEmail.to_addresses,
       subject: scheduledEmail.subject || '',
       body: scheduledEmail.body || '',
@@ -312,10 +312,10 @@ router.post('/:id/send-now', async (req, res) => {
     });
 
     // Mark as sent only after successful send
-    await execute("UPDATE scheduled_emails SET status = 'sent', processing_instance = NULL, processing_started_at = NULL WHERE id = ? AND account_id = ?", [
-      id,
-      accountId,
-    ]);
+    await execute(
+      "UPDATE scheduled_emails SET status = 'sent', processing_instance = NULL, processing_started_at = NULL WHERE id = ? AND account_id = ?",
+      [id, accountId],
+    );
 
     res.json({ success: true });
   } catch (error) {
@@ -369,7 +369,10 @@ export async function processScheduledEmails(): Promise<number> {
           oauth2Client = authResult.oauth2Client;
         } catch (authError) {
           logger.error(`Auth error for scheduled email ${email.id}:`, authError);
-          await execute("UPDATE scheduled_emails SET status = 'failed', processing_instance = NULL, processing_started_at = NULL WHERE id = ?", [email.id]);
+          await execute(
+            "UPDATE scheduled_emails SET status = 'failed', processing_instance = NULL, processing_started_at = NULL WHERE id = ?",
+            [email.id],
+          );
           continue;
         }
 
@@ -385,7 +388,7 @@ export async function processScheduledEmails(): Promise<number> {
           }
         }
 
-        await sendEmail(gmail, {
+        await sendEmail(gmail, email.account_id, {
           to: email.to_addresses,
           subject: email.subject || '',
           body: email.body || '',
@@ -396,14 +399,20 @@ export async function processScheduledEmails(): Promise<number> {
         });
 
         // Mark as sent only after successful send
-        await execute("UPDATE scheduled_emails SET status = 'sent', processing_instance = NULL, processing_started_at = NULL WHERE id = ?", [email.id]);
+        await execute(
+          "UPDATE scheduled_emails SET status = 'sent', processing_instance = NULL, processing_started_at = NULL WHERE id = ?",
+          [email.id],
+        );
 
         sentCount++;
         logger.info(`Scheduled email ${email.id} sent successfully.`);
       } catch (error) {
         logger.error(`Failed to send scheduled email ${email.id}:`, error);
         // Mark as failed
-        await execute("UPDATE scheduled_emails SET status = 'failed', processing_instance = NULL, processing_started_at = NULL WHERE id = ?", [email.id]);
+        await execute(
+          "UPDATE scheduled_emails SET status = 'failed', processing_instance = NULL, processing_started_at = NULL WHERE id = ?",
+          [email.id],
+        );
       }
     }
 

@@ -4,6 +4,13 @@ import crypto from 'crypto';
 import { queryOne, queryAll, execute } from '../db/index.js';
 import { v4 as uuidv4 } from 'uuid';
 import { stopBackgroundSync } from './sync.service.js';
+import {
+  saveTokens,
+  getTokens,
+  deleteTokens,
+  getVaultMarker,
+  isVaultMarker,
+} from './token-vault.service.js';
 
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
@@ -17,55 +24,36 @@ const SCOPES = [
   'https://www.googleapis.com/auth/drive.file',
 ];
 
-const ALGORITHM = 'aes-256-gcm';
+const LEGACY_ALGORITHM = 'aes-256-gcm';
 
-function getEncryptionKey(): Buffer {
-  const isProduction =
-    process.env.NODE_ENV === 'production' || process.env.FRONTEND_URL?.startsWith('https://');
-
-  if (isProduction && !process.env.ENCRYPTION_KEY) {
-    throw new Error('ENCRYPTION_KEY környezeti változó kötelező production módban!');
-  }
-
-  // Configurable salt - use 'salt' as default for backwards compatibility
-  // This matches the original hardcoded value to avoid breaking existing encrypted tokens
+function getLegacyEncryptionKey(): Buffer {
   const salt = process.env.ENCRYPTION_SALT || 'salt';
-
   const key = process.env.ENCRYPTION_KEY || 'dev-only-encryption-key-32chars!';
   return crypto.scryptSync(key, salt, 32);
 }
 
-function encrypt(text: string): string {
-  const key = getEncryptionKey();
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
-  let encrypted = cipher.update(text, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  const authTag = cipher.getAuthTag().toString('hex');
-  return `${iv.toString('hex')}:${authTag}:${encrypted}`;
-}
+async function tryDecryptLegacy(encrypted: string): Promise<string | null> {
+  if (!encrypted.includes(':')) return encrypted;
 
-function decrypt(encrypted: string): string {
-  const key = getEncryptionKey();
-  const parts = encrypted.split(':');
+  try {
+    const parts = encrypted.split(':');
+    if (parts.length !== 3) return encrypted;
 
-  if (parts.length !== 3) {
-    throw new Error('Érvénytelen titkosított adat formátum');
+    const [ivHex, authTagHex, encryptedText] = parts;
+    if (!ivHex || !authTagHex || !encryptedText) return encrypted;
+
+    const decipher = crypto.createDecipheriv(
+      LEGACY_ALGORITHM,
+      getLegacyEncryptionKey(),
+      Buffer.from(ivHex, 'hex'),
+    );
+    decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
+    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch {
+    return null;
   }
-
-  const [ivHex, authTagHex, encryptedText] = parts;
-
-  if (!ivHex || !authTagHex || !encryptedText) {
-    throw new Error('Hiányzó titkosítási komponens');
-  }
-
-  const iv = Buffer.from(ivHex, 'hex');
-  const authTag = Buffer.from(authTagHex, 'hex');
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
-  decipher.setAuthTag(authTag);
-  let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-  return decrypted;
 }
 
 export function createOAuth2Client() {
@@ -107,32 +95,29 @@ export async function handleAuthCallback(code: string) {
   const email = userInfo.data.email;
   const name = userInfo.data.name || email;
 
-  const existingAccount = await queryOne<{ id: string }>('SELECT id FROM accounts WHERE email = ?', [
-    email,
-  ]);
+  const existingAccount = await queryOne<{ id: string }>(
+    'SELECT id FROM accounts WHERE email = ?',
+    [email],
+  );
 
   const accountId = existingAccount?.id || uuidv4();
-  const encryptedAccess = encrypt(tokens.access_token);
-  const encryptedRefresh = encrypt(tokens.refresh_token);
+  const vaultMarker = getVaultMarker();
+
+  await saveTokens(email, {
+    accessToken: tokens.access_token,
+    refreshToken: tokens.refresh_token,
+  });
 
   if (existingAccount) {
     await execute(
       'UPDATE accounts SET access_token = ?, refresh_token = ?, token_expiry = ?, name = ? WHERE id = ?',
-      [encryptedAccess, encryptedRefresh, tokens.expiry_date || 0, name, accountId],
+      [vaultMarker, vaultMarker, tokens.expiry_date || 0, name, accountId],
     );
   } else {
     await execute(
       `INSERT INTO accounts (id, email, name, access_token, refresh_token, token_expiry, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        accountId,
-        email,
-        name,
-        encryptedAccess,
-        encryptedRefresh,
-        tokens.expiry_date || 0,
-        Date.now(),
-      ],
+      [accountId, email, name, vaultMarker, vaultMarker, tokens.expiry_date || 0, Date.now()],
     );
 
     await createDefaultCategories(accountId);
@@ -214,20 +199,33 @@ export async function getOAuth2ClientForAccount(accountId: string) {
   }
 
   const oauth2Client = createOAuth2Client();
-  let decryptedAccessToken: string;
-  let decryptedRefreshToken: string;
-  try {
-    decryptedAccessToken = decrypt(account.access_token);
-    decryptedRefreshToken = decrypt(account.refresh_token);
-  } catch (err) {
-    logger.error(
-      `Token decryption failed for account ${accountId}. The encryption key may have changed.`,
-    );
-    throw new Error('Token decryption failed. Please re-authenticate the account.');
+
+  let tokenPair = await getTokens(account.email);
+
+  // Legacy migration: DB token -> vault
+  if (!tokenPair && !isVaultMarker(account.access_token) && !isVaultMarker(account.refresh_token)) {
+    const legacyAccess = await tryDecryptLegacy(account.access_token);
+    const legacyRefresh = await tryDecryptLegacy(account.refresh_token);
+
+    if (legacyAccess && legacyRefresh) {
+      tokenPair = { accessToken: legacyAccess, refreshToken: legacyRefresh };
+      await saveTokens(account.email, tokenPair);
+      await execute('UPDATE accounts SET access_token = ?, refresh_token = ? WHERE id = ?', [
+        getVaultMarker(),
+        getVaultMarker(),
+        accountId,
+      ]);
+      logger.info(`Token migration -> vault completed for ${account.email}`);
+    }
   }
+
+  if (!tokenPair) {
+    throw new Error('Token nem található secure vaultban. Jelentkezz be újra.');
+  }
+
   oauth2Client.setCredentials({
-    access_token: decryptedAccessToken,
-    refresh_token: decryptedRefreshToken,
+    access_token: tokenPair.accessToken,
+    refresh_token: tokenPair.refreshToken,
     expiry_date: account.token_expiry,
   });
 
@@ -237,13 +235,23 @@ export async function getOAuth2ClientForAccount(accountId: string) {
       const updates: string[] = [];
       const params: unknown[] = [];
 
-      if (tokens.access_token) {
+      const nextAccess = tokens.access_token || tokenPair?.accessToken;
+      const nextRefresh = tokens.refresh_token || tokenPair?.refreshToken;
+
+      await saveTokens(account.email, {
+        accessToken: nextAccess,
+        refreshToken: nextRefresh,
+      });
+
+      tokenPair = {
+        accessToken: nextAccess,
+        refreshToken: nextRefresh,
+      };
+
+      if (tokens.access_token || tokens.refresh_token) {
         updates.push('access_token = ?');
-        params.push(encrypt(tokens.access_token));
-      }
-      if (tokens.refresh_token) {
         updates.push('refresh_token = ?');
-        params.push(encrypt(tokens.refresh_token));
+        params.push(getVaultMarker(), getVaultMarker());
       }
       if (tokens.expiry_date) {
         updates.push('token_expiry = ?');
@@ -288,5 +296,13 @@ export async function updateAccountColor(accountId: string, color: string) {
 export async function deleteAccount(accountId: string) {
   // Stop background sync before deleting to prevent orphaned intervals
   stopBackgroundSync(accountId);
+
+  const account = await queryOne<{ email: string }>('SELECT email FROM accounts WHERE id = ?', [
+    accountId,
+  ]);
+  if (account?.email) {
+    await deleteTokens(account.email);
+  }
+
   await execute('DELETE FROM accounts WHERE id = ?', [accountId]);
 }

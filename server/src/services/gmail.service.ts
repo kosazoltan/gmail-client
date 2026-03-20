@@ -2,6 +2,7 @@ import { google, gmail_v1 } from 'googleapis';
 import type { OAuth2Client } from 'google-auth-library';
 import iconv from 'iconv-lite';
 import logger from '../utils/logger.js';
+import { withGmailBackoff, trackQuota } from '../middleware/rate-limiter.js';
 
 // Gmail API wrapper
 export function getGmailClient(auth: OAuth2Client): gmail_v1.Gmail {
@@ -11,6 +12,7 @@ export function getGmailClient(auth: OAuth2Client): gmail_v1.Gmail {
 // Levelek listázása
 export async function listMessages(
   gmail: gmail_v1.Gmail,
+  accountId: string,
   options: {
     query?: string;
     maxResults?: number;
@@ -20,14 +22,17 @@ export async function listMessages(
 ) {
   const { query, maxResults = 50, pageToken, labelIds } = options;
 
-  const response = await gmail.users.messages.list({
-    userId: 'me',
-    q: query,
-    maxResults,
-    pageToken,
-    labelIds,
-  });
+  const response = await withGmailBackoff(() =>
+    gmail.users.messages.list({
+      userId: 'me',
+      q: query,
+      maxResults,
+      pageToken,
+      labelIds,
+    }),
+  );
 
+  trackQuota(accountId);
   return {
     messages: response.data.messages || [],
     nextPageToken: response.data.nextPageToken,
@@ -36,24 +41,32 @@ export async function listMessages(
 }
 
 // Egy levél teljes lekérése
-export async function getMessage(gmail: gmail_v1.Gmail, messageId: string) {
-  const response = await gmail.users.messages.get({
-    userId: 'me',
-    id: messageId,
-    format: 'full',
-  });
+export async function getMessage(gmail: gmail_v1.Gmail, messageId: string, accountId: string) {
+  const response = await withGmailBackoff(() =>
+    gmail.users.messages.get({
+      userId: 'me',
+      id: messageId,
+      format: 'full',
+    }),
+  );
+  trackQuota(accountId);
 
   return parseMessage(response.data, gmail, messageId);
 }
 
 // Levél metaadatainak lekérése (gyorsabb, body nélkül)
-export async function getMessageMetadata(gmail: gmail_v1.Gmail, messageId: string) {
+export async function getMessageMetadata(
+  gmail: gmail_v1.Gmail,
+  messageId: string,
+  accountId: string,
+) {
   const response = await gmail.users.messages.get({
     userId: 'me',
     id: messageId,
     format: 'metadata',
     metadataHeaders: ['From', 'To', 'Cc', 'Subject', 'Date'],
   });
+  trackQuota(accountId);
 
   return parseMessageMetadata(response.data);
 }
@@ -453,6 +466,7 @@ export interface EmailAttachment {
 
 export async function sendEmail(
   gmail: gmail_v1.Gmail,
+  accountId: string,
   options: {
     to: string;
     subject: string;
@@ -534,13 +548,16 @@ export async function sendEmail(
     raw = Buffer.from(messageParts.join('\r\n')).toString('base64url');
   }
 
-  const response = await gmail.users.messages.send({
-    userId: 'me',
-    requestBody: {
-      raw,
-      threadId: threadId || undefined,
-    },
-  });
+  const response = await withGmailBackoff(() =>
+    gmail.users.messages.send({
+      userId: 'me',
+      requestBody: {
+        raw,
+        threadId: threadId || undefined,
+      },
+    }),
+  );
+  trackQuota(accountId);
 
   return response.data;
 }
@@ -550,12 +567,14 @@ export async function getAttachment(
   gmail: gmail_v1.Gmail,
   messageId: string,
   attachmentId: string,
+  accountId?: string,
 ) {
   const response = await gmail.users.messages.attachments.get({
     userId: 'me',
     messageId,
     id: attachmentId,
   });
+  if (accountId) trackQuota(accountId);
 
   return {
     data: Buffer.from(response.data.data || '', 'base64url'),
@@ -567,25 +586,34 @@ export async function getAttachment(
 export async function modifyMessage(
   gmail: gmail_v1.Gmail,
   messageId: string,
+  accountId: string,
   options: { addLabels?: string[]; removeLabels?: string[] },
 ) {
-  await gmail.users.messages.modify({
-    userId: 'me',
-    id: messageId,
-    requestBody: {
-      addLabelIds: options.addLabels,
-      removeLabelIds: options.removeLabels,
-    },
-  });
+  await withGmailBackoff(() =>
+    gmail.users.messages.modify({
+      userId: 'me',
+      id: messageId,
+      requestBody: {
+        addLabelIds: options.addLabels,
+        removeLabelIds: options.removeLabels,
+      },
+    }),
+  );
+  trackQuota(accountId);
 }
 
 // History lekérése inkrementális szinkronizáláshoz
-export async function getHistory(gmail: gmail_v1.Gmail, startHistoryId: string) {
+export async function getHistory(
+  gmail: gmail_v1.Gmail,
+  startHistoryId: string,
+  accountId?: string,
+) {
   const response = await gmail.users.history.list({
     userId: 'me',
     startHistoryId,
     historyTypes: ['messageAdded', 'messageDeleted', 'labelAdded', 'labelRemoved'],
   });
+  if (accountId) trackQuota(accountId);
 
   return {
     history: response.data.history || [],
@@ -594,8 +622,9 @@ export async function getHistory(gmail: gmail_v1.Gmail, startHistoryId: string) 
 }
 
 // Profil (historyId lekéréshez)
-export async function getProfile(gmail: gmail_v1.Gmail) {
+export async function getProfile(gmail: gmail_v1.Gmail, accountId?: string) {
   const response = await gmail.users.getProfile({ userId: 'me' });
+  if (accountId) trackQuota(accountId);
   return {
     emailAddress: response.data.emailAddress,
     historyId: response.data.historyId,
@@ -604,19 +633,23 @@ export async function getProfile(gmail: gmail_v1.Gmail) {
 }
 
 // Levél törlése (kukába helyezés)
-export async function trashMessage(gmail: gmail_v1.Gmail, messageId: string) {
-  await gmail.users.messages.trash({
-    userId: 'me',
-    id: messageId,
-  });
+export async function trashMessage(gmail: gmail_v1.Gmail, messageId: string, accountId: string) {
+  await withGmailBackoff(() =>
+    gmail.users.messages.trash({
+      userId: 'me',
+      id: messageId,
+    }),
+  );
+  trackQuota(accountId);
 }
 
 // Levél végleges törlése
-export async function deleteMessage(gmail: gmail_v1.Gmail, messageId: string) {
+export async function deleteMessage(gmail: gmail_v1.Gmail, messageId: string, accountId?: string) {
   await gmail.users.messages.delete({
     userId: 'me',
     id: messageId,
   });
+  if (accountId) trackQuota(accountId);
 }
 
 // Gmail címke típus
@@ -633,10 +666,14 @@ export interface GmailLabelInfo {
 }
 
 // Gmail címkék listázása
-export async function listLabels(gmail: gmail_v1.Gmail): Promise<GmailLabelInfo[]> {
+export async function listLabels(
+  gmail: gmail_v1.Gmail,
+  accountId?: string,
+): Promise<GmailLabelInfo[]> {
   const response = await gmail.users.labels.list({
     userId: 'me',
   });
+  if (accountId) trackQuota(accountId);
 
   return (response.data.labels ?? [])
     .filter(
@@ -660,11 +697,12 @@ export async function listLabels(gmail: gmail_v1.Gmail): Promise<GmailLabelInfo[
 }
 
 // Egy címke lekérése
-export async function getLabel(gmail: gmail_v1.Gmail, labelId: string) {
+export async function getLabel(gmail: gmail_v1.Gmail, labelId: string, accountId?: string) {
   const response = await gmail.users.labels.get({
     userId: 'me',
     id: labelId,
   });
+  if (accountId) trackQuota(accountId);
 
   const label = response.data;
   return {
@@ -690,6 +728,7 @@ export async function createLabel(
     backgroundColor?: string;
     textColor?: string;
   },
+  accountId?: string,
 ) {
   const response = await gmail.users.labels.create({
     userId: 'me',
@@ -707,6 +746,7 @@ export async function createLabel(
     },
   });
 
+  if (accountId) trackQuota(accountId);
   return {
     id: response.data.id!,
     name: response.data.name!,
@@ -714,9 +754,10 @@ export async function createLabel(
 }
 
 // Címke törlése
-export async function deleteLabel(gmail: gmail_v1.Gmail, labelId: string) {
+export async function deleteLabel(gmail: gmail_v1.Gmail, labelId: string, accountId?: string) {
   await gmail.users.labels.delete({
     userId: 'me',
     id: labelId,
   });
+  if (accountId) trackQuota(accountId);
 }

@@ -6,6 +6,8 @@ import { AppLayout } from './components/layout/AppLayout';
 import { InstallPrompt } from './components/pwa/InstallPrompt';
 import { ToastContainer } from './components/common/ToastContainer';
 import { Suspense, lazy, useEffect } from 'react';
+import { LockScreen } from './components/auth/LockScreen';
+import { useLockScreen } from './hooks/useLockScreen';
 import { LoadingSkeleton } from './components/common/LoadingSkeleton';
 import { CommandPalette } from './components/CommandPalette';
 import { useOfflineSync } from './hooks/useOfflineSync';
@@ -13,34 +15,90 @@ import { useSession } from './hooks/useAccounts';
 import { warmUpBackend } from './lib/api';
 
 // Lazy loaded views — code splitting
-const InboxView = lazy(() => import('./components/views/InboxView').then(m => ({ default: m.InboxView })));
-const UnifiedInboxView = lazy(() => import('./components/views/UnifiedInboxView').then(m => ({ default: m.UnifiedInboxView })));
-const BySenderView = lazy(() => import('./components/views/BySenderView').then(m => ({ default: m.BySenderView })));
-const ByTopicView = lazy(() => import('./components/views/ByTopicView').then(m => ({ default: m.ByTopicView })));
-const ByTimeView = lazy(() => import('./components/views/ByTimeView').then(m => ({ default: m.ByTimeView })));
-const CategoryView = lazy(() => import('./components/views/CategoryView').then(m => ({ default: m.CategoryView })));
-const PersonalView = lazy(() => import('./components/views/PersonalView').then(m => ({ default: m.PersonalView })));
-const InvoicesView = lazy(() => import('./components/views/InvoicesView').then(m => ({ default: m.InvoicesView })));
-const TrashView = lazy(() => import('./components/views/TrashView').then(m => ({ default: m.TrashView })));
-const LabelView = lazy(() => import('./components/views/LabelView').then(m => ({ default: m.LabelView })));
-const AttachmentsView = lazy(() => import('./components/views/AttachmentsView').then(m => ({ default: m.AttachmentsView })));
-const RemindersView = lazy(() => import('./components/views/RemindersView').then(m => ({ default: m.RemindersView })));
-const NewslettersView = lazy(() => import('./components/views/NewslettersView').then(m => ({ default: m.NewslettersView })));
-const SearchResults = lazy(() => import('./components/views/SearchResults').then(m => ({ default: m.SearchResults })));
-const EmailCompose = lazy(() => import('./components/email/EmailCompose').then(m => ({ default: m.EmailCompose })));
-const DatabaseManager = lazy(() => import('./components/database/DatabaseManager').then(m => ({ default: m.DatabaseManager })));
-const SettingsView = lazy(() => import('./components/views/SettingsView').then(m => ({ default: m.SettingsView })));
-const ScheduledView = lazy(() => import('./components/views/ScheduledView').then(m => ({ default: m.ScheduledView })));
-const PrivacyPolicy = lazy(() => import('./components/pages/PrivacyPolicy').then(m => ({ default: m.PrivacyPolicy })));
-const TermsOfService = lazy(() => import('./components/pages/TermsOfService').then(m => ({ default: m.TermsOfService })));
-const DashboardView = lazy(() => import('./components/views/DashboardView').then(m => ({ default: m.DashboardView })));
-const CalendarView = lazy(() => import('./components/views/CalendarView').then(m => ({ default: m.CalendarView })));
-const TasksView = lazy(() => import('./components/views/TasksView').then(m => ({ default: m.TasksView })));
-const MarketAnalysisView = lazy(() => import('./components/views/MarketAnalysisView').then(m => ({ default: m.MarketAnalysisView })));
-const SmartFoldersView = lazy(() => import('./components/views/SmartFoldersView').then(m => ({ default: m.SmartFoldersView })));
-const AIAssistantView = lazy(() => import('./components/ai/AIAssistantView').then(m => ({ default: m.AIAssistantView })));
-const ThreadView = lazy(() => import('./components/views/ThreadView').then(m => ({ default: m.ThreadView })));
-
+const InboxView = lazy(() =>
+  import('./components/views/InboxView').then((m) => ({ default: m.InboxView })),
+);
+const UnifiedInboxView = lazy(() =>
+  import('./components/views/UnifiedInboxView').then((m) => ({ default: m.UnifiedInboxView })),
+);
+const BySenderView = lazy(() =>
+  import('./components/views/BySenderView').then((m) => ({ default: m.BySenderView })),
+);
+const ByTopicView = lazy(() =>
+  import('./components/views/ByTopicView').then((m) => ({ default: m.ByTopicView })),
+);
+const ByTimeView = lazy(() =>
+  import('./components/views/ByTimeView').then((m) => ({ default: m.ByTimeView })),
+);
+const CategoryView = lazy(() =>
+  import('./components/views/CategoryView').then((m) => ({ default: m.CategoryView })),
+);
+const PersonalView = lazy(() =>
+  import('./components/views/PersonalView').then((m) => ({ default: m.PersonalView })),
+);
+const InvoicesView = lazy(() =>
+  import('./components/views/InvoicesView').then((m) => ({ default: m.InvoicesView })),
+);
+const TrashView = lazy(() =>
+  import('./components/views/TrashView').then((m) => ({ default: m.TrashView })),
+);
+const LabelView = lazy(() =>
+  import('./components/views/LabelView').then((m) => ({ default: m.LabelView })),
+);
+const AttachmentsView = lazy(() =>
+  import('./components/views/AttachmentsView').then((m) => ({ default: m.AttachmentsView })),
+);
+const RemindersView = lazy(() =>
+  import('./components/views/RemindersView').then((m) => ({ default: m.RemindersView })),
+);
+const NewslettersView = lazy(() =>
+  import('./components/views/NewslettersView').then((m) => ({ default: m.NewslettersView })),
+);
+const SearchResults = lazy(() =>
+  import('./components/views/SearchResults').then((m) => ({ default: m.SearchResults })),
+);
+const EmailCompose = lazy(() =>
+  import('./components/email/EmailCompose').then((m) => ({ default: m.EmailCompose })),
+);
+const DatabaseManager = lazy(() =>
+  import('./components/database/DatabaseManager').then((m) => ({ default: m.DatabaseManager })),
+);
+const SettingsView = lazy(() =>
+  import('./components/views/SettingsView').then((m) => ({ default: m.SettingsView })),
+);
+const ScheduledView = lazy(() =>
+  import('./components/views/ScheduledView').then((m) => ({ default: m.ScheduledView })),
+);
+const PrivacyPolicy = lazy(() =>
+  import('./components/pages/PrivacyPolicy').then((m) => ({ default: m.PrivacyPolicy })),
+);
+const TermsOfService = lazy(() =>
+  import('./components/pages/TermsOfService').then((m) => ({ default: m.TermsOfService })),
+);
+const DashboardView = lazy(() =>
+  import('./components/views/DashboardView').then((m) => ({ default: m.DashboardView })),
+);
+const CalendarView = lazy(() =>
+  import('./components/views/CalendarView').then((m) => ({ default: m.CalendarView })),
+);
+const TasksView = lazy(() =>
+  import('./components/views/TasksView').then((m) => ({ default: m.TasksView })),
+);
+const MarketAnalysisView = lazy(() =>
+  import('./components/views/MarketAnalysisView').then((m) => ({ default: m.MarketAnalysisView })),
+);
+const SmartFoldersView = lazy(() =>
+  import('./components/views/SmartFoldersView').then((m) => ({ default: m.SmartFoldersView })),
+);
+const AIAssistantView = lazy(() =>
+  import('./components/ai/AIAssistantView').then((m) => ({ default: m.AIAssistantView })),
+);
+const ThreadView = lazy(() =>
+  import('./components/views/ThreadView').then((m) => ({ default: m.ThreadView })),
+);
+const AnalyticsView = lazy(() =>
+  import('./components/views/AnalyticsView').then((m) => ({ default: m.AnalyticsView })),
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -53,11 +111,24 @@ const queryClient = new QueryClient({
 
 function App() {
   useOfflineSync();
+  const lock = useLockScreen();
 
   // Warm up backend on app load (wakes Render cold start)
   useEffect(() => {
     warmUpBackend();
   }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.key.toLowerCase() === 'l') {
+        event.preventDefault();
+        lock.lockNow();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [lock]);
 
   return (
     <ErrorBoundary>
@@ -68,6 +139,7 @@ function App() {
             <CommandPalette />
             <InstallPrompt />
             <ToastContainer />
+            {lock.isLocked && <LockScreen onUnlock={lock.unlock} />}
           </BrowserRouter>
         </QueryClientProvider>
       </ThemeProvider>
@@ -91,42 +163,230 @@ function AppRoutes() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-        <Route path="/dashboard" element={<Suspense fallback={<LoadingSkeleton />}><DashboardView /></Suspense>} />
-        <Route path="/calendar" element={<Suspense fallback={<LoadingSkeleton />}><CalendarView /></Suspense>} />
-        <Route path="/tasks" element={<Suspense fallback={<LoadingSkeleton />}><TasksView /></Suspense>} />
-        <Route path="/market" element={<Suspense fallback={<LoadingSkeleton />}><MarketAnalysisView /></Suspense>} />
+        <Route
+          path="/dashboard"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <DashboardView />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/calendar"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <CalendarView />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/tasks"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <TasksView />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/market"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <MarketAnalysisView />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/analytics"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <AnalyticsView />
+            </Suspense>
+          }
+        />
         <Route
           path="/smart-folders"
-          element={<Suspense fallback={<LoadingSkeleton />}><SmartFoldersView onEmailSelect={openEmail} /></Suspense>}
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <SmartFoldersView onEmailSelect={openEmail} />
+            </Suspense>
+          }
         />
-        <Route path="/ai-assistant" element={<Suspense fallback={<LoadingSkeleton />}><AIAssistantView /></Suspense>} />
-        <Route path="/thread/:threadId" element={<Suspense fallback={<LoadingSkeleton />}><ThreadView /></Suspense>} />
-        <Route path="/" element={<Suspense fallback={<LoadingSkeleton />}><InboxView /></Suspense>} />
-        <Route path="/unified" element={<Suspense fallback={<LoadingSkeleton />}><UnifiedInboxView /></Suspense>} />
-        <Route path="/by-sender" element={<Suspense fallback={<LoadingSkeleton />}><BySenderView /></Suspense>} />
-        <Route path="/by-topic" element={<Suspense fallback={<LoadingSkeleton />}><ByTopicView /></Suspense>} />
-        <Route path="/by-time" element={<Suspense fallback={<LoadingSkeleton />}><ByTimeView /></Suspense>} />
-        <Route path="/by-category" element={<Suspense fallback={<LoadingSkeleton />}><CategoryView /></Suspense>} />
-        <Route path="/personal" element={<Suspense fallback={<LoadingSkeleton />}><PersonalView /></Suspense>} />
-        <Route path="/invoices" element={<Suspense fallback={<LoadingSkeleton />}><InvoicesView /></Suspense>} />
-        <Route path="/trash" element={<Suspense fallback={<LoadingSkeleton />}><TrashView /></Suspense>} />
-        <Route path="/label/:labelId" element={<Suspense fallback={<LoadingSkeleton />}><LabelView /></Suspense>} />
-        <Route path="/attachments" element={<Suspense fallback={<LoadingSkeleton />}><AttachmentsView /></Suspense>} />
+        <Route
+          path="/ai-assistant"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <AIAssistantView />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/thread/:threadId"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <ThreadView />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <InboxView />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/unified"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <UnifiedInboxView />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/by-sender"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <BySenderView />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/by-topic"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <ByTopicView />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/by-time"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <ByTimeView />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/by-category"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <CategoryView />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/personal"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <PersonalView />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/invoices"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <InvoicesView />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/trash"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <TrashView />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/label/:labelId"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <LabelView />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/attachments"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <AttachmentsView />
+            </Suspense>
+          }
+        />
         <Route
           path="/reminders"
-          element={<Suspense fallback={<LoadingSkeleton />}><RemindersView onEmailSelect={openEmail} /></Suspense>}
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <RemindersView onEmailSelect={openEmail} />
+            </Suspense>
+          }
         />
         <Route
           path="/newsletters"
-          element={<Suspense fallback={<LoadingSkeleton />}><NewslettersView onEmailSelect={openEmail} /></Suspense>}
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <NewslettersView onEmailSelect={openEmail} />
+            </Suspense>
+          }
         />
-        <Route path="/search" element={<Suspense fallback={<LoadingSkeleton />}><SearchResults /></Suspense>} />
-        <Route path="/compose" element={<Suspense fallback={<LoadingSkeleton />}><EmailCompose /></Suspense>} />
-        <Route path="/database" element={<Suspense fallback={<LoadingSkeleton />}><DatabaseManager /></Suspense>} />
-        <Route path="/settings" element={<Suspense fallback={<LoadingSkeleton />}><SettingsView /></Suspense>} />
-        <Route path="/scheduled" element={<Suspense fallback={<LoadingSkeleton />}><ScheduledView /></Suspense>} />
-        <Route path="/privacy" element={<Suspense fallback={<LoadingSkeleton />}><PrivacyPolicy /></Suspense>} />
-        <Route path="/terms" element={<Suspense fallback={<LoadingSkeleton />}><TermsOfService /></Suspense>} />
+        <Route
+          path="/search"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <SearchResults />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/compose"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <EmailCompose />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/database"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <DatabaseManager />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <SettingsView />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/scheduled"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <ScheduledView />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/privacy"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <PrivacyPolicy />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/terms"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <TermsOfService />
+            </Suspense>
+          }
+        />
       </Route>
     </Routes>
   );

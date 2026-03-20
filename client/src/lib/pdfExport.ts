@@ -124,6 +124,39 @@ export async function exportEmailToPdf(email: Email, options: ExportOptions = {}
   }
 }
 
+export async function exportThreadToPdf(
+  emails: Email[],
+  filename = 'beszelgetes.pdf',
+): Promise<void> {
+  const sorted = [...emails].sort((a, b) => a.date - b.date);
+  const content = sorted
+    .map(
+      (email) => `
+      <section style="margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid #e5e7eb;">
+        <h3 style="margin:0 0 6px 0;">${escapeHtml(email.subject || '(Nincs tárgy)')}</h3>
+        <p style="margin:0 0 4px 0; font-size:12px;"><strong>Feladó:</strong> ${escapeHtml(email.fromName || '')} &lt;${escapeHtml(email.from || '')}&gt;</p>
+        <p style="margin:0 0 4px 0; font-size:12px;"><strong>Dátum:</strong> ${formatFullDate(email.date)}</p>
+        <div style="font-size:13px; line-height:1.5;">${sanitizeForPdf(email.bodyHtml || escapeHtml(email.body || '').replace(/\n/g, '<br/>'))}</div>
+      </section>`,
+    )
+    .join('');
+
+  const container = document.createElement('div');
+  container.style.padding = '20px';
+  container.innerHTML = `<h1 style="font-size:18px">Beszélgetés export</h1>${content}`;
+
+  await html2pdf()
+    .set({
+      margin: [10, 10, 10, 10] as [number, number, number, number],
+      filename,
+      image: { type: 'jpeg' as const, quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
+    })
+    .from(container)
+    .save();
+}
+
 /**
  * Escape HTML special characters
  */

@@ -8,7 +8,12 @@ import { errorHandler } from './middleware/error-handler.js';
 import { deleteProtection } from './middleware/delete-protection.js';
 import { initializeDatabase, closeDatabase, queryOne, execute } from './db/index.js';
 import type { Server } from 'http';
-import { startBackgroundSync, stopAllBackgroundSyncs, reprocessRecentOperationalSignals, syncAccount } from './services/sync.service.js';
+import {
+  startBackgroundSync,
+  stopAllBackgroundSyncs,
+  reprocessRecentOperationalSignals,
+  syncAccount,
+} from './services/sync.service.js';
 import { getAllAccounts } from './services/auth.service.js';
 import { v4 as uuidv4 } from 'uuid';
 import logger from './utils/logger.js';
@@ -49,14 +54,26 @@ import detectedTasksRoutes from './routes/detected-tasks.routes.js';
 import sseRoutes from './routes/sse.routes.js';
 import briefRoutes, { generateAISummary } from './routes/brief.routes.js';
 import { runAiDigestScheduler } from './services/digest-scheduler.service.js';
-import { runInvoiceAutomation, validateInvoiceAutomationConfig } from './services/invoice-automation.service.js';
+import {
+  runInvoiceAutomation,
+  validateInvoiceAutomationConfig,
+} from './services/invoice-automation.service.js';
 import invoiceAutomationRoutes from './routes/invoice-automation.routes.js';
-import { detectUnansweredEmails, processExpiredSnoozedTasks } from './services/task-detection.service.js';
+import {
+  detectUnansweredEmails,
+  processExpiredSnoozedTasks,
+} from './services/task-detection.service.js';
 import { buildAllowedOrigins, isOriginAllowed } from './utils/cors-config.js';
 import { requestIdMiddleware } from './middleware/request-id.js';
 import { ensureErrorLogTable } from './db/error-log.js';
 import errorReportRoutes from './routes/error-report.routes.js';
 import staticAuditRoutes from './routes/static-audit.routes.js';
+import quotaRoutes from './routes/quota.routes.js';
+import inboxRulesRoutes from './routes/inbox-rules.routes.js';
+import auditRoutes from './routes/audit.routes.js';
+import analyticsRoutes from './routes/analytics.routes.js';
+import { securityHeaders } from './middleware/security-headers.js';
+import { ensureAuditLogTable } from './services/audit-log.service.js';
 
 const PORT = parseInt(process.env.PORT || '5000', 10);
 const STARTUP_DB_RETRIES = 5;
@@ -84,7 +101,10 @@ async function initializeDatabaseWithRetry(): Promise<void> {
       }
       return;
     } catch (error) {
-      logger.error(`Database initialization failed (attempt ${attempt}/${STARTUP_DB_RETRIES})`, error);
+      logger.error(
+        `Database initialization failed (attempt ${attempt}/${STARTUP_DB_RETRIES})`,
+        error,
+      );
       if (attempt === STARTUP_DB_RETRIES) {
         throw error;
       }
@@ -98,7 +118,9 @@ async function initializeDatabaseWithRetry(): Promise<void> {
  * Szerver restart után NE fusson le feleslegesen a 180 napos scan.
  */
 async function getLastDetectionRun(): Promise<number> {
-  const result = await queryOne<{ max_created: number }>('SELECT MAX(created_at) as max_created FROM detected_tasks');
+  const result = await queryOne<{ max_created: number }>(
+    'SELECT MAX(created_at) as max_created FROM detected_tasks',
+  );
   return result?.max_created || 0;
 }
 
@@ -107,11 +129,14 @@ async function start() {
   // Adatbázis inicializálás ELŐSZÖR (session store-nak szüksége van rá)
   await initializeDatabaseWithRetry();
   await ensureErrorLogTable();
+  await ensureAuditLogTable();
 
   // Invoice automation config check (non-fatal): alert + auto re-check handled by scheduler.
   const invoiceCfg = validateInvoiceAutomationConfig();
   if (!invoiceCfg.ok) {
-    logger.error(`🔴 Invoice automation recipient config hiányos startupkor: ${invoiceCfg.missing.join(', ')}`);
+    logger.error(
+      `🔴 Invoice automation recipient config hiányos startupkor: ${invoiceCfg.missing.join(', ')}`,
+    );
   }
 
   const app = express();
@@ -166,6 +191,9 @@ async function start() {
 
   // Delete protection middleware — logs and blocks dangerous deletions
   app.use(deleteProtection);
+
+  // Extra security headers (CSP + hardening)
+  app.use(securityHeaders);
 
   // Rate limiting — auth endpoints (OAuth callback abuse protection)
   const authLimiter = rateLimit({
@@ -223,6 +251,10 @@ async function start() {
 
   app.use('/api/error-report', errorReportRoutes);
   app.use('/api/static-audit', staticAuditRoutes);
+  app.use('/api/quota', quotaRoutes);
+  app.use('/api/inbox-rules', inboxRulesRoutes);
+  app.use('/api/audit', auditRoutes);
+  app.use('/api/analytics', analyticsRoutes);
 
   // Health check
   app.get('/api/health', async (_req, res) => {
@@ -241,8 +273,8 @@ async function start() {
   }
   // Azonnali szinkronizálás induláskor — ne kelljen kézzel frissíteni
   for (const account of existingAccounts) {
-    syncAccount(account.id).catch(err =>
-      logger.error(`Startup immediate sync failed for ${account.email}`, err)
+    syncAccount(account.id).catch((err) =>
+      logger.error(`Startup immediate sync failed for ${account.email}`, err),
     );
   }
 
@@ -313,7 +345,9 @@ async function start() {
         } catch (err) {
           logger.error('Snoozed task processing failed:', err);
         }
-        logger.info(`Task detection completed for ${accounts.length} accounts (${daysBack} days back)`);
+        logger.info(
+          `Task detection completed for ${accounts.length} accounts (${daysBack} days back)`,
+        );
       }
     } catch (err) {
       logger.error('Task detection interval error:', err);
@@ -324,9 +358,13 @@ async function start() {
   if (dailyBriefInterval) clearInterval(dailyBriefInterval);
   let lastBriefDate = await (async () => {
     try {
-      const row = await queryOne<{ date: string }>('SELECT date FROM daily_briefs ORDER BY generated_at DESC LIMIT 1');
+      const row = await queryOne<{ date: string }>(
+        'SELECT date FROM daily_briefs ORDER BY generated_at DESC LIMIT 1',
+      );
       return row?.date || '';
-    } catch { return ''; }
+    } catch {
+      return '';
+    }
   })();
   dailyBriefInterval = setInterval(async () => {
     // Calculate Budapest time (CET/CEST)
@@ -350,7 +388,17 @@ async function start() {
                  summary = excluded.summary, highlights = excluded.highlights,
                  action_items_count = excluded.action_items_count, urgent_count = excluded.urgent_count,
                  total_emails = excluded.total_emails, generated_at = excluded.generated_at`,
-              [uuidv4(), account.id, todayStr, result.summary, JSON.stringify(result.highlights), result.actionItemsCount, result.urgentCount, result.totalEmails, Date.now()],
+              [
+                uuidv4(),
+                account.id,
+                todayStr,
+                result.summary,
+                JSON.stringify(result.highlights),
+                result.actionItemsCount,
+                result.urgentCount,
+                result.totalEmails,
+                Date.now(),
+              ],
             );
             logger.info(`Daily brief generated for ${account.email}`);
           } catch (err) {
@@ -393,7 +441,9 @@ async function start() {
             minIntervalMs: 6 * 60 * 60 * 1000,
           });
           if (!result.skipped && result.processed > 0) {
-            logger.info(`Operational reprocess completed for ${account.email}: ${result.processed} emails`);
+            logger.info(
+              `Operational reprocess completed for ${account.email}: ${result.processed} emails`,
+            );
           }
         } catch (err) {
           logger.error(`Operational reprocess failed for ${account.email}:`, err);
@@ -436,7 +486,9 @@ async function start() {
     logger.info(`Gmail client server running on port ${PORT}`);
     logger.info(`${existingAccounts.length} accounts loaded`);
     const usage = process.memoryUsage();
-    logger.info(`Startup memory: heap=${Math.round(usage.heapUsed / 1024 / 1024)}MB rss=${Math.round(usage.rss / 1024 / 1024)}MB`);
+    logger.info(
+      `Startup memory: heap=${Math.round(usage.heapUsed / 1024 / 1024)}MB rss=${Math.round(usage.rss / 1024 / 1024)}MB`,
+    );
   });
 
   httpServer.on('error', (err) => {

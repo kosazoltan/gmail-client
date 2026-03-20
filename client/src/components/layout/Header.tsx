@@ -8,6 +8,7 @@ import {
   Settings,
   Database,
   Keyboard,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useSession, useSyncAccount } from '../../hooks/useAccounts';
@@ -15,6 +16,9 @@ import { useCreateSavedSearch } from '../../hooks/useSavedSearches';
 import { ThemeToggle } from './ThemeToggle';
 import { HeaderAccountSwitcher } from '../accounts/HeaderAccountSwitcher';
 import { toast } from '../../lib/toast';
+import { QuotaIndicator } from '../common/QuotaIndicator';
+import { AdvancedSearch } from '../email/AdvancedSearch';
+import { buildOperatorQuery, pushSearchHistory, getSearchHistory } from '../../hooks/useSearch';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
@@ -22,7 +26,8 @@ function reportManualRefreshError(error: unknown): void {
   try {
     const err = error instanceof Error ? error : new Error(String(error));
     const isProduction =
-      window.location.hostname === 'mindenes.org' || window.location.hostname === 'www.mindenes.org';
+      window.location.hostname === 'mindenes.org' ||
+      window.location.hostname === 'www.mindenes.org';
     if (!isProduction) {
       console.warn('Skipping error report in non-production environment', err);
       return;
@@ -68,7 +73,12 @@ interface HeaderProps {
   onShowShortcuts?: () => void;
 }
 
-export function Header({ searchQuery, onSearchChange, onToggleSidebar, onShowShortcuts }: HeaderProps) {
+export function Header({
+  searchQuery,
+  onSearchChange,
+  onToggleSidebar,
+  onShowShortcuts,
+}: HeaderProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { data: session } = useSession();
@@ -78,6 +88,8 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar, onShowSho
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [saveName, setSaveName] = useState('');
   const [justSaved, setJustSaved] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [history, setHistory] = useState<string[]>(() => getSearchHistory());
   const justSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Cleanup timer on unmount to prevent memory leak
@@ -107,9 +119,21 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar, onShowSho
     e.preventDefault();
     if (localQuery.trim()) {
       onSearchChange(localQuery.trim());
+      setHistory(pushSearchHistory(localQuery.trim()));
       navigate(`/search?q=${encodeURIComponent(localQuery.trim())}`);
     }
   };
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'f') {
+        event.preventDefault();
+        setShowAdvanced(true);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   const handleSync = () => {
     if (session?.activeAccountId) {
@@ -167,7 +191,7 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar, onShowSho
   ];
 
   return (
-    <header className="relative z-50 dark:bg-dark-bg-secondary dark:border-dark-border flex items-center gap-2 border-b border-gray-200/80 bg-white px-3 py-2.5 backdrop-blur-sm sm:gap-4 sm:px-5">
+    <header className="dark:bg-dark-bg-secondary dark:border-dark-border relative z-50 flex items-center gap-2 border-b border-gray-200/80 bg-white px-3 py-2.5 backdrop-blur-sm sm:gap-4 sm:px-5">
       <button
         onClick={onToggleSidebar}
         className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary flex-shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 lg:hidden"
@@ -194,6 +218,31 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar, onShowSho
               className="dark:bg-dark-bg-tertiary dark:border-dark-border dark:text-dark-text dark:placeholder:text-dark-text-muted dark:focus:bg-dark-bg w-full rounded-xl border border-transparent bg-gray-100 py-2 pr-4 pl-10 text-sm text-gray-900 transition-all duration-200 outline-none placeholder:text-gray-400 focus:border-[#4f6ef7]/50 focus:bg-white focus:ring-2 focus:ring-[#4f6ef7]/20 dark:focus:border-[#4f6ef7]/50"
             />
           </div>
+
+          <button
+            type="button"
+            onClick={() => setShowAdvanced((v) => !v)}
+            className="dark:hover:bg-dark-bg-tertiary flex-shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+            title="Szűrők (Ctrl+Shift+F)"
+          >
+            <SlidersHorizontal className="h-5 w-5" />
+          </button>
+
+          {showAdvanced && (
+            <AdvancedSearch
+              onClose={() => setShowAdvanced(false)}
+              onApply={(filters) => {
+                const query = buildOperatorQuery(filters);
+                if (query) {
+                  setLocalQuery(query);
+                  onSearchChange(query);
+                  setHistory(pushSearchHistory(query));
+                  navigate(`/search?q=${encodeURIComponent(query)}`);
+                }
+                setShowAdvanced(false);
+              }}
+            />
+          )}
 
           {/* Keresés mentése gomb */}
           {isSearchPage && urlSearchQuery && (
@@ -252,6 +301,23 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar, onShowSho
           )}
         </div>
       </form>
+      {history.length > 0 && !isSearchPage && (
+        <div className="hidden max-w-xs items-center gap-1 overflow-hidden lg:flex">
+          {history.slice(0, 3).map((item) => (
+            <button
+              key={item}
+              onClick={() => {
+                setLocalQuery(item);
+                onSearchChange(item);
+                navigate(`/search?q=${encodeURIComponent(item)}`);
+              }}
+              className="dark:bg-dark-bg-tertiary dark:text-dark-text-secondary truncate rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600"
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Téma váltó - rejtett nagyon kis képernyőn */}
       <div className="hidden flex-shrink-0 sm:block">
@@ -291,6 +357,8 @@ export function Header({ searchQuery, onSearchChange, onToggleSidebar, onShowSho
           );
         })}
       </div>
+
+      <QuotaIndicator />
 
       {/* Fiókváltó */}
       <HeaderAccountSwitcher />
