@@ -33,6 +33,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/express-session": "^1.18.1",
@@ -41,7 +42,10 @@
     "@types/pg": "^8.18.0",
     "@types/uuid": "^10.0.0",
     "@types/web-push": "^3.6.4",
+    "eslint": "^10.0.3",
+    "globals": "^17.4.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.1"
   }
 }
