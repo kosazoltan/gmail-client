@@ -24,7 +24,8 @@ export function SearchResults() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { data: session } = useSession();
-  const query = searchParams.get('q') || '';
+  const query = (searchParams.get('q') || '').trim();
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const deleteEmail = useDeleteEmail();
   const batchDeleteEmails = useBatchDeleteEmails();
@@ -43,6 +44,8 @@ export function SearchResults() {
   const fallbackAccountId = session?.accounts?.[0]?.id;
   const accountId = allAccounts ? undefined : (session?.activeAccountId || fallbackAccountId || undefined);
   const { data, isLoading, error } = useSearch(query, {
+    page,
+    limit: allAccounts ? 50 : 100,
     accountId,
     allAccounts: allAccounts || undefined,
   });

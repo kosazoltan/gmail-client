@@ -335,9 +335,10 @@ export const api = {
   },
 
   search: {
-    query: (q: string, params?: { page?: number; accountId?: string; allAccounts?: boolean }) => {
+    query: (q: string, params?: { page?: number; limit?: number; accountId?: string; allAccounts?: boolean }) => {
       const query = new URLSearchParams({ q });
       if (params?.page !== undefined) query.set('page', params.page.toString());
+      if (params?.limit !== undefined) query.set('limit', params.limit.toString());
       if (params?.accountId) query.set('accountId', params.accountId);
       if (params?.allAccounts) query.set('allAccounts', 'true');
       return request<import('../types').PaginatedEmails>(`/search?${query}`);

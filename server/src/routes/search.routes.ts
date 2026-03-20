@@ -53,8 +53,13 @@ router.get('/', async (req, res) => {
       return;
     }
 
-    if (!rawQuery) {
-      res.status(400).json({ error: 'Keresési kifejezés kötelező (q paraméter)' });
+    if (!rawQuery || rawQuery.trim().length < 2) {
+      res.status(400).json({ error: 'Keresési kifejezés legalább 2 karakter kell legyen' });
+      return;
+    }
+
+    if (rawQuery.length > MAX_QUERY_LENGTH) {
+      res.status(400).json({ error: `Keresési kifejezés túl hosszú (max ${MAX_QUERY_LENGTH})` });
       return;
     }
 
@@ -96,8 +101,13 @@ router.get('/', async (req, res) => {
     return;
   }
 
-  if (!rawQuery) {
-    res.status(400).json({ error: 'Keresési kifejezés kötelező (q paraméter)' });
+  if (!rawQuery || rawQuery.trim().length < 2) {
+    res.status(400).json({ error: 'Keresési kifejezés legalább 2 karakter kell legyen' });
+    return;
+  }
+
+  if (rawQuery.length > MAX_QUERY_LENGTH) {
+    res.status(400).json({ error: `Keresési kifejezés túl hosszú (max ${MAX_QUERY_LENGTH})` });
     return;
   }
 

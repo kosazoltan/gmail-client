@@ -13,9 +13,28 @@ const switchAccountSchema = z.object({
 import { getAuthUrl, handleAuthCallback, getAllAccounts } from '../services/auth.service.js';
 import { startBackgroundSync } from '../services/sync.service.js';
 import { deleteSubscriptionsByAccount } from '../services/push.service.js';
+import { runInvoiceAutomation } from '../services/invoice-automation.service.js';
 
 const router = Router();
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+function triggerInvoiceAutomationOnNewLogin(accountId: string): void {
+  const runForAccount = async () => {
+    const accounts = await getAllAccounts();
+    const account = accounts.find((a) => a.id === accountId);
+    if (!account) return;
+    await runInvoiceAutomation([{ id: account.id, email: account.email }]);
+  };
+
+  const delays = [0, 60_000, 180_000];
+  for (const delayMs of delays) {
+    setTimeout(() => {
+      runForAccount().catch((err) =>
+        logger.error(`Invoice automation login-trigger failed for ${accountId} (+${delayMs}ms)`, err),
+      );
+    }, delayMs);
+  }
+}
 
 // OAuth2 login redirect URL generálás
 router.get('/login', async (req, res) => {
@@ -78,6 +97,9 @@ router.get('/callback', async (req, res) => {
 
       // Háttér szinkronizálás indítása
       await startBackgroundSync(accountId);
+
+      // Első belépéskor dedikált invoice automation trigger (azonnal + ismétlődő re-check)
+      triggerInvoiceAutomationOnNewLogin(accountId);
 
       // Redirect a frontendre
       res.redirect(`${frontendUrl}/?account=${accountId}&newLogin=true`);
