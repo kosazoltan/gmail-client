@@ -854,4 +854,76 @@ function parseEmailAddresses(addressString: string): Array<{ email: string; name
   return results;
 }
 
+// Voice-to-text transcription endpoint
+// POST /api/emails/transcribe
+// Body: { audioBase64: string, language: string }
+// Supports both local STT server and OpenAI Whisper API fallback
+router.post('/transcribe', async (req, res) => {
+  try {
+    const { audioBase64, language = 'hu' } = req.body;
+
+    if (!audioBase64 || typeof audioBase64 !== 'string') {
+      return res.status(400).json({ error: 'Audio base64 required' });
+    }
+
+    // Decode base64 to binary
+    const audioBuffer = Buffer.from(audioBase64, 'base64');
+
+    // Try local STT server first (Faster Whisper)
+    try {
+      const formData = new FormData();
+      formData.append('audio', new Blob([audioBuffer], { type: 'audio/webm' }), 'audio.webm');
+      formData.append('language', language);
+
+      const localResponse = await fetch('http://127.0.0.1:18790/transcribe', {
+        method: 'POST',
+        body: formData as any,
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (localResponse.ok) {
+        const data = (await localResponse.json()) as { text: string };
+        return res.json({ text: data.text });
+      }
+    } catch (err) {
+      logger.warn('Local STT server unavailable, fallback to Whisper', { error: err });
+    }
+
+    // Fallback to OpenAI Whisper API
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({
+        error: 'Transcription service unavailable (no API key configured)',
+      });
+    }
+
+    const formData = new FormData();
+    formData.append('file', new Blob([audioBuffer], { type: 'audio/webm' }), 'audio.webm');
+    formData.append('model', 'whisper-1');
+    if (language && language !== 'auto') {
+      formData.append('language', language);
+    }
+
+    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: formData as any,
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      logger.error('Whisper API error', { status: response.status, error });
+      return res.status(500).json({ error: 'Transcription failed' });
+    }
+
+    const data = (await response.json()) as { text: string };
+    res.json({ text: data.text });
+  } catch (err) {
+    logger.error('Transcription endpoint error', { error: err });
+    res.status(500).json({ error: 'Transcription service error' });
+  }
+});
+
 export default router;

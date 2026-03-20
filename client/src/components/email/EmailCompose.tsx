@@ -20,6 +20,7 @@ import { ComposerToolbar } from './ComposerToolbar';
 import { TemplateSelector } from './TemplateSelector';
 import { TemplatesManager } from '../settings/TemplatesManager';
 import { ScheduleMenu, ScheduledBadge } from './ScheduleMenu';
+import { VoiceInputButton } from './VoiceInputButton';
 import { formatFileSize } from '../../lib/utils';
 import { toast } from '../../lib/toast';
 import { useSettings, defaultSettings } from '../../hooks/useSettings';
@@ -793,6 +794,25 @@ export function EmailCompose() {
             <TemplateSelector
               onSelect={handleTemplateSelect}
               onManage={() => setShowTemplatesManager(true)}
+            />
+
+            {/* Voice input button */}
+            <VoiceInputButton
+              onTranscribed={(text) => {
+                const currentBody = bodyEditorRef.current?.innerText || '';
+                const nextBody = currentBody ? `${currentBody}\n\n${text}` : text;
+                setBody(nextBody);
+                if (bodyEditorRef.current) {
+                  bodyEditorRef.current.innerHTML = formatEmailBody(nextBody);
+                  bodyEditorRef.current.focus();
+                  const range = document.createRange();
+                  range.selectNodeContents(bodyEditorRef.current);
+                  range.collapse(false);
+                  const selection = window.getSelection();
+                  selection?.removeAllRanges();
+                  selection?.addRange(range);
+                }
+              }}
             />
           </div>
 
