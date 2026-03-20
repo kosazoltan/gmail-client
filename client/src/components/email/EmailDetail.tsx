@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import DOMPurify from 'dompurify';
 import {
   useEmailDetail,
@@ -100,121 +100,151 @@ export function EmailDetail({
   // FIX: Track download timeouts for cleanup on unmount
   const downloadTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
+  // Plain text → HTML konverzió (linkek kattinthatóvá tétele + sortörések)
+  const plainTextToHtml = useCallback((text: string): string => {
+    // Escape HTML entities
+    let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // URL-ek kattintható linkké alakítása
+    html = html.replace(
+      /(https?:\/\/[^\s<>"')\]]+)/gi,
+      '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300 break-all">$1</a>',
+    );
+    // Email címek kattinthatóvá tétele
+    html = html.replace(
+      /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g,
+      '<a href="mailto:$1" class="text-blue-600 dark:text-blue-400 underline">$1</a>',
+    );
+    // Sortörések <br>-re
+    html = html.replace(/\n/g, '<br>');
+    return html;
+  }, []);
+
   // HTML szanitizálás XSS elleni védelem - hook-nak a return előtt kell lennie
   const sanitizedHtml = useMemo(() => {
-    if (!email?.bodyHtml) return '';
-    return DOMPurify.sanitize(email.bodyHtml, {
-      ALLOWED_TAGS: [
-        // Text formatting
-        'p',
-        'br',
-        'strong',
-        'em',
-        'b',
-        'i',
-        'u',
-        's',
-        'strike',
-        'sub',
-        'sup',
-        'small',
-        'big',
-        // Links and media
-        'a',
-        'img',
-        // Lists
-        'ul',
-        'ol',
-        'li',
-        'dl',
-        'dt',
-        'dd',
-        // Headings
-        'h1',
-        'h2',
-        'h3',
-        'h4',
-        'h5',
-        'h6',
-        // Block elements
-        'blockquote',
-        'pre',
-        'code',
-        'div',
-        'span',
-        'hr',
-        'address',
-        'center',
-        // Tables - full support
-        'table',
-        'caption',
-        'thead',
-        'tbody',
-        'tfoot',
-        'tr',
-        'th',
-        'td',
-        'colgroup',
-        'col',
-        // Typography and formatting
-        'font',
-        'label',
-        'abbr',
-        'acronym',
-        'cite',
-        'dfn',
-        'kbd',
-        'samp',
-        'var',
-        'mark',
-      ],
-      ALLOWED_ATTR: [
-        'href',
-        'src',
-        'alt',
-        'title',
-        'class',
-        'style',
-        'target',
-        'rel',
-        'width',
-        'height',
-        'border',
-        'cellpadding',
-        'cellspacing',
-        'align',
-        'valign',
-        'bgcolor',
-        'color',
-        'face',
-        'size',
-        'colspan',
-        'rowspan',
-        'scope',
-        'headers',
-        'dir',
-        'lang',
-        'id',
-        'name',
-      ],
-      ALLOW_DATA_ATTR: false,
-      ADD_ATTR: ['target'],
-      FORBID_TAGS: [
-        'script',
-        'iframe',
-        'object',
-        'embed',
-        'form',
-        'input',
-        'button',
-        'select',
-        'textarea',
-      ],
-      // Engedélyezzük a data: URI-kat képekhez (base64 inline images)
-      ALLOWED_URI_REGEXP:
-        /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|data):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
-    });
-  }, [email?.bodyHtml]);
+    // Ha van bodyHtml, használjuk azt
+    if (email?.bodyHtml) {
+      return DOMPurify.sanitize(email.bodyHtml, {
+        ALLOWED_TAGS: [
+          // Text formatting
+          'p',
+          'br',
+          'strong',
+          'em',
+          'b',
+          'i',
+          'u',
+          's',
+          'strike',
+          'sub',
+          'sup',
+          'small',
+          'big',
+          // Links and media
+          'a',
+          'img',
+          // Lists
+          'ul',
+          'ol',
+          'li',
+          'dl',
+          'dt',
+          'dd',
+          // Headings
+          'h1',
+          'h2',
+          'h3',
+          'h4',
+          'h5',
+          'h6',
+          // Block elements
+          'blockquote',
+          'pre',
+          'code',
+          'div',
+          'span',
+          'hr',
+          'address',
+          'center',
+          // Tables - full support
+          'table',
+          'caption',
+          'thead',
+          'tbody',
+          'tfoot',
+          'tr',
+          'th',
+          'td',
+          'colgroup',
+          'col',
+          // Typography and formatting
+          'font',
+          'label',
+          'abbr',
+          'acronym',
+          'cite',
+          'dfn',
+          'kbd',
+          'samp',
+          'var',
+          'mark',
+        ],
+        ALLOWED_ATTR: [
+          'href',
+          'src',
+          'alt',
+          'title',
+          'class',
+          'style',
+          'target',
+          'rel',
+          'width',
+          'height',
+          'border',
+          'cellpadding',
+          'cellspacing',
+          'align',
+          'valign',
+          'bgcolor',
+          'color',
+          'face',
+          'size',
+          'colspan',
+          'rowspan',
+          'scope',
+          'headers',
+          'dir',
+          'lang',
+          'id',
+          'name',
+        ],
+        ALLOW_DATA_ATTR: false,
+        ADD_ATTR: ['target'],
+        FORBID_TAGS: [
+          'script',
+          'iframe',
+          'object',
+          'embed',
+          'form',
+          'input',
+          'button',
+          'select',
+          'textarea',
+        ],
+        // Engedélyezzük a data: URI-kat képekhez (base64 inline images)
+        ALLOWED_URI_REGEXP:
+          /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|data):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
+      });
+    }
+    // Ha nincs bodyHtml de van body (plain text), konvertáljuk formázott HTML-re
+    if (email?.body) {
+      return DOMPurify.sanitize(plainTextToHtml(email.body), {
+        ALLOWED_TAGS: ['br', 'a', 'p', 'span'],
+        ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
+        ADD_ATTR: ['target'],
+      });
+    }
+    return '';
+  }, [email?.bodyHtml, email?.body, plainTextToHtml]);
 
   // Automatikus olvasottnak jelölés - ref-fel elkerüljük a felesleges újrafutást
   const markReadRef = useRef(markRead);
@@ -806,18 +836,21 @@ export function EmailDetail({
                 )}
                 <div className="p-3 sm:p-5 md:p-6">
                   {translatedContent?.body ? (
-                    <pre className="dark:text-dark-text-secondary font-sans text-xs leading-relaxed whitespace-pre-wrap text-gray-700 sm:text-sm">
-                      {translatedContent.body}
-                    </pre>
+                    <div
+                      className="email-content email-content--preserve max-w-none overflow-x-auto text-gray-900 dark:text-gray-200"
+                      dangerouslySetInnerHTML={{
+                        __html: DOMPurify.sanitize(plainTextToHtml(translatedContent.body), {
+                          ALLOWED_TAGS: ['br', 'a', 'p', 'span'],
+                          ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
+                          ADD_ATTR: ['target'],
+                        }),
+                      }}
+                    />
                   ) : sanitizedHtml ? (
                     <div
-                      className="email-content email-content--preserve max-w-none overflow-x-auto text-gray-900"
+                      className="email-content email-content--preserve max-w-none overflow-x-auto text-gray-900 dark:text-gray-200"
                       dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                     />
-                  ) : email.body ? (
-                    <pre className="dark:text-dark-text-secondary font-sans text-xs leading-relaxed whitespace-pre-wrap text-gray-700 sm:text-sm">
-                      {email.body}
-                    </pre>
                   ) : (
                     <p className="dark:text-dark-text-muted py-4 text-center text-sm text-gray-400 italic sm:py-8">
                       Nincs megjeleníthető tartalom

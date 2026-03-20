@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import DOMPurify from 'dompurify';
 import {
   ChevronDown,
@@ -62,112 +62,136 @@ function MessageBubble({
     };
   }, []);
 
+  // Plain text → HTML konverzió (linkek + sortörések)
+  const plainTextToHtml = useCallback((text: string): string => {
+    let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    html = html.replace(
+      /(https?:\/\/[^\s<>"')\]]+)/gi,
+      '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 break-all">$1</a>',
+    );
+    html = html.replace(
+      /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g,
+      '<a href="mailto:$1" class="text-blue-600 dark:text-blue-400 underline">$1</a>',
+    );
+    html = html.replace(/\n/g, '<br>');
+    return html;
+  }, []);
+
   const sanitizedHtml = useMemo(() => {
-    if (!email.bodyHtml) return '';
-    return DOMPurify.sanitize(email.bodyHtml, {
-      ALLOWED_TAGS: [
-        'p',
-        'br',
-        'strong',
-        'em',
-        'b',
-        'i',
-        'u',
-        's',
-        'strike',
-        'sub',
-        'sup',
-        'small',
-        'big',
-        'a',
-        'img',
-        'ul',
-        'ol',
-        'li',
-        'dl',
-        'dt',
-        'dd',
-        'h1',
-        'h2',
-        'h3',
-        'h4',
-        'h5',
-        'h6',
-        'blockquote',
-        'pre',
-        'code',
-        'div',
-        'span',
-        'hr',
-        'address',
-        'center',
-        'table',
-        'caption',
-        'thead',
-        'tbody',
-        'tfoot',
-        'tr',
-        'th',
-        'td',
-        'colgroup',
-        'col',
-        'font',
-        'label',
-        'abbr',
-        'acronym',
-        'cite',
-        'dfn',
-        'kbd',
-        'samp',
-        'var',
-        'mark',
-      ],
-      ALLOWED_ATTR: [
-        'href',
-        'src',
-        'alt',
-        'title',
-        'class',
-        'style',
-        'target',
-        'rel',
-        'width',
-        'height',
-        'border',
-        'cellpadding',
-        'cellspacing',
-        'align',
-        'valign',
-        'bgcolor',
-        'color',
-        'face',
-        'size',
-        'colspan',
-        'rowspan',
-        'scope',
-        'headers',
-        'dir',
-        'lang',
-        'id',
-        'name',
-      ],
-      ALLOW_DATA_ATTR: false,
-      ADD_ATTR: ['target'],
-      FORBID_TAGS: [
-        'script',
-        'iframe',
-        'object',
-        'embed',
-        'form',
-        'input',
-        'button',
-        'select',
-        'textarea',
-      ],
-      ALLOWED_URI_REGEXP:
-        /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|data):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
-    });
-  }, [email.bodyHtml]);
+    if (email.bodyHtml) {
+      return DOMPurify.sanitize(email.bodyHtml, {
+        ALLOWED_TAGS: [
+          'p',
+          'br',
+          'strong',
+          'em',
+          'b',
+          'i',
+          'u',
+          's',
+          'strike',
+          'sub',
+          'sup',
+          'small',
+          'big',
+          'a',
+          'img',
+          'ul',
+          'ol',
+          'li',
+          'dl',
+          'dt',
+          'dd',
+          'h1',
+          'h2',
+          'h3',
+          'h4',
+          'h5',
+          'h6',
+          'blockquote',
+          'pre',
+          'code',
+          'div',
+          'span',
+          'hr',
+          'address',
+          'center',
+          'table',
+          'caption',
+          'thead',
+          'tbody',
+          'tfoot',
+          'tr',
+          'th',
+          'td',
+          'colgroup',
+          'col',
+          'font',
+          'label',
+          'abbr',
+          'acronym',
+          'cite',
+          'dfn',
+          'kbd',
+          'samp',
+          'var',
+          'mark',
+        ],
+        ALLOWED_ATTR: [
+          'href',
+          'src',
+          'alt',
+          'title',
+          'class',
+          'style',
+          'target',
+          'rel',
+          'width',
+          'height',
+          'border',
+          'cellpadding',
+          'cellspacing',
+          'align',
+          'valign',
+          'bgcolor',
+          'color',
+          'face',
+          'size',
+          'colspan',
+          'rowspan',
+          'scope',
+          'headers',
+          'dir',
+          'lang',
+          'id',
+          'name',
+        ],
+        ALLOW_DATA_ATTR: false,
+        ADD_ATTR: ['target'],
+        FORBID_TAGS: [
+          'script',
+          'iframe',
+          'object',
+          'embed',
+          'form',
+          'input',
+          'button',
+          'select',
+          'textarea',
+        ],
+        ALLOWED_URI_REGEXP:
+          /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|data):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
+      });
+    }
+    if (email.body) {
+      return DOMPurify.sanitize(plainTextToHtml(email.body), {
+        ALLOWED_TAGS: ['br', 'a', 'p', 'span'],
+        ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
+        ADD_ATTR: ['target'],
+      });
+    }
+    return '';
+  }, [email.bodyHtml, email.body, plainTextToHtml]);
 
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -281,13 +305,9 @@ function MessageBubble({
             <div className="px-3 py-2.5 sm:px-4 sm:py-3">
               {sanitizedHtml ? (
                 <div
-                  className="email-content email-content--preserve max-w-none overflow-x-auto text-gray-900"
+                  className="email-content email-content--preserve max-w-none overflow-x-auto text-gray-900 dark:text-gray-200"
                   dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                 />
-              ) : email.body ? (
-                <pre className="dark:text-dark-text-secondary font-sans text-xs leading-relaxed whitespace-pre-wrap text-gray-700 sm:text-sm">
-                  {email.body}
-                </pre>
               ) : (
                 <p className="dark:text-dark-text-muted py-4 text-center text-xs text-gray-400 italic sm:text-sm">
                   Nincs megjeleníthető tartalom
