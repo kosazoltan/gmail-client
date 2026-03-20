@@ -1,127 +1,114 @@
 import logger from '../utils/logger.js';
 import { Router, Request, Response } from 'express';
 import {
-  searchContacts,
-  getAllContacts,
+  addContact,
   deleteContact,
-  updateContactName,
-  extractContactsFromExistingEmails,
-  fixAllNamesEncoding,
-} from '../services/contacts.service.js';
+  getContacts,
+  getFrequentContacts,
+  searchContacts,
+} from '../services/contact.service.js';
+import { harvestContactsForAccount } from '../services/contact-harvester.service.js';
 
 const router = Router();
 
-// Kontaktok keresése (autocomplete)
-router.get('/search', async (req: Request, res: Response) => {
-  const accountId = req.session.activeAccountId;
-  if (!accountId) {
-    return res.status(401).json({ error: 'Nincs aktív fiók' });
-  }
-
-  const query = (req.query.q as string) || '';
-  const limit = Math.min(Math.max(1, parseInt(req.query.limit as string, 10) || 10), 50);
-
-  if (!query || query.length < 1) {
-    return res.json([]);
-  }
-
-  const contacts = await searchContacts(accountId, query, limit);
-  res.json(contacts);
-});
-
-// Összes kontakt lekérése
 router.get('/', async (req: Request, res: Response) => {
   try {
     const accountId = req.session.activeAccountId;
-    if (!accountId) {
-      return res.status(401).json({ error: 'Nincs aktív fiók' });
-    }
+    if (!accountId) return res.status(401).json({ error: 'Nincs aktív fiók' });
 
-    const contacts = await getAllContacts(accountId);
-    res.json(contacts);
+    const q = req.query.q;
+    const query = typeof q === 'string' ? q : undefined;
+    const limitStr =
+      typeof req.query.limit === 'string' ? req.query.limit : String(req.query.limit || '20');
+    const limit = Math.max(1, Math.min(parseInt(limitStr, 10) || 20, 100));
+
+    const contacts = query
+      ? await searchContacts(accountId, query, limit)
+      : await getContacts(accountId, undefined, limit);
+
+    return res.json(contacts);
   } catch (error) {
     logger.error('Kontaktok lekérése hiba:', error);
-    res.status(500).json({ error: 'Szerverhiba' });
+    return res.status(500).json({ error: 'Szerverhiba' });
   }
 });
 
-// Kontakt törlése
-router.delete('/:id', async (req: Request, res: Response) => {
-  const accountId = req.session.activeAccountId;
-  if (!accountId) {
-    return res.status(401).json({ error: 'Nincs aktív fiók' });
-  }
-
-  const contactId = req.params.id as string;
-  const success = await deleteContact(accountId, contactId);
-  if (!success) {
-    return res.status(404).json({ error: 'Kontakt nem található' });
-  }
-
-  res.json({ success: true });
-});
-
-// Kontakt név frissítése
-router.patch('/:id', async (req: Request, res: Response) => {
-  const accountId = req.session.activeAccountId;
-  if (!accountId) {
-    return res.status(401).json({ error: 'Nincs aktív fiók' });
-  }
-
-  const { name } = req.body;
-  if (typeof name !== 'string') {
-    return res.status(400).json({ error: 'Név megadása kötelező' });
-  }
-
+router.get('/frequent', async (req: Request, res: Response) => {
   try {
-    const contactId = req.params.id as string;
-    const contact = await updateContactName(accountId, contactId, name);
-    if (!contact) {
-      return res.status(404).json({ error: 'Kontakt nem található' });
+    const accountId = req.session.activeAccountId;
+    if (!accountId) return res.status(401).json({ error: 'Nincs aktív fiók' });
+
+    const limitStr =
+      typeof req.query.limit === 'string' ? req.query.limit : String(req.query.limit || '20');
+    const limit = Math.max(1, Math.min(parseInt(limitStr, 10) || 20, 100));
+    const contacts = await getFrequentContacts(accountId, limit);
+    return res.json(contacts);
+  } catch (error) {
+    logger.error('Gyakori kontaktok lekérése hiba:', error);
+    return res.status(500).json({ error: 'Szerverhiba' });
+  }
+});
+
+router.post('/harvest', async (req: Request, res: Response) => {
+  try {
+    const accountId = req.session.activeAccountId;
+    if (!accountId) return res.status(401).json({ error: 'Nincs aktív fiók' });
+
+    const processed = await harvestContactsForAccount(accountId);
+    return res.json({ success: true, processed });
+  } catch (error) {
+    logger.error('Kontakt harvest hiba:', error);
+    return res.status(500).json({ error: 'Kontakt import sikertelen' });
+  }
+});
+
+router.post('/', async (req: Request, res: Response) => {
+  try {
+    const accountId = req.session.activeAccountId;
+    if (!accountId) return res.status(401).json({ error: 'Nincs aktív fiók' });
+
+    const { email, name } = req.body;
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: 'Email kötelező' });
     }
 
-    res.json(contact);
+    const contact = await addContact(accountId, email, typeof name === 'string' ? name : null);
+    return res.status(201).json(contact);
   } catch (error) {
-    logger.error('Kontakt név frissítési hiba:', error);
-    res.status(500).json({ error: 'Szerverhiba' });
+    logger.error('Kontakt hozzáadás hiba:', error);
+    return res.status(500).json({ error: 'Kontakt mentése sikertelen' });
   }
 });
 
-// Meglévő emailekből kontaktok kinyerése (egyszeri migráció)
-router.post('/extract', async (req: Request, res: Response) => {
-  const accountId = req.session.activeAccountId;
-  if (!accountId) {
-    return res.status(401).json({ error: 'Nincs aktív fiók' });
-  }
-
+router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const count = await extractContactsFromExistingEmails(accountId);
-    res.json({ success: true, extractedCount: count });
+    const accountId = req.session.activeAccountId;
+    if (!accountId) return res.status(401).json({ error: 'Nincs aktív fiók' });
+
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const success = await deleteContact(accountId, id);
+    if (!success) return res.status(404).json({ error: 'Kontakt nem található' });
+
+    return res.json({ success: true });
   } catch (error) {
-    logger.error('Kontakt kinyerési hiba:', error);
-    res.status(500).json({ error: 'Szerverhiba' });
+    logger.error('Kontakt törlés hiba:', error);
+    return res.status(500).json({ error: 'Kontakt törlése sikertelen' });
   }
 });
 
-// Karakterkódolás javítása (mojibake fix) - kontaktok, sender_groups és emails
-router.post('/fix-encoding', async (req: Request, res: Response) => {
-  const accountId = req.session.activeAccountId;
-  if (!accountId) {
-    return res.status(401).json({ error: 'Nincs aktív fiók' });
-  }
-
+// Legacy endpoint for compatibility
+router.get('/search', async (req: Request, res: Response) => {
   try {
-    const result = await fixAllNamesEncoding(accountId);
-    res.json({
-      success: true,
-      fixed: result,
-      message: `Javítva: ${result.contacts} kontakt, ${result.senderGroups} feladó csoport, ${result.emails} email`,
-    });
+    const accountId = req.session.activeAccountId;
+    if (!accountId) return res.status(401).json({ error: 'Nincs aktív fiók' });
+    const query = (req.query.q as string) || '';
+    const limit = Math.max(1, Math.min(parseInt(req.query.limit as string, 10) || 20, 100));
+    const contacts = await searchContacts(accountId, query, limit);
+    return res.json(contacts);
   } catch (error) {
-    logger.error('Karakterkódolás javítási hiba:', error);
-    res.status(500).json({ error: 'Karakterkódolás javítása sikertelen' });
+    logger.error('Kontakt keresés hiba:', error);
+    return res.status(500).json({ error: 'Keresés sikertelen' });
   }
 });
 
 export default router;
-

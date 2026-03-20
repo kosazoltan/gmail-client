@@ -320,7 +320,7 @@ router.post('/send', async (req, res) => {
     return;
   }
 
-  const { to, subject, body, cc, attachments } = req.body;
+  const { to, subject, body, cc, bcc, attachments } = req.body;
   if (!to || !subject || !body) {
     res.status(400).json({ error: 'Hiányzó mezők: to, subject, body' });
     return;
@@ -333,6 +333,10 @@ router.post('/send', async (req, res) => {
   }
   if (cc && !validateEmailAddresses(cc)) {
     res.status(400).json({ error: 'Érvénytelen CC email cím' });
+    return;
+  }
+  if (bcc && !validateEmailAddresses(bcc)) {
+    res.status(400).json({ error: 'Érvénytelen BCC email cím' });
     return;
   }
 
@@ -353,13 +357,14 @@ router.post('/send', async (req, res) => {
       const attachmentsJson = attachments ? JSON.stringify(attachments) : null;
 
       await execute(
-        `INSERT INTO scheduled_emails (id, account_id, to_addresses, cc_addresses, subject, body, scheduled_at, status, created_at, attachments_json, is_undo_send)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, 1)`,
+        `INSERT INTO scheduled_emails (id, account_id, to_addresses, cc_addresses, bcc_addresses, subject, body, scheduled_at, status, created_at, attachments_json, is_undo_send)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, 1)`,
         [
           scheduledId,
           accountId,
           to,
           cc || null,
+          bcc || null,
           subject,
           body,
           sendAt,
@@ -369,7 +374,7 @@ router.post('/send', async (req, res) => {
       );
 
       // Save recipients to contacts immediately
-      saveRecipientsToContacts(accountId, to, cc);
+      saveRecipientsToContacts(accountId, to, cc, bcc);
 
       res.json({
         success: true,
@@ -383,10 +388,10 @@ router.post('/send', async (req, res) => {
     // No undo delay — send immediately
     const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
-    const result = await sendEmail(gmail, accountId, { to, subject, body, cc, attachments });
+    const result = await sendEmail(gmail, accountId, { to, subject, body, cc, bcc, attachments });
 
     // Címzettek mentése a kontaktokba
-    saveRecipientsToContacts(accountId, to, cc);
+    saveRecipientsToContacts(accountId, to, cc, bcc);
 
     res.json({ success: true, messageId: result.id });
   } catch (error) {
@@ -402,7 +407,7 @@ router.post('/reply', async (req, res) => {
     return;
   }
 
-  const { to, subject, body, cc, inReplyTo, threadId, attachments } = req.body;
+  const { to, subject, body, cc, bcc, inReplyTo, threadId, attachments } = req.body;
   if (!to || !body) {
     res.status(400).json({ error: 'Hiányzó mezők: to, body' });
     return;
@@ -415,6 +420,10 @@ router.post('/reply', async (req, res) => {
   }
   if (cc && !validateEmailAddresses(cc)) {
     res.status(400).json({ error: 'Érvénytelen CC email cím' });
+    return;
+  }
+  if (bcc && !validateEmailAddresses(bcc)) {
+    res.status(400).json({ error: 'Érvénytelen BCC email cím' });
     return;
   }
 
@@ -435,13 +444,14 @@ router.post('/reply', async (req, res) => {
       const attachmentsJson = attachments ? JSON.stringify(attachments) : null;
 
       await execute(
-        `INSERT INTO scheduled_emails (id, account_id, to_addresses, cc_addresses, subject, body, scheduled_at, status, created_at, in_reply_to, thread_id, attachments_json, is_undo_send)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, 1)`,
+        `INSERT INTO scheduled_emails (id, account_id, to_addresses, cc_addresses, bcc_addresses, subject, body, scheduled_at, status, created_at, in_reply_to, thread_id, attachments_json, is_undo_send)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, 1)`,
         [
           scheduledId,
           accountId,
           to,
           cc || null,
+          bcc || null,
           subject || '',
           body,
           sendAt,
@@ -453,7 +463,7 @@ router.post('/reply', async (req, res) => {
       );
 
       // Save recipients to contacts immediately
-      saveRecipientsToContacts(accountId, to, cc);
+      saveRecipientsToContacts(accountId, to, cc, bcc);
 
       res.json({
         success: true,
@@ -472,13 +482,14 @@ router.post('/reply', async (req, res) => {
       subject: subject || '',
       body,
       cc,
+      bcc,
       inReplyTo,
       threadId,
       attachments,
     });
 
     // Címzettek mentése a kontaktokba
-    saveRecipientsToContacts(accountId, to, cc);
+    saveRecipientsToContacts(accountId, to, cc, bcc);
 
     res.json({ success: true, messageId: result.id });
   } catch (error) {
@@ -790,7 +801,7 @@ function formatEmail(email: EmailRecord) {
 }
 
 // Címzettek mentése a kontaktokba küldéskor/válaszkor
-function saveRecipientsToContacts(accountId: string, to: string, cc?: string) {
+function saveRecipientsToContacts(accountId: string, to: string, cc?: string, bcc?: string) {
   // To címek feldolgozása
   if (to) {
     const toAddresses = parseEmailAddresses(to);
@@ -803,6 +814,14 @@ function saveRecipientsToContacts(accountId: string, to: string, cc?: string) {
   if (cc) {
     const ccAddresses = parseEmailAddresses(cc);
     for (const addr of ccAddresses) {
+      upsertContact(accountId, addr.email, addr.name);
+    }
+  }
+
+  // BCC címek feldolgozása
+  if (bcc) {
+    const bccAddresses = parseEmailAddresses(bcc);
+    for (const addr of bccAddresses) {
       upsertContact(accountId, addr.email, addr.name);
     }
   }

@@ -19,6 +19,7 @@ export function useCreateScheduledEmail() {
     mutationFn: (data: {
       to: string;
       cc?: string;
+      bcc?: string;
       subject?: string;
       body?: string;
       scheduledAt: number;
@@ -40,6 +41,7 @@ export function useUpdateScheduledEmail() {
       data: {
         to?: string;
         cc?: string;
+        bcc?: string;
         subject?: string;
         body?: string;
         scheduledAt?: number;

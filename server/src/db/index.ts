@@ -567,6 +567,7 @@ export async function initializeDatabase(): Promise<void> {
 
     // Column migrations (PostgreSQL ADD COLUMN IF NOT EXISTS)
     await client.query(`
+      ALTER TABLE scheduled_emails ADD COLUMN IF NOT EXISTS bcc_addresses TEXT;
       ALTER TABLE scheduled_emails ADD COLUMN IF NOT EXISTS in_reply_to TEXT;
       ALTER TABLE scheduled_emails ADD COLUMN IF NOT EXISTS thread_id TEXT;
       ALTER TABLE scheduled_emails ADD COLUMN IF NOT EXISTS attachments_json TEXT;

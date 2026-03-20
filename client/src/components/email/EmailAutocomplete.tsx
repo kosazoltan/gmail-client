@@ -20,7 +20,6 @@ export function EmailAutocomplete({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  // FIX: Track mounted state to prevent setState after unmount
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -30,43 +29,31 @@ export function EmailAutocomplete({
     };
   }, []);
 
-  // Az utolsó beírt cím kinyerése (vesszővel elválasztott lista esetén)
   const currentInput = useMemo(() => {
     const parts = value.split(',');
     return parts[parts.length - 1].trim();
   }, [value]);
 
-  // Keresés kontaktok között
   useEffect(() => {
-    if (currentInput.length < 1) {
-      // Cleanup timer callback-ben történik, nem szinkron setState
-      return;
-    }
-
     const timer = setTimeout(async () => {
       try {
-        const results = await api.contacts.search(currentInput, 8);
-        // FIX: Check if still mounted before updating state
+        const results = currentInput.length
+          ? await api.contacts.list(currentInput, 8)
+          : await api.contacts.frequent(5);
         if (!mountedRef.current) return;
         setSuggestions(results);
-        setShowSuggestions(results.length > 0);
+        setShowSuggestions(results.length > 0 && document.activeElement === inputRef.current);
         setSelectedIndex(0);
       } catch {
         if (!mountedRef.current) return;
         setSuggestions([]);
         setShowSuggestions(false);
       }
-    }, 150);
+    }, 300);
 
-    return () => {
-      clearTimeout(timer);
-      // Cleanup-kor állítjuk vissza
-      setSuggestions([]);
-      setShowSuggestions(false);
-    };
+    return () => clearTimeout(timer);
   }, [currentInput]);
 
-  // Kívülre kattintás kezelése
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -78,17 +65,34 @@ export function EmailAutocomplete({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Javaslat kiválasztása
-  const selectSuggestion = (contact: Contact) => {
+  const applySelection = (displayValue: string) => {
     const parts = value.split(',').map((p) => p.trim());
-    parts[parts.length - 1] = contact.name ? `${contact.name} <${contact.email}>` : contact.email;
-    onChange(parts.join(', '));
+    parts[parts.length - 1] = displayValue;
+    onChange(parts.filter(Boolean).join(', '));
     setShowSuggestions(false);
     inputRef.current?.focus();
   };
 
-  // Billentyűzet kezelése
+  const selectSuggestion = (contact: Contact) => {
+    applySelection(contact.name ? `${contact.name} <${contact.email}>` : contact.email);
+  };
+
+  const commitManualValue = () => {
+    if (!currentInput) return;
+    applySelection(currentInput);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (showSuggestions && suggestions[selectedIndex]) {
+        selectSuggestion(suggestions[selectedIndex]);
+      } else {
+        commitManualValue();
+      }
+      return;
+    }
+
     if (!showSuggestions) return;
 
     switch (e.key) {
@@ -99,12 +103,6 @@ export function EmailAutocomplete({
       case 'ArrowUp':
         e.preventDefault();
         setSelectedIndex((i) => Math.max(i - 1, 0));
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (suggestions[selectedIndex]) {
-          selectSuggestion(suggestions[selectedIndex]);
-        }
         break;
       case 'Escape':
         setShowSuggestions(false);
@@ -118,6 +116,23 @@ export function EmailAutocomplete({
     }
   };
 
+  const handleFocus = async () => {
+    if (currentInput.length > 0) {
+      setShowSuggestions(suggestions.length > 0);
+      return;
+    }
+
+    try {
+      const frequent = await api.contacts.frequent(5);
+      if (!mountedRef.current) return;
+      setSuggestions(frequent);
+      setSelectedIndex(0);
+      setShowSuggestions(frequent.length > 0);
+    } catch {
+      // ignore
+    }
+  };
+
   return (
     <div ref={containerRef} className="relative min-w-0 flex-1">
       <input
@@ -126,7 +141,7 @@ export function EmailAutocomplete({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
-        onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+        onFocus={handleFocus}
         placeholder={placeholder}
         className={`w-full ${className}`}
         autoComplete="off"
@@ -143,17 +158,13 @@ export function EmailAutocomplete({
                 index === selectedIndex ? 'bg-blue-50 dark:bg-blue-500/20' : ''
               }`}
             >
-              {contact.name ? (
-                <>
-                  <span className="dark:text-dark-text text-sm font-medium text-gray-900">
-                    {contact.name}
-                  </span>
-                  <span className="dark:text-dark-text-muted text-xs text-gray-500">
-                    {contact.email}
-                  </span>
-                </>
-              ) : (
-                <span className="dark:text-dark-text text-sm text-gray-900">{contact.email}</span>
+              <span className="dark:text-dark-text text-sm font-medium text-gray-900">
+                {contact.name || contact.email}
+              </span>
+              {contact.name && (
+                <span className="dark:text-dark-text-muted text-xs text-gray-500">
+                  {contact.email}
+                </span>
               )}
             </button>
           ))}

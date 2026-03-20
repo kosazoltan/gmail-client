@@ -99,9 +99,11 @@ export function EmailCompose() {
   const isForward = searchParams.has('body') && !isReply;
   const [to, setTo] = useState(searchParams.get('to') || '');
   const [cc, setCc] = useState('');
+  const [bcc, setBcc] = useState('');
   const [subject, setSubject] = useState(searchParams.get('subject') || '');
   const [body, setBody] = useState(searchParams.get('body') || '');
   const [showCc, setShowCc] = useState(false);
+  const [showBcc, setShowBcc] = useState(false);
   const [showTemplatesManager, setShowTemplatesManager] = useState(false);
   const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
   const [isSendPending, setIsSendPending] = useState(false);
@@ -126,7 +128,7 @@ export function EmailCompose() {
 
   useEffect(() => {
     // Csak ha van valami tartalom
-    if (!to && !subject && !body) return;
+    if (!to && !cc && !bcc && !subject && !body) return;
 
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
@@ -139,7 +141,7 @@ export function EmailCompose() {
           id: offlineDraftId,
           to,
           cc,
-          bcc: '',
+          bcc,
           subject,
           body,
           attachments: attachments.map((a) => ({
@@ -163,7 +165,7 @@ export function EmailCompose() {
         clearTimeout(autoSaveTimerRef.current);
       }
     };
-  }, [to, cc, subject, body, attachments, offlineDraftId]);
+  }, [to, cc, bcc, subject, body, attachments, offlineDraftId]);
 
   // Undo send késleltetés beállításból vagy alapértelmezett
   const undoSendDelay =
@@ -375,7 +377,7 @@ export function EmailCompose() {
           id: offlineDraftId,
           to,
           cc,
-          bcc: '',
+          bcc,
           subject,
           body,
           attachments: attachments.map((a) => ({
@@ -434,6 +436,7 @@ export function EmailCompose() {
           subject,
           body,
           cc,
+          bcc,
           attachments: emailAttachments.length > 0 ? emailAttachments : undefined,
           accountId: composeAccountId,
         });
@@ -570,14 +573,24 @@ export function EmailCompose() {
                 placeholder="pelda@gmail.com"
                 className="dark:border-dark-border dark:text-dark-text w-full min-w-0 flex-1 rounded-xl border border-gray-200 bg-transparent px-3 py-1.5 text-sm transition-colors outline-none focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20"
               />
-              {!showCc && (
-                <button
-                  onClick={() => setShowCc(true)}
-                  className="shrink-0 text-xs text-[#4f6ef7] transition-colors hover:text-[#3d5ce5]"
-                >
-                  Másolat
-                </button>
-              )}
+              <div className="flex shrink-0 flex-col gap-1 sm:flex-row sm:gap-2">
+                {!showCc && (
+                  <button
+                    onClick={() => setShowCc(true)}
+                    className="text-xs text-[#4f6ef7] transition-colors hover:text-[#3d5ce5]"
+                  >
+                    Másolat
+                  </button>
+                )}
+                {!showBcc && (
+                  <button
+                    onClick={() => setShowBcc(true)}
+                    className="text-xs text-[#4f6ef7] transition-colors hover:text-[#3d5ce5]"
+                  >
+                    Titkos
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -590,6 +603,20 @@ export function EmailCompose() {
                 value={cc}
                 onChange={setCc}
                 placeholder="masik@gmail.com"
+                className="dark:border-dark-border dark:text-dark-text w-full min-w-0 flex-1 rounded-xl border border-gray-200 bg-transparent px-3 py-1.5 text-sm transition-colors outline-none focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20"
+              />
+            </div>
+          )}
+
+          {showBcc && (
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+              <label className="dark:text-dark-text-secondary shrink-0 text-sm text-gray-500 sm:w-20">
+                Titkos:
+              </label>
+              <EmailAutocomplete
+                value={bcc}
+                onChange={setBcc}
+                placeholder="titkos@gmail.com"
                 className="dark:border-dark-border dark:text-dark-text w-full min-w-0 flex-1 rounded-xl border border-gray-200 bg-transparent px-3 py-1.5 text-sm transition-colors outline-none focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20"
               />
             </div>

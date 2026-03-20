@@ -472,12 +472,13 @@ export async function sendEmail(
     subject: string;
     body: string;
     cc?: string;
+    bcc?: string;
     inReplyTo?: string;
     threadId?: string;
     attachments?: EmailAttachment[];
   },
 ) {
-  const { to, subject, body, cc, inReplyTo, threadId, attachments } = options;
+  const { to, subject, body, cc, bcc, inReplyTo, threadId, attachments } = options;
 
   let raw: string;
 
@@ -488,6 +489,7 @@ export async function sendEmail(
     const headers = [
       `To: ${to}`,
       cc ? `Cc: ${cc}` : '',
+      bcc ? `Bcc: ${bcc}` : '',
       `Subject: ${encodeRFC2047(subject)}`,
       'MIME-Version: 1.0',
       `Content-Type: multipart/mixed; boundary="${boundary}"`,
@@ -537,6 +539,9 @@ export async function sendEmail(
 
     if (cc) {
       messageParts.splice(1, 0, `Cc: ${cc}`);
+    }
+    if (bcc) {
+      messageParts.splice(1, 0, `Bcc: ${bcc}`);
     }
     if (inReplyTo) {
       messageParts.push(`In-Reply-To: ${inReplyTo}`);

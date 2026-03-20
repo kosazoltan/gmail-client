@@ -33,6 +33,7 @@ interface ScheduledEmailRow {
   account_id: string;
   to_addresses: string;
   cc_addresses: string | null;
+  bcc_addresses: string | null;
   subject: string | null;
   body: string | null;
   scheduled_at: number;
@@ -66,6 +67,7 @@ router.get('/', async (req, res) => {
         id: e.id,
         to: e.to_addresses,
         cc: e.cc_addresses,
+        bcc: e.bcc_addresses,
         subject: e.subject,
         body: e.body,
         scheduledAt: e.scheduled_at,
@@ -87,7 +89,7 @@ router.post('/', async (req, res) => {
       return res.status(401).json({ error: 'Nincs bejelentkezve' });
     }
 
-    const { to, cc, subject, body, scheduledAt } = req.body;
+    const { to, cc, bcc, subject, body, scheduledAt } = req.body;
 
     if (!to || !scheduledAt) {
       return res.status(400).json({ error: 'A címzett és az ütemezési idő megadása kötelező' });
@@ -155,7 +157,7 @@ router.put('/:id', async (req, res) => {
     }
 
     const { id } = req.params;
-    const { to, cc, subject, body, scheduledAt } = req.body;
+    const { to, cc, bcc, subject, body, scheduledAt } = req.body;
 
     // Validate email addresses if provided
     if (to) {
@@ -172,6 +174,14 @@ router.put('/:id', async (req, res) => {
         return res
           .status(400)
           .json({ error: `Érvénytelen CC email cím(ek): ${invalidCc.join(', ')}` });
+      }
+    }
+    if (bcc) {
+      const invalidBcc = validateEmailAddresses(bcc);
+      if (invalidBcc.length > 0) {
+        return res
+          .status(400)
+          .json({ error: `Érvénytelen BCC email cím(ek): ${invalidBcc.join(', ')}` });
       }
     }
 
@@ -195,11 +205,12 @@ router.put('/:id', async (req, res) => {
 
     await execute(
       `UPDATE scheduled_emails
-       SET to_addresses = ?, cc_addresses = ?, subject = ?, body = ?, scheduled_at = ?
+       SET to_addresses = ?, cc_addresses = ?, bcc_addresses = ?, subject = ?, body = ?, scheduled_at = ?
        WHERE id = ? AND account_id = ?`,
       [
         to || existing.to_addresses,
         cc !== undefined ? cc : existing.cc_addresses,
+        bcc !== undefined ? bcc : existing.bcc_addresses,
         subject !== undefined ? subject : existing.subject,
         body !== undefined ? body : existing.body,
         scheduledAt ? parseInt(scheduledAt, 10) : existing.scheduled_at,
@@ -306,6 +317,7 @@ router.post('/:id/send-now', async (req, res) => {
       subject: scheduledEmail.subject || '',
       body: scheduledEmail.body || '',
       cc: scheduledEmail.cc_addresses || undefined,
+      bcc: scheduledEmail.bcc_addresses || undefined,
       inReplyTo: scheduledEmail.in_reply_to || undefined,
       threadId: scheduledEmail.thread_id || undefined,
       attachments,

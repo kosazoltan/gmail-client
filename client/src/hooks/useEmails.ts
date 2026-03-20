@@ -59,6 +59,7 @@ export function useSendEmail() {
       subject: string;
       body: string;
       cc?: string;
+      bcc?: string;
       attachments?: EmailAttachment[];
       accountId?: string;
     }) => api.emails.send(data),
@@ -105,8 +106,15 @@ export function useReplyEmail() {
 export function useMarkRead() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ emailId, isRead, accountId }: { emailId: string; isRead: boolean; accountId?: string }) =>
-      api.emails.markRead(emailId, isRead, accountId),
+    mutationFn: ({
+      emailId,
+      isRead,
+      accountId,
+    }: {
+      emailId: string;
+      isRead: boolean;
+      accountId?: string;
+    }) => api.emails.markRead(emailId, isRead, accountId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['emails'] });
       queryClient.invalidateQueries({ queryKey: ['emails-infinite'] });
@@ -123,8 +131,15 @@ export function useMarkRead() {
 export function useToggleStar() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ emailId, isStarred, accountId }: { emailId: string; isStarred: boolean; accountId?: string }) =>
-      api.emails.toggleStar(emailId, isStarred, accountId),
+    mutationFn: ({
+      emailId,
+      isStarred,
+      accountId,
+    }: {
+      emailId: string;
+      isStarred: boolean;
+      accountId?: string;
+    }) => api.emails.toggleStar(emailId, isStarred, accountId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['emails'] });
       queryClient.invalidateQueries({ queryKey: ['emails-infinite'] });
@@ -141,7 +156,8 @@ export function useToggleStar() {
 export function useDeleteEmail() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ emailId, accountId }: { emailId: string; accountId?: string }) => api.emails.delete(emailId, accountId),
+    mutationFn: ({ emailId, accountId }: { emailId: string; accountId?: string }) =>
+      api.emails.delete(emailId, accountId),
     onSuccess: () => {
       // MINDEN email listát frissítünk azonnal - beleértve az infinite query-ket is
       queryClient.invalidateQueries({ queryKey: ['emails'] });
@@ -190,8 +206,15 @@ export function useBatchDeleteEmails() {
 export function useBatchMarkRead() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ emailIds, isRead, accountId }: { emailIds: string[]; isRead: boolean; accountId?: string }) =>
-      api.emails.batchMarkRead(emailIds, isRead, accountId),
+    mutationFn: ({
+      emailIds,
+      isRead,
+      accountId,
+    }: {
+      emailIds: string[];
+      isRead: boolean;
+      accountId?: string;
+    }) => api.emails.batchMarkRead(emailIds, isRead, accountId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inbox-infinite'] });
       queryClient.invalidateQueries({ queryKey: ['unread-count'] });

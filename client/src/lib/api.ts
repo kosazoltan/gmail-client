@@ -200,6 +200,7 @@ export const api = {
       subject?: string;
       body: string;
       cc?: string;
+      bcc?: string;
       inReplyTo?: string;
       threadId?: string;
       attachments?: Array<{ filename: string; mimeType: string; content: string }>;
@@ -417,15 +418,27 @@ export const api = {
   },
 
   contacts: {
+    list: (query = '', limit = 20) =>
+      request<import('../types').Contact[]>(
+        `/contacts?q=${encodeURIComponent(query)}&limit=${limit}`,
+      ),
+    frequent: (limit = 20) =>
+      request<import('../types').Contact[]>(`/contacts/frequent?limit=${limit}`),
     search: (query: string, limit = 10) =>
       request<import('../types').Contact[]>(
-        `/contacts/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+        `/contacts?q=${encodeURIComponent(query)}&limit=${limit}`,
       ),
-    list: () => request<import('../types').Contact[]>('/contacts'),
+    add: (email: string, name?: string) =>
+      request<import('../types').Contact>('/contacts', {
+        method: 'POST',
+        body: JSON.stringify({ email, name }),
+      }),
     delete: (id: string) => request(`/contacts/${id}`, { method: 'DELETE' }),
+    harvest: () =>
+      request<{ success: boolean; processed: number }>('/contacts/harvest', { method: 'POST' }),
     update: (id: string, name: string) =>
       request(`/contacts/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
-    extract: () => request<{ extractedCount: number }>('/contacts/extract', { method: 'POST' }),
+    extract: () => request<{ extractedCount: number }>('/contacts/harvest', { method: 'POST' }),
     fixEncoding: () =>
       request<{
         success: boolean;
@@ -725,6 +738,7 @@ export const api = {
         id: string;
         to: string;
         cc: string | null;
+        bcc: string | null;
         subject: string | null;
         body: string | null;
         scheduledAt: number;

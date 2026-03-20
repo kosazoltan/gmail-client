@@ -11,6 +11,7 @@ import {
 } from './gmail.service.js';
 import { categorizeEmail } from './categorization.service.js';
 import { extractContactsFromEmail, autoExtractContactsIfNeeded } from './contacts.service.js';
+import { harvestContactsForNewEmails } from './contact-harvester.service.js';
 import { sendPushToAccount } from './push.service.js';
 import { getActiveWorkflowsForAccount, executeWorkflow } from './workflow.service.js';
 import { extractActionItems } from './email-intelligence.service.js';
@@ -251,12 +252,17 @@ export async function syncAccount(accountId: string, fullSync = false) {
       const gmail = getGmailClient(oauth2Client);
 
       let processedCount = 0;
+      let newEmailIds: string[] = [];
 
       if (!fullSync && account.history_id) {
-        processedCount = await incrementalSync(gmail, accountId, account.history_id);
+        const incrementalResult = await incrementalSync(gmail, accountId, account.history_id);
+        processedCount = incrementalResult.processedCount;
+        newEmailIds = incrementalResult.newEmailIds;
       } else {
         const daysBack = Math.max(1, parseInt(process.env.SYNC_DAYS_BACK || '30', 10));
-        processedCount = await fullSyncMessages(gmail, accountId, daysBack);
+        const fullSyncResult = await fullSyncMessages(gmail, accountId, daysBack);
+        processedCount = fullSyncResult.processedCount;
+        newEmailIds = fullSyncResult.newEmailIds;
       }
 
       const profile = await getProfile(gmail);
@@ -272,6 +278,9 @@ export async function syncAccount(accountId: string, fullSync = false) {
       );
 
       try {
+        if (newEmailIds.length > 0) {
+          await harvestContactsForNewEmails(accountId, newEmailIds);
+        }
         await autoExtractContactsIfNeeded(accountId);
       } catch (err) {
         logger.error(`Failed to extract contacts for account ${accountId}:`, err);
@@ -304,7 +313,7 @@ async function fullSyncMessages(
   gmail: ReturnType<typeof getGmailClient>,
   accountId: string,
   daysBack: number,
-) {
+): Promise<{ processedCount: number; newEmailIds: string[] }> {
   const afterDate = new Date();
   afterDate.setDate(afterDate.getDate() - daysBack);
   const afterStr = `${afterDate.getFullYear()}/${afterDate.getMonth() + 1}/${afterDate.getDate()}`;
@@ -315,6 +324,7 @@ async function fullSyncMessages(
 
   let pageToken: string | undefined;
   let totalProcessed = 0;
+  const newEmailIds: string[] = [];
 
   do {
     const result = await listMessages(gmail, accountId, {
@@ -357,6 +367,7 @@ async function fullSyncMessages(
             runUserWorkflows: false,
           });
           totalProcessed++;
+          newEmailIds.push(msg.id);
         }
       }
 
@@ -368,15 +379,16 @@ async function fullSyncMessages(
     pageToken = result.nextPageToken || undefined;
   } while (pageToken);
 
-  return totalProcessed;
+  return { processedCount: totalProcessed, newEmailIds };
 }
 
 async function incrementalSync(
   gmail: ReturnType<typeof getGmailClient>,
   accountId: string,
   historyId: string,
-) {
+): Promise<{ processedCount: number; newEmailIds: string[] }> {
   let processedCount = 0;
+  const newEmailIds: string[] = [];
 
   try {
     const { history } = await getHistory(gmail, historyId);
@@ -398,6 +410,7 @@ async function incrementalSync(
         const isNew = await saveEmail(accountId, msg);
         if (isNew) {
           processedCount++;
+          newEmailIds.push(msg.id);
           await handleInsertedEmailEffects(accountId, msg, {
             notifyRealtime: true,
             runUserWorkflows: true,
@@ -413,13 +426,15 @@ async function incrementalSync(
     if (errorCode === 404) {
       logger.info('HistoryId érvénytelen, teljes szinkronizálás...');
       const daysBack = Math.max(1, parseInt(process.env.SYNC_DAYS_BACK || '30', 10));
-      processedCount = await fullSyncMessages(gmail, accountId, daysBack);
+      const fullSyncResult = await fullSyncMessages(gmail, accountId, daysBack);
+      processedCount = fullSyncResult.processedCount;
+      newEmailIds.push(...fullSyncResult.newEmailIds);
     } else {
       throw err;
     }
   }
 
-  return processedCount;
+  return { processedCount, newEmailIds };
 }
 
 async function saveEmail(accountId: string, msg: GmailMessage): Promise<boolean> {
