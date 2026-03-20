@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+// responsive-tuned: mobile-first touch sizing
 import { useState } from 'react';
 import { api } from '../../lib/api';
 
@@ -52,27 +53,27 @@ export function InboxRulesSettings() {
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2">
         <input
-          className="dark:bg-dark-bg rounded border px-2 py-1"
+          className="dark:bg-dark-bg w-full rounded border px-3 py-2"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Szabály neve"
         />
         <input
-          className="dark:bg-dark-bg rounded border px-2 py-1"
+          className="dark:bg-dark-bg w-full rounded border px-3 py-2"
           value={fromContains}
           onChange={(e) => setFromContains(e.target.value)}
           placeholder="Feladó tartalmazza"
         />
         <input
-          className="dark:bg-dark-bg rounded border px-2 py-1"
+          className="dark:bg-dark-bg w-full rounded border px-3 py-2"
           value={subjectContains}
           onChange={(e) => setSubjectContains(e.target.value)}
           placeholder="Tárgy tartalmazza"
         />
         <input
-          className="dark:bg-dark-bg rounded border px-2 py-1"
+          className="dark:bg-dark-bg w-full rounded border px-3 py-2"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           placeholder="THEN label"

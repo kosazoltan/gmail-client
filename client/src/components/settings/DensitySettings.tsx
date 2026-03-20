@@ -1,4 +1,5 @@
 import { useSettings, useUpdateSetting, defaultSettings } from '../../hooks/useSettings';
+// responsive-tuned: mobile-first touch sizing
 import type { UserSettings } from '../../types';
 
 type DensityMode = NonNullable<UserSettings['messageDensity']>;

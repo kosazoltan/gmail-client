@@ -202,3 +202,13 @@ html { scroll-behavior: smooth; }
 /* PWA safe areas */
 @supports (padding: env(safe-area-inset-bottom)) { .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); } }
 @media (display-mode: standalone) { body { padding-top: env(safe-area-inset-top); } }
+
+/* Mobil email body overflow fix */
+.email-body-container img { max-width: 100%; height: auto; }
+.email-body-container table { max-width: 100%; overflow-x: auto; display: block; }
+.email-body-container pre { overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+
+/* Touch target minimum */
+@media (max-width: 768px) {
+  button, a, [role="button"] { min-height: 44px; min-width: 44px; }
+}

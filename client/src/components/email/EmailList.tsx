@@ -89,7 +89,7 @@ export function EmailList({
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex w-full flex-col">
       {title && (
         <div className="dark:bg-dark-bg-tertiary dark:border-dark-border border-b border-gray-200 bg-gray-50 px-4 py-2">
           <h2 className="dark:text-dark-text-secondary text-sm font-medium text-gray-600">

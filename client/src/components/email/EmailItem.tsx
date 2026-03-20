@@ -86,7 +86,7 @@ export function EmailItem({
       >
         {email.accountColor && (
           <span
-            className="mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full"
+            className="mt-1 h-1 w-1 flex-shrink-0 rounded-full sm:h-2.5 sm:w-2.5"
             style={{ backgroundColor: email.accountColor }}
             title={email.accountEmail || 'Fiók szín'}
           />
@@ -129,7 +129,7 @@ export function EmailItem({
               )}
               <span
                 className={cn(
-                  'truncate',
+                  'truncate break-words',
                   density === 'comfortable' ? 'text-sm sm:text-base' : 'text-xs sm:text-sm',
                   !email.isRead
                     ? 'dark:text-dark-text font-semibold text-gray-900'
@@ -147,7 +147,7 @@ export function EmailItem({
           {density === 'compact' ? (
             <div
               className={cn(
-                'truncate text-xs sm:text-sm',
+                'truncate text-xs break-words sm:text-sm',
                 !email.isRead
                   ? 'dark:text-dark-text font-medium text-gray-800'
                   : 'dark:text-dark-text-secondary text-gray-600',
@@ -159,7 +159,7 @@ export function EmailItem({
             <>
               <div
                 className={cn(
-                  'mt-0.5 truncate',
+                  'mt-0.5 truncate break-words',
                   density === 'comfortable' ? 'text-sm sm:text-base' : 'text-xs sm:text-sm',
                   !email.isRead
                     ? 'dark:text-dark-text font-medium text-gray-800'
@@ -174,7 +174,7 @@ export function EmailItem({
                   'dark:text-dark-text-muted mt-0.5 hidden text-gray-400 sm:block',
                   density === 'comfortable'
                     ? 'line-clamp-2 text-xs sm:text-sm'
-                    : 'truncate text-[10px] sm:text-xs',
+                    : 'truncate text-[10px] break-words sm:text-xs',
                 )}
               >
                 {email.snippet || ''}

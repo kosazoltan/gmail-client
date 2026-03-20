@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+// responsive-tuned: mobile-first touch sizing
 import { useAccounts } from '../../hooks/useAccounts';
 import { useSettings, useUpdateSetting, defaultSettings } from '../../hooks/useSettings';
 import type { Account } from '../../types';

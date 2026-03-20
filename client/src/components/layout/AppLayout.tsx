@@ -11,7 +11,10 @@ export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 1024);
   const [searchQuery, setSearchQuery] = useState('');
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const [isTablet, setIsTablet] = useState(
+    () => window.innerWidth >= 768 && window.innerWidth < 1024,
+  );
   const location = useLocation();
   const { data: session } = useSession();
 
@@ -21,12 +24,13 @@ export function AppLayout() {
   // Reszponzív sidebar kezelés
   useEffect(() => {
     const checkMobile = () => {
-      const mobile = window.innerWidth < 1024;
+      const width = window.innerWidth;
+      const mobile = width < 768;
+      const tablet = width >= 768 && width < 1024;
       setIsMobile(mobile);
-      // Mobilon alapból csukva, desktopon nyitva
-      if (mobile) {
-        setSidebarOpen(false);
-      }
+      setIsTablet(tablet);
+      if (mobile) setSidebarOpen(false);
+      if (!mobile && !tablet) setSidebarOpen(true);
     };
 
     window.addEventListener('resize', checkMobile);
@@ -52,7 +56,7 @@ export function AppLayout() {
       {/* Mobil overlay */}
       {isMobile && sidebarOpen && (
         <div
-          className="fixed inset-0 z-20 bg-black/40 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
           onClick={handleOverlayClick}
           aria-hidden="true"
         />
@@ -62,7 +66,12 @@ export function AppLayout() {
       <div
         className={` ${isMobile ? 'fixed inset-y-0 left-0 z-30' : 'relative'} ${isMobile && !sidebarOpen ? '-translate-x-full' : 'translate-x-0'} transition-transform duration-200`}
       >
-        <Sidebar isOpen={sidebarOpen || isMobile} onToggle={() => setSidebarOpen(!sidebarOpen)} />
+        <Sidebar
+          isOpen={sidebarOpen || isTablet || isMobile}
+          isMobile={isMobile}
+          isTablet={isTablet}
+          onToggle={() => setSidebarOpen(!sidebarOpen)}
+        />
       </div>
 
       {/* Main content */}

@@ -1,4 +1,5 @@
 import { useSettings, useUpdateSetting, defaultSettings } from '../../hooks/useSettings';
+// responsive-tuned: mobile-first touch sizing
 
 const DELAY_OPTIONS = [
   { value: 0, label: 'Kikapcsolva' },

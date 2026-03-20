@@ -222,7 +222,7 @@ function MessageBubble({
             <div className="flex items-center gap-1.5 sm:gap-2">
               <span
                 className={cn(
-                  'truncate text-xs font-medium sm:text-sm',
+                  'truncate text-xs font-medium break-words sm:text-sm',
                   isSent ? 'text-blue-700 dark:text-blue-300' : 'dark:text-dark-text text-gray-900',
                 )}
               >
@@ -242,7 +242,7 @@ function MessageBubble({
               )}
             </div>
             {!isExpanded && (
-              <div className="dark:text-dark-text-muted mt-0.5 truncate text-[10px] text-gray-400 sm:text-xs">
+              <div className="dark:text-dark-text-muted mt-0.5 truncate text-[10px] break-words text-gray-400 sm:text-xs">
                 {email.snippet || ''}
               </div>
             )}
@@ -267,12 +267,12 @@ function MessageBubble({
             <div className="dark:text-dark-text-secondary dark:border-dark-border/50 border-b border-gray-50 px-3 py-1.5 text-[10px] text-gray-500 sm:px-4 sm:py-2 sm:text-xs">
               <div className="flex items-center gap-1">
                 <span className="dark:text-dark-text-muted text-gray-400">Címzett:</span>
-                <span className="truncate">{email.to || 'Ismeretlen'}</span>
+                <span className="truncate break-words">{email.to || 'Ismeretlen'}</span>
               </div>
               {email.cc && (
                 <div className="mt-0.5 flex items-center gap-1">
                   <span className="dark:text-dark-text-muted text-gray-400">Másolat:</span>
-                  <span className="truncate">{email.cc}</span>
+                  <span className="truncate break-words">{email.cc}</span>
                 </div>
               )}
             </div>
@@ -331,7 +331,7 @@ function MessageBubble({
                     </button>
                   )}
                 </div>
-                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-1.5">
                   {email.attachments.map((att) => (
                     <AttachmentView key={att.id} attachment={att} />
                   ))}
@@ -381,7 +381,7 @@ function MessageBubble({
                     e.stopPropagation();
                     onDelete();
                   }}
-                  className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-medium text-red-500 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10 sm:px-3 sm:py-1.5 sm:text-xs"
+                  className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-medium text-red-500 transition-colors hover:bg-red-50 sm:px-3 sm:py-1.5 sm:text-xs dark:text-red-400 dark:hover:bg-red-500/10"
                 >
                   <Trash2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   <span className="hidden sm:inline">Törlés</span>

@@ -314,7 +314,7 @@ export function EmailDetail({
         </button>
 
         <div className="min-w-0 flex-1">
-          <h1 className="dark:text-dark-text truncate text-sm font-semibold text-gray-900 sm:text-base">
+          <h1 className="dark:text-dark-text truncate text-sm font-semibold break-words text-gray-900 sm:text-base">
             {email.subject || '(Nincs tárgy)'}
           </h1>
         </div>
@@ -597,7 +597,7 @@ export function EmailDetail({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-1 sm:gap-2">
                     <div className="flex min-w-0 items-center gap-1 sm:gap-2">
-                      <span className="dark:text-dark-text truncate text-sm font-semibold text-gray-900 sm:text-base">
+                      <span className="dark:text-dark-text truncate text-sm font-semibold break-words text-gray-900 sm:text-base">
                         {sender}
                       </span>
                     </div>
@@ -618,7 +618,7 @@ export function EmailDetail({
                     </div>
                   </div>
 
-                  <div className="dark:text-dark-text-secondary mt-0.5 truncate text-xs text-gray-500 sm:text-sm">
+                  <div className="dark:text-dark-text-secondary mt-0.5 truncate text-xs break-words text-gray-500 sm:text-sm">
                     {email.from}
                   </div>
 

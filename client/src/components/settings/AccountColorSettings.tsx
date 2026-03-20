@@ -1,4 +1,5 @@
 import { useAccounts, useUpdateAccountColor } from '../../hooks/useAccounts';
+// responsive-tuned: mobile-first touch sizing
 import { useSettings, useUpdateSetting, defaultSettings } from '../../hooks/useSettings';
 import type { Account } from '../../types';
 

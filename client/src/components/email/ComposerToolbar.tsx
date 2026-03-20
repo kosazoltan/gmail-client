@@ -17,7 +17,7 @@ export function ComposerToolbar({ editorRef, onInsertImageUrl }: Props) {
   };
 
   return (
-    <div className="dark:border-dark-border mb-2 flex flex-wrap items-center gap-1 rounded-lg border border-gray-200 p-2">
+    <div className="dark:border-dark-border mb-2 flex items-center gap-1 overflow-x-auto rounded-lg border border-gray-200 p-2 whitespace-nowrap">
       <button
         onClick={() => exec('bold')}
         className="dark:hover:bg-dark-bg-tertiary rounded p-1.5 hover:bg-gray-100"

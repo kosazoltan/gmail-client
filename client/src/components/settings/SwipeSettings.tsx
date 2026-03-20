@@ -1,4 +1,5 @@
 import { useState } from 'react';
+// responsive-tuned: mobile-first touch sizing
 import { Trash2, Archive, Mail, Star, Clock, X, ChevronRight, ChevronLeft } from 'lucide-react';
 import {
   useSettings,

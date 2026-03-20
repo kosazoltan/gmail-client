@@ -206,7 +206,7 @@ function ThreadHeader({
           <div className="flex min-w-0 items-center gap-2">
             <span
               className={cn(
-                'truncate text-sm',
+                'truncate text-sm break-words',
                 thread.hasUnread
                   ? 'dark:text-dark-text font-semibold text-gray-900'
                   : 'dark:text-dark-text-secondary text-gray-700',
@@ -228,7 +228,7 @@ function ThreadHeader({
 
         <div
           className={cn(
-            'mt-0.5 truncate text-sm',
+            'mt-0.5 truncate text-sm break-words',
             thread.hasUnread
               ? 'dark:text-dark-text font-medium text-gray-800'
               : 'dark:text-dark-text-secondary text-gray-600',
@@ -237,7 +237,7 @@ function ThreadHeader({
           {thread.displayName || '(Nincs tárgy)'}
         </div>
 
-        <div className="dark:text-dark-text-muted mt-0.5 truncate text-xs text-gray-400">
+        <div className="dark:text-dark-text-muted mt-0.5 truncate text-xs break-words text-gray-400">
           {latestEmail.snippet || ''}
         </div>
       </div>

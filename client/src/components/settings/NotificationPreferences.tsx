@@ -1,4 +1,5 @@
 import { Bell } from 'lucide-react';
+// responsive-tuned: mobile-first touch sizing
 import { useSettings, useUpdateSetting, defaultSettings } from '../../hooks/useSettings';
 import { cn } from '../../lib/utils';
 

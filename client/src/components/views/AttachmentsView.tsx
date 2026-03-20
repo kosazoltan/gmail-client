@@ -119,7 +119,9 @@ export function AttachmentsView() {
   const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
   const [sizeFilter, setSizeFilter] = useState<'all' | 'lt1' | '1to10' | 'gt10'>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>(() =>
+    typeof window !== 'undefined' && window.innerWidth < 768 ? 'list' : 'grid',
+  );
 
   const { data, isLoading } = useAttachments({
     type: selectedType === 'all' ? undefined : selectedType,

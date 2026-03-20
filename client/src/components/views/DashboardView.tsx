@@ -114,7 +114,10 @@ export function DashboardView() {
 
   const actionCenter = data?.actionCenter?.blocks;
   const openTasks = data?.openTasks || [];
-  const upcomingEvents = data?.todayEvents?.filter((event) => !hiddenEventIds.has(event.id)).slice(0, DEFAULT_VISIBLE_ITEMS) || [];
+  const upcomingEvents =
+    data?.todayEvents
+      ?.filter((event) => !hiddenEventIds.has(event.id))
+      .slice(0, DEFAULT_VISIBLE_ITEMS) || [];
   const topMarketRates = marketData?.rates.slice(0, 3) || [];
   const selectedCount = selectedEmailIds.size;
 
@@ -198,7 +201,10 @@ export function DashboardView() {
       return;
     }
 
-    batchDeleteEmails.mutate({ emailIds: ids, accountId: item.accountId ?? undefined }, { onError });
+    batchDeleteEmails.mutate(
+      { emailIds: ids, accountId: item.accountId ?? undefined },
+      { onError },
+    );
   };
 
   const handleDeleteTask = (task: DashboardData['openTasks'][number]) => {
@@ -285,7 +291,8 @@ export function DashboardView() {
         <div className="flex flex-col items-center gap-3 text-center">
           <AlertCircle className="h-8 w-8 text-red-500" />
           <p className="dark:text-dark-text-secondary text-sm text-gray-500">
-            A dashboard betöltése sikertelen. Lehet, hogy újra kell jelentkezned a naptár és a feladatok eléréséhez.
+            A dashboard betöltése sikertelen. Lehet, hogy újra kell jelentkezned a naptár és a
+            feladatok eléréséhez.
           </p>
         </div>
       </div>
@@ -293,13 +300,14 @@ export function DashboardView() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
-
+    <div className="mx-auto max-w-6xl space-y-4 p-3 sm:space-y-6 sm:p-6">
       {selectionMode && (
         <div className="dark:bg-dark-bg-secondary dark:border-dark-border flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div>
             <p className="dark:text-dark-text text-sm font-medium text-gray-900">
-              {selectedCount > 0 ? `${selectedCount} email kijelölve` : 'Jelölj ki egy vagy több emailt a dashboard blokkokból.'}
+              {selectedCount > 0
+                ? `${selectedCount} email kijelölve`
+                : 'Jelölj ki egy vagy több emailt a dashboard blokkokból.'}
             </p>
             <p className="dark:text-dark-text-muted text-xs text-gray-500">
               A naptári és Google Task elemek nem kijelölhetők, csak az email-alapú tételek.
@@ -358,7 +366,7 @@ export function DashboardView() {
           </div>
         }
       >
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4">
           <ActionCenterCard
             title="Sürgős ügyek"
             items={actionCenter?.urgentClientMatters}
@@ -408,7 +416,7 @@ export function DashboardView() {
           </button>
         }
       >
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4">
           <ActionCenterCard
             title="Emailből felismert események"
             items={actionCenter?.suggestedEvents}
@@ -442,7 +450,7 @@ export function DashboardView() {
         title="Összefoglalók"
         description="Rövid napi áttekintés, fókuszlista és a piaci blokk a hosszabb oldal helyett."
       >
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4">
           <ActionCenterCard
             title="Mai fókusz"
             items={actionCenter?.todayFocus}
@@ -536,13 +544,17 @@ function ActionCenterCard({
             className="flex items-center gap-1 text-xs text-[#4f6ef7] hover:underline"
           >
             {expanded ? 'Kevesebb' : `Még ${list.length - DEFAULT_VISIBLE_ITEMS}`}
-            <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', expanded && 'rotate-180')} />
+            <ChevronDown
+              className={cn('h-3.5 w-3.5 transition-transform', expanded && 'rotate-180')}
+            />
           </button>
         )}
       </div>
 
       {visibleItems.length === 0 ? (
-        <p className="dark:text-dark-text-muted py-6 text-center text-xs text-gray-500">{emptyText}</p>
+        <p className="dark:text-dark-text-muted py-6 text-center text-xs text-gray-500">
+          {emptyText}
+        </p>
       ) : (
         <div className="space-y-2">
           {visibleItems.map((item) => {
@@ -560,7 +572,11 @@ function ActionCenterCard({
                     className="mt-0.5 text-[#4f6ef7]"
                     title="Kijelölés"
                   >
-                    {itemSelected ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                    {itemSelected ? (
+                      <CheckSquare className="h-4 w-4" />
+                    ) : (
+                      <Square className="h-4 w-4" />
+                    )}
                   </button>
                 ) : (
                   <div
@@ -580,13 +596,18 @@ function ActionCenterCard({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     {item.links.app ? (
-                      <button onClick={() => onOpenApp(item.links.app)} className="min-w-0 text-left">
+                      <button
+                        onClick={() => onOpenApp(item.links.app)}
+                        className="min-w-0 text-left"
+                      >
                         <p className="dark:text-dark-text truncate text-sm font-medium text-gray-900 hover:text-[#4f6ef7] dark:hover:text-[#88a2ff]">
                           {item.title}
                         </p>
                       </button>
                     ) : (
-                      <p className="dark:text-dark-text truncate text-sm font-medium text-gray-900">{item.title}</p>
+                      <p className="dark:text-dark-text truncate text-sm font-medium text-gray-900">
+                        {item.title}
+                      </p>
                     )}
                     {(item.groupSize ?? 0) > 1 && (
                       <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-600 dark:bg-blue-500/15 dark:text-blue-300">
@@ -596,7 +617,9 @@ function ActionCenterCard({
                   </div>
 
                   {item.summary && (
-                    <p className="dark:text-dark-text-muted truncate text-xs text-gray-500">{item.summary}</p>
+                    <p className="dark:text-dark-text-muted truncate text-xs text-gray-500">
+                      {item.summary}
+                    </p>
                   )}
 
                   {item.quote && (
@@ -604,7 +627,7 @@ function ActionCenterCard({
                       onClick={() => onOpenApp(getQuoteAppLink(item))}
                       disabled={!getQuoteAppLink(item)}
                       className={cn(
-                        'mt-1 block w-full text-left text-[11px] text-gray-400 dark:text-dark-text-muted',
+                        'dark:text-dark-text-muted mt-1 block w-full text-left text-[11px] text-gray-400',
                         compact ? 'truncate' : 'line-clamp-2',
                         getQuoteAppLink(item) && 'hover:text-[#4f6ef7] dark:hover:text-[#88a2ff]',
                       )}
@@ -633,7 +656,11 @@ function ActionCenterCard({
                       className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10"
                       title="Megnyitás"
                     >
-                      {item.links.app.startsWith('/calendar') ? <Calendar className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
+                      {item.links.app.startsWith('/calendar') ? (
+                        <Calendar className="h-4 w-4" />
+                      ) : (
+                        <Mail className="h-4 w-4" />
+                      )}
                     </button>
                   )}
                   {item.links.gmail && (
@@ -714,13 +741,17 @@ function OpenTasksCard({
             className="flex items-center gap-1 text-xs text-[#4f6ef7] hover:underline"
           >
             {expanded ? 'Kevesebb' : `Még ${filteredTasks.length - DEFAULT_VISIBLE_ITEMS}`}
-            <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', expanded && 'rotate-180')} />
+            <ChevronDown
+              className={cn('h-3.5 w-3.5 transition-transform', expanded && 'rotate-180')}
+            />
           </button>
         )}
       </div>
 
       {visibleTasks.length === 0 ? (
-        <p className="dark:text-dark-text-muted py-6 text-center text-xs text-gray-500">{emptyText}</p>
+        <p className="dark:text-dark-text-muted py-6 text-center text-xs text-gray-500">
+          {emptyText}
+        </p>
       ) : (
         <div className="space-y-2">
           {visibleTasks.map((task) => {
@@ -738,7 +769,11 @@ function OpenTasksCard({
                     className="mt-0.5 text-[#4f6ef7]"
                     title="Kijelölés"
                   >
-                    {selected ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                    {selected ? (
+                      <CheckSquare className="h-4 w-4" />
+                    ) : (
+                      <Square className="h-4 w-4" />
+                    )}
                   </button>
                 ) : (
                   <div className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-2 border-gray-300 dark:border-gray-600" />
@@ -746,7 +781,13 @@ function OpenTasksCard({
 
                 <div className="min-w-0 flex-1">
                   <button
-                    onClick={() => onOpenTask(task.appLink || buildEmailAppLink(task.emailId ?? null, task.accountId ?? null) || '/tasks')}
+                    onClick={() =>
+                      onOpenTask(
+                        task.appLink ||
+                          buildEmailAppLink(task.emailId ?? null, task.accountId ?? null) ||
+                          '/tasks',
+                      )
+                    }
                     className="block w-full text-left"
                   >
                     <p className="dark:text-dark-text truncate text-sm font-medium text-gray-900 hover:text-[#4f6ef7] dark:hover:text-[#88a2ff]">
@@ -759,7 +800,11 @@ function OpenTasksCard({
                     {task.due && (
                       <>
                         <span>·</span>
-                        <span className={cn(isOverdue(task.due) && 'font-medium text-red-500 dark:text-red-400')}>
+                        <span
+                          className={cn(
+                            isOverdue(task.due) && 'font-medium text-red-500 dark:text-red-400',
+                          )}
+                        >
                           {formatDueDate(task.due)}
                         </span>
                       </>
@@ -767,7 +812,7 @@ function OpenTasksCard({
                   </div>
 
                   {task.notes && (
-                    <p className="mt-1 line-clamp-2 text-[11px] text-gray-400 dark:text-dark-text-muted">
+                    <p className="dark:text-dark-text-muted mt-1 line-clamp-2 text-[11px] text-gray-400">
                       {task.notes}
                     </p>
                   )}
@@ -784,7 +829,13 @@ function OpenTasksCard({
                     </button>
                   )}
                   <button
-                    onClick={() => onOpenTask(task.appLink || buildEmailAppLink(task.emailId ?? null, task.accountId ?? null) || '/tasks')}
+                    onClick={() =>
+                      onOpenTask(
+                        task.appLink ||
+                          buildEmailAppLink(task.emailId ?? null, task.accountId ?? null) ||
+                          '/tasks',
+                      )
+                    }
                     className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10"
                     title="Megnyitás"
                   >
@@ -837,9 +888,9 @@ function CalendarCard({
             <div
               key={event.id}
               className={cn(
-                'dark:border-dark-border group relative w-full rounded-lg border p-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-dark-bg-tertiary',
+                'dark:border-dark-border group dark:hover:bg-dark-bg-tertiary relative w-full rounded-lg border p-3 text-left transition-colors hover:bg-gray-50',
                 event.isAllDay
-                  ? 'border-gray-200 bg-gray-50/50 dark:bg-dark-bg-tertiary/50'
+                  ? 'dark:bg-dark-bg-tertiary/50 border-gray-200 bg-gray-50/50'
                   : 'border-purple-200 bg-purple-50/30 dark:border-purple-500/20 dark:bg-purple-500/5',
               )}
             >
@@ -847,10 +898,14 @@ function CalendarCard({
                 onClick={() => onOpenCalendar(event.id, event.start)}
                 className="block w-full text-left"
               >
-                <p className="dark:text-dark-text truncate text-sm font-medium text-gray-900">{event.summary}</p>
+                <p className="dark:text-dark-text truncate text-sm font-medium text-gray-900">
+                  {event.summary}
+                </p>
                 <div className="dark:text-dark-text-muted mt-1 flex items-center gap-2 text-xs text-gray-500">
                   <Clock className="h-3 w-3" />
-                  {event.isAllDay ? 'Egész napos' : `${formatTime(event.start)} – ${formatTime(event.end)}`}
+                  {event.isAllDay
+                    ? 'Egész napos'
+                    : `${formatTime(event.start)} – ${formatTime(event.end)}`}
                 </div>
                 {event.location && (
                   <div className="dark:text-dark-text-muted mt-0.5 flex items-center gap-2 text-xs text-gray-500">
@@ -866,7 +921,7 @@ function CalendarCard({
                     eventClick.stopPropagation();
                     onDeleteEvent(event.id);
                   }}
-                  className="absolute right-2 top-2 rounded-lg p-1.5 text-red-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-500/10"
+                  className="absolute top-2 right-2 rounded-lg p-1.5 text-red-500 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-500/10"
                   title="Törlés"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -900,7 +955,9 @@ function BriefSummaryCard({
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-[#4f6ef7]" />
-          <h3 className="dark:text-dark-text text-base font-semibold text-gray-900">Napi AI brief</h3>
+          <h3 className="dark:text-dark-text text-base font-semibold text-gray-900">
+            Napi AI brief
+          </h3>
         </div>
         <button onClick={onOpen} className="text-xs text-[#4f6ef7] hover:underline">
           Részletes nézet
@@ -909,11 +966,16 @@ function BriefSummaryCard({
 
       {isFresh && summary ? (
         <>
-          <p className="dark:text-dark-text-secondary text-sm leading-relaxed text-gray-600">{summary}</p>
+          <p className="dark:text-dark-text-secondary text-sm leading-relaxed text-gray-600">
+            {summary}
+          </p>
           {highlights.length > 0 && (
             <ul className="mt-3 space-y-2">
               {highlights.slice(0, 3).map((highlight, index) => (
-                <li key={index} className="dark:text-dark-text-muted flex items-start gap-2 text-xs text-gray-500">
+                <li
+                  key={index}
+                  className="dark:text-dark-text-muted flex items-start gap-2 text-xs text-gray-500"
+                >
                   <span className="mt-1 h-1.5 w-1.5 rounded-full bg-[#4f6ef7]" />
                   <span>{highlight}</span>
                 </li>
@@ -931,7 +993,11 @@ function BriefSummaryCard({
             disabled={isPending}
             className="flex items-center gap-2 rounded-lg bg-[#4f6ef7] px-3 py-2 text-xs font-medium text-white hover:bg-[#3d5ce5] disabled:opacity-50"
           >
-            {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" />
+            )}
             AI Brief generálása
           </button>
         </div>
@@ -966,7 +1032,9 @@ function MarketSummaryCard({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-emerald-500" />
-            <h3 className="dark:text-dark-text text-base font-semibold text-gray-900">Piaci összkép</h3>
+            <h3 className="dark:text-dark-text text-base font-semibold text-gray-900">
+              Piaci összkép
+            </h3>
           </div>
           <p className="dark:text-dark-text-muted mt-1 text-sm text-gray-500">
             Rövid market kivonat a napi döntésekhez.
@@ -1001,7 +1069,8 @@ function MarketSummaryCard({
         </p>
         {marketData?.generatedAt && (
           <p className="dark:text-dark-text-muted mt-2 text-xs text-gray-500">
-            Frissítve: {format(new Date(marketData.generatedAt), 'yyyy. MMM d. HH:mm', { locale: hu })}
+            Frissítve:{' '}
+            {format(new Date(marketData.generatedAt), 'yyyy. MMM d. HH:mm', { locale: hu })}
           </p>
         )}
         {marketData && !marketData.isAIPowered && (
@@ -1017,20 +1086,26 @@ function MarketSummaryCard({
             <button
               key={rate.pair}
               onClick={onOpen}
-              className="dark:border-dark-border dark:hover:bg-dark-bg-tertiary flex w-full items-center justify-between rounded-xl border border-gray-100 bg-gray-50/70 px-3 py-2 text-left hover:bg-gray-50 dark:bg-dark-bg-tertiary/40"
+              className="dark:border-dark-border dark:hover:bg-dark-bg-tertiary dark:bg-dark-bg-tertiary/40 flex w-full items-center justify-between rounded-xl border border-gray-100 bg-gray-50/70 px-3 py-2 text-left hover:bg-gray-50"
             >
               <div>
-                <p className="dark:text-dark-text text-sm font-medium text-gray-900">{rate.label}</p>
+                <p className="dark:text-dark-text text-sm font-medium text-gray-900">
+                  {rate.label}
+                </p>
                 <p className="dark:text-dark-text-muted text-xs text-gray-500">{rate.pair}</p>
               </div>
               <div className="text-right">
                 <p className="dark:text-dark-text text-sm font-semibold text-gray-900">
-                  {rate.rate.toFixed(rate.pair.endsWith('HUF') || rate.pair.startsWith('XAU') ? 2 : 4)}
+                  {rate.rate.toFixed(
+                    rate.pair.endsWith('HUF') || rate.pair.startsWith('XAU') ? 2 : 4,
+                  )}
                 </p>
                 <p
                   className={cn(
                     'text-xs font-medium',
-                    rate.changePercent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400',
+                    rate.changePercent >= 0
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-red-600 dark:text-red-400',
                   )}
                 >
                   {rate.changePercent >= 0 ? '+' : ''}

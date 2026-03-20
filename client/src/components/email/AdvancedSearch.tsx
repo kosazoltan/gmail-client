@@ -19,7 +19,7 @@ interface Props {
 export function AdvancedSearch({ onApply, onClose }: Props) {
   const [filters, setFilters] = useState<AdvancedSearchFilters>({ isRead: '' });
   return (
-    <div className="dark:bg-dark-bg-secondary dark:border-dark-border absolute top-full right-0 z-50 mt-2 w-80 rounded-xl border border-gray-200 bg-white p-3 shadow-xl">
+    <div className="dark:bg-dark-bg-secondary dark:border-dark-border fixed inset-0 z-50 w-full rounded-none border-0 border-gray-200 bg-white p-4 shadow-xl sm:absolute sm:inset-auto sm:top-full sm:right-0 sm:mt-2 sm:w-80 sm:rounded-xl sm:border">
       <div className="grid grid-cols-1 gap-2 text-sm">
         <input
           className="dark:border-dark-border dark:bg-dark-bg-secondary dark:text-dark-text dark:placeholder-dark-text-muted rounded border px-2 py-1"
@@ -36,7 +36,7 @@ export function AdvancedSearch({ onApply, onClose }: Props) {
           placeholder="Tárgy (subject:)"
           onChange={(e) => setFilters((p) => ({ ...p, subject: e.target.value }))}
         />
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <input
             type="date"
             className="dark:border-dark-border dark:bg-dark-bg-secondary dark:text-dark-text dark:placeholder-dark-text-muted rounded border px-2 py-1"

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+// responsive-tuned: mobile-first touch sizing
 import { Crown, Plus, Trash2, Loader2, User, Sparkles, Check } from 'lucide-react';
 import {
   useVipSenders,
@@ -110,7 +111,8 @@ export function VIPSettings() {
   };
 
   const vipEmails = new Set((vipSenders ?? []).map((v) => v.email.toLowerCase()));
-  const suggestionsToShow = aiSuggestions?.filter((s) => !vipEmails.has(s.email.toLowerCase())) ?? [];
+  const suggestionsToShow =
+    aiSuggestions?.filter((s) => !vipEmails.has(s.email.toLowerCase())) ?? [];
 
   return (
     <div className="space-y-4">
@@ -123,7 +125,7 @@ export function VIPSettings() {
       </div>
 
       {/* AI suggestions */}
-      <div className="dark:bg-dark-bg-secondary space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-dark-border">
+      <div className="dark:bg-dark-bg-secondary dark:border-dark-border space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
         <div className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-amber-500" />
           <span className="dark:text-dark-text font-medium text-gray-800">AI javaslatok</span>
@@ -167,7 +169,7 @@ export function VIPSettings() {
               {suggestionsToShow.map((s) => (
                 <div
                   key={s.email}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-2 dark:border-dark-border dark:bg-dark-bg"
+                  className="dark:border-dark-border dark:bg-dark-bg flex items-center justify-between rounded-lg border border-gray-200 bg-white p-2"
                 >
                   <div>
                     <span className="dark:text-dark-text font-medium text-gray-800">

@@ -530,8 +530,8 @@ export function EmailCompose() {
   const totalAttachmentSize = attachments.reduce((sum, a) => sum + a.size, 0);
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <div className="dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div className="mx-auto h-full max-w-3xl p-2 sm:p-6">
+      <div className="dark:bg-dark-bg-secondary dark:border-dark-border h-full rounded-none border-0 bg-white shadow-sm sm:h-auto sm:rounded-xl sm:border">
         {/* Fejléc */}
         <div className="dark:border-dark-border flex items-center justify-between border-b border-gray-200 px-4 py-3">
           <h2 className="dark:text-dark-text font-medium text-gray-800">
@@ -559,29 +559,31 @@ export function EmailCompose() {
 
         {/* Űrlap */}
         <div className="space-y-3 p-4">
-          <div className="flex items-center gap-2">
-            <label className="dark:text-dark-text-secondary w-20 shrink-0 text-sm text-gray-500">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+            <label className="dark:text-dark-text-secondary shrink-0 text-sm text-gray-500 sm:w-20">
               Címzett:
             </label>
-            <EmailAutocomplete
-              value={to}
-              onChange={setTo}
-              placeholder="pelda@gmail.com"
-              className="dark:border-dark-border dark:text-dark-text w-full min-w-0 flex-1 rounded-xl border border-gray-200 bg-transparent px-3 py-1.5 text-sm transition-colors outline-none focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20"
-            />
-            {!showCc && (
-              <button
-                onClick={() => setShowCc(true)}
-                className="shrink-0 text-xs text-[#4f6ef7] transition-colors hover:text-[#3d5ce5]"
-              >
-                Másolat
-              </button>
-            )}
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <EmailAutocomplete
+                value={to}
+                onChange={setTo}
+                placeholder="pelda@gmail.com"
+                className="dark:border-dark-border dark:text-dark-text w-full min-w-0 flex-1 rounded-xl border border-gray-200 bg-transparent px-3 py-1.5 text-sm transition-colors outline-none focus:border-[#4f6ef7]/50 focus:ring-2 focus:ring-[#4f6ef7]/20"
+              />
+              {!showCc && (
+                <button
+                  onClick={() => setShowCc(true)}
+                  className="shrink-0 text-xs text-[#4f6ef7] transition-colors hover:text-[#3d5ce5]"
+                >
+                  Másolat
+                </button>
+              )}
+            </div>
           </div>
 
           {showCc && (
-            <div className="flex items-center gap-2">
-              <label className="dark:text-dark-text-secondary w-20 shrink-0 text-sm text-gray-500">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+              <label className="dark:text-dark-text-secondary shrink-0 text-sm text-gray-500 sm:w-20">
                 Másolat:
               </label>
               <EmailAutocomplete
@@ -593,8 +595,8 @@ export function EmailCompose() {
             </div>
           )}
 
-          <div className="flex items-center gap-2">
-            <label className="dark:text-dark-text-secondary w-20 shrink-0 text-sm text-gray-500">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+            <label className="dark:text-dark-text-secondary shrink-0 text-sm text-gray-500 sm:w-20">
               Tárgy:
             </label>
             <input

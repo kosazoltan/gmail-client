@@ -37,7 +37,7 @@ export function SettingsView() {
 
   return (
     <div className="dark:bg-dark-bg flex-1 overflow-auto bg-gray-50">
-      <div className="mx-auto max-w-3xl p-4 sm:p-6">
+      <div className="mx-auto max-w-full p-3 sm:p-6">
         {/* Header */}
         <div className="mb-6 flex items-center gap-3">
           <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-500/20">
@@ -183,7 +183,7 @@ export function SettingsView() {
                   max={120}
                   value={lock.lockTimeoutMinutes}
                   onChange={(e) => lock.setLockTimeoutMinutes(Number(e.target.value || 5))}
-                  className="dark:border-dark-border dark:bg-dark-bg dark:text-dark-text w-24 rounded border border-gray-300 px-2 py-1"
+                  className="dark:border-dark-border dark:bg-dark-bg dark:text-dark-text w-full rounded border border-gray-300 px-2 py-2 sm:w-24"
                 />
               </label>
 

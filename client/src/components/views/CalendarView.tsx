@@ -47,7 +47,9 @@ const emptyForm: EventFormData = {
 
 export function CalendarView() {
   const [searchParams] = useSearchParams();
-  const [viewMode, setViewMode] = useState<ViewMode>('day');
+  const [viewMode, setViewMode] = useState<ViewMode>(() =>
+    typeof window !== 'undefined' && window.innerWidth < 768 ? 'day' : 'week',
+  );
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
@@ -69,12 +71,20 @@ export function CalendarView() {
   }, [selectedDate]);
   const dayEnd = useMemo(() => addDays(dayStart, 1), [dayStart]);
 
-  const { data: weekData, isLoading: weekLoading, error: weekError } = useCalendarEvents({
+  const {
+    data: weekData,
+    isLoading: weekLoading,
+    error: weekError,
+  } = useCalendarEvents({
     timeMin: monday.toISOString(),
     timeMax: sunday.toISOString(),
     enabled: viewMode === 'week',
   });
-  const { data: dayData, isLoading: dayLoading, error: dayError } = useCalendarEvents({
+  const {
+    data: dayData,
+    isLoading: dayLoading,
+    error: dayError,
+  } = useCalendarEvents({
     timeMin: dayStart.toISOString(),
     timeMax: dayEnd.toISOString(),
     enabled: viewMode === 'day',
@@ -95,9 +105,7 @@ export function CalendarView() {
 
     const map = new Map<string, CalendarEvent[]>();
     for (const event of events) {
-      const dateStr = event.isAllDay
-        ? event.start
-        : format(new Date(event.start), 'yyyy-MM-dd');
+      const dateStr = event.isAllDay ? event.start : format(new Date(event.start), 'yyyy-MM-dd');
 
       const existing = map.get(dateStr) || [];
       existing.push(event);
@@ -201,14 +209,17 @@ export function CalendarView() {
     }
   }, [formData, editingEvent, createMutation, updateMutation]);
 
-  const handleDelete = useCallback(async (id: string) => {
-    try {
-      await deleteMutation.mutateAsync(id);
-      setDeleteConfirmId(null);
-    } catch {
-      // Error is handled by mutation state
-    }
-  }, [deleteMutation]);
+  const handleDelete = useCallback(
+    async (id: string) => {
+      try {
+        await deleteMutation.mutateAsync(id);
+        setDeleteConfirmId(null);
+      } catch {
+        // Error is handled by mutation state
+      }
+    },
+    [deleteMutation],
+  );
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
@@ -217,9 +228,7 @@ export function CalendarView() {
       <div className="flex h-full items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-[#4f6ef7]" />
-          <p className="dark:text-dark-text-secondary text-sm text-gray-500">
-            Naptár betöltése...
-          </p>
+          <p className="dark:text-dark-text-secondary text-sm text-gray-500">Naptár betöltése...</p>
         </div>
       </div>
     );
@@ -239,7 +248,7 @@ export function CalendarView() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4 p-4 sm:p-6">
+    <div className="mx-auto max-w-5xl space-y-4 p-3 sm:p-6">
       {/* Fejléc */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
@@ -264,7 +273,7 @@ export function CalendarView() {
               className={cn(
                 'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
                 viewMode === 'week'
-                  ? 'bg-white text-[#4f6ef7] shadow-sm dark:bg-dark-bg-secondary dark:text-[#6d8cff]'
+                  ? 'dark:bg-dark-bg-secondary bg-white text-[#4f6ef7] shadow-sm dark:text-[#6d8cff]'
                   : 'dark:text-dark-text-secondary text-gray-600 hover:text-gray-900',
               )}
             >
@@ -275,7 +284,7 @@ export function CalendarView() {
               className={cn(
                 'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
                 viewMode === 'day'
-                  ? 'bg-white text-[#4f6ef7] shadow-sm dark:bg-dark-bg-secondary dark:text-[#6d8cff]'
+                  ? 'dark:bg-dark-bg-secondary bg-white text-[#4f6ef7] shadow-sm dark:text-[#6d8cff]'
                   : 'dark:text-dark-text-secondary text-gray-600 hover:text-gray-900',
               )}
             >
@@ -455,7 +464,7 @@ export function CalendarView() {
                   value={formData.summary}
                   onChange={(e) => setFormData((f) => ({ ...f, summary: e.target.value }))}
                   placeholder="Esemény neve..."
-                  className="dark:bg-dark-bg-tertiary dark:border-dark-border dark:text-dark-text w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  className="dark:bg-dark-bg-tertiary dark:border-dark-border dark:text-dark-text w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
                   autoFocus
                 />
               </div>
@@ -470,7 +479,7 @@ export function CalendarView() {
                   onChange={(e) => setFormData((f) => ({ ...f, description: e.target.value }))}
                   placeholder="Részletek..."
                   rows={3}
-                  className="dark:bg-dark-bg-tertiary dark:border-dark-border dark:text-dark-text w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  className="dark:bg-dark-bg-tertiary dark:border-dark-border dark:text-dark-text w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
                 />
               </div>
 
@@ -484,7 +493,7 @@ export function CalendarView() {
                   value={formData.location}
                   onChange={(e) => setFormData((f) => ({ ...f, location: e.target.value }))}
                   placeholder="Helyszín..."
-                  className="dark:bg-dark-bg-tertiary dark:border-dark-border dark:text-dark-text w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  className="dark:bg-dark-bg-tertiary dark:border-dark-border dark:text-dark-text w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
                 />
               </div>
 
@@ -517,7 +526,7 @@ export function CalendarView() {
                     type={formData.isAllDay ? 'date' : 'datetime-local'}
                     value={formData.start}
                     onChange={(e) => setFormData((f) => ({ ...f, start: e.target.value }))}
-                    className="dark:bg-dark-bg-tertiary dark:border-dark-border dark:text-dark-text w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    className="dark:bg-dark-bg-tertiary dark:border-dark-border dark:text-dark-text w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
                   />
                 </div>
                 <div>
@@ -528,7 +537,7 @@ export function CalendarView() {
                     type={formData.isAllDay ? 'date' : 'datetime-local'}
                     value={formData.end}
                     onChange={(e) => setFormData((f) => ({ ...f, end: e.target.value }))}
-                    className="dark:bg-dark-bg-tertiary dark:border-dark-border dark:text-dark-text w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    className="dark:bg-dark-bg-tertiary dark:border-dark-border dark:text-dark-text w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -642,7 +651,7 @@ function EventCard({
       className={cn(
         'group dark:border-dark-border rounded-lg border p-3 transition-colors',
         event.isAllDay
-          ? 'border-gray-200 bg-gray-50/70 dark:bg-dark-bg-tertiary/50'
+          ? 'dark:bg-dark-bg-tertiary/50 border-gray-200 bg-gray-50/70'
           : 'border-purple-200 bg-purple-50/30 dark:border-purple-500/20 dark:bg-purple-500/5',
         highlighted && 'ring-2 ring-[#4f6ef7]/40 dark:ring-[#6d8cff]/40',
       )}
@@ -656,9 +665,7 @@ function EventCard({
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <p className="dark:text-dark-text text-sm font-medium text-gray-900">
-              {event.summary}
-            </p>
+            <p className="dark:text-dark-text text-sm font-medium text-gray-900">{event.summary}</p>
 
             {/* Akció gombok */}
             <div className="flex flex-shrink-0 items-center gap-1">

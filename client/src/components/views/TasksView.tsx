@@ -47,7 +47,7 @@ export function TasksView() {
   const [activeTab, setActiveTab] = useState<TabType>('detected');
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4 p-4 sm:p-6">
+    <div className="mx-auto max-w-4xl space-y-3 p-3 sm:p-6">
       {/* Fejléc */}
       <div className="flex items-center gap-3">
         <CheckSquare className="h-7 w-7 text-green-500" />
@@ -61,7 +61,7 @@ export function TasksView() {
           className={cn(
             'flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors',
             activeTab === 'detected'
-              ? 'bg-white text-[#4f6ef7] shadow-sm dark:bg-dark-bg-secondary dark:text-[#6d8cff]'
+              ? 'dark:bg-dark-bg-secondary bg-white text-[#4f6ef7] shadow-sm dark:text-[#6d8cff]'
               : 'dark:text-dark-text-secondary text-gray-600 hover:text-gray-900',
           )}
         >
@@ -75,7 +75,7 @@ export function TasksView() {
           className={cn(
             'flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors',
             activeTab === 'google'
-              ? 'bg-white text-[#4f6ef7] shadow-sm dark:bg-dark-bg-secondary dark:text-[#6d8cff]'
+              ? 'dark:bg-dark-bg-secondary bg-white text-[#4f6ef7] shadow-sm dark:text-[#6d8cff]'
               : 'dark:text-dark-text-secondary text-gray-600 hover:text-gray-900',
           )}
         >
@@ -89,7 +89,7 @@ export function TasksView() {
           className={cn(
             'flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors',
             activeTab === 'brief'
-              ? 'bg-white text-[#4f6ef7] shadow-sm dark:bg-dark-bg-secondary dark:text-[#6d8cff]'
+              ? 'dark:bg-dark-bg-secondary bg-white text-[#4f6ef7] shadow-sm dark:text-[#6d8cff]'
               : 'dark:text-dark-text-secondary text-gray-600 hover:text-gray-900',
           )}
         >
@@ -100,7 +100,13 @@ export function TasksView() {
         </button>
       </div>
 
-      {activeTab === 'detected' ? <DetectedTasksTab /> : activeTab === 'google' ? <GoogleTasksTab /> : <DailyBriefView />}
+      {activeTab === 'detected' ? (
+        <DetectedTasksTab />
+      ) : activeTab === 'google' ? (
+        <GoogleTasksTab />
+      ) : (
+        <DailyBriefView />
+      )}
     </div>
   );
 }
@@ -119,12 +125,7 @@ function DetectedTasksTab() {
 
   // Auto-scan: ha nincs task és stats mind 0 → első scan 180 nap
   useEffect(() => {
-    if (
-      statsData &&
-      statsData.open === 0 &&
-      !hasAutoScanned &&
-      !scanState.isScanning
-    ) {
+    if (statsData && statsData.open === 0 && !hasAutoScanned && !scanState.isScanning) {
       queueMicrotask(() => setHasAutoScanned(true));
       startScan(180);
     }
@@ -143,20 +144,21 @@ function DetectedTasksTab() {
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="font-medium">
               {scanState.phase === 'loading' && '📨 Emailek betöltése...'}
-              {scanState.phase === 'scanning' && `🔍 Elemzés: ${scanState.processed}/${scanState.total} email (${scanState.found} új)`}
+              {scanState.phase === 'scanning' &&
+                `🔍 Elemzés: ${scanState.processed}/${scanState.total} email (${scanState.found} új)`}
               {scanState.phase === 'updating' && '📊 Prioritások frissítése...'}
             </span>
             <span className="text-blue-600 dark:text-blue-400">
-              {scanState.found} új feladat{scanState.skipped > 0 ? ` (${scanState.skipped} korábban feldolgozott)` : ''}
+              {scanState.found} új feladat
+              {scanState.skipped > 0 ? ` (${scanState.skipped} korábban feldolgozott)` : ''}
             </span>
           </div>
           <div className="h-2 w-full rounded-full bg-blue-200 dark:bg-blue-800">
             <div
               className="h-full rounded-full bg-blue-500 transition-all duration-300"
               style={{
-                width: scanState.total > 0
-                  ? `${(scanState.processed / scanState.total) * 100}%`
-                  : '0%',
+                width:
+                  scanState.total > 0 ? `${(scanState.processed / scanState.total) * 100}%` : '0%',
               }}
             />
           </div>
@@ -178,7 +180,9 @@ function DetectedTasksTab() {
           </span>
           <span className="flex items-center gap-1.5 text-sm">
             <span className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
-            <span className="font-medium text-yellow-600 dark:text-yellow-400">{statsData.medium}</span>
+            <span className="font-medium text-yellow-600 dark:text-yellow-400">
+              {statsData.medium}
+            </span>
             <span className="dark:text-dark-text-muted text-gray-500">közepes</span>
           </span>
           <span className="flex items-center gap-1.5 text-sm">
@@ -197,19 +201,21 @@ function DetectedTasksTab() {
         <div className="flex items-center gap-2">
           <Filter className="dark:text-dark-text-muted h-4 w-4 text-gray-400" />
           <div className="dark:bg-dark-bg-tertiary flex rounded-lg bg-gray-100 p-1">
-            {([
-              { key: 'all', label: 'Mind' },
-              { key: 'high', label: 'Sürgős' },
-              { key: 'medium', label: 'Közepes' },
-              { key: 'low', label: 'Alacsony' },
-            ] as const).map((f) => (
+            {(
+              [
+                { key: 'all', label: 'Mind' },
+                { key: 'high', label: 'Sürgős' },
+                { key: 'medium', label: 'Közepes' },
+                { key: 'low', label: 'Alacsony' },
+              ] as const
+            ).map((f) => (
               <button
                 key={f.key}
                 onClick={() => setPriorityFilter(f.key)}
                 className={cn(
                   'rounded-md px-3 py-1 text-xs font-medium transition-colors',
                   priorityFilter === f.key
-                    ? 'bg-white text-[#4f6ef7] shadow-sm dark:bg-dark-bg-secondary dark:text-[#6d8cff]'
+                    ? 'dark:bg-dark-bg-secondary bg-white text-[#4f6ef7] shadow-sm dark:text-[#6d8cff]'
                     : 'dark:text-dark-text-secondary text-gray-600 hover:text-gray-900',
                 )}
               >
@@ -286,7 +292,9 @@ function DetectedTaskCard({ task }: { task: DetectedTask }) {
       toast.error('Nincs feladó email');
       return;
     }
-    const subject = (task.subject ?? '').startsWith('Re:') ? task.subject! : `Re: ${task.subject ?? '(nincs tárgy)'}`;
+    const subject = (task.subject ?? '').startsWith('Re:')
+      ? task.subject!
+      : `Re: ${task.subject ?? '(nincs tárgy)'}`;
     const threadId = task.threadId || '';
     navigate(
       `/compose?reply=true&to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}${threadId ? `&threadId=${threadId}` : ''}`,
@@ -396,7 +404,7 @@ function DetectedTaskCard({ task }: { task: DetectedTask }) {
                 <ChevronDown className="h-3 w-3" />
               </button>
               {showSnooze && (
-                <div className="dark:bg-dark-bg-secondary dark:border-dark-border absolute right-0 top-full z-10 mt-1 min-w-[120px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                <div className="dark:bg-dark-bg-secondary dark:border-dark-border absolute top-full right-0 z-10 mt-1 min-w-[120px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
                   <button
                     onClick={() => handleSnooze(1)}
                     className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50"
@@ -474,10 +482,10 @@ function GoogleTasksTab() {
   const currentListId = activeListId || listsData?.lists?.[0]?.id || null;
 
   const showCompleted = filter !== 'open';
-  const {
-    data: tasksData,
-    isLoading: tasksLoading,
-  } = useTaskListItems(currentListId, showCompleted);
+  const { data: tasksData, isLoading: tasksLoading } = useTaskListItems(
+    currentListId,
+    showCompleted,
+  );
 
   const updateTask = useUpdateTask();
   const createTask = useCreateTask();
@@ -579,7 +587,7 @@ function GoogleTasksTab() {
                 className={cn(
                   'rounded-md px-3 py-1 text-xs font-medium transition-colors',
                   filter === f
-                    ? 'bg-white text-[#4f6ef7] shadow-sm dark:bg-dark-bg-secondary dark:text-[#6d8cff]'
+                    ? 'dark:bg-dark-bg-secondary bg-white text-[#4f6ef7] shadow-sm dark:text-[#6d8cff]'
                     : 'dark:text-dark-text-secondary text-gray-600 hover:text-gray-900',
                 )}
               >
@@ -615,11 +623,7 @@ function GoogleTasksTab() {
           disabled={!newTaskTitle.trim() || createTask.isPending}
           className="flex-shrink-0 rounded-lg bg-green-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {createTask.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            'Hozzáadás'
-          )}
+          {createTask.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Hozzáadás'}
         </button>
       </div>
 
@@ -674,9 +678,7 @@ function GoogleTaskCard({
     <div
       className={cn(
         'dark:bg-dark-bg-secondary dark:border-dark-border group rounded-xl border bg-white p-4 shadow-sm transition-all',
-        isCompleted
-          ? 'border-gray-100 opacity-60 dark:opacity-50'
-          : 'border-gray-200',
+        isCompleted ? 'border-gray-100 opacity-60 dark:opacity-50' : 'border-gray-200',
       )}
     >
       <div className="flex items-start gap-3">

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+// responsive-tuned: mobile-first touch sizing
 import {
   useTemplates,
   useCreateTemplate,

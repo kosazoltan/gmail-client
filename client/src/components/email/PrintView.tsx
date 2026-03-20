@@ -10,8 +10,8 @@ export function PrintView({ emails }: Props) {
   const sorted = [...emails].sort((a, b) => a.date - b.date);
 
   return (
-    <div id="zmail-print-view" className="mx-auto max-w-3xl bg-white p-6 text-black">
-      <style>{`@media print { .no-print { display:none !important; } body { background:#fff!important; } }`}</style>
+    <div id="zmail-print-view" className="mx-auto max-w-[680px] bg-white p-6 text-black">
+      <style>{`@media print { .no-print { display:none !important; } body { background:#fff!important; } * { background: transparent !important; box-shadow:none !important; } a { color:#2563eb !important; text-decoration:underline !important; } h1 { font-size:18px !important; margin-bottom:4px !important; } }`}</style>
       {sorted.map((email) => (
         <article key={email.id} className="mb-8 border-b border-gray-200 pb-6 last:border-b-0">
           <h1 className="mb-2 text-xl font-semibold">{email.subject || '(Nincs tárgy)'}</h1>

@@ -50,6 +50,8 @@ import { toast } from '../../lib/toast';
 interface SidebarProps {
   isOpen: boolean;
   onToggle: () => void;
+  isMobile?: boolean;
+  isTablet?: boolean;
 }
 
 // --- Collapsible group helpers ---
@@ -175,14 +177,16 @@ function SectionHeader({
   isOpen,
   onToggle,
   sidebarOpen,
+  isTablet,
 }: {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   isOpen: boolean;
   onToggle: () => void;
   sidebarOpen: boolean;
+  isTablet?: boolean;
 }) {
-  if (!sidebarOpen) return null;
+  if (!sidebarOpen || isTablet) return null;
 
   return (
     <button
@@ -198,7 +202,7 @@ function SectionHeader({
   );
 }
 
-export function Sidebar({ isOpen, onToggle }: SidebarProps) {
+export function Sidebar({ isOpen, onToggle, isMobile = false, isTablet = false }: SidebarProps) {
   const { data: session } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
@@ -277,12 +281,12 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
     <aside
       className={cn(
         'dark:bg-dark-bg-secondary dark:border-dark-border flex h-full flex-col border-r border-gray-200/80 bg-white transition-all duration-200',
-        isOpen ? 'w-64' : 'w-16',
+        isMobile ? 'w-[85vw] max-w-[320px]' : isTablet ? 'w-20' : isOpen ? 'w-64' : 'w-16',
       )}
     >
       {/* Logo / Collapse */}
       <div className="dark:border-dark-border flex items-center justify-between border-b border-gray-100 p-4">
-        {isOpen ? (
+        {isOpen && !isTablet ? (
           <div className="flex items-center gap-2">
             <ZMailLogo size={28} />
             <span className="dark:text-dark-text font-semibold text-gray-800">ZMail</span>
@@ -315,7 +319,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
           title="Új levél írása"
         >
           <PenSquare className="h-5 w-5" />
-          {isOpen && <span className="font-medium">Új levél</span>}
+          {isOpen && !isTablet && <span className="font-medium">Új levél</span>}
         </button>
       </div>
 
@@ -344,6 +348,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
           isOpen={viewsGroup.isOpen}
           onToggle={viewsGroup.toggle}
           sidebarOpen={isOpen}
+          isTablet={isTablet}
         />
         {(viewsGroup.isOpen || !isOpen) && (
           <>
@@ -412,6 +417,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
           isOpen={aiGroup.isOpen}
           onToggle={aiGroup.toggle}
           sidebarOpen={isOpen}
+          isTablet={isTablet}
         />
         {(aiGroup.isOpen || !isOpen) && (
           <>
@@ -540,6 +546,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
               isOpen={savedSearchGroup.isOpen}
               onToggle={savedSearchGroup.toggle}
               sidebarOpen={isOpen}
+              isTablet={isTablet}
             />
             {(savedSearchGroup.isOpen || !isOpen) &&
               savedSearches.slice(0, isOpen ? 10 : 3).map((search) => {

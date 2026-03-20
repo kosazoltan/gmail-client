@@ -29,7 +29,7 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
         className={`dark:border-dark-border dark:bg-dark-bg-secondary w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl ${error ? 'animate-[shake_0.3s_ease-in-out]' : ''}`}
       >
         <div className="mb-6 flex flex-col items-center gap-2">
-          <ZMailLogo size={56} />
+          <ZMailLogo size={40} className="sm:h-14 sm:w-14" />
           <h2 className="dark:text-dark-text text-xl font-semibold text-gray-900">
             Alkalmazás zárolva
           </h2>
@@ -52,7 +52,7 @@ export function LockScreen({ onUnlock }: LockScreenProps) {
             if (e.key === 'Enter') void submit();
           }}
           placeholder="PIN (4-6 számjegy)"
-          className="dark:border-dark-border dark:bg-dark-bg dark:text-dark-text dark:placeholder-dark-text-muted w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-center tracking-[0.4em] text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+          className="dark:border-dark-border dark:bg-dark-bg dark:text-dark-text dark:placeholder-dark-text-muted w-full rounded-lg border border-gray-300 bg-white px-3 py-3 text-center text-lg tracking-[0.45em] text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
           autoFocus
         />
 

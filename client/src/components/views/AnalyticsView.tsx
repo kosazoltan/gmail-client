@@ -10,7 +10,7 @@ export function AnalyticsView() {
   const totalCat = data.categories.reduce((s, c) => s + c.count, 0) || 1;
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 p-3 sm:space-y-6 sm:p-6">
       <h1 className="dark:text-dark-text flex items-center gap-2 text-xl font-semibold">
         <BarChart3 className="h-5 w-5" />
         Statisztikák
@@ -18,7 +18,7 @@ export function AnalyticsView() {
 
       <section className="dark:border-dark-border dark:bg-dark-bg-secondary rounded-xl border p-4">
         <h2 className="mb-3 font-medium">Email volumen (30 nap)</h2>
-        <div className="flex h-28 items-end gap-1">
+        <div className="flex h-28 min-w-[640px] items-end gap-1">
           {data.dailyVolume.map((d) => (
             <div
               key={d.day}
@@ -30,7 +30,7 @@ export function AnalyticsView() {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-2">
         <div className="dark:border-dark-border dark:bg-dark-bg-secondary rounded-xl border p-4">
           <h3 className="font-medium">Átlagos válaszidő</h3>
           <p className="mt-2 text-2xl font-semibold">{data.avgResponseHours} óra</p>
@@ -46,7 +46,7 @@ export function AnalyticsView() {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-2">
         <div className="dark:border-dark-border dark:bg-dark-bg-secondary rounded-xl border p-4">
           <h3 className="mb-2 font-medium">Top 10 küldő</h3>
           <ul className="space-y-1 text-sm">
