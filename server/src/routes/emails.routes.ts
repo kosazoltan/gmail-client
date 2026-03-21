@@ -1,7 +1,11 @@
 import { Router } from 'express';
 import { v4 as uuid } from 'uuid';
 import { queryOne, queryAll, execute } from '../db/index.js';
-import { getOAuth2ClientForAccount } from '../services/auth.service.js';
+import {
+  getOAuth2ClientForAccount,
+  isMissingVaultTokenError,
+  OAUTH_RELOGIN_REQUIRED_MESSAGE,
+} from '../services/auth.service.js';
 import {
   getGmailClient,
   getMessage,
@@ -713,6 +717,10 @@ async function batchDeleteHandler(req: any, res: any) {
 
     res.json({ success: true, deletedCount: successCount, failedCount: failCount });
   } catch (error) {
+    if (isMissingVaultTokenError(error)) {
+      res.status(401).json({ error: OAUTH_RELOGIN_REQUIRED_MESSAGE, code: 'OAUTH_VAULT_MISSING' });
+      return;
+    }
     logger.error('Batch törlés hiba:', error);
     res.status(500).json({ error: 'Batch törlés sikertelen' });
   }
@@ -770,6 +778,10 @@ router.delete('/:id', async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
+    if (isMissingVaultTokenError(error)) {
+      res.status(401).json({ error: OAUTH_RELOGIN_REQUIRED_MESSAGE, code: 'OAUTH_VAULT_MISSING' });
+      return;
+    }
     logger.error('Törlés hiba:', {
       emailId,
       accountId,

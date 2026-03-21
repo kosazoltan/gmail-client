@@ -21,6 +21,7 @@ import type { ThreadEmail } from '../../types';
 import DOMPurify from 'dompurify';
 import { trySplitLegacyAiDigestBodyHtml } from '../../lib/legacyDigestEmail';
 import { isGoogleCalendarNotificationFrom } from '../../lib/googleCalendarNotification';
+import { userVisibleApiError } from '../../lib/mutationErrors';
 
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
   if (node.tagName === 'A' && node.getAttribute('target') === '_blank') {
@@ -348,13 +349,13 @@ export function ThreadView() {
     try {
       await deleteEmail.mutateAsync({ emailId, accountId });
       toast.success('Üzenet törölve');
-    } catch {
+    } catch (err) {
       setDeletedEmailIds((prev) => {
         const next = new Set(prev);
         next.delete(emailId);
         return next;
       });
-      toast.error('Nem sikerült törölni az üzenetet');
+      toast.error(userVisibleApiError(err, 'Nem sikerült törölni az üzenetet'));
     }
   };
 

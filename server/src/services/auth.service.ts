@@ -21,6 +21,10 @@ export function isMissingVaultTokenError(err: unknown): boolean {
   return msg.includes('Token nem található secure vaultban');
 }
 
+/** Felhasználónak megjelenő üzenet, ha OAuth token nincs a vaultban (törlés / Gmail API). */
+export const OAUTH_RELOGIN_REQUIRED_MESSAGE =
+  'A Gmail nem elérhető: a szerveren nincs mentett Google-token (pl. újraindítás után). Jelentkezz ki, majd jelentkezz be újra ugyanazzal a fiókkal.';
+
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/gmail.send',

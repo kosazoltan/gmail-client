@@ -43,6 +43,7 @@ import { InlineCopilotBar } from '../ai/InlineCopilotBar';
 import { QuickReply } from './QuickReply';
 import { trySplitLegacyAiDigestBodyHtml } from '../../lib/legacyDigestEmail';
 import { isGoogleCalendarNotificationFrom } from '../../lib/googleCalendarNotification';
+import { userVisibleApiError } from '../../lib/mutationErrors';
 
 interface EmailDetailProps {
   emailId: string | null;
@@ -613,7 +614,12 @@ export function EmailDetail({
                       },
                       onError: (error) => {
                         console.error('Delete failed:', error);
-                        setDeleteError('Nem sikerült törölni az emailt. Próbáld újra.');
+                        setDeleteError(
+                          userVisibleApiError(
+                            error,
+                            'Nem sikerült törölni az emailt. Próbáld újra.',
+                          ),
+                        );
                       },
                     },
                   );
