@@ -237,7 +237,7 @@ export async function getOAuth2ClientForAccount(accountId: string) {
         getVaultMarker(),
         accountId,
       ]);
-      logger.debug(`Token migration -> vault completed for ${account.email}`);
+      logger.info(`Token migration -> vault completed for ${account.email}`);
     }
   }
 

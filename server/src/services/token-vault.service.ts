@@ -61,8 +61,8 @@ function logDbVaultOnce(): void {
   if (loggedDbVaultMode) return;
   loggedDbVaultMode = true;
   if (useDatabaseTokenVault()) {
-    logger.debug(
-      'TokenVault: PostgreSQL oauth_token_store active (tokens survive restarts when ENCRYPTION_KEY stable)',
+    logger.info(
+      'TokenVault: PostgreSQL (oauth_token_store) + ENCRYPTION_KEY — OAuth tokenek újraindítás után is megmaradnak',
     );
   }
 }
@@ -184,7 +184,7 @@ async function loadKeytar(): Promise<KeytarModule | null> {
 
   // Render / Docker: nincs libsecret — a natív modul betöltése felesleges zaj + ERR_DLOPEN_FAILED
   if (process.env.RENDER === 'true' || process.env.ZMAIL_SKIP_KEYTAR === '1') {
-    logger.debug('TokenVault: keytar skipped (PaaS / ZMAIL_SKIP_KEYTAR), file or DB vault');
+    logger.info('TokenVault: keytar kihagyva (PaaS / ZMAIL_SKIP_KEYTAR), AES fájl vault');
     return keytarRef;
   }
 
@@ -197,12 +197,12 @@ async function loadKeytar(): Promise<KeytarModule | null> {
       typeof m?.deletePassword === 'function'
     ) {
       keytarRef = m;
-      logger.debug('TokenVault: keytar backend active');
+      logger.info('TokenVault: keytar backend active');
     }
   } catch (err) {
     const e = err as Error & { code?: string };
-    logger.debug(
-      `TokenVault: keytar unavailable (${e.code || 'unknown'}: ${e.message}), using file/DB vault`,
+    logger.warn(
+      `TokenVault: keytar nem elérhető (${e.code || 'unknown'}: ${e.message}), AES fájl vault`,
     );
   }
 
@@ -212,8 +212,8 @@ async function loadKeytar(): Promise<KeytarModule | null> {
 async function readFallbackVault(): Promise<FallbackVaultShape> {
   if (process.env.RENDER === 'true' && !getStableVaultKey() && !warnedUnstableVault) {
     warnedUnstableVault = true;
-    logger.debug(
-      'TokenVault: ENCRYPTION_KEY missing or short (<16) — set a stable key for durable vault encryption.',
+    logger.warn(
+      'TokenVault: ENCRYPTION_KEY hiányzik vagy rövid (<16) — újraindításkor a vault elveszhet. Állíts be ENCRYPTION_KEY-t!',
     );
   }
 
@@ -231,8 +231,8 @@ async function readFallbackVault(): Promise<FallbackVaultShape> {
     // Migráció: korábban géphez kötött kulccsal titkolt fájl
     const legacy = decryptVaultFileContents(raw, getLegacyMachineBoundKey());
     if (legacy && Object.keys(legacy).length > 0) {
-      logger.debug(
-        'TokenVault: legacy machine-bound vault file readable; will re-encrypt on next save with stable key',
+      logger.info(
+        'TokenVault: legacy gépi kulcsról migrálás stabil ENCRYPTION_KEY kulcsra (újraírás mentéskor)',
       );
       return legacy;
     }
@@ -330,7 +330,7 @@ export async function getTokens(accountEmail: string): Promise<OAuthTokenPair | 
       const fromDb = await getTokensDb(accountEmail);
       if (fromDb) return fromDb;
     } catch (err) {
-      logger.debug('TokenVault: oauth_token_store read failed, trying fallback:', err);
+      logger.warn('TokenVault: oauth_token_store olvasás sikertelen, fallback:', err);
     }
   }
 
@@ -343,9 +343,9 @@ export async function getTokens(accountEmail: string): Promise<OAuthTokenPair | 
     if (pair && useDb) {
       try {
         await saveTokensDb(accountEmail, pair);
-        logger.debug(`TokenVault: migrated keytar → oauth_token_store (${accountEmail})`);
+        logger.info(`TokenVault: keytar → oauth_token_store migráció (${accountEmail})`);
       } catch (e) {
-        logger.debug('TokenVault: keytar→DB migration failed:', e);
+        logger.warn('TokenVault: keytar→DB migráció sikertelen:', e);
       }
     }
     return pair;
@@ -355,9 +355,9 @@ export async function getTokens(accountEmail: string): Promise<OAuthTokenPair | 
   if (fromFile && useDb) {
     try {
       await saveTokensDb(accountEmail, fromFile);
-      logger.debug(`TokenVault: migrated file vault → oauth_token_store (${accountEmail})`);
+      logger.info(`TokenVault: fájl vault → oauth_token_store migráció (${accountEmail})`);
     } catch (e) {
-      logger.debug('TokenVault: file→DB migration failed:', e);
+      logger.warn('TokenVault: fájl→DB migráció sikertelen:', e);
     }
   }
   return fromFile;
@@ -370,7 +370,7 @@ export async function deleteTokens(accountEmail: string): Promise<void> {
     try {
       await deleteTokensDb(accountEmail);
     } catch (err) {
-      logger.debug('TokenVault: oauth_token_store delete:', err);
+      logger.warn('TokenVault: oauth_token_store törlés:', err);
     }
   }
 
@@ -380,6 +380,19 @@ export async function deleteTokens(accountEmail: string): Promise<void> {
     return;
   }
   await deleteFallback(accountEmail);
+}
+
+/**
+ * Van-e mentett OAuth token a fiókhoz (oauth_token_store / fájl / keytar).
+ * Szinkron előtt hívandó, hogy ne dobjunk „nincs token” kivételt, ha egyszerűen még nincs bejelentkezve.
+ */
+export async function hasStoredOAuthTokensForAccount(accountId: string): Promise<boolean> {
+  const row = await queryOne<{ email: string }>('SELECT email FROM accounts WHERE id = ?', [
+    accountId,
+  ]);
+  if (!row?.email?.trim()) return false;
+  const pair = await getTokens(row.email.trim());
+  return Boolean(pair?.accessToken && pair?.refreshToken);
 }
 
 export function getVaultMarker(): string {

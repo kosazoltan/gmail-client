@@ -14,7 +14,8 @@ import {
   reprocessRecentOperationalSignals,
   syncAccount,
 } from './services/sync.service.js';
-import { getAllAccounts, isMissingVaultTokenError } from './services/auth.service.js';
+import { getAllAccounts } from './services/auth.service.js';
+import { hasStoredOAuthTokensForAccount } from './services/token-vault.service.js';
 import { v4 as uuidv4 } from 'uuid';
 import logger from './utils/logger.js';
 
@@ -266,32 +267,40 @@ async function start() {
   } catch (error) {
     logger.error('Startup account preload failed; continuing without eager background sync', error);
   }
-  // Azonnali szinkronizálás induláskor — ne kelljen kézzel frissíteni
+  // Azonnali szinkron csak ha van mentett OAuth token — nem hívunk syncAccount-ot „üres” vaulttal
   for (const account of existingAccounts) {
+    if (!(await hasStoredOAuthTokensForAccount(account.id))) {
+      continue;
+    }
     syncAccount(account.id).catch((err) => {
-      if (isMissingVaultTokenError(err)) {
-        logger.debug(
-          `Startup sync skipped (${account.email}): no OAuth token yet — sign in via webapp when ready.`,
-        );
-        return;
-      }
       logger.error(`Startup immediate sync failed for ${account.email}`, err);
     });
   }
 
   // Háttér szinkronizálás 30s késlelt. indítás (periódikus 5 percenként)
   setTimeout(async () => {
+    let oauthAccountCount = 0;
     for (const account of existingAccounts) {
       try {
-        logger.debug(`Background sync timer registered for ${account.email}`);
+        if (!(await hasStoredOAuthTokensForAccount(account.id))) {
+          continue;
+        }
+        oauthAccountCount += 1;
+        logger.info(`Háttérszinkron időzítő: ${account.email}`);
         await startBackgroundSync(account.id);
       } catch (err) {
         logger.error(`Failed to start background sync for ${account.email}`, err);
       }
     }
-    logger.debug(
-      `Periodic sync intervals started for ${existingAccounts.length} account(s) (first tick after SYNC_INTERVAL_MS)`,
-    );
+    if (oauthAccountCount === 0) {
+      logger.info(
+        'Háttérszinkron: nincs mentett OAuth token — intervallum nem indult (jelentkezz be a webappban).',
+      );
+    } else {
+      logger.info(
+        `Háttérszinkron ütemezve: ${oauthAccountCount} fiók (30s után, majd SYNC_INTERVAL_MS).`,
+      );
+    }
   }, 30000);
 
   // Lejárt szundik feldolgozása percenként

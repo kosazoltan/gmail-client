@@ -85,7 +85,7 @@ export async function safeUpsertContact(
     await upsertContact(accountId, email, displayName);
   } catch (err) {
     // Szinkron / tömeges feldolgozásnál ne dobjuk el az egész tranzakciót (timeout, Neon hálózat, stb.)
-    logger.debug(`Contact upsert skipped (${email}):`, err);
+    logger.warn(`Kontakt upsert kihagyva (${email}):`, err);
   }
 }
 

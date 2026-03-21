@@ -2,6 +2,7 @@ import logger from '../utils/logger.js';
 import { queryAll, queryOne, execute, runInTransaction } from '../db/index.js';
 import { v4 as uuidv4 } from 'uuid';
 import { getOAuth2ClientForAccount, isMissingVaultTokenError } from './auth.service.js';
+import { hasStoredOAuthTokensForAccount } from './token-vault.service.js';
 import {
   getGmailClient,
   listMessages,
@@ -652,10 +653,13 @@ export async function startBackgroundSync(accountId: string) {
       return;
     }
     try {
+      if (!(await hasStoredOAuthTokensForAccount(accountId))) {
+        return;
+      }
       await syncAccount(accountId);
     } catch (err) {
       if (isMissingVaultTokenError(err)) {
-        logger.debug(`Background sync skipped (${accountId}): no OAuth token in vault yet.`);
+        logger.debug(`Background sync: token eltűnt a tick előtt (${accountId})`);
         return;
       }
       logger.error(`Háttér szinkronizálás hiba (${accountId}):`, err);

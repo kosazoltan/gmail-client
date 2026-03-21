@@ -190,7 +190,7 @@ router.get('/', async (req, res) => {
 
       openTasks = taskItems.filter((t) => t.status === 'needsAction');
     } catch (oauthErr) {
-      logger.debug('Dashboard: calendar / Google Tasks skipped (no OAuth or API error)', oauthErr);
+      logger.warn('Dashboard: naptár / Google Tasks kihagyva (OAuth vagy API)', oauthErr);
     }
 
     // Detected tasks (email-alapú feladatok) integrálása
