@@ -19,7 +19,8 @@ if (vapidPublicKey && vapidPrivateKey) {
   webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
   logger.info('Push notifications enabled');
 } else {
-  logger.info('Push notifications disabled - VAPID keys not configured');
+  // Opcionális funkció — ne töltse a prod deploy logot (alapból LOG_LEVEL=info)
+  logger.debug('Push notifications disabled — VAPID keys not configured');
 }
 
 interface PushSubscription {
@@ -157,7 +158,7 @@ export async function sendPushToAccount(
   }
 
   // Check quiet hours (unless explicitly ignored)
-  if (!options?.ignoreQuietHours && await isInQuietHours(accountId)) {
+  if (!options?.ignoreQuietHours && (await isInQuietHours(accountId))) {
     logger.info(`Push notification skipped for account ${accountId} - quiet hours active`);
     return { sent: 0, failed: 0 };
   }
