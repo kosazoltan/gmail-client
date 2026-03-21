@@ -270,8 +270,8 @@ async function start() {
   for (const account of existingAccounts) {
     syncAccount(account.id).catch((err) => {
       if (isMissingVaultTokenError(err)) {
-        logger.warn(
-          `Startup sync kihagyva (${account.email}): nincs OAuth token a vaultban — jelentkezz be újra a webappban (ZMAIL_TOKEN_VAULT_FILE + ENCRYPTION_KEY a Renderen).`,
+        logger.debug(
+          `Startup sync skipped (${account.email}): no OAuth token yet — sign in via webapp when ready.`,
         );
         return;
       }
@@ -283,13 +283,15 @@ async function start() {
   setTimeout(async () => {
     for (const account of existingAccounts) {
       try {
-        logger.info(`Starting background sync for account: ${account.email}`);
+        logger.debug(`Background sync timer registered for ${account.email}`);
         await startBackgroundSync(account.id);
       } catch (err) {
         logger.error(`Failed to start background sync for ${account.email}`, err);
       }
     }
-    logger.info(`Background sync scheduled for ${existingAccounts.length} accounts (delayed 30s)`);
+    logger.debug(
+      `Periodic sync intervals started for ${existingAccounts.length} account(s) (first tick after SYNC_INTERVAL_MS)`,
+    );
   }, 30000);
 
   // Lejárt szundik feldolgozása percenként

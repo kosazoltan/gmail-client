@@ -655,9 +655,7 @@ export async function startBackgroundSync(accountId: string) {
       await syncAccount(accountId);
     } catch (err) {
       if (isMissingVaultTokenError(err)) {
-        logger.warn(
-          `Háttér szinkronizálás kihagyva (${accountId}): vaultban nincs OAuth token — jelentkezz be újra.`,
-        );
+        logger.debug(`Background sync skipped (${accountId}): no OAuth token in vault yet.`);
         return;
       }
       logger.error(`Háttér szinkronizálás hiba (${accountId}):`, err);
