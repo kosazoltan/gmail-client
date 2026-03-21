@@ -5,7 +5,7 @@ export function useLatestBrief() {
   return useQuery({
     queryKey: ['daily-brief-latest'],
     queryFn: () => api.brief.latest(),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 60 * 1000, // 1 perc – törlés után invalidate + gyorsabb szinkron a Home-mal
     refetchInterval: 10 * 60 * 1000, // Refetch every 10 min
   });
 }

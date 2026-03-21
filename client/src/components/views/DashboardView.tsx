@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient, useIsFetching } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { hu } from 'date-fns/locale';
 import {
@@ -24,6 +25,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { toast } from '../../lib/toast';
+import { refreshAfterEmailMovedToTrash } from '../../lib/refreshAfterEmailChange';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useUpdateDetectedTask } from '../../hooks/useDetectedTasks';
 import { useLatestBrief, useGenerateBrief } from '../../hooks/useDailyBrief';
@@ -95,7 +97,11 @@ function areAllSelected(selectedIds: Set<string>, ids: string[]): boolean {
 
 export function DashboardView() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data, isLoading, error } = useDashboard();
+  const dashboardFetching = useIsFetching({ queryKey: ['dashboard'], exact: true });
+  const briefFetching = useIsFetching({ queryKey: ['daily-brief-latest'], exact: true });
+  const homeRefreshing = dashboardFetching > 0 || briefFetching > 0;
   const updateTask = useUpdateDetectedTask();
   const batchDeleteEmails = useBatchDeleteEmails();
   const batchMarkRead = useBatchMarkRead();
@@ -346,6 +352,16 @@ export function DashboardView() {
         action={
           <div className="flex items-center gap-3">
             <button
+              type="button"
+              title="Dashboard, AI brief és kapcsolódó listák frissítése a szerverről"
+              onClick={() => void refreshAfterEmailMovedToTrash(queryClient)}
+              disabled={homeRefreshing}
+              className="flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', homeRefreshing && 'animate-spin')} />
+              Frissítés
+            </button>
+            <button
               onClick={() => {
                 if (selectionMode) {
                   exitSelectionMode();
@@ -425,6 +441,8 @@ export function DashboardView() {
             selectionMode={selectionMode}
             selectedEmailIds={selectedEmailIds}
             onToggleSelection={toggleItemSelection}
+            onDeleteItem={handleDeleteActionItem}
+            hiddenItemIds={hiddenActionItemIds}
             compact
           />
           <CalendarCard
@@ -441,6 +459,8 @@ export function DashboardView() {
             selectionMode={selectionMode}
             selectedEmailIds={selectedEmailIds}
             onToggleSelection={toggleItemSelection}
+            onDeleteItem={handleDeleteActionItem}
+            hiddenItemIds={hiddenActionItemIds}
             compact
           />
         </div>
@@ -459,6 +479,8 @@ export function DashboardView() {
             selectionMode={selectionMode}
             selectedEmailIds={selectedEmailIds}
             onToggleSelection={toggleItemSelection}
+            onDeleteItem={handleDeleteActionItem}
+            hiddenItemIds={hiddenActionItemIds}
             compact
           />
           <BriefSummaryCard

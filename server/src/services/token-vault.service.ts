@@ -5,9 +5,20 @@ import path from 'path';
 import logger from '../utils/logger.js';
 
 const SERVICE_NAME = 'ZMail';
-const FALLBACK_FILE = path.resolve(process.cwd(), '.secure', 'token-vault.enc.json');
 const ALGORITHM = 'aes-256-gcm';
 const MARKER = '__TOKEN_IN_VAULT__';
+/** Régi (géphez kötött) kulcs — helyi fejlesztés; PaaS-on hostname változáskor elromlik. */
+const SCRYPT_SALT_LEGACY = 'zmail-token-vault';
+/** Stabil kulcs — csak ENCRYPTION_KEY-ből; Render / újraindítás után is ugyanaz. */
+const SCRYPT_SALT_STABLE = 'zmail-token-vault-v2';
+
+function getFallbackFilePath(): string {
+  const fromEnv = process.env.ZMAIL_TOKEN_VAULT_FILE?.trim();
+  if (fromEnv) return path.isAbsolute(fromEnv) ? fromEnv : path.resolve(process.cwd(), fromEnv);
+  return path.resolve(process.cwd(), '.secure', 'token-vault.enc.json');
+}
+
+const FALLBACK_FILE = getFallbackFilePath();
 
 type KeytarModule = {
   setPassword: (service: string, account: string, password: string) => Promise<void>;
@@ -30,8 +41,17 @@ interface FallbackVaultShape {
 
 let keytarRef: KeytarModule | null = null;
 let keytarLoadTried = false;
+let warnedUnstableVault = false;
 
-function getMachineKey(): Buffer {
+/** Production: ENCRYPTION_KEY (min. 16 karakter) → kulcs NEM függ hostnévtől (Render újraindítás OK). */
+function getStableVaultKey(): Buffer | null {
+  const key = process.env.ENCRYPTION_KEY?.trim();
+  if (!key || key.length < 16) return null;
+  return crypto.scryptSync(key, SCRYPT_SALT_STABLE, 32);
+}
+
+/** Régi viselkedés: hostname + user + platform + ENCRYPTION_KEY — helyi gépen maradhat. */
+function getLegacyMachineBoundKey(): Buffer {
   const secret = [
     os.hostname(),
     os.userInfo().username,
@@ -39,12 +59,42 @@ function getMachineKey(): Buffer {
     os.arch(),
     process.env.ENCRYPTION_KEY || '',
   ].join('|');
-  return crypto.scryptSync(secret, 'zmail-token-vault', 32);
+  return crypto.scryptSync(secret, SCRYPT_SALT_LEGACY, 32);
+}
+
+/** Íráshoz: ha van stabil kulcs, azt használjuk (PaaS). */
+function getPrimaryEncryptionKey(): Buffer {
+  const stable = getStableVaultKey();
+  if (stable) return stable;
+  return getLegacyMachineBoundKey();
+}
+
+function decryptVaultFileContents(raw: string, key: Buffer): FallbackVaultShape | null {
+  try {
+    const [ivHex, authTagHex, encrypted] = raw.split(':');
+    if (!ivHex || !authTagHex || !encrypted) return null;
+
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, Buffer.from(ivHex, 'hex'));
+    decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
+
+    let json = decipher.update(encrypted, 'hex', 'utf8');
+    json += decipher.final('utf8');
+
+    return JSON.parse(json) as FallbackVaultShape;
+  } catch {
+    return null;
+  }
 }
 
 async function loadKeytar(): Promise<KeytarModule | null> {
   if (keytarLoadTried) return keytarRef;
   keytarLoadTried = true;
+
+  // Render / Docker: nincs libsecret — a natív modul betöltése felesleges zaj + ERR_DLOPEN_FAILED
+  if (process.env.RENDER === 'true' || process.env.ZMAIL_SKIP_KEYTAR === '1') {
+    logger.info('TokenVault: keytar kihagyva (PaaS / ZMAIL_SKIP_KEYTAR), AES fájl vault');
+    return keytarRef;
+  }
 
   try {
     const mod = await import('keytar');
@@ -58,35 +108,55 @@ async function loadKeytar(): Promise<KeytarModule | null> {
       logger.info('TokenVault: keytar backend active');
     }
   } catch (err) {
-    logger.warn('TokenVault: keytar nem elérhető, AES fallback használatban', err);
+    const e = err as Error & { code?: string };
+    logger.warn(
+      `TokenVault: keytar nem elérhető (${e.code || 'unknown'}: ${e.message}), AES fájl vault`,
+    );
   }
 
   return keytarRef;
 }
 
 async function readFallbackVault(): Promise<FallbackVaultShape> {
+  if (process.env.RENDER === 'true' && !getStableVaultKey() && !warnedUnstableVault) {
+    warnedUnstableVault = true;
+    logger.warn(
+      'TokenVault: ENCRYPTION_KEY hiányzik vagy rövid (<16) — újraindításkor a vault elveszhet. Állíts be ENCRYPTION_KEY-t!',
+    );
+  }
+
+  let raw: string;
   try {
-    const raw = await fs.readFile(FALLBACK_FILE, 'utf8');
-    const [ivHex, authTagHex, encrypted] = raw.split(':');
-    if (!ivHex || !authTagHex || !encrypted) return {};
-
-    const decipher = crypto.createDecipheriv(ALGORITHM, getMachineKey(), Buffer.from(ivHex, 'hex'));
-    decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
-
-    let json = decipher.update(encrypted, 'hex', 'utf8');
-    json += decipher.final('utf8');
-
-    return JSON.parse(json) as FallbackVaultShape;
+    raw = await fs.readFile(FALLBACK_FILE, 'utf8');
   } catch {
     return {};
   }
+
+  const stable = getStableVaultKey();
+  if (stable) {
+    const data = decryptVaultFileContents(raw, stable);
+    if (data && Object.keys(data).length > 0) return data;
+    // Migráció: korábban géphez kötött kulccsal titkolt fájl
+    const legacy = decryptVaultFileContents(raw, getLegacyMachineBoundKey());
+    if (legacy && Object.keys(legacy).length > 0) {
+      logger.info(
+        'TokenVault: legacy gépi kulcsról migrálás stabil ENCRYPTION_KEY kulcsra (újraírás mentéskor)',
+      );
+      return legacy;
+    }
+    return {};
+  }
+
+  const legacyOnly = decryptVaultFileContents(raw, getLegacyMachineBoundKey());
+  return legacyOnly && Object.keys(legacyOnly).length > 0 ? legacyOnly : {};
 }
 
 async function writeFallbackVault(data: FallbackVaultShape): Promise<void> {
   await fs.mkdir(path.dirname(FALLBACK_FILE), { recursive: true });
 
+  const key = getPrimaryEncryptionKey();
   const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv(ALGORITHM, getMachineKey(), iv);
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
   let encrypted = cipher.update(JSON.stringify(data), 'utf8', 'hex');
   encrypted += cipher.final('hex');
   const authTag = cipher.getAuthTag().toString('hex');

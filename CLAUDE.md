@@ -21,6 +21,7 @@ KRITIKUS TANULSAGOK (2026-02-28)
    Render web service neve: **gmail-client-api**. Adatbázis env kulcs: **DATABASE_URL** (Neon connection string, egyetlen kanonikus kulcs).
    Opcionalis megosztott Neon/Postgres: `ZMAIL_PG_SCHEMA=zmail` — ZMail tablak kulon semaban (`server/docs/NEON-AND-DATABASE.md`).
    Neon Management API nincs a repoban; futas: `pg` + connection string. `@neondatabase/serverless` nem hasznalt.
+   **Token vault (Render):** `ENCRYPTION_KEY` min. 16 karakter (stabil AES kulcs, nem fugg hosttol). Opcionalis: `ZMAIL_TOKEN_VAULT_FILE=/data/.secure/token-vault.enc.json` (perzisztens disk). `RENDER=true` eseten keytar nem toltodik (nincs libsecret).
 
 6. VITE_API_URL KOTELEZO a Vercel-en!
    Erteke: https://api.mindenes.org/api

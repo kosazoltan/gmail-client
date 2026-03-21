@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { refreshAfterEmailMovedToTrash } from '../lib/refreshAfterEmailChange';
 
 export function useEmails(params: {
   accountId?: string;
@@ -158,23 +159,8 @@ export function useDeleteEmail() {
   return useMutation({
     mutationFn: ({ emailId, accountId }: { emailId: string; accountId?: string }) =>
       api.emails.delete(emailId, accountId),
-    onSuccess: () => {
-      // MINDEN email listát frissítünk azonnal - beleértve az infinite query-ket is
-      queryClient.invalidateQueries({ queryKey: ['emails'] });
-      queryClient.invalidateQueries({ queryKey: ['emails-infinite'] });
-      queryClient.invalidateQueries({ queryKey: ['email'] });
-      queryClient.invalidateQueries({ queryKey: ['thread'] });
-      queryClient.invalidateQueries({ queryKey: ['inbox'] });
-      queryClient.invalidateQueries({ queryKey: ['inbox-infinite'] }); // Infinite scroll inbox
-      queryClient.invalidateQueries({ queryKey: ['unified-inbox'] });
-      queryClient.invalidateQueries({ queryKey: ['unified-inbox-infinite'] }); // Infinite scroll unified
-      queryClient.invalidateQueries({ queryKey: ['trash'] });
-      queryClient.invalidateQueries({ queryKey: ['trash-infinite'] }); // Infinite scroll trash
-      queryClient.invalidateQueries({ queryKey: ['views'] });
-      queryClient.invalidateQueries({ queryKey: ['search'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['detected-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['detected-tasks', 'stats'] });
+    onSuccess: async () => {
+      await refreshAfterEmailMovedToTrash(queryClient);
     },
   });
 }
@@ -184,21 +170,8 @@ export function useBatchDeleteEmails() {
   return useMutation({
     mutationFn: ({ emailIds, accountId }: { emailIds: string[]; accountId?: string }) =>
       api.emails.batchDelete(emailIds, accountId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['emails'] });
-      queryClient.invalidateQueries({ queryKey: ['emails-infinite'] });
-      queryClient.invalidateQueries({ queryKey: ['email'] });
-      queryClient.invalidateQueries({ queryKey: ['inbox'] });
-      queryClient.invalidateQueries({ queryKey: ['inbox-infinite'] });
-      queryClient.invalidateQueries({ queryKey: ['unified-inbox'] });
-      queryClient.invalidateQueries({ queryKey: ['unified-inbox-infinite'] });
-      queryClient.invalidateQueries({ queryKey: ['trash'] });
-      queryClient.invalidateQueries({ queryKey: ['trash-infinite'] });
-      queryClient.invalidateQueries({ queryKey: ['views'] });
-      queryClient.invalidateQueries({ queryKey: ['search'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['detected-tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['detected-tasks', 'stats'] });
+    onSuccess: async () => {
+      await refreshAfterEmailMovedToTrash(queryClient);
     },
   });
 }

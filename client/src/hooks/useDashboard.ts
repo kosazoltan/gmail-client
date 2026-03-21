@@ -6,7 +6,7 @@ export function useDashboard(enabled = true) {
     queryKey: ['dashboard'],
     queryFn: () => api.dashboard.get(),
     refetchInterval: enabled ? 120000 : false, // 2 percenként frissít
-    staleTime: 60000,
+    staleTime: 0, // törlés / kuka után ne maradjon 1 percig „friss” a cache
     enabled,
   });
 }

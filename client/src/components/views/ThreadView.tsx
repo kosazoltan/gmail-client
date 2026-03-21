@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useThreadConversation, useDeleteEmail } from '../../hooks/useEmails';
 import { useSession } from '../../hooks/useAccounts';
@@ -19,6 +19,8 @@ import { toast } from '../../lib/toast';
 import { api } from '../../lib/api';
 import type { ThreadEmail } from '../../types';
 import DOMPurify from 'dompurify';
+import { trySplitLegacyAiDigestBodyHtml } from '../../lib/legacyDigestEmail';
+import { isGoogleCalendarNotificationFrom } from '../../lib/googleCalendarNotification';
 
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
   if (node.tagName === 'A' && node.getAttribute('target') === '_blank') {
@@ -60,10 +62,57 @@ function EmailMessage({
   const [expanded, setExpanded] = useState(defaultExpanded);
   const isSent = email.isSent || (accountEmail && email.from === accountEmail);
 
+  const plainTextToHtml = useCallback((text: string): string => {
+    let html = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    html = html.replace(
+      /(https?:\/\/[^\s<>"')\]]+)/gi,
+      '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline break-all">$1</a>',
+    );
+    html = html.replace(
+      /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g,
+      '<a href="mailto:$1" class="text-blue-600 underline">$1</a>',
+    );
+    html = html.replace(/\n/g, '<br>');
+    return html;
+  }, []);
+
+  const legacyAiDigest = useMemo(
+    () => trySplitLegacyAiDigestBodyHtml(email.bodyHtml),
+    [email.bodyHtml],
+  );
+
+  const sanitizedHtmlPart = useMemo(() => {
+    const src = legacyAiDigest?.restHtml ?? email.bodyHtml;
+    if (!src) return '';
+    return DOMPurify.sanitize(src, { ADD_ATTR: ['target'] });
+  }, [email.bodyHtml, legacyAiDigest]);
+
+  const sanitizedLegacyPlain = useMemo(() => {
+    if (!legacyAiDigest?.plain) return '';
+    return DOMPurify.sanitize(plainTextToHtml(legacyAiDigest.plain), {
+      ALLOWED_TAGS: ['br', 'a', 'p', 'span'],
+      ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
+      ADD_ATTR: ['target'],
+    });
+  }, [legacyAiDigest, plainTextToHtml]);
+
+  const sanitizedBodyFromPlainOnly = useMemo(() => {
+    if (!email.body) return '';
+    return DOMPurify.sanitize(plainTextToHtml(email.body), {
+      ALLOWED_TAGS: ['br', 'a', 'p', 'span'],
+      ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
+      ADD_ATTR: ['target'],
+    });
+  }, [email.body, plainTextToHtml]);
+
+  const googleCalendarBodyClass = isGoogleCalendarNotificationFrom(email.from)
+    ? 'email-content--google-calendar'
+    : '';
+
   return (
     <div
       className={cn(
-        'dark:border-dark-border rounded-xl border bg-white dark:bg-dark-bg-secondary',
+        'dark:border-dark-border dark:bg-dark-bg-secondary rounded-xl border bg-white',
         isLast && 'ring-2 ring-[#4f6ef7]/20',
       )}
     >
@@ -131,7 +180,7 @@ function EmailMessage({
       {expanded && (
         <div className="dark:border-dark-border border-t px-4 py-3">
           {/* To/CC info */}
-          <div className="mb-3 space-y-1 text-xs text-gray-500 dark:text-dark-text-muted">
+          <div className="dark:text-dark-text-muted mb-3 space-y-1 text-xs text-gray-500">
             {email.to && (
               <p>
                 <span className="font-medium">Címzett:</span> {email.to}
@@ -146,20 +195,40 @@ function EmailMessage({
 
           {/* Email body */}
           {email.bodyHtml ? (
-            <div
-              className="email-content email-content--preserve max-w-none overflow-x-auto text-gray-900"
-              dangerouslySetInnerHTML={{
-                __html: DOMPurify.sanitize(email.bodyHtml, {
-                  ADD_ATTR: ['target'],
-                }),
-              }}
-            />
+            <>
+              {sanitizedLegacyPlain ? (
+                <div
+                  className={cn(
+                    'email-content email-content--preserve dark:border-dark-border mb-4 max-w-none min-w-0 overflow-x-auto border-b border-gray-200 pb-4 text-gray-900',
+                    googleCalendarBodyClass,
+                  )}
+                  dangerouslySetInnerHTML={{ __html: sanitizedLegacyPlain }}
+                />
+              ) : null}
+              {sanitizedHtmlPart ? (
+                <div
+                  className={cn(
+                    'email-content email-content--preserve max-w-none min-w-0 overflow-x-auto text-gray-900',
+                    googleCalendarBodyClass,
+                  )}
+                  dangerouslySetInnerHTML={{ __html: sanitizedHtmlPart }}
+                />
+              ) : !sanitizedLegacyPlain ? (
+                <p className="dark:text-dark-text-muted text-sm text-gray-400 italic">
+                  Nincs elérhető tartalom
+                </p>
+              ) : null}
+            </>
           ) : email.body ? (
-            <pre className="dark:text-dark-text whitespace-pre-wrap font-sans text-sm text-gray-700">
-              {email.body}
-            </pre>
+            <div
+              className={cn(
+                'email-content email-content--preserve max-w-none min-w-0 overflow-x-auto text-gray-900',
+                googleCalendarBodyClass,
+              )}
+              dangerouslySetInnerHTML={{ __html: sanitizedBodyFromPlainOnly }}
+            />
           ) : (
-            <p className="dark:text-dark-text-muted text-sm italic text-gray-400">
+            <p className="dark:text-dark-text-muted text-sm text-gray-400 italic">
               Nincs elérhető tartalom
             </p>
           )}
@@ -174,7 +243,7 @@ function EmailMessage({
                     href={api.attachments.downloadUrl(att.id)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="dark:bg-dark-bg-tertiary flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-1.5 text-xs transition-colors hover:bg-gray-200 dark:hover:bg-dark-bg-tertiary/80"
+                    className="dark:bg-dark-bg-tertiary dark:hover:bg-dark-bg-tertiary/80 flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-1.5 text-xs transition-colors hover:bg-gray-200"
                   >
                     <Paperclip className="h-3.5 w-3.5 text-gray-500" />
                     <span className="dark:text-dark-text max-w-[150px] truncate text-gray-700">
@@ -231,10 +300,7 @@ export function ThreadView() {
         <p className="dark:text-dark-text-secondary text-sm text-gray-500">
           {error ? 'Hiba a beszélgetés betöltésekor' : 'Beszélgetés nem található'}
         </p>
-        <button
-          onClick={() => navigate(-1)}
-          className="text-sm text-[#4f6ef7] hover:underline"
-        >
+        <button onClick={() => navigate(-1)} className="text-sm text-[#4f6ef7] hover:underline">
           Vissza
         </button>
       </div>
@@ -312,7 +378,9 @@ export function ThreadView() {
       {/* Thread emails */}
       {emails.length === 0 ? (
         <div className="dark:border-dark-border dark:bg-dark-bg-secondary rounded-xl border border-dashed p-6 text-center">
-          <p className="dark:text-dark-text-secondary text-sm text-gray-600">Nincs több üzenet ebben a beszélgetésben.</p>
+          <p className="dark:text-dark-text-secondary text-sm text-gray-600">
+            Nincs több üzenet ebben a beszélgetésben.
+          </p>
           <button
             onClick={() => navigate(-1)}
             className="mt-3 text-sm text-[#4f6ef7] hover:underline"
@@ -340,7 +408,7 @@ export function ThreadView() {
         {!showReply ? (
           <button
             onClick={() => setShowReply(true)}
-            className="flex items-center gap-2 rounded-xl border border-dashed border-gray-300 px-4 py-3 text-sm text-gray-500 transition-colors hover:border-[#4f6ef7] hover:text-[#4f6ef7] dark:border-dark-border dark:text-dark-text-muted dark:hover:border-[#4f6ef7] dark:hover:text-[#4f6ef7]"
+            className="dark:border-dark-border dark:text-dark-text-muted flex items-center gap-2 rounded-xl border border-dashed border-gray-300 px-4 py-3 text-sm text-gray-500 transition-colors hover:border-[#4f6ef7] hover:text-[#4f6ef7] dark:hover:border-[#4f6ef7] dark:hover:text-[#4f6ef7]"
           >
             <Reply className="h-4 w-4" />
             Válasz írása...

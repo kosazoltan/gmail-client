@@ -44,8 +44,9 @@ html.dark ::-webkit-scrollbar-thumb:hover { background: #4a4d54; }
 .email-content {
   color: #111827;
   line-height: 1.55;
-  word-break: break-word;
-  overflow-wrap: anywhere;
+  /* NE overflow-wrap: anywhere — szűk táblázatcellákban karakterenként tör (pl. GitHub „Status” függőlegesen) */
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 /* Do not animate every nested email node -> prevents choppy/darabos rendering */
 .email-content, .email-content * {
@@ -62,22 +63,66 @@ html.dark ::-webkit-scrollbar-thumb:hover { background: #4a4d54; }
   vertical-align: top;
   padding: 0.5rem;
   border: 1px solid #e5e7eb;
+  /* Táblázatos rendszerlevelek (GitHub Actions, stb.): normál szótörés */
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: manual;
+  white-space: normal;
+}
+/* Nagyon hosszú URL / token a cellában még mindig törhet */
+.email-content td a,
+.email-content th a {
+  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 .email-content pre,
 .email-content code {
   white-space: pre-wrap;
   word-break: break-word;
+  overflow-wrap: anywhere;
 }
 .email-content a { color: #2563eb; text-decoration: underline; }
 
 /* Preserve original HTML email theme (no dark-mode color forcing) */
 .email-content--preserve {
+  min-width: 0; /* flex/grid gyerek: URL / hosszú sor törjön, ne folyjon ki */
   background: #ffffff;
   color: #111827;
 }
 html.dark .email-content--preserve {
   background: #ffffff;
   color: #111827;
+}
+
+/*
+ * Google Naptár (calendar-notification@…) HTML: belső „idővonal” táblázat fix / hatalmas magasságokkal.
+ * A .email-content--google-calendar osztályt csak ilyen feladóra tesszük rá (EmailDetail / thread / beszélgetés).
+ */
+.email-content--google-calendar {
+  max-height: min(92vh, 4200px);
+  overflow-y: auto;
+  overflow-x: auto;
+}
+.email-content--google-calendar table {
+  height: auto !important;
+  max-height: none !important;
+}
+.email-content--google-calendar thead,
+.email-content--google-calendar tbody,
+.email-content--google-calendar tr,
+.email-content--google-calendar td,
+.email-content--google-calendar th {
+  height: auto !important;
+}
+.email-content--google-calendar td:empty,
+.email-content--google-calendar th:empty {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  line-height: 0 !important;
+  font-size: 0 !important;
+}
+.email-content--google-calendar table [style*='min-height'] {
+  min-height: 0 !important;
 }
 
 /* Dark mode email content fixes */

@@ -9,7 +9,7 @@ import {
 } from '../../hooks/useEmails';
 import { AttachmentView } from './AttachmentView';
 import { ConversationView } from './ConversationView';
-import { formatFullDate, displaySender, getInitials, emailToColor } from '../../lib/utils';
+import { formatFullDate, displaySender, getInitials, emailToColor, cn } from '../../lib/utils';
 import {
   ArrowLeft,
   Reply,
@@ -41,6 +41,8 @@ import { useEmailTranslation } from '../../hooks/useTranslate';
 import type { ThreadEmail } from '../../types';
 import { InlineCopilotBar } from '../ai/InlineCopilotBar';
 import { QuickReply } from './QuickReply';
+import { trySplitLegacyAiDigestBodyHtml } from '../../lib/legacyDigestEmail';
+import { isGoogleCalendarNotificationFrom } from '../../lib/googleCalendarNotification';
 
 interface EmailDetailProps {
   emailId: string | null;
@@ -119,11 +121,17 @@ export function EmailDetail({
     return html;
   }, []);
 
+  /** Régi digest: plain + HTML egyben, marker előtt/után — külön rendereljük a sortöréseket */
+  const legacyAiDigest = useMemo(
+    () => trySplitLegacyAiDigestBodyHtml(email?.bodyHtml),
+    [email?.bodyHtml],
+  );
+
   // HTML szanitizálás XSS elleni védelem - hook-nak a return előtt kell lennie
   const sanitizedHtml = useMemo(() => {
-    // Ha van bodyHtml, használjuk azt
-    if (email?.bodyHtml) {
-      return DOMPurify.sanitize(email.bodyHtml, {
+    const htmlSource = legacyAiDigest?.restHtml ?? email?.bodyHtml;
+    if (htmlSource) {
+      return DOMPurify.sanitize(htmlSource, {
         ALLOWED_TAGS: [
           // Text formatting
           'p',
@@ -244,7 +252,16 @@ export function EmailDetail({
       });
     }
     return '';
-  }, [email?.bodyHtml, email?.body, plainTextToHtml]);
+  }, [email?.bodyHtml, email?.body, legacyAiDigest, plainTextToHtml]);
+
+  const sanitizedLegacyDigestPlain = useMemo(() => {
+    if (!legacyAiDigest?.plain) return '';
+    return DOMPurify.sanitize(plainTextToHtml(legacyAiDigest.plain), {
+      ALLOWED_TAGS: ['br', 'a', 'p', 'span'],
+      ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
+      ADD_ATTR: ['target'],
+    });
+  }, [legacyAiDigest?.plain, plainTextToHtml]);
 
   // Automatikus olvasottnak jelölés - ref-fel elkerüljük a felesleges újrafutást
   const markReadRef = useRef(markRead);
@@ -300,6 +317,9 @@ export function EmailDetail({
   const sender = displaySender(email.fromName, email.from);
   const initials = getInitials(sender);
   const avatarColor = emailToColor(email.from || '');
+  const googleCalendarBodyClass = isGoogleCalendarNotificationFrom(email.from)
+    ? 'email-content--google-calendar'
+    : '';
 
   // Időformázás rövidebb verzió
   const formatTime = (timestamp: number) => {
@@ -837,7 +857,10 @@ export function EmailDetail({
                 <div className="p-3 sm:p-5 md:p-6">
                   {translatedContent?.body ? (
                     <div
-                      className="email-content email-content--preserve max-w-none overflow-x-auto text-gray-900 dark:text-gray-200"
+                      className={cn(
+                        'email-content email-content--preserve max-w-none min-w-0 overflow-x-auto text-gray-900 dark:text-gray-200',
+                        googleCalendarBodyClass,
+                      )}
                       dangerouslySetInnerHTML={{
                         __html: DOMPurify.sanitize(plainTextToHtml(translatedContent.body), {
                           ALLOWED_TAGS: ['br', 'a', 'p', 'span'],
@@ -846,9 +869,33 @@ export function EmailDetail({
                         }),
                       }}
                     />
+                  ) : legacyAiDigest && (sanitizedLegacyDigestPlain || sanitizedHtml) ? (
+                    <>
+                      {sanitizedLegacyDigestPlain ? (
+                        <div
+                          className={cn(
+                            'email-content email-content--preserve dark:border-dark-border mb-5 max-w-none min-w-0 overflow-x-auto border-b border-gray-100 pb-5 text-gray-900 dark:text-gray-200',
+                            googleCalendarBodyClass,
+                          )}
+                          dangerouslySetInnerHTML={{ __html: sanitizedLegacyDigestPlain }}
+                        />
+                      ) : null}
+                      {sanitizedHtml ? (
+                        <div
+                          className={cn(
+                            'email-content email-content--preserve max-w-none min-w-0 overflow-x-auto text-gray-900 dark:text-gray-200',
+                            googleCalendarBodyClass,
+                          )}
+                          dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+                        />
+                      ) : null}
+                    </>
                   ) : sanitizedHtml ? (
                     <div
-                      className="email-content email-content--preserve max-w-none overflow-x-auto text-gray-900 dark:text-gray-200"
+                      className={cn(
+                        'email-content email-content--preserve max-w-none min-w-0 overflow-x-auto text-gray-900 dark:text-gray-200',
+                        googleCalendarBodyClass,
+                      )}
                       dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                     />
                   ) : (

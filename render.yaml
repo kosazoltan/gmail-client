@@ -16,7 +16,8 @@ services:
     plan: starter
     rootDir: server
     buildCommand: npm install --include=dev && npm run build
-    startCommand: node dist/server.js
+    # package.json: max heap + --expose-gc (memória / GC logika egyezése)
+    startCommand: npm start
     healthCheckPath: /api/health
     autoDeploy: true
     disk:
@@ -45,3 +46,6 @@ services:
         generateValue: true
       - key: ENCRYPTION_KEY
         sync: false
+      # OAuth token fájl-vault a perzisztens lemezen (hostname-váltás nélkül is megmarad)
+      - key: ZMAIL_TOKEN_VAULT_FILE
+        value: /data/.secure/token-vault.enc.json

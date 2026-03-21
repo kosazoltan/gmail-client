@@ -77,11 +77,17 @@ function rowToDetectedTask(row: DetectedTaskRow): DetectedTask {
  * Saját email cím meghatározása az accounts táblából.
  */
 async function getAccountEmail(accountId: string): Promise<string | null> {
-  const row = await queryOne<{ email: string }>('SELECT email FROM accounts WHERE id = ?', [accountId]);
+  const row = await queryOne<{ email: string }>('SELECT email FROM accounts WHERE id = ?', [
+    accountId,
+  ]);
   return row?.email ?? null;
 }
 
-function inferImmediatePriority(email: { subject: string | null; snippet?: string | null; date: number }): string {
+function inferImmediatePriority(email: {
+  subject: string | null;
+  snippet?: string | null;
+  date: number;
+}): string {
   const combined = `${email.subject || ''} ${email.snippet || ''}`.toLowerCase();
   if (/(sürgős|urgent|azonnal|asap|határidő|deadline|kritikus)/i.test(combined)) return 'high';
   const ageHours = (Date.now() - email.date) / (60 * 60 * 1000);
@@ -129,7 +135,12 @@ async function dismissIrrelevantDetectedTasks(accountId: string): Promise<number
     if (!relevance.isRelevant) {
       await execute(
         "UPDATE detected_tasks SET status = 'dismissed', reason = ?, updated_at = ? WHERE id = ? AND account_id = ?",
-        ['Automatikusan kizárva: nem feladatjellegű promóciós vagy rendszerértesítő email.', Date.now(), row.id, accountId],
+        [
+          'Automatikusan kizárva: nem feladatjellegű promóciós vagy rendszerértesítő email.',
+          Date.now(),
+          row.id,
+          accountId,
+        ],
       );
       dismissed++;
     }
@@ -148,7 +159,10 @@ async function dismissIrrelevantDetectedTasks(accountId: string): Promise<number
  * 4. Prioritás: 7+ nap = high, 3-7 = medium, 1-3 = low
  * 5. Duplikátum elkerülés email_id alapján
  */
-export async function detectUnansweredEmails(accountId: string, daysBack: number = 30): Promise<DetectedTask[]> {
+export async function detectUnansweredEmails(
+  accountId: string,
+  daysBack: number = 30,
+): Promise<DetectedTask[]> {
   const accountEmail = await getAccountEmail(accountId);
   if (!accountEmail) {
     logger.warn(`Task detection: no email found for account ${accountId}`);
@@ -275,12 +289,16 @@ export async function detectUnansweredEmails(accountId: string, daysBack: number
   }
 
   if (newTasks.length > 0) {
-    logger.info(`Task detection: found ${newTasks.length} unanswered emails for account ${accountId}`);
+    logger.info(
+      `Task detection: found ${newTasks.length} unanswered emails for account ${accountId}`,
+    );
   }
 
   const dismissedCount = await dismissIrrelevantDetectedTasks(accountId);
   if (irrelevantSkipped > 0 || dismissedCount > 0) {
-    logger.info(`Task detection: skipped ${irrelevantSkipped} irrelevant emails and auto-dismissed ${dismissedCount} noisy tasks for account ${accountId}`);
+    logger.info(
+      `Task detection: skipped ${irrelevantSkipped} irrelevant emails and auto-dismissed ${dismissedCount} noisy tasks for account ${accountId}`,
+    );
   }
 
   // Meglévő open taskok prioritás frissítése
@@ -302,7 +320,10 @@ export async function detectUnansweredEmails(accountId: string, daysBack: number
   return newTasks;
 }
 
-export async function upsertDetectedTaskForEmail(accountId: string, emailId: string): Promise<DetectedTask | null> {
+export async function upsertDetectedTaskForEmail(
+  accountId: string,
+  emailId: string,
+): Promise<DetectedTask | null> {
   const accountEmail = await getAccountEmail(accountId);
   if (!accountEmail) return null;
 
@@ -343,9 +364,7 @@ export async function upsertDetectedTaskForEmail(accountId: string, emailId: str
 
   const priority = inferImmediatePriority(email);
   const reason =
-    detectionType === 'unread'
-      ? 'Új, feldolgozandó email'
-      : 'Az ügy továbbra is válaszra vár';
+    detectionType === 'unread' ? 'Új, feldolgozandó email' : 'Az ügy továbbra is válaszra vár';
 
   const existing = await queryOne<DetectedTaskRow>(
     'SELECT * FROM detected_tasks WHERE email_id = ? AND account_id = ?',
@@ -359,7 +378,11 @@ export async function upsertDetectedTaskForEmail(accountId: string, emailId: str
         `UPDATE detected_tasks
          SET status = 'dismissed', reason = ?, updated_at = ?
          WHERE id = ?`,
-        ['Automatikusan kizárva: nem feladatjellegű promóciós vagy rendszerértesítő email.', now, existing.id],
+        [
+          'Automatikusan kizárva: nem feladatjellegű promóciós vagy rendszerértesítő email.',
+          now,
+          existing.id,
+        ],
       );
     }
     return null;
@@ -424,7 +447,10 @@ export async function upsertDetectedTaskForEmail(accountId: string, emailId: str
   };
 }
 
-export async function resolveDetectedTasksForThread(accountId: string, threadId: string | null): Promise<void> {
+export async function resolveDetectedTasksForThread(
+  accountId: string,
+  threadId: string | null,
+): Promise<void> {
   if (!threadId) return;
   await execute(
     `UPDATE detected_tasks
@@ -441,7 +467,13 @@ export async function resolveDetectedTasksForThread(accountId: string, threadId:
 export async function detectUnansweredEmailsWithProgress(
   accountId: string,
   daysBack: number,
-  onProgress: (data: { phase: string; processed: number; total: number; found: number; skipped?: number }) => void,
+  onProgress: (data: {
+    phase: string;
+    processed: number;
+    total: number;
+    found: number;
+    skipped?: number;
+  }) => void,
 ): Promise<{ newTasksCount: number; totalProcessed: number; existingSkipped: number }> {
   const accountEmail = await getAccountEmail(accountId);
   if (!accountEmail) {
@@ -466,7 +498,13 @@ export async function detectUnansweredEmailsWithProgress(
     [accountId, sinceDate, oneDayAgo, accountEmail],
   );
 
-  onProgress({ phase: 'scanning', processed: 0, total: incomingEmails.length, found: 0, skipped: 0 });
+  onProgress({
+    phase: 'scanning',
+    processed: 0,
+    total: incomingEmails.length,
+    found: 0,
+    skipped: 0,
+  });
 
   const newTasks: DetectedTask[] = [];
   let existingSkipped = 0;
@@ -485,7 +523,13 @@ export async function detectUnansweredEmailsWithProgress(
     if (!relevance.isRelevant) {
       irrelevantSkipped++;
       if (i % 10 === 0) {
-        onProgress({ phase: 'scanning', processed: i, total: incomingEmails.length, found: newTasks.length, skipped: existingSkipped + irrelevantSkipped });
+        onProgress({
+          phase: 'scanning',
+          processed: i,
+          total: incomingEmails.length,
+          found: newTasks.length,
+          skipped: existingSkipped + irrelevantSkipped,
+        });
       }
       continue;
     }
@@ -498,7 +542,13 @@ export async function detectUnansweredEmailsWithProgress(
     if (existing) {
       existingSkipped++;
       if (i % 10 === 0) {
-        onProgress({ phase: 'scanning', processed: i, total: incomingEmails.length, found: newTasks.length, skipped: existingSkipped + irrelevantSkipped });
+        onProgress({
+          phase: 'scanning',
+          processed: i,
+          total: incomingEmails.length,
+          found: newTasks.length,
+          skipped: existingSkipped + irrelevantSkipped,
+        });
       }
       continue;
     }
@@ -579,13 +629,25 @@ export async function detectUnansweredEmailsWithProgress(
     }
 
     if (i % 10 === 0) {
-      onProgress({ phase: 'scanning', processed: i, total: incomingEmails.length, found: newTasks.length, skipped: existingSkipped + irrelevantSkipped });
+      onProgress({
+        phase: 'scanning',
+        processed: i,
+        total: incomingEmails.length,
+        found: newTasks.length,
+        skipped: existingSkipped + irrelevantSkipped,
+      });
     }
   }
 
   // Meglévő open taskok prioritás frissítése
   const dismissedCount = await dismissIrrelevantDetectedTasks(accountId);
-  onProgress({ phase: 'updating', processed: incomingEmails.length, total: incomingEmails.length, found: newTasks.length, skipped: existingSkipped + irrelevantSkipped + dismissedCount });
+  onProgress({
+    phase: 'updating',
+    processed: incomingEmails.length,
+    total: incomingEmails.length,
+    found: newTasks.length,
+    skipped: existingSkipped + irrelevantSkipped + dismissedCount,
+  });
 
   const openTasks = await queryAll<{ id: string; email_date: number | null }>(
     "SELECT id, email_date FROM detected_tasks WHERE account_id = ? AND status = 'open'",
@@ -603,14 +665,27 @@ export async function detectUnansweredEmailsWithProgress(
   }
 
   if (newTasks.length > 0) {
-    logger.info(`Task detection (progress): found ${newTasks.length} new tasks for account ${accountId}`);
+    logger.info(
+      `Task detection (progress): found ${newTasks.length} new tasks for account ${accountId}`,
+    );
   }
   if (irrelevantSkipped > 0 || dismissedCount > 0) {
-    logger.info(`Task detection (progress): skipped ${irrelevantSkipped} irrelevant emails and auto-dismissed ${dismissedCount} noisy tasks for account ${accountId}`);
+    logger.info(
+      `Task detection (progress): skipped ${irrelevantSkipped} irrelevant emails and auto-dismissed ${dismissedCount} noisy tasks for account ${accountId}`,
+    );
   }
 
   return { newTasksCount: newTasks.length, totalProcessed: incomingEmails.length, existingSkipped };
 }
+
+/** Kukában lévő emailhez kötött feladat ne listázódjon (a levél még a DB-ben van TRASH címkével). */
+const SQL_DT_JOIN_ACTIVE_EMAIL = `detected_tasks dt
+JOIN emails e ON e.id = dt.email_id AND e.account_id = dt.account_id`;
+
+const SQL_DT_NOT_TRASHED = `(
+  e.labels IS NULL
+  OR (e.labels NOT LIKE '%TRASH%' AND e.labels NOT LIKE '%SPAM%')
+)`;
 
 /**
  * Detected taskok listázása. Szűrés status + priority alapján, dátum DESC.
@@ -623,22 +698,24 @@ export async function getDetectedTasks(
   const safeLimit = Math.min(Math.max(1, limit), 100);
   const offset = (Math.max(1, page) - 1) * safeLimit;
 
-  let whereClauses = 'account_id = ? AND status = ?';
+  let whereClauses = 'dt.account_id = ? AND dt.status = ?';
   const params: unknown[] = [accountId, status];
 
   if (priority) {
-    whereClauses += ' AND priority = ?';
+    whereClauses += ' AND dt.priority = ?';
     params.push(priority);
   }
 
+  const trashFilter = ` AND ${SQL_DT_NOT_TRASHED}`;
+
   const countResult = await queryOne<{ total: number }>(
-    `SELECT COUNT(*) as total FROM detected_tasks WHERE ${whereClauses}`,
+    `SELECT COUNT(*) as total FROM ${SQL_DT_JOIN_ACTIVE_EMAIL} WHERE ${whereClauses}${trashFilter}`,
     params,
   );
   const total = countResult?.total ?? 0;
 
   const rows = await queryAll<DetectedTaskRow>(
-    `SELECT * FROM detected_tasks WHERE ${whereClauses} ORDER BY email_date DESC LIMIT ? OFFSET ?`,
+    `SELECT dt.* FROM ${SQL_DT_JOIN_ACTIVE_EMAIL} WHERE ${whereClauses}${trashFilter} ORDER BY dt.email_date DESC LIMIT ? OFFSET ?`,
     [...params, safeLimit, offset],
   );
 
@@ -698,20 +775,20 @@ export async function getTaskStats(accountId: string): Promise<{
   medium: number;
   low: number;
 }> {
-  const openResult = await queryOne<{ total: number }>(
-    "SELECT COUNT(*) as total FROM detected_tasks WHERE account_id = ? AND status = 'open'",
-    [accountId],
-  );
+  const base = `FROM ${SQL_DT_JOIN_ACTIVE_EMAIL} WHERE dt.account_id = ? AND dt.status = 'open' AND ${SQL_DT_NOT_TRASHED}`;
+  const openResult = await queryOne<{ total: number }>(`SELECT COUNT(*) as total ${base}`, [
+    accountId,
+  ]);
   const highResult = await queryOne<{ total: number }>(
-    "SELECT COUNT(*) as total FROM detected_tasks WHERE account_id = ? AND status = 'open' AND priority = 'high'",
+    `SELECT COUNT(*) as total ${base} AND dt.priority = 'high'`,
     [accountId],
   );
   const mediumResult = await queryOne<{ total: number }>(
-    "SELECT COUNT(*) as total FROM detected_tasks WHERE account_id = ? AND status = 'open' AND priority = 'medium'",
+    `SELECT COUNT(*) as total ${base} AND dt.priority = 'medium'`,
     [accountId],
   );
   const lowResult = await queryOne<{ total: number }>(
-    "SELECT COUNT(*) as total FROM detected_tasks WHERE account_id = ? AND status = 'open' AND priority = 'low'",
+    `SELECT COUNT(*) as total ${base} AND dt.priority = 'low'`,
     [accountId],
   );
 
@@ -746,4 +823,3 @@ export async function processExpiredSnoozedTasks(): Promise<number> {
 
   return expired.length;
 }
-

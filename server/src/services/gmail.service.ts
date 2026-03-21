@@ -273,7 +273,9 @@ function parseEmailAddress(raw: string): { email: string; name: string } {
   return { email: decoded, name: '' };
 }
 
-// Body kinyerése a MIME struktúrából
+// Body kinyerése a MIME struktúrából (teljes rekurzív bejárás)
+// — multipart/alternative, multipart/mixed, multipart/related, beágyazott részek.
+// Az utolsó talált text/html és text/plain érvényes (RFC 2046: alternative sorrendben növekvő „gazdagság”).
 function extractBody(payload?: gmail_v1.Schema$MessagePart | null): {
   text: string;
   html: string;
@@ -281,28 +283,23 @@ function extractBody(payload?: gmail_v1.Schema$MessagePart | null): {
   let text = '';
   let html = '';
 
-  if (!payload) return { text, html };
+  function walk(part: gmail_v1.Schema$MessagePart | null | undefined) {
+    if (!part) return;
 
-  if (payload.mimeType === 'text/plain' && payload.body?.data) {
-    text = decodeBase64(payload.body.data);
-  } else if (payload.mimeType === 'text/html' && payload.body?.data) {
-    html = decodeBase64(payload.body.data);
-  }
+    if (part.mimeType === 'text/plain' && part.body?.data) {
+      text = decodeBase64(part.body.data);
+    } else if (part.mimeType === 'text/html' && part.body?.data) {
+      html = decodeBase64(part.body.data);
+    }
 
-  if (payload.parts) {
-    for (const part of payload.parts) {
-      if (part.mimeType === 'text/plain' && part.body?.data) {
-        text = decodeBase64(part.body.data);
-      } else if (part.mimeType === 'text/html' && part.body?.data) {
-        html = decodeBase64(part.body.data);
-      } else if (part.mimeType?.startsWith('multipart/') && part.parts) {
-        const nested = extractBody(part);
-        if (nested.text) text = nested.text;
-        if (nested.html) html = nested.html;
+    if (part.parts) {
+      for (const child of part.parts) {
+        walk(child);
       }
     }
   }
 
+  walk(payload || null);
   return { text, html };
 }
 

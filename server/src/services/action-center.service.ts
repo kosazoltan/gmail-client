@@ -119,9 +119,18 @@ function withCalendarLink(links: ActionCenterLinkSet, dueAt?: number | null): Ac
   return calendar ? { ...links, calendar } : links;
 }
 
+/** Kukában / spam mappában lévő levelek ne kerüljenek a Home teendőkbe (labels = JSON tömb Gmail ID-kkal). */
+const SQL_EMAIL_NOT_TRASH = `(
+  e.labels IS NULL
+  OR (e.labels NOT LIKE '%TRASH%' AND e.labels NOT LIKE '%SPAM%')
+)`;
+
 function sanitizeQuote(text?: string | null, maxLength = 220): string | null {
   if (!text) return null;
-  const normalized = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  const normalized = text
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (!normalized) return null;
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1)}…` : normalized;
 }
@@ -141,9 +150,8 @@ function getItemSignalParts(item: ActionCenterItem): {
 function highestPriority(items: ActionCenterItem[]): ActionCenterPriority {
   const order: ActionCenterPriority[] = ['critical', 'high', 'medium', 'low'];
   return (
-    items
-      .map((item) => item.priority)
-      .sort((a, b) => order.indexOf(a) - order.indexOf(b))[0] ?? 'medium'
+    items.map((item) => item.priority).sort((a, b) => order.indexOf(a) - order.indexOf(b))[0] ??
+    'medium'
   );
 }
 
@@ -168,7 +176,8 @@ function summarizeOperationalGroup(items: ActionCenterItem[]): ActionCenterItem 
     summary: `${domainLike} · legfrissebb: ${baseTitle}`,
     quote: newest.quote || `${count} hasonló deploy / monitoring / hibajelzés lett összevonva.`,
     priority: highestPriority(sorted),
-    suggestedAction: 'Nyisd meg a legfrissebb levelet, a hasonló rendszerjelzések összevonva jelennek meg.',
+    suggestedAction:
+      'Nyisd meg a legfrissebb levelet, a hasonló rendszerjelzések összevonva jelennek meg.',
     emailId: newest.emailId,
     emailIds: sorted.flatMap((item) => {
       const ids = (item.emailIds ?? []).filter((id): id is string => Boolean(id));
@@ -213,7 +222,9 @@ function filterAndGroupItems(items: ActionCenterItem[]): ActionCenterItem[] {
 }
 
 async function getAccountEmail(accountId: string): Promise<string | null> {
-  const row = await queryOne<{ email: string }>('SELECT email FROM accounts WHERE id = ?', [accountId]);
+  const row = await queryOne<{ email: string }>('SELECT email FROM accounts WHERE id = ?', [
+    accountId,
+  ]);
   return row?.email ?? null;
 }
 
@@ -266,11 +277,14 @@ async function getGoogleCalendarBlocks(accountId: string): Promise<{
             threadId: null,
             calendarEventId: event.id || null,
             links: {
-              app: buildCalendarAppLink(event.id || null, event.start?.dateTime
-                ? new Date(event.start.dateTime).getTime()
-                : event.start?.date
-                  ? new Date(event.start.date).getTime()
-                  : null),
+              app: buildCalendarAppLink(
+                event.id || null,
+                event.start?.dateTime
+                  ? new Date(event.start.dateTime).getTime()
+                  : event.start?.date
+                    ? new Date(event.start.date).getTime()
+                    : null,
+              ),
               gmail: null,
               calendar: event.htmlLink || null,
             },
@@ -374,8 +388,8 @@ export async function getActionCenter(accountId: string): Promise<ActionCenterDa
                 ai.created_at, ai.updated_at, e.thread_id, e.subject, e.from_email, e.from_name, e.snippet,
                 e.date AS email_date
          FROM action_items ai
-         JOIN emails e ON e.id = ai.email_id
-         WHERE ai.account_id = ? AND ai.is_done = 0
+         JOIN emails e ON e.id = ai.email_id AND e.account_id = ai.account_id
+         WHERE ai.account_id = ? AND ai.is_done = 0 AND ${SQL_EMAIL_NOT_TRASH}
          ORDER BY COALESCE(ai.due_date, e.date) ASC
          LIMIT 50`,
         [accountId],
@@ -397,13 +411,14 @@ export async function getActionCenter(accountId: string): Promise<ActionCenterDa
         created_at: number;
         updated_at: number;
       }>(
-        `SELECT id, email_id, account_id, thread_id, subject, from_email, from_name, email_date,
-                detection_type, reason, priority, status, snoozed_until, created_at, updated_at
-         FROM detected_tasks
-         WHERE account_id = ? AND status = 'open'
+        `SELECT dt.id, dt.email_id, dt.account_id, dt.thread_id, dt.subject, dt.from_email, dt.from_name, dt.email_date,
+                dt.detection_type, dt.reason, dt.priority, dt.status, dt.snoozed_until, dt.created_at, dt.updated_at
+         FROM detected_tasks dt
+         JOIN emails e ON e.id = dt.email_id AND e.account_id = dt.account_id
+         WHERE dt.account_id = ? AND dt.status = 'open' AND ${SQL_EMAIL_NOT_TRASH}
          ORDER BY
-           CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
-           COALESCE(email_date, created_at) DESC
+           CASE dt.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
+           COALESCE(dt.email_date, dt.created_at) DESC
          LIMIT 50`,
         [accountId],
       ),
@@ -424,8 +439,8 @@ export async function getActionCenter(accountId: string): Promise<ActionCenterDa
         `SELECT r.id, r.email_id, r.account_id, r.remind_at, r.note, r.is_completed, r.created_at,
                 e.subject, e.from_email, e.from_name, e.thread_id, e.snippet
          FROM reminders r
-         JOIN emails e ON e.id = r.email_id
-         WHERE r.account_id = ? AND r.is_completed = 0
+         JOIN emails e ON e.id = r.email_id AND e.account_id = r.account_id
+         WHERE r.account_id = ? AND r.is_completed = 0 AND ${SQL_EMAIL_NOT_TRASH}
          ORDER BY r.remind_at ASC
          LIMIT 30`,
         [accountId],
@@ -458,8 +473,8 @@ export async function getActionCenter(accountId: string): Promise<ActionCenterDa
                 ec.google_event_id, ec.google_event_link, ec.created_at, ec.updated_at,
                 e.subject, e.from_email, e.from_name, e.snippet
          FROM email_event_candidates ec
-         JOIN emails e ON e.id = ec.email_id
-         WHERE ec.account_id = ? AND ec.status != 'dismissed'
+         JOIN emails e ON e.id = ec.email_id AND e.account_id = ec.account_id
+         WHERE ec.account_id = ? AND ec.status != 'dismissed' AND ${SQL_EMAIL_NOT_TRASH}
          ORDER BY start_at ASC
          LIMIT 30`,
         [accountId],
@@ -484,6 +499,7 @@ export async function getActionCenter(accountId: string): Promise<ActionCenterDa
                AND e.date >= ?
                AND e.from_email IS NOT NULL
                AND e.from_email != ?
+               AND ${SQL_EMAIL_NOT_TRASH}
                AND NOT EXISTS (
                  SELECT 1
                  FROM emails s
@@ -506,7 +522,10 @@ export async function getActionCenter(accountId: string): Promise<ActionCenterDa
     title: item.text,
     summary: item.subject,
     quote: sanitizeQuote(item.source_quote || item.snippet),
-    priority: normalizePriority(item.priority || (item.due_date && item.due_date <= tomorrowStart.getTime() ? 'high' : 'medium')),
+    priority: normalizePriority(
+      item.priority ||
+        (item.due_date && item.due_date <= tomorrowStart.getTime() ? 'high' : 'medium'),
+    ),
     dueAt: item.due_date,
     createdAt: item.created_at,
     updatedAt: item.updated_at ?? item.created_at,
@@ -568,7 +587,10 @@ export async function getActionCenter(accountId: string): Promise<ActionCenterDa
     threadId: reminder.thread_id,
     calendarEventId: null,
     groupSize: null,
-    links: withCalendarLink(buildEmailLinks(reminder.email_id, reminder.account_id), reminder.remind_at),
+    links: withCalendarLink(
+      buildEmailLinks(reminder.email_id, reminder.account_id),
+      reminder.remind_at,
+    ),
   }));
 
   const eventItems = suggestedEvents.map<ActionCenterItem>((event) => ({
@@ -576,7 +598,8 @@ export async function getActionCenter(accountId: string): Promise<ActionCenterDa
     kind: 'event_candidate',
     sourceType: 'event_candidates',
     title: event.title,
-    summary: event.from_name || event.from_email || event.location || `${event.event_type} emailből`,
+    summary:
+      event.from_name || event.from_email || event.location || `${event.event_type} emailből`,
     quote: sanitizeQuote(event.source_quote || event.snippet || event.subject),
     priority: event.start_at <= tomorrowStart.getTime() ? 'high' : 'medium',
     dueAt: event.start_at,
@@ -614,14 +637,17 @@ export async function getActionCenter(accountId: string): Promise<ActionCenterDa
       sourceType: 'detected_tasks',
       title: item.subject || '(nincs tárgy)',
       summary: `${item.from_name || item.from_email || 'Ismeretlen'} · ${item.inbound_count} megkeresés`,
-      quote: sanitizeQuote(item.snippet) || `${item.inbound_count} külön bejövő levél ugyanabban az ügyben.`,
+      quote:
+        sanitizeQuote(item.snippet) ||
+        `${item.inbound_count} külön bejövő levél ugyanabban az ügyben.`,
       priority: Number(item.inbound_count) >= 3 ? 'critical' : 'high',
       dueAt: item.date,
       createdAt: item.date,
       updatedAt: item.date,
       status: 'open',
       confidence: 0.9,
-      suggestedAction: 'Ezt az ügyet többször utánkövették. Nyisd meg a threadet és dönts a válaszról.',
+      suggestedAction:
+        'Ezt az ügyet többször utánkövették. Nyisd meg a threadet és dönts a válaszról.',
       emailId: item.id,
       emailIds: [item.id],
       accountId,
@@ -631,28 +657,40 @@ export async function getActionCenter(accountId: string): Promise<ActionCenterDa
       links: buildEmailLinks(item.id, accountId),
     }));
 
-  const todayFocus = filterAndGroupItems([...actionCenterItems, ...reminderItems, ...googleData.googleTasks]
-    .filter((item) => item.dueAt == null || item.dueAt < tomorrowStart.getTime())
-    .sort((a, b) => {
-      const prio = { critical: 0, high: 1, medium: 2, low: 3 };
-      return (prio[a.priority] - prio[b.priority]) || ((a.dueAt ?? Number.MAX_SAFE_INTEGER) - (b.dueAt ?? Number.MAX_SAFE_INTEGER));
-    })
-    .slice(0, 12));
+  const todayFocus = filterAndGroupItems(
+    [...actionCenterItems, ...reminderItems, ...googleData.googleTasks]
+      .filter((item) => item.dueAt == null || item.dueAt < tomorrowStart.getTime())
+      .sort((a, b) => {
+        const prio = { critical: 0, high: 1, medium: 2, low: 3 };
+        return (
+          prio[a.priority] - prio[b.priority] ||
+          (a.dueAt ?? Number.MAX_SAFE_INTEGER) - (b.dueAt ?? Number.MAX_SAFE_INTEGER)
+        );
+      })
+      .slice(0, 12),
+  );
 
-  const urgentClientMatters = filterAndGroupItems([...detectedItems, ...actionCenterItems]
-    .filter((item) =>
-      (item.priority === 'critical' || item.priority === 'high')
-      && item.kind !== 'unread_email',
-    )
-    .slice(0, 12));
+  const urgentClientMatters = filterAndGroupItems(
+    [...detectedItems, ...actionCenterItems]
+      .filter(
+        (item) =>
+          (item.priority === 'critical' || item.priority === 'high') &&
+          item.kind !== 'unread_email',
+      )
+      .slice(0, 12),
+  );
 
-  const unanswered = filterAndGroupItems(detectedItems
-    .filter((item) => item.kind === 'unanswered_email' || item.kind === 'unread_email')
-    .slice(0, 12));
-  const delegatedWatch = filterAndGroupItems([...reminderItems, ...googleData.googleTasks]
-    .filter((item) => item.dueAt != null && item.dueAt > now)
-    .sort((a, b) => (a.dueAt ?? Number.MAX_SAFE_INTEGER) - (b.dueAt ?? Number.MAX_SAFE_INTEGER))
-    .slice(0, 10));
+  const unanswered = filterAndGroupItems(
+    detectedItems
+      .filter((item) => item.kind === 'unanswered_email' || item.kind === 'unread_email')
+      .slice(0, 12),
+  );
+  const delegatedWatch = filterAndGroupItems(
+    [...reminderItems, ...googleData.googleTasks]
+      .filter((item) => item.dueAt != null && item.dueAt > now)
+      .sort((a, b) => (a.dueAt ?? Number.MAX_SAFE_INTEGER) - (b.dueAt ?? Number.MAX_SAFE_INTEGER))
+      .slice(0, 10),
+  );
 
   return {
     generatedAt: now,
