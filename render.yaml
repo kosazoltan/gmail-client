@@ -1,9 +1,10 @@
-# Render Blueprint - Gmail Client Backend
+# Render Blueprint — a Dashboard-on lévő web service neve: gmail-client-api
+# Postgres / Neon: Environment → DATABASE_URL (connection string, sslmode=require)
 # https://render.com/docs/blueprint-spec
 
 services:
   - type: web
-    name: gmail-client-backend
+    name: gmail-client-api
     runtime: node
     region: frankfurt
     plan: starter
@@ -27,7 +28,8 @@ services:
         value: https://api.mindenes.org
       - key: GOOGLE_REDIRECT_URI
         value: https://api.mindenes.org/api/auth/callback
-      - key: NEON_DATABASE_URL
+      # Neon / Postgres — Render Dashboard-on gyakran DATABASE_URL néven (ugyanaz a connection string)
+      - key: DATABASE_URL
         sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false

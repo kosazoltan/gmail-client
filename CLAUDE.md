@@ -1,4 +1,4 @@
-﻿CLAUDE.md - ZMail Fejlesztesi Szabalyok
+CLAUDE.md - ZMail Fejlesztesi Szabalyok
 
 KOTELEZO olvasmany minden AI agent szamara.
 
@@ -18,6 +18,10 @@ KRITIKUS TANULSAGOK (2026-02-28)
 4. Delete Protection aktiv (server/src/middleware/delete-protection.ts)
 
 5. Deploy: Render backend (Frankfurt) + Vercel frontend autoDeploy. GitHub Actions NINCS.
+   Render web service neve: **gmail-client-api**. Adatbázis env kulcs: **DATABASE_URL** (Neon connection string).
+   A kod: `DATABASE_URL` elsobbseget kap, `NEON_DATABASE_URL` csak fallback.
+   Opcionalis megosztott Neon/Postgres: `ZMAIL_PG_SCHEMA=zmail` — ZMail tablak kulon semaban (`server/docs/NEON-AND-DATABASE.md`).
+   Neon Management API nincs a repoban; futas: `pg` + connection string. `@neondatabase/serverless` nem hasznalt.
 
 6. VITE_API_URL KOTELEZO a Vercel-en!
    Erteke: https://api.mindenes.org/api
@@ -29,8 +33,7 @@ KRITIKUS TANULSAGOK (2026-02-28)
    - Google Cloud Console -> Credentials -> Authorized redirect URIs
    - Render env var: GOOGLE_REDIRECT_URI
    - Kodban: auth.service.ts -> createOAuth2Client()
-   Jelenlegi: https://api.mindenes.org/api/auth/callback
-   
+     Jelenlegi: https://api.mindenes.org/api/auth/callback
 8. Google Client Secret MINDIG GOCSPX- prefix-szel kezdodik!
    Ha nem azzal kezdodik -> ROSSZ secret, auth_failed lesz.
 
@@ -44,6 +47,7 @@ KRITIKUS TANULSAGOK (2026-02-28)
 Stack: React 19+TS+Tailwind4+Vite (Vercel) / Express 5+TS+sql.js (Render Frankfurt)
 
 Push Checklist:
+
 1. cd server && npx tsc --noEmit && npm run build
-2. cd client && npx tsc --noEmit && npm run build  
+2. cd client && npx tsc --noEmit && npm run build
 3. git push origin main

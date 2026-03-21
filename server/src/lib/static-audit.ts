@@ -24,8 +24,13 @@ export async function runStaticAudit(): Promise<AuditCheck[]> {
   }
 
   // 2. Required env vars
-  const requiredEnvs = ['NEON_DATABASE_URL', 'ERRORLOG_HMAC_SECRET', 'JUNIOR_EMAIL_PASSWORD'];
-  const missingEnvs = requiredEnvs.filter((k) => !process.env[k]);
+  const missingEnvs: string[] = [];
+  if (!process.env.DATABASE_URL && !process.env.NEON_DATABASE_URL) {
+    missingEnvs.push('DATABASE_URL (vagy NEON_DATABASE_URL)');
+  }
+  for (const k of ['ERRORLOG_HMAC_SECRET', 'JUNIOR_EMAIL_PASSWORD'] as const) {
+    if (!process.env[k]) missingEnvs.push(k);
+  }
   if (missingEnvs.length === 0) {
     results.push({ name: 'env_vars', status: 'pass' });
   } else {
@@ -47,10 +52,12 @@ export async function runStaticAudit(): Promise<AuditCheck[]> {
 
   // 4. No 'as any' usage
   try {
-    const out = execSync(
-      'findstr /s /n "as any" src\\**\\*.ts',
-      { cwd: process.cwd(), stdio: 'pipe' },
-    ).toString().trim();
+    const out = execSync('findstr /s /n "as any" src\\**\\*.ts', {
+      cwd: process.cwd(),
+      stdio: 'pipe',
+    })
+      .toString()
+      .trim();
     if (out) {
       results.push({ name: 'no_as_any', status: 'warn', detail: out.slice(0, 300) });
     } else {
@@ -62,10 +69,12 @@ export async function runStaticAudit(): Promise<AuditCheck[]> {
 
   // 5. No console.log (use logger)
   try {
-    const out = execSync(
-      'findstr /s /n "console\\.log" src\\**\\*.ts',
-      { cwd: process.cwd(), stdio: 'pipe' },
-    ).toString().trim();
+    const out = execSync('findstr /s /n "console\\.log" src\\**\\*.ts', {
+      cwd: process.cwd(),
+      stdio: 'pipe',
+    })
+      .toString()
+      .trim();
     if (out) {
       results.push({ name: 'no_console_log', status: 'warn', detail: out.slice(0, 300) });
     } else {

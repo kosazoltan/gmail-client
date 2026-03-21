@@ -15,11 +15,54 @@ types.setTypeParser(20, (val: string) => {
   return num;
 });
 
-// Fail-closed: Database URL is required (supports both env var names)
-const connectionString = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL;
-if (!connectionString) {
-  logger.error('FATAL: NEON_DATABASE_URL or DATABASE_URL environment variable is not set!');
+/**
+ * Opcionális séma-elkülönítés: ugyanazon a Neon/Postgres példányon más appok `public` táblái
+ * mellett a ZMail minden táblája egy dedikált sémában legyen (pl. `zmail`).
+ * Csak ÚJ vagy üres adatbázison állítsd be — meglévő `public` táblák nem migrálódnak át automatikusan.
+ */
+function getValidatedPgSchema(): string | null {
+  const raw = process.env.ZMAIL_PG_SCHEMA?.trim();
+  if (!raw) return null;
+  if (!/^[a-z][a-z0-9_]{0,62}$/.test(raw)) {
+    logger.error(
+      'FATAL: ZMAIL_PG_SCHEMA must be lowercase identifier: ^[a-z][a-z0-9_]*$ (pl. zmail)',
+    );
+    process.exit(1);
+  }
+  return raw;
+}
+
+/** Connection string + libpq options: search_path = séma, public (bővítmények / más app maradhat a public-ban). */
+function buildConnectionString(baseUrl: string, schema: string | null): string {
+  if (!schema) return baseUrl;
+  try {
+    const u = new URL(baseUrl);
+    if (u.searchParams.has('options')) {
+      logger.warn(
+        'DATABASE_URL already contains options= — remove it or set search_path there; ignoring ZMAIL_PG_SCHEMA append.',
+      );
+      return baseUrl;
+    }
+    u.searchParams.set('options', `-csearch_path=${schema},public`);
+    return u.toString();
+  } catch {
+    logger.warn('DATABASE_URL parse failed; using without ZMAIL_PG_SCHEMA options.');
+    return baseUrl;
+  }
+}
+
+export const zmailPgSchema: string | null = getValidatedPgSchema();
+
+// Fail-closed: PostgreSQL URL required. Render / sok hosting: DATABASE_URL; Neon konzol / régi .env: NEON_DATABASE_URL
+const baseConnectionString = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL;
+if (!baseConnectionString) {
+  logger.error('FATAL: DATABASE_URL or NEON_DATABASE_URL environment variable is not set!');
   process.exit(1);
+}
+
+const connectionString = buildConnectionString(baseConnectionString, zmailPgSchema);
+if (zmailPgSchema) {
+  logger.info(`PostgreSQL schema isolation: search_path=${zmailPgSchema},public (ZMAIL_PG_SCHEMA)`);
 }
 
 const pool = new Pool({
@@ -121,7 +164,11 @@ export const runInTransactionAsync = runInTransaction;
 export async function initializeDatabase(): Promise<void> {
   const client = await pool.connect();
   try {
-    // Tables
+    if (zmailPgSchema) {
+      await client.query(`CREATE SCHEMA IF NOT EXISTS ${zmailPgSchema}`);
+    }
+
+    // Tables (search_path első helye = zmailPgSchema, ha be van állítva → táblák ott jönnek létre)
     await client.query(`
       CREATE TABLE IF NOT EXISTS accounts (
         id TEXT PRIMARY KEY,

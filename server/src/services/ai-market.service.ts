@@ -1,4 +1,4 @@
-﻿import { callAI, isAIAvailable } from '../ai/provider.js';
+import { callAI, isAIAvailable } from '../ai/provider.js';
 import logger from '../utils/logger.js';
 import {
   BRIEFING_ANALYSIS_REQUEST_TIMEOUT_MS,
@@ -40,7 +40,7 @@ interface AIAnalysisResult {
     title: string;
     source: string;
     originalLanguage: string;
-    impact: 'Magas' | 'KĂ¶zepes' | 'Alacsony';
+    impact: 'Magas' | 'Közepes' | 'Alacsony';
     pairs: string[];
     summary: string;
     publishedAt: string;
@@ -59,11 +59,14 @@ interface AIAnalysisResult {
     scenarioBull: string;
     scenarioBear: string;
   }>;
-  weightedConclusion: Record<string, {
-    direction: string;
-    score: number;
-    summary: string;
-  }>;
+  weightedConclusion: Record<
+    string,
+    {
+      direction: string;
+      score: number;
+      summary: string;
+    }
+  >;
   overallSentiment: string;
 }
 
@@ -101,7 +104,7 @@ const MARKET_ANALYSIS_OUTPUT_SCHEMA = {
           title: { type: 'string' },
           source: { type: 'string' },
           originalLanguage: { type: 'string' },
-          impact: { type: 'string', enum: ['Magas', 'KĂ¶zepes', 'Kozepes', 'Alacsony'] },
+          impact: { type: 'string', enum: ['Magas', 'Közepes', 'Kozepes', 'Alacsony'] },
           pairs: { type: 'array', items: { type: 'string' } },
           summary: { type: 'string' },
           publishedAt: { type: 'string' },
@@ -191,8 +194,6 @@ const DEEP_ANALYSIS_OUTPUT_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-
-
 function extractFirstJsonObject(input: string): string | null {
   const start = input.indexOf('{');
   if (start === -1) return null;
@@ -245,17 +246,15 @@ function parseJsonLenient<T>(text: string): T | null {
   }
 }
 
-
-
 function normalizeDirection(value: unknown): 'bullish' | 'bearish' | 'neutral' {
   if (value === 'bullish' || value === 'bearish' || value === 'neutral') return value;
   return 'neutral';
 }
 
-function normalizeImpact(value: unknown): 'Magas' | 'KĂ¶zepes' | 'Alacsony' {
+function normalizeImpact(value: unknown): 'Magas' | 'Közepes' | 'Alacsony' {
   if (value === 'Magas' || value === 'Alacsony') return value;
-  if (value === 'KĂ¶zepes' || value === 'Kozepes') return 'KĂ¶zepes';
-  return 'KĂ¶zepes';
+  if (value === 'Közepes' || value === 'Kozepes') return 'Közepes';
+  return 'Közepes';
 }
 
 function normalizeAIAnalysisResult(
@@ -264,64 +263,67 @@ function normalizeAIAnalysisResult(
 ): AIAnalysisResult {
   const analyses = Array.isArray(parsed.analyses)
     ? parsed.analyses
-      .map((entry) => ({
-        sourceId: String(entry?.sourceId ?? 'AI_UNKNOWN'),
-        source: String(entry?.source ?? 'AI forrĂˇs'),
-        direction: normalizeDirection(entry?.direction),
-        pairs: Array.isArray(entry?.pairs) ? entry.pairs.map((p) => String(p)) : [],
-        summary: String(entry?.summary ?? '').trim(),
-        keyLevel: String(entry?.keyLevel ?? ''),
-        outlook: String(entry?.outlook ?? ''),
-        confidence: Number(entry?.confidence ?? 60),
-        weight: Number(entry?.weight ?? 1),
-        speciality: String(entry?.speciality ?? ''),
-        url: String(entry?.url ?? ''),
-        originalLanguage: String(entry?.originalLanguage ?? 'en'),
-      }))
-      .filter((entry) => entry.summary.length > 0)
-      .slice(0, 6)
+        .map((entry) => ({
+          sourceId: String(entry?.sourceId ?? 'AI_UNKNOWN'),
+          source: String(entry?.source ?? 'AI forrás'),
+          direction: normalizeDirection(entry?.direction),
+          pairs: Array.isArray(entry?.pairs) ? entry.pairs.map((p) => String(p)) : [],
+          summary: String(entry?.summary ?? '').trim(),
+          keyLevel: String(entry?.keyLevel ?? ''),
+          outlook: String(entry?.outlook ?? ''),
+          confidence: Number(entry?.confidence ?? 60),
+          weight: Number(entry?.weight ?? 1),
+          speciality: String(entry?.speciality ?? ''),
+          url: String(entry?.url ?? ''),
+          originalLanguage: String(entry?.originalLanguage ?? 'en'),
+        }))
+        .filter((entry) => entry.summary.length > 0)
+        .slice(0, 6)
     : [];
 
   const fallbackNewsUrl = allowedNewsUrls.values().next().value as string | undefined;
   const newsItems = Array.isArray(parsed.newsItems)
     ? parsed.newsItems
-      .map((item) => {
-        const rawUrl = String(item?.url ?? '');
-        const normalizedUrl = allowedNewsUrls.size > 0
-          ? (allowedNewsUrls.has(rawUrl) ? rawUrl : (fallbackNewsUrl ?? rawUrl))
-          : rawUrl;
-        return {
-          title: String(item?.title ?? '').trim(),
-          source: String(item?.source ?? '').trim(),
-          originalLanguage: String(item?.originalLanguage ?? 'en'),
-          impact: normalizeImpact(item?.impact),
-          pairs: Array.isArray(item?.pairs) ? item.pairs.map((p) => String(p)) : [],
-          summary: String(item?.summary ?? '').trim(),
-          publishedAt: String(item?.publishedAt ?? new Date().toISOString()),
-          url: normalizedUrl,
-        };
-      })
-      .filter((item) => item.title.length > 0 && item.summary.length > 0)
-      .slice(0, 8)
+        .map((item) => {
+          const rawUrl = String(item?.url ?? '');
+          const normalizedUrl =
+            allowedNewsUrls.size > 0
+              ? allowedNewsUrls.has(rawUrl)
+                ? rawUrl
+                : (fallbackNewsUrl ?? rawUrl)
+              : rawUrl;
+          return {
+            title: String(item?.title ?? '').trim(),
+            source: String(item?.source ?? '').trim(),
+            originalLanguage: String(item?.originalLanguage ?? 'en'),
+            impact: normalizeImpact(item?.impact),
+            pairs: Array.isArray(item?.pairs) ? item.pairs.map((p) => String(p)) : [],
+            summary: String(item?.summary ?? '').trim(),
+            publishedAt: String(item?.publishedAt ?? new Date().toISOString()),
+            url: normalizedUrl,
+          };
+        })
+        .filter((item) => item.title.length > 0 && item.summary.length > 0)
+        .slice(0, 8)
     : [];
 
   const positioning = Array.isArray(parsed.positioning)
     ? parsed.positioning
-      .map((entry) => ({
-        pair: String(entry?.pair ?? ''),
-        longPct: Number(entry?.longPct ?? 50),
-        shortPct: Number(entry?.shortPct ?? 50),
-        bias: String(entry?.bias ?? 'Vegyes'),
-        targetLow: Number(entry?.targetLow ?? 0),
-        targetHigh: Number(entry?.targetHigh ?? 0),
-        support: Number(entry?.support ?? 0),
-        resistance: Number(entry?.resistance ?? 0),
-        catalyst48h: String(entry?.catalyst48h ?? ''),
-        scenarioBull: String(entry?.scenarioBull ?? ''),
-        scenarioBear: String(entry?.scenarioBear ?? ''),
-      }))
-      .filter((entry) => entry.pair.length > 0)
-      .slice(0, 12)
+        .map((entry) => ({
+          pair: String(entry?.pair ?? ''),
+          longPct: Number(entry?.longPct ?? 50),
+          shortPct: Number(entry?.shortPct ?? 50),
+          bias: String(entry?.bias ?? 'Vegyes'),
+          targetLow: Number(entry?.targetLow ?? 0),
+          targetHigh: Number(entry?.targetHigh ?? 0),
+          support: Number(entry?.support ?? 0),
+          resistance: Number(entry?.resistance ?? 0),
+          catalyst48h: String(entry?.catalyst48h ?? ''),
+          scenarioBull: String(entry?.scenarioBull ?? ''),
+          scenarioBear: String(entry?.scenarioBear ?? ''),
+        }))
+        .filter((entry) => entry.pair.length > 0)
+        .slice(0, 12)
     : [];
 
   const weightedConclusion: AIAnalysisResult['weightedConclusion'] = {};
@@ -344,15 +346,17 @@ function normalizeAIAnalysisResult(
     overallSentiment:
       typeof parsed.overallSentiment === 'string' && parsed.overallSentiment.trim().length > 0
         ? parsed.overallSentiment.trim()
-        : 'Piaci Ă¶sszefoglalĂł rĂ©szben AI-bĂłl szĂˇrmazik; hiĂˇnyos AI vĂˇlasz esetĂ©n egyes elemek sablonosak lehetnek.',
+        : 'Piaci összefoglaló részben AI-ból származik; hiányos AI válasz esetén egyes elemek sablonosak lehetnek.',
   };
 }
 
 function validateAIAnalysisResult(result: AIAnalysisResult): { ok: boolean; reason?: string } {
   if (result.analyses.length < 2) return { ok: false, reason: 'too_few_analyses' };
   if (result.newsItems.length < 2) return { ok: false, reason: 'too_few_news_items' };
-  if (Object.keys(result.weightedConclusion).length < 3) return { ok: false, reason: 'missing_weighted_conclusion' };
-  if (result.overallSentiment.trim().length < 24) return { ok: false, reason: 'overall_sentiment_too_short' };
+  if (Object.keys(result.weightedConclusion).length < 3)
+    return { ok: false, reason: 'missing_weighted_conclusion' };
+  if (result.overallSentiment.trim().length < 24)
+    return { ok: false, reason: 'overall_sentiment_too_short' };
   return { ok: true };
 }
 
@@ -364,12 +368,17 @@ function normalizeDeepAnalysisResult(parsed: Partial<DeepAnalysisResult>): DeepA
       const trendValue = (value as { trend?: string }).trend;
       const recommendationValue = (value as { recommendation?: string }).recommendation;
       currencies[key] = {
-        trend: trendValue === 'up' || trendValue === 'down' || trendValue === 'sideways' ? trendValue : 'sideways',
+        trend:
+          trendValue === 'up' || trendValue === 'down' || trendValue === 'sideways'
+            ? trendValue
+            : 'sideways',
         support: Number((value as { support?: number }).support ?? 0),
         resistance: Number((value as { resistance?: number }).resistance ?? 0),
         forecast: String((value as { forecast?: string }).forecast ?? '').trim(),
         recommendation:
-          recommendationValue === 'buy' || recommendationValue === 'sell' || recommendationValue === 'hold'
+          recommendationValue === 'buy' ||
+          recommendationValue === 'sell' ||
+          recommendationValue === 'hold'
             ? recommendationValue
             : 'hold',
         confidence: Number((value as { confidence?: number }).confidence ?? 5),
@@ -386,7 +395,9 @@ function normalizeDeepAnalysisResult(parsed: Partial<DeepAnalysisResult>): DeepA
       recommendation: String(parsed.gold?.recommendation ?? '').trim(),
     },
     overallRecommendation: String(parsed.overallRecommendation ?? '').trim(),
-    risks: Array.isArray(parsed.risks) ? parsed.risks.map((risk) => String(risk)).filter((risk) => risk.trim().length > 0) : [],
+    risks: Array.isArray(parsed.risks)
+      ? parsed.risks.map((risk) => String(risk)).filter((risk) => risk.trim().length > 0)
+      : [],
     generatedAt: new Date().toISOString(),
   };
 }
@@ -394,7 +405,8 @@ function normalizeDeepAnalysisResult(parsed: Partial<DeepAnalysisResult>): DeepA
 function validateDeepAnalysisResult(result: DeepAnalysisResult): { ok: boolean; reason?: string } {
   if (result.summary.length < 20) return { ok: false, reason: 'summary_too_short' };
   if (Object.keys(result.currencies).length < 2) return { ok: false, reason: 'too_few_currencies' };
-  if (result.overallRecommendation.length < 20) return { ok: false, reason: 'recommendation_too_short' };
+  if (result.overallRecommendation.length < 20)
+    return { ok: false, reason: 'recommendation_too_short' };
   if (result.risks.length < 1) return { ok: false, reason: 'missing_risks' };
   return { ok: true };
 }
@@ -404,7 +416,8 @@ async function createMarketAnalysisMessage(prompt: string): Promise<string> {
     [
       {
         role: 'system',
-        content: 'You are a professional forex analyst. You MUST respond with ONLY a valid JSON object. No explanations, no markdown code blocks, no text before or after. Start your response with { and end with }.',
+        content:
+          'You are a professional forex analyst. You MUST respond with ONLY a valid JSON object. No explanations, no markdown code blocks, no text before or after. Start your response with { and end with }.',
       },
       { role: 'user', content: prompt },
     ],
@@ -418,7 +431,8 @@ async function createDeepAnalysisMessage(prompt: string): Promise<string> {
     [
       {
         role: 'system',
-        content: 'You are a professional forex analyst. You MUST respond with ONLY a valid JSON object. No explanations, no markdown code blocks, no text before or after. Start your response with { and end with }.',
+        content:
+          'You are a professional forex analyst. You MUST respond with ONLY a valid JSON object. No explanations, no markdown code blocks, no text before or after. Start your response with { and end with }.',
       },
       { role: 'user', content: prompt },
     ],
@@ -427,10 +441,10 @@ async function createDeepAnalysisMessage(prompt: string): Promise<string> {
   return response.text;
 }
 
-// RSS fetching REMOVED â€” news now comes from market-data.service.ts
+// RSS fetching REMOVED — news now comes from market-data.service.ts
 // (Finnhub + Alpha Vantage + RSS fallback, cached 30 min)
 
-// --- Deep Analysis tĂ­pusok ---
+// --- Deep Analysis típusok ---
 export interface DeepAnalysisCurrencyDetail {
   trend: 'up' | 'down' | 'sideways';
   support: number;
@@ -462,77 +476,86 @@ export interface TrendDataPoint {
 
 export async function generateDeepAnalysis(
   rates: RateInfo[],
-  trendData: TrendDataPoint[]
+  trendData: TrendDataPoint[],
 ): Promise<DeepAnalysisResult | null> {
   if (!isAIAvailable()) return null;
 
-  const ratesText = rates.map(r =>
-    `${r.label}: ${r.rate} (${r.changePercent >= 0 ? '+' : ''}${r.changePercent.toFixed(2)}%)`
-  ).join('\n');
+  const ratesText = rates
+    .map(
+      (r) =>
+        `${r.label}: ${r.rate} (${r.changePercent >= 0 ? '+' : ''}${r.changePercent.toFixed(2)}%)`,
+    )
+    .join('\n');
 
-  // Trend szĂ¶veg generĂˇlĂˇs
+  // Trend szöveg generálás
   let trendText = 'Nincs trend adat.';
   if (trendData.length > 1) {
     const currencies = Object.keys(trendData[0].rates);
-    trendText = currencies.map(cur => {
-      const values = trendData.map(d => d.rates[cur]).filter((v): v is number => v != null);
-      if (values.length < 2) return `${cur}: nincs elĂ©g adat`;
-      const first = values[0];
-      const last = values[values.length - 1];
-      const change = ((last - first) / first * 100).toFixed(2);
-      const trend = last > first ? 'emelkedĹ‘' : last < first ? 'csĂ¶kkenĹ‘' : 'oldalazĂł';
-      return `${cur}: ${first.toFixed(2)} â†’ ${last.toFixed(2)} (${change}%, ${trend}) [${trendData.length} nap]`;
-    }).join('\n');
+    trendText = currencies
+      .map((cur) => {
+        const values = trendData.map((d) => d.rates[cur]).filter((v): v is number => v != null);
+        if (values.length < 2) return `${cur}: nincs elég adat`;
+        const first = values[0];
+        const last = values[values.length - 1];
+        const change = (((last - first) / first) * 100).toFixed(2);
+        const trend = last > first ? 'emelkedő' : last < first ? 'csökkenő' : 'oldalazó';
+        return `${cur}: ${first.toFixed(2)} â†’ ${last.toFixed(2)} (${change}%, ${trend}) [${trendData.length} nap]`;
+      })
+      .join('\n');
   }
 
   const now = new Date();
-  const dateStr = now.toLocaleDateString('hu-HU', { year: 'numeric', month: 'long', day: 'numeric' });
+  const dateStr = now.toLocaleDateString('hu-HU', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
   const timeStr = now.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
 
-  const prompt = `Te egy professzionĂˇlis forex Ă©s devizapiaci elemzĹ‘ vagy. Elemezd az alĂˇbbi adatokat egy magyar valutavĂˇltĂł cĂ©g igazgatĂłja szĂˇmĂˇra.
-A mai dĂˇtum: ${dateStr} ${timeStr}.
+  const prompt = `Te egy professzionális forex és devizapiaci elemző vagy. Elemezd az alábbi adatokat egy magyar valutaváltó cég igazgatója számára.
+A mai dátum: ${dateStr} ${timeStr}.
 
-AKTUĂLIS ĂRFOLYAMOK:
+AKTUÁLIS ÁRFOLYAMOK:
 ${ratesText}
 
 7 NAPOS TREND:
 ${trendText}
 
-KĂ‰RLEK ADJ:
-1. Ă–SSZEFOGLALĂ“: Mi tĂ¶rtĂ©nt az elmĂşlt 24 ĂłrĂˇban Ă©s az elmĂşlt hĂ©ten a piacon? (2-3 mondat)
-2. EUR/HUF ELEMZĂ‰S: Trend, tĂˇmasz/ellenĂˇllĂˇs szintek, rĂ¶vid tĂˇvĂş elĹ‘rejelzĂ©s
-3. USD/HUF ELEMZĂ‰S: Ugyanaz
-4. GBP/HUF ELEMZĂ‰S: Ugyanaz
-5. CHF/HUF ELEMZĂ‰S: Ugyanaz
-6. ARANY (XAU): Trend Ă©s elĹ‘rejelzĂ©s USD-ben Ă©s HUF-ban
-7. AJĂNLĂS: Mit tegyen a valutavĂˇltĂł? Venni vagy eladni? Melyik devizĂˇt tartsuk?
-8. KOCKĂZATOK: Mire figyeljen a kĂ¶vetkezĹ‘ napokban?
+KÉRLEK ADJ:
+1. ÖSSZEFOGLALÓ: Mi történt az elmúlt 24 órában és az elmúlt héten a piacon? (2-3 mondat)
+2. EUR/HUF ELEMZÉS: Trend, támasz/ellenállás szintek, rövid távú előrejelzés
+3. USD/HUF ELEMZÉS: Ugyanaz
+4. GBP/HUF ELEMZÉS: Ugyanaz
+5. CHF/HUF ELEMZÉS: Ugyanaz
+6. ARANY (XAU): Trend és előrejelzés USD-ben és HUF-ban
+7. AJÁNLÁS: Mit tegyen a valutaváltó? Venni vagy eladni? Melyik devizát tartsuk?
+8. KOCKÁZATOK: Mire figyeljen a következő napokban?
 
-VĂˇlaszolj KIZĂRĂ“LAG az alĂˇbbi JSON formĂˇtumban (semmilyen mĂˇs szĂ¶veg ne legyen a JSON elĹ‘tt vagy utĂˇn):
+Válaszolj KIZÁRÓLAG az alábbi JSON formátumban (semmilyen más szöveg ne legyen a JSON előtt vagy után):
 
 {
-  "summary": "Ă–sszefoglalĂł 2-3 mondat...",
+  "summary": "Összefoglaló 2-3 mondat...",
   "currencies": {
-    "EUR_HUF": { "trend": "up|down|sideways", "support": 390.50, "resistance": 398.00, "forecast": "ElĹ‘rejelzĂ©s magyarul...", "recommendation": "buy|sell|hold", "confidence": 7 },
+    "EUR_HUF": { "trend": "up|down|sideways", "support": 390.50, "resistance": 398.00, "forecast": "Előrejelzés magyarul...", "recommendation": "buy|sell|hold", "confidence": 7 },
     "USD_HUF": { "trend": "up|down|sideways", "support": 360.00, "resistance": 370.00, "forecast": "...", "recommendation": "buy|sell|hold", "confidence": 6 },
     "GBP_HUF": { "trend": "up|down|sideways", "support": 455.00, "resistance": 470.00, "forecast": "...", "recommendation": "buy|sell|hold", "confidence": 6 },
     "CHF_HUF": { "trend": "up|down|sideways", "support": 410.00, "resistance": 425.00, "forecast": "...", "recommendation": "buy|sell|hold", "confidence": 5 }
   },
-  "gold": { "trend": "emelkedĹ‘/csĂ¶kkenĹ‘/oldalazĂł", "forecast": "Arany elĹ‘rejelzĂ©s...", "recommendation": "AjĂˇnlĂˇs az aranyra..." },
-  "overallRecommendation": "ĂtfogĂł ajĂˇnlĂˇs a valutavĂˇltĂł cĂ©gnek 2-3 mondatban...",
-  "risks": ["KockĂˇzat 1", "KockĂˇzat 2", "KockĂˇzat 3"]
+  "gold": { "trend": "emelkedő/csökkenő/oldalazó", "forecast": "Arany előrejelzés...", "recommendation": "Ajánlás az aranyra..." },
+  "overallRecommendation": "Átfogó ajánlás a valutaváltó cégnek 2-3 mondatban...",
+  "risks": ["Kockázat 1", "Kockázat 2", "Kockázat 3"]
 }
 
-KĂ–VETELMĂ‰NYEK:
-- confidence: 1-10 skĂˇlĂˇn
-- support/resistance: valĂłs, reĂˇlis szintek a jelenlegi Ăˇrfolyam kĂ¶zelĂ©ben
-- Minden szĂ¶veg MAGYAR nyelven
-- A recommendation mezĹ‘ CSAK "buy", "sell" vagy "hold" lehet
-- A trend mezĹ‘ CSAK "up", "down" vagy "sideways" lehet
-- LegyĂ©l MEGALAPOZOTT Ă©s Ă“VATOS â€” ez Ă©les ĂĽzleti dĂ¶ntĂ©sekhez kell`;
+KÖVETELMÉNYEK:
+- confidence: 1-10 skálán
+- support/resistance: valós, reális szintek a jelenlegi árfolyam közelében
+- Minden szöveg MAGYAR nyelven
+- A recommendation mező CSAK "buy", "sell" vagy "hold" lehet
+- A trend mező CSAK "up", "down" vagy "sideways" lehet
+- Legyél MEGALAPOZOTT és ÓVATOS — ez éles üzleti döntésekhez kell`;
 
   try {
-    logger.info('Deep analysis indĂ­tĂˇsa (Sonnet 4)...');
+    logger.info('Deep analysis indítása (Sonnet 4)...');
     const startTime = Date.now();
     let attemptPrompt = prompt;
     let lastValidationReason = 'unknown';
@@ -546,9 +569,7 @@ KĂ–VETELMĂ‰NYEK:
       const text = response;
       lastResponseText = text;
 
-      const stripped = text
-        .replace(/```(?:json)?\s*/gi, '')
-        .replace(/```\s*/gi, '');
+      const stripped = text.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/gi, '');
 
       const jsonObjectText = extractFirstJsonObject(stripped);
       if (!jsonObjectText) {
@@ -564,7 +585,9 @@ KĂ–VETELMĂ‰NYEK:
             for (const cur of Object.values(result.currencies)) {
               cur.confidence = Math.max(1, Math.min(10, Math.round(cur.confidence)));
             }
-            logger.info(`Deep analysis: ${Object.keys(result.currencies).length} deviza, ${result.risks.length} kockĂˇzat`);
+            logger.info(
+              `Deep analysis: ${Object.keys(result.currencies).length} deviza, ${result.risks.length} kockázat`,
+            );
             return result;
           }
           lastValidationReason = validation.reason ?? 'invalid_structure';
@@ -572,19 +595,21 @@ KĂ–VETELMĂ‰NYEK:
       }
 
       if (attempt < MAX_GENERATION_ATTEMPTS) {
-        logger.warn(`Deep analysis attempt ${attempt} invalid (${lastValidationReason}), retrying with repair prompt`);
+        logger.warn(
+          `Deep analysis attempt ${attempt} invalid (${lastValidationReason}), retrying with repair prompt`,
+        );
         attemptPrompt = `${prompt}
 
---- JAVĂŤTĂS ---
-Az elĹ‘zĹ‘ vĂˇlasz Ă©rvĂ©nytelen volt (${lastValidationReason}).
-Adj KIZĂRĂ“LAG Ă©rvĂ©nyes JSON objektumot, markdown blokk nĂ©lkĂĽl.
-KĂ¶telezĹ‘ minimum:
+--- JAVÍTÁS ---
+Az előző válasz érvénytelen volt (${lastValidationReason}).
+Adj KIZÁRÓLAG érvényes JSON objektumot, markdown blokk nélkül.
+Kötelező minimum:
 - summary minimum 2 mondat
-- currencies legalĂˇbb 2 kulcs (EUR_HUF, USD_HUF legalĂˇbb)
+- currencies legalább 2 kulcs (EUR_HUF, USD_HUF legalább)
 - overallRecommendation minimum 2 mondat
-- risks legalĂˇbb 2 elem
+- risks legalább 2 elem
 
-Az elĹ‘zĹ‘ (hibĂˇs) vĂˇlasz kivonata:
+Az előző (hibás) válasz kivonata:
 ${lastResponseText.slice(0, 1400)}`;
       }
     }
@@ -592,16 +617,21 @@ ${lastResponseText.slice(0, 1400)}`;
     logger.error('Deep analysis invalid after retries:', lastValidationReason);
     return null;
   } catch (err) {
-    // Timeout vagy rate limit esetĂ©n NE retry-olj â€” Ăşgysem segĂ­t
+    // Timeout vagy rate limit esetén NE retry-olj — úgysem segít
     if (err instanceof Error) {
-      const isTimeout = err.message.includes('timeout') || err.message.includes('timed out') || ('status' in err && (err as { status?: number }).status === 408);
+      const isTimeout =
+        err.message.includes('timeout') ||
+        err.message.includes('timed out') ||
+        ('status' in err && (err as { status?: number }).status === 408);
       const isRateLimit = 'status' in err && (err as { status?: number }).status === 429;
       if (isTimeout || isRateLimit) {
-        logger.warn(`AI elemzĂ©s megszakĂ­tva (${isTimeout ? 'timeout' : 'rate limit'}), nem retry-olunk`);
+        logger.warn(
+          `AI elemzés megszakítva (${isTimeout ? 'timeout' : 'rate limit'}), nem retry-olunk`,
+        );
         return null;
       }
     }
-    logger.error('AI elemzĂ©s hiba:', {
+    logger.error('AI elemzés hiba:', {
       name: (err as Error)?.name,
       message: (err as Error)?.message,
       status: (err as { status?: number })?.status,
@@ -611,22 +641,33 @@ ${lastResponseText.slice(0, 1400)}`;
   }
 }
 
-export async function generateAIAnalysis(rates: RateInfo[], externalNews?: NewsItemInput[]): Promise<AIAnalysisResult | null> {
+export async function generateAIAnalysis(
+  rates: RateInfo[],
+  externalNews?: NewsItemInput[],
+): Promise<AIAnalysisResult | null> {
   if (!isAIAvailable()) return null;
 
   // Use externally provided news (from market-data.service)
   const newsItems = trimNewsItemsForPrompt(externalNews ?? []);
 
-  const ratesText = rates.map(r =>
-    `${r.label}: ${r.rate} (${r.changePercent >= 0 ? '+' : ''}${r.changePercent.toFixed(2)}%)`
-  ).join('\n');
+  const ratesText = rates
+    .map(
+      (r) =>
+        `${r.label}: ${r.rate} (${r.changePercent >= 0 ? '+' : ''}${r.changePercent.toFixed(2)}%)`,
+    )
+    .join('\n');
 
-  const newsText = newsItems.length > 0
-    ? newsItems.map((n, i) => `${i + 1}. [${n.source}] ${n.title} (${n.url})`).join('\n')
-    : 'Nincs elĂ©rhetĹ‘ RSS hĂ­r.';
+  const newsText =
+    newsItems.length > 0
+      ? newsItems.map((n, i) => `${i + 1}. [${n.source}] ${n.title} (${n.url})`).join('\n')
+      : 'Nincs elérhető RSS hír.';
 
   const now = new Date();
-  const dateStr = now.toLocaleDateString('hu-HU', { year: 'numeric', month: 'long', day: 'numeric' });
+  const dateStr = now.toLocaleDateString('hu-HU', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
   const timeStr = now.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
 
   const prompt = `Te egy professzionalis deviza- es aranypiaci elemzo vagy egy magyar penzvalto ceg (EBC - Exclusive Best Change) szamara. A mai datum: ${dateStr} ${timeStr}.
@@ -710,7 +751,7 @@ Valaszolj KIZAROLAG az alabbi JSON formatumban (semmilyen mas szoveg ne legyen a
 KOVETELMENYEK:
 - 3-5 analyses elem, minosegi megallapitasokkal
 - 4-6 newsItems elem (a valos hirek alapjan, valos URL-ekkel)
-- Positioning a legfontosabb parokra: ${rates.map(r => r.pair).join(', ')}
+- Positioning a legfontosabb parokra: ${rates.map((r) => r.pair).join(', ')}
 - weightedConclusion legalabb a kulcsparokra: EURUSD, EURHUF, USDHUF, GBPHUF, CHFHUF
 - score: 0-100 (50=semleges, >60=bullish, <40=bearish)
 - Minden szoveg MAGYAR nyelven legyen
@@ -734,9 +775,7 @@ KOVETELMENYEK:
       const text = response;
       lastResponseText = text;
 
-      const stripped = text
-        .replace(/```(?:json)?\s*/gi, '')
-        .replace(/```\s*/gi, '');
+      const stripped = text.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/gi, '');
 
       const jsonObjectText = extractFirstJsonObject(stripped);
       if (!jsonObjectText) {
@@ -750,14 +789,16 @@ KOVETELMENYEK:
           const validation = validateAIAnalysisResult(result);
           if (validation.ok) {
             // BUG5 FIX: clamp confidence and score values to valid ranges
-            result.analyses.forEach(a => {
+            result.analyses.forEach((a) => {
               a.confidence = Math.max(40, Math.min(95, Math.round(a.confidence)));
             });
-            Object.values(result.weightedConclusion).forEach(wc => {
+            Object.values(result.weightedConclusion).forEach((wc) => {
               wc.score = Math.max(0, Math.min(100, Math.round(wc.score)));
             });
 
-            logger.info(`AI elemzes: ${result.analyses.length} elemzes, ${result.newsItems.length} hir, ${result.positioning.length} pozicio`);
+            logger.info(
+              `AI elemzes: ${result.analyses.length} elemzes, ${result.newsItems.length} hir, ${result.positioning.length} pozicio`,
+            );
             return result;
           }
           lastValidationReason = validation.reason ?? 'invalid_structure';
@@ -765,19 +806,21 @@ KOVETELMENYEK:
       }
 
       if (attempt < MAX_GENERATION_ATTEMPTS) {
-        logger.warn(`AI piaci elemzes attempt ${attempt} invalid (${lastValidationReason}), retrying with repair prompt`);
+        logger.warn(
+          `AI piaci elemzes attempt ${attempt} invalid (${lastValidationReason}), retrying with repair prompt`,
+        );
         attemptPrompt = `${prompt}
 
---- JAVĂŤTĂS ---
-Az elĹ‘zĹ‘ vĂˇlasz Ă©rvĂ©nytelen volt (${lastValidationReason}).
-Adj KIZĂRĂ“LAG Ă©rvĂ©nyes JSON objektumot, markdown blokk nĂ©lkĂĽl.
-KĂ¶telezĹ‘ minimum:
-- analyses legalĂˇbb 3 elem
-- newsItems legalĂˇbb 3 elem, valĂłs URL-ekkel
-- weightedConclusion legalĂˇbb EURUSD, EURHUF, USDHUF kulcsokkal
-- overallSentiment legalĂˇbb 2 mondat
+--- JAVÍTÁS ---
+Az előző válasz érvénytelen volt (${lastValidationReason}).
+Adj KIZÁRÓLAG érvényes JSON objektumot, markdown blokk nélkül.
+Kötelező minimum:
+- analyses legalább 3 elem
+- newsItems legalább 3 elem, valós URL-ekkel
+- weightedConclusion legalább EURUSD, EURHUF, USDHUF kulcsokkal
+- overallSentiment legalább 2 mondat
 
-Az elĹ‘zĹ‘ (hibĂˇs) vĂˇlasz kivonata:
+Az előző (hibás) válasz kivonata:
 ${lastResponseText.slice(0, 1600)}`;
       }
     }
@@ -785,16 +828,21 @@ ${lastResponseText.slice(0, 1600)}`;
     logger.error('AI piaci elemzes invalid after retries:', lastValidationReason);
     return null;
   } catch (err) {
-    // Timeout vagy rate limit esetĂ©n NE retry-olj â€” Ăşgysem segĂ­t
+    // Timeout vagy rate limit esetén NE retry-olj — úgysem segít
     if (err instanceof Error) {
-      const isTimeout = err.message.includes('timeout') || err.message.includes('timed out') || ('status' in err && (err as { status?: number }).status === 408);
+      const isTimeout =
+        err.message.includes('timeout') ||
+        err.message.includes('timed out') ||
+        ('status' in err && (err as { status?: number }).status === 408);
       const isRateLimit = 'status' in err && (err as { status?: number }).status === 429;
       if (isTimeout || isRateLimit) {
-        logger.warn(`AI elemzĂ©s megszakĂ­tva (${isTimeout ? 'timeout' : 'rate limit'}), nem retry-olunk`);
+        logger.warn(
+          `AI elemzés megszakítva (${isTimeout ? 'timeout' : 'rate limit'}), nem retry-olunk`,
+        );
         return null;
       }
     }
-    logger.error('AI elemzĂ©s hiba:', {
+    logger.error('AI elemzés hiba:', {
       name: (err as Error)?.name,
       message: (err as Error)?.message,
       status: (err as { status?: number })?.status,
@@ -803,5 +851,3 @@ ${lastResponseText.slice(0, 1600)}`;
     return null;
   }
 }
-
-

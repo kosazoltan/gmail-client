@@ -64,7 +64,7 @@ export interface Email {
   hasAttachments: boolean;
   categoryId: string | null;
   topicId: string | null;
-  // RĂ©szletes nĂ©zetnĂ©l
+  // Részletes nézetnél
   body?: string | null;
   bodyHtml?: string | null;
   attachments?: Attachment[];

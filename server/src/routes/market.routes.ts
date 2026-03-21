@@ -1,4 +1,4 @@
-﻿import { isAIAvailable } from '../ai/provider.js';
+import { isAIAvailable } from '../ai/provider.js';
 import { Router } from 'express';
 import logger from '../utils/logger.js';
 import { generateAIAnalysis, generateDeepAnalysis } from '../services/ai-market.service.js';
@@ -7,7 +7,11 @@ import {
   BRIEFING_ROUTE_TIMEOUT_MS,
   DEEP_ANALYSIS_ROUTE_TIMEOUT_MS,
 } from '../services/market-ai-config.js';
-import { fetchMarketRates, fetchMarketNews, fetchTrendData } from '../services/market-data.service.js';
+import {
+  fetchMarketRates,
+  fetchMarketNews,
+  fetchTrendData,
+} from '../services/market-data.service.js';
 import type { RateInfo, TrendDataPoint } from '../services/market-data.service.js';
 import { fetchNews } from '../services/news.service.js';
 import { fetchCryptoPrices } from '../services/crypto.service.js';
@@ -103,33 +107,33 @@ type MarketFallbackReason = 'missing_api_key' | 'timeout' | 'generation_failed';
 function getBriefingFallbackMessage(reason: MarketFallbackReason): string {
   switch (reason) {
     case 'missing_api_key':
-      return 'Sablon-alapĂş becslĂ©s fut, mert a market AI API kulcs nincs beĂˇllĂ­tva a szerveren.';
+      return 'Sablon-alapú becslés fut, mert a market AI API kulcs nincs beállítva a szerveren.';
     case 'timeout':
-      return 'Sablon-alapĂş becslĂ©s fut, mert a market AI elemzĂ©s idĹ‘tĂşllĂ©pĂ©s miatt fallbackre vĂˇltott.';
+      return 'Sablon-alapú becslés fut, mert a market AI elemzés időtúllépés miatt fallbackre váltott.';
     default:
-      return 'Sablon-alapĂş becslĂ©s fut, mert a market AI elemzĂ©s hibĂˇra futott vagy Ă©rvĂ©nytelen vĂˇlaszt adott.';
+      return 'Sablon-alapú becslés fut, mert a market AI elemzés hibára futott vagy érvénytelen választ adott.';
   }
 }
 
 function sanitizeFallbackText(text: string): string {
   return text
-    .replace(/Sablon alapu elemzes/gi, 'Sablon-alapĂş elemzĂ©s')
-    .replace(/Mely elemzes/gi, 'MĂ©ly elemzĂ©s')
-    .replace(/atmenetileg/gi, 'Ăˇtmenetileg')
-    .replace(/elerheto/gi, 'elĂ©rhetĹ‘')
-    .replace(/elo arfolyamok/gi, 'Ă©lĹ‘ Ăˇrfolyamok')
-    .replace(/elorejelzes/gi, 'elĹ‘rejelzĂ©s')
-    .replace(/Kezi elemzes/gi, 'KĂ©zi elemzĂ©s')
-    .replace(/dontest/gi, 'dĂ¶ntĂ©st')
-    .replace(/korultekinto/gi, 'kĂ¶rĂĽltekintĹ‘')
-    .replace(/probald ujra/gi, 'prĂłbĂˇld Ăşjra')
-    .replace(/Osszessegeben/gi, 'Ă–sszessĂ©gĂ©ben')
-    .replace(/dominal/gi, 'dominĂˇl')
-    .replace(/etvaggy/gi, 'Ă©tvĂˇgy')
-    .replace(/erosodese/gi, 'erĹ‘sĂ¶dĂ©se')
-    .replace(/jellmezo/gi, 'jellemzĹ‘')
-    .replace(/kockazatkerules/gi, 'kockĂˇzatkerĂĽlĂ©s')
-    .replace(/novekedhet/gi, 'nĂ¶vekedhet');
+    .replace(/Sablon alapu elemzes/gi, 'Sablon-alapú elemzés')
+    .replace(/Mely elemzes/gi, 'Mély elemzés')
+    .replace(/atmenetileg/gi, 'átmenetileg')
+    .replace(/elerheto/gi, 'elérhető')
+    .replace(/elo arfolyamok/gi, 'élő árfolyamok')
+    .replace(/elorejelzes/gi, 'előrejelzés')
+    .replace(/Kezi elemzes/gi, 'Kézi elemzés')
+    .replace(/dontest/gi, 'döntést')
+    .replace(/korultekinto/gi, 'körültekintő')
+    .replace(/probald ujra/gi, 'próbáld újra')
+    .replace(/Osszessegeben/gi, 'Összességében')
+    .replace(/dominal/gi, 'dominál')
+    .replace(/etvaggy/gi, 'étvágy')
+    .replace(/erosodese/gi, 'erősödése')
+    .replace(/jellmezo/gi, 'jellemző')
+    .replace(/kockazatkerules/gi, 'kockázatkerülés')
+    .replace(/novekedhet/gi, 'növekedhet');
 }
 
 // --- Institutional Sources ---
@@ -142,14 +146,78 @@ const SOURCES: Array<{
   url: string;
   lang: string;
 }> = [
-  { sourceId: 'ING', source: 'ING Think', weight: 1.4, speciality: 'EUR/HUF, napi FX Daily', pairs: ['EURUSD', 'EURHUF', 'GBPHUF'], url: 'https://think.ing.com/articles/fx-daily/', lang: 'en' },
-  { sourceId: 'JPM', source: 'J.P. Morgan', weight: 1.4, speciality: 'FX + arany forecast', pairs: ['EURUSD', 'XAUUSD', 'XAUEUR'], url: 'https://www.jpmorgan.com/insights/global-research/currencies', lang: 'en' },
-  { sourceId: 'MUFG', source: 'MUFG Research', weight: 1.3, speciality: 'FX forecasts', pairs: ['EURUSD', 'GBPHUF', 'CHFHUF'], url: 'https://www.mufgamericas.com/insight/fx-weekly', lang: 'en' },
-  { sourceId: 'Monex', source: 'Monex Global', weight: 1.3, speciality: 'Bloomberg FX Accuracy #1', pairs: ['EURUSD', 'GBPHUF', 'EURHUF'], url: 'https://www.monexeurope.com/news-analysis/', lang: 'en' },
-  { sourceId: 'Erste', source: 'Erste Group', weight: 1.3, speciality: 'EUR/HUF, kozep-europai FX', pairs: ['EURHUF', 'CHFHUF', 'EURUSD'], url: 'https://www.erstegroup.com/en/research/report', lang: 'en' },
-  { sourceId: 'Ebury', source: 'Ebury Insights', weight: 1.2, speciality: 'GBP/HUF elemzes', pairs: ['GBPHUF', 'EURUSD', 'EURHUF'], url: 'https://www.ebury.com/insights/', lang: 'en' },
-  { sourceId: 'FXStreet', source: 'FXStreet', weight: 1.1, speciality: 'Napi FX + Gold', pairs: ['EURUSD', 'XAUUSD', 'GBPHUF'], url: 'https://www.fxstreet.com/analysis', lang: 'en' },
-  { sourceId: 'ForexCom', source: 'FOREX.com', weight: 1.0, speciality: 'Napi FX elemzes', pairs: ['EURUSD', 'GBPHUF', 'CHFHUF'], url: 'https://www.forex.com/en/market-analysis/', lang: 'en' },
+  {
+    sourceId: 'ING',
+    source: 'ING Think',
+    weight: 1.4,
+    speciality: 'EUR/HUF, napi FX Daily',
+    pairs: ['EURUSD', 'EURHUF', 'GBPHUF'],
+    url: 'https://think.ing.com/articles/fx-daily/',
+    lang: 'en',
+  },
+  {
+    sourceId: 'JPM',
+    source: 'J.P. Morgan',
+    weight: 1.4,
+    speciality: 'FX + arany forecast',
+    pairs: ['EURUSD', 'XAUUSD', 'XAUEUR'],
+    url: 'https://www.jpmorgan.com/insights/global-research/currencies',
+    lang: 'en',
+  },
+  {
+    sourceId: 'MUFG',
+    source: 'MUFG Research',
+    weight: 1.3,
+    speciality: 'FX forecasts',
+    pairs: ['EURUSD', 'GBPHUF', 'CHFHUF'],
+    url: 'https://www.mufgamericas.com/insight/fx-weekly',
+    lang: 'en',
+  },
+  {
+    sourceId: 'Monex',
+    source: 'Monex Global',
+    weight: 1.3,
+    speciality: 'Bloomberg FX Accuracy #1',
+    pairs: ['EURUSD', 'GBPHUF', 'EURHUF'],
+    url: 'https://www.monexeurope.com/news-analysis/',
+    lang: 'en',
+  },
+  {
+    sourceId: 'Erste',
+    source: 'Erste Group',
+    weight: 1.3,
+    speciality: 'EUR/HUF, kozep-europai FX',
+    pairs: ['EURHUF', 'CHFHUF', 'EURUSD'],
+    url: 'https://www.erstegroup.com/en/research/report',
+    lang: 'en',
+  },
+  {
+    sourceId: 'Ebury',
+    source: 'Ebury Insights',
+    weight: 1.2,
+    speciality: 'GBP/HUF elemzes',
+    pairs: ['GBPHUF', 'EURUSD', 'EURHUF'],
+    url: 'https://www.ebury.com/insights/',
+    lang: 'en',
+  },
+  {
+    sourceId: 'FXStreet',
+    source: 'FXStreet',
+    weight: 1.1,
+    speciality: 'Napi FX + Gold',
+    pairs: ['EURUSD', 'XAUUSD', 'GBPHUF'],
+    url: 'https://www.fxstreet.com/analysis',
+    lang: 'en',
+  },
+  {
+    sourceId: 'ForexCom',
+    source: 'FOREX.com',
+    weight: 1.0,
+    speciality: 'Napi FX elemzes',
+    pairs: ['EURUSD', 'GBPHUF', 'CHFHUF'],
+    url: 'https://www.forex.com/en/market-analysis/',
+    lang: 'en',
+  },
 ];
 
 // --- Helpers ---
@@ -160,7 +228,7 @@ function generateDirection(change: number): 'bullish' | 'bearish' | 'neutral' {
 }
 
 function generateAnalyses(rates: RateInfo[]): AnalysisItem[] {
-  const rateMap = new Map(rates.map(r => [r.pair, r]));
+  const rateMap = new Map(rates.map((r) => [r.pair, r]));
   const now = new Date();
   const hour = now.getUTCHours();
   const isEuropeanSession = hour >= 7 && hour < 16;
@@ -173,12 +241,15 @@ function generateAnalyses(rates: RateInfo[]): AnalysisItem[] {
       ? 'az europai kereskedesi session'
       : 'az azsiai kereskedesi session';
 
-  return SOURCES.map(src => {
+  return SOURCES.map((src) => {
     const primaryPair = src.pairs[0];
     const rateInfo = rateMap.get(primaryPair);
     const change = rateInfo?.changePercent ?? 0;
     const direction = generateDirection(change);
-    const confidence = Math.min(95, Math.max(45, 65 + Math.round(Math.abs(change) * 30) + Math.round((src.weight - 1.0) * 20)));
+    const confidence = Math.min(
+      95,
+      Math.max(45, 65 + Math.round(Math.abs(change) * 30) + Math.round((src.weight - 1.0) * 20)),
+    );
 
     const dirHu = direction === 'bullish' ? 'bika' : direction === 'bearish' ? 'medve' : 'semleges';
     const rateStr = rateInfo ? rateInfo.rate.toFixed(4) : 'N/A';
@@ -218,7 +289,9 @@ function generateAnalyses(rates: RateInfo[]): AnalysisItem[] {
       ],
     };
 
-    const templates = summaryTemplates[src.sourceId] ?? [`${src.source} ${dirHu} iranyt lat a ${primaryPair} szamara.`];
+    const templates = summaryTemplates[src.sourceId] ?? [
+      `${src.source} ${dirHu} iranyt lat a ${primaryPair} szamara.`,
+    ];
     const summary = templates[hour % templates.length];
 
     const keyLevelMap: Record<string, string> = {
@@ -256,7 +329,7 @@ function generateAnalyses(rates: RateInfo[]): AnalysisItem[] {
 }
 
 function generatePositioning(rates: RateInfo[]): PositioningItem[] {
-  return rates.map(r => {
+  return rates.map((r) => {
     // Derive positioning from actual changePercent (no randomness)
     const clampedChange = Math.max(-2, Math.min(2, r.changePercent));
     const longPct = Math.round(50 + clampedChange * 8); // +-2% -> 34-66 range
@@ -272,8 +345,10 @@ function generatePositioning(rates: RateInfo[]): PositioningItem[] {
       bias,
       targetLow: Math.round((r.rate - spread) * (isGold ? 100 : 10000)) / (isGold ? 100 : 10000),
       targetHigh: Math.round((r.rate + spread) * (isGold ? 100 : 10000)) / (isGold ? 100 : 10000),
-      support: Math.round((r.rate - spread * 0.7) * (isGold ? 100 : 10000)) / (isGold ? 100 : 10000),
-      resistance: Math.round((r.rate + spread * 0.7) * (isGold ? 100 : 10000)) / (isGold ? 100 : 10000),
+      support:
+        Math.round((r.rate - spread * 0.7) * (isGold ? 100 : 10000)) / (isGold ? 100 : 10000),
+      resistance:
+        Math.round((r.rate + spread * 0.7) * (isGold ? 100 : 10000)) / (isGold ? 100 : 10000),
       catalyst48h: generateCatalyst(r.pair),
       scenarioBull: generateBullScenario(r.pair, r.rate),
       scenarioBear: generateBearScenario(r.pair, r.rate),
@@ -283,11 +358,23 @@ function generatePositioning(rates: RateInfo[]): PositioningItem[] {
 
 function generateCatalyst(pair: string): string {
   const catalysts: Record<string, string[]> = {
-    EURUSD: ['Fed beszed / FOMC jegyzokonyv', 'EurozonĂˇs PMI adatok', 'US foglalkoztatasi adat (NFP)'],
-    EURHUF: ['MNB kamatdontes / kommunikacio', 'Regionalis kotvenypiaci mozgas', 'EU forrasok kiutalasa'],
+    EURUSD: [
+      'Fed beszéd / FOMC jegyzőkönyv',
+      'Eurozónás PMI adatok',
+      'US foglalkoztatasi adat (NFP)',
+    ],
+    EURHUF: [
+      'MNB kamatdontes / kommunikacio',
+      'Regionalis kotvenypiaci mozgas',
+      'EU forrasok kiutalasa',
+    ],
     GBPHUF: ['BoE kamatdontes', 'UK CPI inflacio adat', 'MNB monetaris politika'],
     CHFHUF: ['SNB monetaris politika', 'MNB kamatdontes', 'Svajci inflacio adat'],
-    XAUUSD: ['Fed kamatvaltozasi varakozasok', 'Geopolitikai feszultseg', 'US realhozamok valtozasa'],
+    XAUUSD: [
+      'Fed kamatvaltozasi varakozasok',
+      'Geopolitikai feszultseg',
+      'US realhozamok valtozasa',
+    ],
     XAUEUR: ['ECB kamatpalya', 'Europai inflacio', 'Safe-haven keresleti sokk'],
   };
   const list = catalysts[pair] ?? ['Makrogazdasagi adat megjelenes'];
@@ -315,7 +402,7 @@ function generateBearScenario(pair: string, rate: number): string {
 }
 
 function generateNewsItems(rates: RateInfo[]): NewsItem[] {
-  const rateMap = new Map(rates.map(r => [r.pair, r]));
+  const rateMap = new Map(rates.map((r) => [r.pair, r]));
   const eurHuf = rateMap.get('EURHUF');
   const xauUsd = rateMap.get('XAUUSD');
   const xauHuf = rateMap.get('XAUHUF');
@@ -325,82 +412,85 @@ function generateNewsItems(rates: RateInfo[]): NewsItem[] {
   const now = new Date();
   const newsPool: NewsItem[] = [
     {
-      title: 'Fed tisztsĂ©gviselĹ‘k Ăłvatosan a kamatvĂˇgĂˇsokrĂłl',
+      title: 'Fed tisztségviselők óvatosan a kamatvágásokról',
       source: 'Reuters',
       originalLanguage: 'en',
       impact: 'Magas' as const,
       pairs: ['EURUSD', 'XAUUSD', 'USDHUF'],
-      summary: `A Fed tisztsĂ©gviselĹ‘i Ăłvatosabb hangot ĂĽtĂ¶ttek meg a kamatvĂˇgĂˇsokkal kapcsolatban. A dollĂˇr ${eurUsd && eurUsd.changePercent < 0 ? 'erĹ‘sĂ¶dĂ¶tt' : 'gyengĂĽlt'} a nyilatkozatok hatĂˇsĂˇra. Az USD/HUF ${usdHuf?.rate?.toFixed(2) ?? '365'} kĂ¶rnyĂ©kĂ©n kereskedik.`,
+      summary: `A Fed tisztségviselői óvatosabb hangot ütöttek meg a kamatvágásokkal kapcsolatban. A dollár ${eurUsd && eurUsd.changePercent < 0 ? 'erősödött' : 'gyengült'} a nyilatkozatok hatására. Az USD/HUF ${usdHuf?.rate?.toFixed(2) ?? '365'} környékén kereskedik.`,
       publishedAt: new Date(now.getTime() - 2 * 3600000).toISOString(),
       url: 'https://www.reuters.com/markets/currencies/',
     },
     {
-      title: `AranyĂˇr ${xauUsd && xauUsd.changePercent > 0 ? 'Ăşj csĂşcson' : 'korrekciĂłban'} - geopolitikai feszĂĽltsĂ©g`,
+      title: `Aranyár ${xauUsd && xauUsd.changePercent > 0 ? 'új csúcson' : 'korrekcióban'} - geopolitikai feszültség`,
       source: 'Bloomberg',
       originalLanguage: 'en',
       impact: 'Magas' as const,
       pairs: ['XAUUSD', 'XAUEUR', 'XAUHUF'],
-      summary: `Az arany ${xauUsd?.rate?.toFixed(2) ?? 'N/A'} USD/oz (${xauHuf?.rate?.toLocaleString('hu-HU') ?? 'N/A'} Ft/oz) szinten kereskedik. A geopolitikai feszĂĽltsĂ©gek Ă©s a jegybanki aranyvĂˇsĂˇrlĂˇsok tĂˇmogatjĂˇk az Ăˇrat.`,
+      summary: `Az arany ${xauUsd?.rate?.toFixed(2) ?? 'N/A'} USD/oz (${xauHuf?.rate?.toLocaleString('hu-HU') ?? 'N/A'} Ft/oz) szinten kereskedik. A geopolitikai feszültségek és a jegybanki aranyvásárlások támogatják az árat.`,
       publishedAt: new Date(now.getTime() - 4 * 3600000).toISOString(),
       url: 'https://www.bloomberg.com/markets/commodities',
     },
     {
-      title: `MNB: A forint stabil, az EUR/HUF ${eurHuf?.rate?.toFixed(2) ?? '395'} kĂ¶rnyĂ©kĂ©n`,
+      title: `MNB: A forint stabil, az EUR/HUF ${eurHuf?.rate?.toFixed(2) ?? '395'} környékén`,
       source: 'Portfolio.hu',
       originalLanguage: 'hu',
-      impact: 'KĂ¶zepes' as const,
+      impact: 'Közepes' as const,
       pairs: ['EURHUF', 'USDHUF'],
-      summary: `A Magyar Nemzeti Bank kommunikĂˇciĂłja szerint a monetĂˇris politika tĂˇmogatja a forint stabilitĂˇsĂˇt. Az EUR/HUF ${eurHuf?.rate?.toFixed(2) ?? '395'}, az USD/HUF ${usdHuf?.rate?.toFixed(2) ?? '365'} kĂ¶rnyĂ©kĂ©n kereskedik.`,
+      summary: `A Magyar Nemzeti Bank kommunikációja szerint a monetáris politika támogatja a forint stabilitását. Az EUR/HUF ${eurHuf?.rate?.toFixed(2) ?? '395'}, az USD/HUF ${usdHuf?.rate?.toFixed(2) ?? '365'} környékén kereskedik.`,
       publishedAt: new Date(now.getTime() - 5 * 3600000).toISOString(),
       url: 'https://www.portfolio.hu/deviza',
     },
     {
-      title: 'ECB: InflĂˇciĂł tovĂˇbbra is a cĂ©lszint felett',
+      title: 'ECB: Infláció továbbra is a célszint felett',
       source: 'ECB',
       originalLanguage: 'en',
-      impact: 'KĂ¶zepes' as const,
+      impact: 'Közepes' as const,
       pairs: ['EURUSD', 'EURHUF', 'CHFHUF'],
-      summary: 'Az EurĂłpai KĂ¶zponti Bank legfrissebb kĂ¶zlemĂ©nye szerint az eurĂłzĂłnĂˇs inflĂˇciĂł tovĂˇbbra is a 2%-os cĂ©lszint felett marad. A kamatpĂˇlya bizonytalan.',
+      summary:
+        'Az Európai Központi Bank legfrissebb közleménye szerint az eurózónás infláció továbbra is a 2%-os célszint felett marad. A kamatpálya bizonytalan.',
       publishedAt: new Date(now.getTime() - 7 * 3600000).toISOString(),
       url: 'https://www.ecb.europa.eu/press/pr/html/index.en.html',
     },
     {
-      title: 'GBP/EUR mozgĂˇs a BoE kamatdĂ¶ntĂ©s elĹ‘tt',
+      title: 'GBP/EUR mozgás a BoE kamatdöntés előtt',
       source: 'Financial Times',
       originalLanguage: 'en',
       impact: 'Alacsony' as const,
       pairs: ['GBPHUF'],
-      summary: 'A piac a Bank of England kĂ¶vetkezĹ‘ kamatdĂ¶ntĂ©sĂ©t vĂˇrja. A font/forint Ăˇrfolyam mozgĂˇsban.',
+      summary:
+        'A piac a Bank of England következő kamatdöntését várja. A font/forint árfolyam mozgásban.',
       publishedAt: new Date(now.getTime() - 10 * 3600000).toISOString(),
       url: 'https://www.ft.com/currencies',
     },
     {
-      title: 'SvĂˇjci frank: menedĂ©kdeviza szerepe erĹ‘sĂ¶dik',
+      title: 'Svájci frank: menedékdeviza szerepe erősödik',
       source: 'NZZ',
       originalLanguage: 'de',
       impact: 'Alacsony' as const,
       pairs: ['CHFHUF'],
-      summary: 'A geopolitikai bizonytalansĂˇg kĂ¶zepette a svĂˇjci frank menedĂ©kdeviza szerepe ismĂ©t felĂ©rtĂ©kelĹ‘dĂ¶tt. A CHF/HUF Ăˇrfolyam emelkedhet.',
+      summary:
+        'A geopolitikai bizonytalanság közepette a svájci frank menedékdeviza szerepe ismét felértékelődött. A CHF/HUF árfolyam emelkedhet.',
       publishedAt: new Date(now.getTime() - 12 * 3600000).toISOString(),
       url: 'https://www.nzz.ch/finanzen/devisen',
     },
     {
       title: `Arany forintban: ${xauHuf?.rate?.toLocaleString('hu-HU') ?? 'N/A'} Ft/oz`,
-      source: 'PrivĂˇtbankĂˇr',
+      source: 'Privátbankár',
       originalLanguage: 'hu',
-      impact: 'KĂ¶zepes' as const,
+      impact: 'Közepes' as const,
       pairs: ['XAUHUF', 'XAUUSD'],
-      summary: `A magyar befektetĹ‘k szĂˇmĂˇra fontos arany/forint Ăˇrfolyam ${xauHuf?.rate?.toLocaleString('hu-HU') ?? 'N/A'} Ft/oz szinten Ăˇll. A forintgyengĂĽlĂ©s Ă©s az aranyĂˇr emelkedĂ©se egyĂĽttesen hajtja a HUF-ban denominĂˇlt aranyĂˇrat.`,
+      summary: `A magyar befektetők számára fontos arany/forint árfolyam ${xauHuf?.rate?.toLocaleString('hu-HU') ?? 'N/A'} Ft/oz szinten áll. A forintgyengülés és az aranyár emelkedése együttesen hajtja a HUF-ban denominált aranyárat.`,
       publishedAt: new Date(now.getTime() - 6 * 3600000).toISOString(),
       url: 'https://privatbankar.hu/befektetes/arany/',
     },
     {
-      title: 'ING: KĂ¶zĂ©p-eurĂłpai devizĂˇk kilĂˇtĂˇsai',
+      title: 'ING: Közép-európai devizák kilátásai',
       source: 'ING Think',
       originalLanguage: 'en',
-      impact: 'KĂ¶zepes' as const,
+      impact: 'Közepes' as const,
       pairs: ['EURHUF', 'USDHUF', 'CHFHUF'],
-      summary: `Az ING elemzĹ‘i szerint a kĂ¶zĂ©p-eurĂłpai devizĂˇk (forint, zloty, korona) kilĂˇtĂˇsai vegyesek. Az EUR/HUF ${eurHuf?.rate?.toFixed(2) ?? '395'} kĂ¶rĂĽli sĂˇvban stabilizĂˇlĂłdhat.`,
+      summary: `Az ING elemzői szerint a közép-európai devizák (forint, zloty, korona) kilátásai vegyesek. Az EUR/HUF ${eurHuf?.rate?.toFixed(2) ?? '395'} körüli sávban stabilizálódhat.`,
       publishedAt: new Date(now.getTime() - 8 * 3600000).toISOString(),
       url: 'https://think.ing.com/articles/fx-daily/',
     },
@@ -409,21 +499,33 @@ function generateNewsItems(rates: RateInfo[]): NewsItem[] {
   return newsPool;
 }
 
-function computeWeightedConclusion(analyses: AnalysisItem[], rates: RateInfo[]): Record<string, WeightedConclusion> {
+function computeWeightedConclusion(
+  analyses: AnalysisItem[],
+  rates: RateInfo[],
+): Record<string, WeightedConclusion> {
   const pairs = ['EURUSD', 'EURHUF', 'USDHUF', 'GBPHUF', 'CHFHUF', 'XAUUSD', 'XAUEUR', 'XAUHUF'];
   const result: Record<string, WeightedConclusion> = {};
 
   for (const pair of pairs) {
-    const relevantAnalyses = analyses.filter(a => a.pairs.includes(pair));
+    const relevantAnalyses = analyses.filter((a) => a.pairs.includes(pair));
     if (relevantAnalyses.length === 0) {
-      result[pair] = { direction: 'neutral', score: 50, summary: 'Nincs eleg adat az ertekeleshez.' };
+      result[pair] = {
+        direction: 'neutral',
+        score: 50,
+        summary: 'Nincs eleg adat az ertekeleshez.',
+      };
       continue;
     }
 
     let weightedSum = 0;
     let totalWeight = 0;
     for (const a of relevantAnalyses) {
-      const dirScore = a.direction === 'bullish' ? a.confidence : a.direction === 'bearish' ? 100 - a.confidence : 50;
+      const dirScore =
+        a.direction === 'bullish'
+          ? a.confidence
+          : a.direction === 'bearish'
+            ? 100 - a.confidence
+            : 50;
       weightedSum += dirScore * a.weight;
       totalWeight += a.weight;
     }
@@ -432,8 +534,12 @@ function computeWeightedConclusion(analyses: AnalysisItem[], rates: RateInfo[]):
     const direction = score > 60 ? 'bullish' : score < 45 ? 'bearish' : 'neutral';
     const dirHu = direction === 'bullish' ? 'Bika' : direction === 'bearish' ? 'Medve' : 'Semleges';
 
-    const rateInfo = rates.find(r => r.pair === pair);
-    const rateStr = rateInfo ? (pair.startsWith('XAU') ? rateInfo.rate.toFixed(2) : rateInfo.rate.toFixed(4)) : 'N/A';
+    const rateInfo = rates.find((r) => r.pair === pair);
+    const rateStr = rateInfo
+      ? pair.startsWith('XAU')
+        ? rateInfo.rate.toFixed(2)
+        : rateInfo.rate.toFixed(4)
+      : 'N/A';
 
     result[pair] = {
       direction,
@@ -446,18 +552,24 @@ function computeWeightedConclusion(analyses: AnalysisItem[], rates: RateInfo[]):
 }
 
 function generateOverallSentiment(conclusion: Record<string, WeightedConclusion>): string {
-  const scores = Object.values(conclusion).map(c => c.score);
+  const scores = Object.values(conclusion).map((c) => c.score);
   const avg = Math.round(scores.reduce((s, v) => s + v, 0) / scores.length);
-  const bullCount = Object.values(conclusion).filter(c => c.direction === 'bullish').length;
-  const bearCount = Object.values(conclusion).filter(c => c.direction === 'bearish').length;
+  const bullCount = Object.values(conclusion).filter((c) => c.direction === 'bullish').length;
+  const bearCount = Object.values(conclusion).filter((c) => c.direction === 'bearish').length;
 
   if (bullCount >= 4) {
-    return sanitizeFallbackText(`Osszessegeben BIKA hangulat dominal a deviza- es aranypiacokon (atlag: ${avg}%). ${bullCount} devizaparbol ${bullCount} mutat pozitiv iranyt. A kockazati etvaggy javult, az EUR erosodese jellmezo.`);
+    return sanitizeFallbackText(
+      `Osszessegeben BIKA hangulat dominal a deviza- es aranypiacokon (atlag: ${avg}%). ${bullCount} devizaparbol ${bullCount} mutat pozitiv iranyt. A kockazati etvaggy javult, az EUR erosodese jellmezo.`,
+    );
   }
   if (bearCount >= 4) {
-    return sanitizeFallbackText(`Osszessegeben MEDVE hangulat uralja a piacot (atlag: ${avg}%). ${bearCount} devizapar mutat negativ iranyt. A kockazatkerules erosodott, a menedekdevizak es az arany iranti kereslet novekedhet.`);
+    return sanitizeFallbackText(
+      `Osszessegeben MEDVE hangulat uralja a piacot (atlag: ${avg}%). ${bearCount} devizapar mutat negativ iranyt. A kockazatkerules erosodott, a menedekdevizak es az arany iranti kereslet novekedhet.`,
+    );
   }
-  return sanitizeFallbackText(`VEGYES piaci hangulat (atlag: ${avg}%). A devizaparok ${bullCount} bika es ${bearCount} medve iranyt mutatnak. A piac varakozik a kovetkezo makroadatokra es jegybanki kommunikaciora.`);
+  return sanitizeFallbackText(
+    `VEGYES piaci hangulat (atlag: ${avg}%). A devizaparok ${bullCount} bika es ${bearCount} medve iranyt mutatnak. A piac varakozik a kovetkezo makroadatokra es jegybanki kommunikaciora.`,
+  );
 }
 
 // --- Fo endpoint ---
@@ -469,7 +581,7 @@ router.get('/briefing', async (req, res) => {
 
   const forceRefresh = req.query.refresh === 'true';
   const now = Date.now();
-  if (!forceRefresh && cachedBriefing && (now - cachedAt) < CACHE_TTL_MS) {
+  if (!forceRefresh && cachedBriefing && now - cachedAt < CACHE_TTL_MS) {
     return res.json({
       success: true,
       data: { ...cachedBriefing, cached: true },
@@ -481,29 +593,39 @@ router.get('/briefing', async (req, res) => {
     if (cachedBriefing) {
       return res.json({ success: true, data: { ...cachedBriefing, cached: true } });
     }
-    return res.status(503).json({ success: false, error: 'ElemzĂ©s folyamatban, kĂ©rlek prĂłbĂˇld Ăşjra 30 mĂˇsodperc mĂşlva.' });
+    return res
+      .status(503)
+      .json({
+        success: false,
+        error: 'Elemzés folyamatban, kérlek próbáld újra 30 másodperc múlva.',
+      });
   }
 
   isGenerating = true;
   const t0 = Date.now();
   try {
     logger.info('[BRIEFING] Step 1: fetchMarketRates + fetchMarketNews starting...');
-    const [rates, marketNews] = await Promise.all([
-      fetchMarketRates(),
-      fetchMarketNews(),
-    ]);
-    logger.info(`[BRIEFING] Step 1 done: ${rates.length} rates, ${marketNews.length} news in ${Date.now() - t0}ms`);
+    const [rates, marketNews] = await Promise.all([fetchMarketRates(), fetchMarketNews()]);
+    logger.info(
+      `[BRIEFING] Step 1 done: ${rates.length} rates, ${marketNews.length} news in ${Date.now() - t0}ms`,
+    );
 
     // AI elemzes (ha van API kulcs), egyebkent sablon fallback
-    // Promise.race: hard 45s timeout â€” if AI hangs, fall back to template
-    logger.info(`[BRIEFING] Step 2: generateAIAnalysis starting... (ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ? 'SET' : 'MISSING'})`);
+    // Promise.race: hard 45s timeout — if AI hangs, fall back to template
+    logger.info(
+      `[BRIEFING] Step 2: generateAIAnalysis starting... (ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ? 'SET' : 'MISSING'})`,
+    );
     const t1 = Date.now();
     const aiResult = await Promise.race([
       generateAIAnalysis(rates, marketNews),
-      new Promise<'timeout'>((resolve) => setTimeout(() => {
-        logger.warn(`generateAIAnalysis hard timeout (${BRIEFING_ROUTE_TIMEOUT_MS}ms) â€” falling back to template or cached AI result`);
-        resolve('timeout');
-      }, BRIEFING_ROUTE_TIMEOUT_MS)),
+      new Promise<'timeout'>((resolve) =>
+        setTimeout(() => {
+          logger.warn(
+            `generateAIAnalysis hard timeout (${BRIEFING_ROUTE_TIMEOUT_MS}ms) — falling back to template or cached AI result`,
+          );
+          resolve('timeout');
+        }, BRIEFING_ROUTE_TIMEOUT_MS),
+      ),
     ]);
     logger.info(`[BRIEFING] Step 2 done: AI=${!!aiResult} in ${Date.now() - t1}ms`);
 
@@ -533,7 +655,9 @@ router.get('/briefing', async (req, res) => {
           ? 'timeout'
           : 'generation_failed';
       if (fallbackReason !== 'missing_api_key' && cachedSuccessfulAIBriefing) {
-        logger.warn(`[BRIEFING] Reusing last successful AI briefing because generation ended with ${fallbackReason}`);
+        logger.warn(
+          `[BRIEFING] Reusing last successful AI briefing because generation ended with ${fallbackReason}`,
+        );
         return res.json({
           success: true,
           data: { ...cachedSuccessfulAIBriefing, cached: true },
@@ -546,10 +670,12 @@ router.get('/briefing', async (req, res) => {
       weightedConclusion = computeWeightedConclusion(analyses, rates);
       overallSentiment = generateOverallSentiment(weightedConclusion);
       // Mark template-based analyses clearly
-      analyses = analyses.map(a => ({
+      analyses = analyses.map((a) => ({
         ...a,
-        source: `${a.source} (sablon becslĂ©s)`,
-        summary: a.summary + ' âš ď¸Ź Ez automatikus sablon-alapĂş becslĂ©s az Ă©lĹ‘ Ăˇrfolyamadatok alapjĂˇn, nem valĂłdi intĂ©zmĂ©nyi elemzĂ©s.',
+        source: `${a.source} (sablon becslés)`,
+        summary:
+          a.summary +
+          ' ⚠️ Ez automatikus sablon-alapú becslés az élő árfolyamadatok alapján, nem valódi intézményi elemzés.',
       }));
       logger.info(`[BRIEFING] Step 3 done: template fallback in ${Date.now() - t1}ms`);
     }
@@ -575,7 +701,9 @@ router.get('/briefing', async (req, res) => {
       cachedSuccessfulAIBriefing = briefing;
     }
 
-    logger.info(`[BRIEFING] SUCCESS: total ${Date.now() - t0}ms, AI=${isAIPowered}, ${rates.length} rates, ${analyses.length} analyses`);
+    logger.info(
+      `[BRIEFING] SUCCESS: total ${Date.now() - t0}ms, AI=${isAIPowered}, ${rates.length} rates, ${analyses.length} analyses`,
+    );
     return res.json({ success: true, data: briefing });
   } catch (error) {
     logger.error(`[BRIEFING] FAILED after ${Date.now() - t0}ms:`, error);
@@ -617,7 +745,11 @@ router.post('/deep-analysis', async (req, res) => {
   const forceRefresh = req.query.refresh === 'true';
 
   // Return cached if fresh
-  if (!forceRefresh && cachedDeepAnalysis && (now - deepAnalysisCachedAt) < DEEP_ANALYSIS_CACHE_TTL_MS) {
+  if (
+    !forceRefresh &&
+    cachedDeepAnalysis &&
+    now - deepAnalysisCachedAt < DEEP_ANALYSIS_CACHE_TTL_MS
+  ) {
     return res.json({
       success: true,
       data: { ...cachedDeepAnalysis, cached: true },
@@ -629,29 +761,30 @@ router.post('/deep-analysis', async (req, res) => {
     if (!forceRefresh && cachedDeepAnalysis) {
       return res.json({
         success: true,
-      data: { ...cachedDeepAnalysis, cached: true },
+        data: { ...cachedDeepAnalysis, cached: true },
       });
     }
     return res.status(503).json({
       success: false,
-      error: 'MĂ©ly elemzĂ©s folyamatban, kĂ©rlek prĂłbĂˇld Ăşjra 30 mĂˇsodperc mĂşlva.',
+      error: 'Mély elemzés folyamatban, kérlek próbáld újra 30 másodperc múlva.',
     });
   }
 
   isDeepAnalysisGenerating = true;
   try {
     // Fetch live rates + 7 day trend in parallel
-    const [rates, trendData] = await Promise.all([
-      fetchMarketRates(),
-      fetchTrendData(7),
-    ]);
+    const [rates, trendData] = await Promise.all([fetchMarketRates(), fetchTrendData(7)]);
 
     const result = await Promise.race([
       generateDeepAnalysis(rates, trendData),
-      new Promise<'timeout'>((resolve) => setTimeout(() => {
-        logger.warn(`generateDeepAnalysis hard timeout (${DEEP_ANALYSIS_ROUTE_TIMEOUT_MS}ms) â€” falling back to template or cached AI result`);
-        resolve('timeout');
-      }, DEEP_ANALYSIS_ROUTE_TIMEOUT_MS)),
+      new Promise<'timeout'>((resolve) =>
+        setTimeout(() => {
+          logger.warn(
+            `generateDeepAnalysis hard timeout (${DEEP_ANALYSIS_ROUTE_TIMEOUT_MS}ms) — falling back to template or cached AI result`,
+          );
+          resolve('timeout');
+        }, DEEP_ANALYSIS_ROUTE_TIMEOUT_MS),
+      ),
     ]);
 
     if (!result || result === 'timeout') {
@@ -662,7 +795,9 @@ router.post('/deep-analysis', async (req, res) => {
           ? 'timeout'
           : 'generation_failed';
       if (fallbackReason !== 'missing_api_key' && cachedSuccessfulAIDeepAnalysis) {
-        logger.warn(`[DEEP_ANALYSIS] Reusing last successful AI analysis because generation ended with ${fallbackReason}`);
+        logger.warn(
+          `[DEEP_ANALYSIS] Reusing last successful AI analysis because generation ended with ${fallbackReason}`,
+        );
         return res.json({
           success: true,
           data: { ...cachedSuccessfulAIDeepAnalysis, cached: true },
@@ -672,13 +807,16 @@ router.post('/deep-analysis', async (req, res) => {
       const fallbackCurrencies: DeepAnalysisPayload['currencies'] = {};
       for (const r of rates) {
         if (r.pair.startsWith('XAU')) continue;
-        const trend: 'up' | 'down' | 'sideways' = r.changePercent > 0.1 ? 'up' : r.changePercent < -0.1 ? 'down' : 'sideways';
+        const trend: 'up' | 'down' | 'sideways' =
+          r.changePercent > 0.1 ? 'up' : r.changePercent < -0.1 ? 'down' : 'sideways';
         const spread = r.rate * 0.015;
         fallbackCurrencies[r.pair.replace(/(.{3})(.{3})/, '$1_$2')] = {
           trend,
           support: Math.round((r.rate - spread) * 100) / 100,
           resistance: Math.round((r.rate + spread) * 100) / 100,
-          forecast: sanitizeFallbackText(`Sablon alapu elemzes: a ${r.label} ${r.changePercent >= 0 ? 'emelkedik' : 'csokken'} (${r.changePercent.toFixed(2)}%).`),
+          forecast: sanitizeFallbackText(
+            `Sablon alapu elemzes: a ${r.label} ${r.changePercent >= 0 ? 'emelkedik' : 'csokken'} (${r.changePercent.toFixed(2)}%).`,
+          ),
           recommendation: r.changePercent > 0.3 ? 'buy' : r.changePercent < -0.3 ? 'sell' : 'hold',
           confidence: 3,
         };
@@ -688,12 +826,13 @@ router.post('/deep-analysis', async (req, res) => {
         summary: sanitizeFallbackText(`Sablon alapu elemzes - ${fallbackMessage}`),
         currencies: fallbackCurrencies,
         gold: {
-          trend: rates.find(r => r.pair === 'XAUUSD') ? 'Adatok alapjĂˇn' : 'Nem elĂ©rhetĹ‘',
-          forecast: 'Sablon-alapĂş elemzĂ©s - nincs AI elĹ‘rejelzĂ©s.',
-          recommendation: 'KĂ©zi elemzĂ©s javasolt.',
+          trend: rates.find((r) => r.pair === 'XAUUSD') ? 'Adatok alapján' : 'Nem elérhető',
+          forecast: 'Sablon-alapú elemzés - nincs AI előrejelzés.',
+          recommendation: 'Kézi elemzés javasolt.',
         },
-        overallRecommendation: 'Sablon-alapĂş elemzĂ©s - az AI Ăˇtmenetileg nem elĂ©rhetĹ‘. Az Ă©lĹ‘ Ăˇrfolyamok Ă©s trend adatok alapjĂˇn hozzon dĂ¶ntĂ©st.',
-        risks: ['Az elemzĂ©s sablon alapĂş, nem AI-generĂˇlt - kĂ¶rĂĽltekintĹ‘ dĂ¶ntĂ©shozatal javasolt.'],
+        overallRecommendation:
+          'Sablon-alapú elemzés - az AI átmenetileg nem elérhető. Az élő árfolyamok és trend adatok alapján hozzon döntést.',
+        risks: ['Az elemzés sablon alapú, nem AI-generált - körültekintő döntéshozatal javasolt.'],
         generatedAt: new Date().toISOString(),
         cached: false,
         trendData,
@@ -730,7 +869,7 @@ router.post('/deep-analysis', async (req, res) => {
     logger.error('Deep analysis hiba:', error);
     return res.status(500).json({
       success: false,
-      error: 'MĂ©ly elemzĂ©s generĂˇlĂˇsa sikertelen',
+      error: 'Mély elemzés generálása sikertelen',
     });
   } finally {
     isDeepAnalysisGenerating = false;
@@ -770,4 +909,3 @@ router.get('/crypto', async (req, res) => {
 });
 
 export default router;
-
