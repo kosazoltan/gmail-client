@@ -94,7 +94,11 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
   max: 10,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
+  // Neon / Render cold start + pool: 10s gyakran kevés → timeout a queryOne-nál (task_queues stack)
+  connectionTimeoutMillis: Math.min(
+    60000,
+    Math.max(10000, parseInt(process.env.ZMAIL_PG_CONNECT_TIMEOUT_MS || '25000', 10) || 25000),
+  ),
 });
 
 pool.on('error', (err) => {
@@ -288,6 +292,13 @@ export async function initializeDatabase(): Promise<void> {
         sid TEXT PRIMARY KEY,
         sess TEXT NOT NULL,
         expire BIGINT NOT NULL
+      );
+
+      -- OAuth refresh/access tokenek (AES-GCM ciphertext) — Neonon megmaradnak újraindítás / disk nélküli deploy után is
+      CREATE TABLE IF NOT EXISTS oauth_token_store (
+        account_email TEXT PRIMARY KEY,
+        ciphertext TEXT NOT NULL,
+        updated_at BIGINT NOT NULL
       );
 
       CREATE TABLE IF NOT EXISTS contacts (

@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useSettings, defaultSettings } from './useSettings';
 import { useVipEmails, isVipEmail } from './useVip';
 import { toast } from '../lib/toast';
+import { api } from '../lib/api';
 
 interface NewEmailEvent {
   emailId: string;
@@ -32,7 +33,8 @@ export function useDesktopNotifications(enabled: boolean) {
     if (!enabled || !('Notification' in window)) return;
     if (Notification.permission === 'default') Notification.requestPermission();
 
-    const es = new EventSource('/api/sse/events', { withCredentials: true });
+    // Production: VITE_API_URL → api.mindenes.org (relatív /api/... csak Vite proxy alatt működik)
+    const es = new EventSource(api.sse.eventsUrl(), { withCredentials: true });
     es.addEventListener('new-email', (event) => {
       let data: NewEmailEvent;
       try {

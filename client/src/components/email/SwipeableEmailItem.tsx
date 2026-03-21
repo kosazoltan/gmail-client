@@ -281,6 +281,8 @@ export function SwipeableEmailItem({
           onDelete={onDelete}
           onTogglePin={onPin}
           onToggleRead={onToggleRead}
+          onArchive={onArchive}
+          onSnooze={onSnooze}
           isPinned={isPinned}
           isVip={isVip}
           selectionMode={selectionMode}

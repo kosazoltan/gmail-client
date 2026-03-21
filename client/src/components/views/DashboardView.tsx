@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { toast } from '../../lib/toast';
+import { userVisibleApiError } from '../../lib/mutationErrors';
 import { refreshAfterEmailMovedToTrash } from '../../lib/refreshAfterEmailChange';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useUpdateDetectedTask } from '../../hooks/useDetectedTasks';
@@ -98,7 +99,7 @@ function areAllSelected(selectedIds: Set<string>, ids: string[]): boolean {
 export function DashboardView() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data, isLoading, error } = useDashboard();
+  const { data, isLoading, error, refetch, isFetching, failureCount } = useDashboard();
   const dashboardFetching = useIsFetching({ queryKey: ['dashboard'], exact: true });
   const briefFetching = useIsFetching({ queryKey: ['daily-brief-latest'], exact: true });
   const homeRefreshing = dashboardFetching > 0 || briefFetching > 0;
@@ -292,14 +293,30 @@ export function DashboardView() {
   }
 
   if (error) {
+    const detail = userVisibleApiError(
+      error,
+      'A dashboard betöltése sikertelen. Próbáld újra, vagy jelentkezz be újra, ha a naptár / Gmail nem elérhető.',
+    );
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="flex flex-col items-center gap-3 text-center">
+      <div className="flex h-full items-center justify-center p-4">
+        <div className="flex max-w-md flex-col items-center gap-4 text-center">
           <AlertCircle className="h-8 w-8 text-red-500" />
-          <p className="dark:text-dark-text-secondary text-sm text-gray-500">
-            A dashboard betöltése sikertelen. Lehet, hogy újra kell jelentkezned a naptár és a
-            feladatok eléréséhez.
-          </p>
+          <p className="dark:text-dark-text-secondary text-sm text-gray-500">{detail}</p>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            className="inline-flex items-center gap-2 rounded-lg bg-[#4f6ef7] px-4 py-2 text-sm font-medium text-white hover:bg-[#3d5ce5] disabled:opacity-50"
+          >
+            <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} />
+            Újrapróbálás
+          </button>
+          {failureCount >= 2 && (
+            <p className="dark:text-dark-text-muted text-xs text-gray-400">
+              Ha többször is hibázik: Beállítások → jelentkezz ki, majd jelentkezz be újra a Google
+              fiókkal.
+            </p>
+          )}
         </div>
       </div>
     );

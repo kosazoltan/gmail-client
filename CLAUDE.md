@@ -21,7 +21,7 @@ KRITIKUS TANULSAGOK (2026-02-28)
    Render web service neve: **gmail-client-api**. Adatbázis env kulcs: **DATABASE_URL** (Neon connection string, egyetlen kanonikus kulcs).
    Opcionalis megosztott Neon/Postgres: `ZMAIL_PG_SCHEMA=zmail` — ZMail tablak kulon semaban (`server/docs/NEON-AND-DATABASE.md`).
    Neon Management API nincs a repoban; futas: `pg` + connection string. `@neondatabase/serverless` nem hasznalt.
-   **Token vault (Render):** `ENCRYPTION_KEY` min. 16 karakter (stabil AES kulcs, nem fugg hosttol). Opcionalis: `ZMAIL_TOKEN_VAULT_FILE=/data/.secure/token-vault.enc.json` (perzisztens disk). `RENDER=true` eseten keytar nem toltodik (nincs libsecret).
+   **OAuth token (Render / Neon):** `ENCRYPTION_KEY` min. 16 karakter. **Renderen alapertelmezett:** `oauth_token_store` PostgreSQL tabla (ZMAIL_USE_DB_TOKEN_VAULT, RENDER=true) — a refresh token **ujrainditas / uj deploy utan is megmarad** (Neon). Opcionalis duplikatum: `ZMAIL_TOKEN_VAULT_FILE=/data/.secure/...` + perzisztens disk. `ZMAIL_USE_DB_TOKEN_VAULT=0` kikapcsolja a DB vaultot. `RENDER=true` eseten keytar nem toltodik.
 
 6. VITE_API_URL KOTELEZO a Vercel-en!
    Erteke: https://api.mindenes.org/api
@@ -44,7 +44,7 @@ KRITIKUS TANULSAGOK (2026-02-28)
     Domain=.mindenes.org; SameSite=None; Secure; HttpOnly
     Ez mukodik cross-subdomain (mail.mindenes.org <-> api.mindenes.org).
 
-Stack: React 19+TS+Tailwind4+Vite (Vercel) / Express 5+TS+sql.js (Render Frankfurt)
+Stack: React 19+TS+Tailwind4+Vite (Vercel) / Express 5+TS+PostgreSQL/Neon (Render Frankfurt)
 
 Push Checklist:
 

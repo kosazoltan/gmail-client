@@ -11,7 +11,7 @@
 ## Táblák (ZMail tulajdonú objektumok)
 
 Az alkalmazás **`initializeDatabase()`**-ben létrehozza többek között:  
-`accounts`, `emails`, `attachments`, `categories`, `topics`, `sessions`, `contacts`, `templates`, `workflows`, `ai_conversations`, `detected_tasks`, `scheduled_emails`, `user_settings`, … (teljes lista: `server/src/db/index.ts`).
+`accounts`, `emails`, `attachments`, `categories`, `topics`, `sessions`, **`oauth_token_store`** (titkosított Google OAuth tokenek — újraindítás után is megmaradnak), `contacts`, `templates`, `workflows`, `ai_conversations`, `detected_tasks`, `scheduled_emails`, `user_settings`, … (teljes lista: `server/src/db/index.ts`).
 
 Ezek **névterület szinten** általános nevek (`sessions`, `contacts`, …) — ha **ugyanazt a `DATABASE_URL`-t** megosztod egy másik programmal ugyanabban az adatbázisban, **ütközhet** a táblanevek és a séma.
 
@@ -31,10 +31,12 @@ A kódból **nem látható**, hogy a Neon projektet / connection stringet más a
 
 ## Környezeti változók
 
-| Változó           | Kötelező | Leírás                                                                                                                                                                                                |
-| ----------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`    | igen     | Neon / Postgres connection string (pooler, `sslmode=require`). A szerver szükség esetén hozzáfűzi a `uselibpqcompat=true` paramétert, hogy a Node `pg` ne írjon SSL deprecation warningot induláskor. |
-| `ZMAIL_PG_SCHEMA` | nem      | Pl. `zmail` — dedikált séma + `search_path`. Lásd fent.                                                                                                                                               |
+| Változó                    | Kötelező        | Leírás                                                                                                                                                                                                |
+| -------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`             | igen            | Neon / Postgres connection string (pooler, `sslmode=require`). A szerver szükség esetén hozzáfűzi a `uselibpqcompat=true` paramétert, hogy a Node `pg` ne írjon SSL deprecation warningot induláskor. |
+| `ZMAIL_PG_SCHEMA`          | nem             | Pl. `zmail` — dedikált séma + `search_path`. Lásd fent.                                                                                                                                               |
+| `ZMAIL_USE_DB_TOKEN_VAULT` | nem             | `1` = OAuth tokenek **`oauth_token_store`** táblában (ajánlott production). `0` = kikapcsolás. **Renderen** `RENDER=true` esetén alapértelmezés a DB vault (ha nincs `=0`).                           |
+| `ENCRYPTION_KEY`           | erősen ajánlott | Min. 16 karakter — az `oauth_token_store` ciphertext és a fájl-vault AES kulcsa. **Ne változtasd** deploy közben, különben a DB-ben lévő tokenek nem fejthetők vissza.                                |
 
 ## Render (`gmail-client-api`) — dedikált Neon
 

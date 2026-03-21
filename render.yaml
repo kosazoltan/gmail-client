@@ -46,6 +46,8 @@ services:
         generateValue: true
       - key: ENCRYPTION_KEY
         sync: false
-      # OAuth token fájl-vault a perzisztens lemezen (hostname-váltás nélkül is megmarad)
+      # OAuth: Neon oauth_token_store (újraindítás után is) + opcionális fájl másolat a lemezen
+      - key: ZMAIL_USE_DB_TOKEN_VAULT
+        value: "1"
       - key: ZMAIL_TOKEN_VAULT_FILE
         value: /data/.secure/token-vault.enc.json

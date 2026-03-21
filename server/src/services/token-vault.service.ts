@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import logger from '../utils/logger.js';
+import { execute, queryOne } from '../db/index.js';
 
 const SERVICE_NAME = 'ZMail';
 const ALGORITHM = 'aes-256-gcm';
@@ -42,6 +43,33 @@ interface FallbackVaultShape {
 let keytarRef: KeytarModule | null = null;
 let keytarLoadTried = false;
 let warnedUnstableVault = false;
+let loggedDbVaultMode = false;
+
+/**
+ * Neon / Postgres tároló: újraindítás és efemér disk után is megmarad a refresh token.
+ * - ZMAIL_USE_DB_TOKEN_VAULT=1 → be
+ * - ZMAIL_USE_DB_TOKEN_VAULT=0 → ki
+ * - Render (RENDER=true) alapértelmezés: BE (fájl nélkül gyakran elvesznek a tokenek)
+ */
+export function useDatabaseTokenVault(): boolean {
+  if (process.env.ZMAIL_USE_DB_TOKEN_VAULT === '0') return false;
+  if (process.env.ZMAIL_USE_DB_TOKEN_VAULT === '1') return true;
+  return process.env.RENDER === 'true';
+}
+
+function logDbVaultOnce(): void {
+  if (loggedDbVaultMode) return;
+  loggedDbVaultMode = true;
+  if (useDatabaseTokenVault()) {
+    logger.info(
+      'TokenVault: PostgreSQL (oauth_token_store) + ENCRYPTION_KEY — OAuth tokenek újraindítás után is megmaradnak',
+    );
+  }
+}
+
+function normalizeVaultEmail(accountEmail: string): string {
+  return accountEmail.toLowerCase().trim();
+}
 
 /** Production: ENCRYPTION_KEY (min. 16 karakter) → kulcs NEM függ hostnévtől (Render újraindítás OK). */
 function getStableVaultKey(): Buffer | null {
@@ -67,6 +95,70 @@ function getPrimaryEncryptionKey(): Buffer {
   const stable = getStableVaultKey();
   if (stable) return stable;
   return getLegacyMachineBoundKey();
+}
+
+function encryptTokenBlob(pair: OAuthTokenPair, key: Buffer): string {
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+  const payload = JSON.stringify({
+    accessToken: pair.accessToken,
+    refreshToken: pair.refreshToken,
+  });
+  let encrypted = cipher.update(payload, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const authTag = cipher.getAuthTag().toString('hex');
+  return `${iv.toString('hex')}:${authTag}:${encrypted}`;
+}
+
+function decryptTokenBlob(raw: string, key: Buffer): OAuthTokenPair | null {
+  try {
+    const [ivHex, authTagHex, encrypted] = raw.split(':');
+    if (!ivHex || !authTagHex || !encrypted) return null;
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, Buffer.from(ivHex, 'hex'));
+    decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
+    let json = decipher.update(encrypted, 'hex', 'utf8');
+    json += decipher.final('utf8');
+    const parsed = JSON.parse(json) as { accessToken?: string; refreshToken?: string };
+    if (parsed?.accessToken && parsed?.refreshToken) {
+      return { accessToken: parsed.accessToken, refreshToken: parsed.refreshToken };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+async function saveTokensDb(accountEmail: string, tokenPair: OAuthTokenPair): Promise<void> {
+  const normalized = normalizeVaultEmail(accountEmail);
+  const key = getPrimaryEncryptionKey();
+  const ciphertext = encryptTokenBlob(tokenPair, key);
+  const now = Date.now();
+  await execute(
+    `INSERT INTO oauth_token_store (account_email, ciphertext, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT (account_email) DO UPDATE SET ciphertext = EXCLUDED.ciphertext, updated_at = EXCLUDED.updated_at`,
+    [normalized, ciphertext, now],
+  );
+}
+
+async function getTokensDb(accountEmail: string): Promise<OAuthTokenPair | null> {
+  const normalized = normalizeVaultEmail(accountEmail);
+  const row = await queryOne<{ ciphertext: string }>(
+    'SELECT ciphertext FROM oauth_token_store WHERE account_email = ?',
+    [normalized],
+  );
+  if (!row?.ciphertext) return null;
+
+  const stable = getStableVaultKey();
+  let pair = decryptTokenBlob(row.ciphertext, getPrimaryEncryptionKey());
+  if (!pair && stable) {
+    pair = decryptTokenBlob(row.ciphertext, getLegacyMachineBoundKey());
+  }
+  return pair;
+}
+
+async function deleteTokensDb(accountEmail: string): Promise<void> {
+  const normalized = normalizeVaultEmail(accountEmail);
+  await execute('DELETE FROM oauth_token_store WHERE account_email = ?', [normalized]);
 }
 
 function decryptVaultFileContents(raw: string, key: Buffer): FallbackVaultShape | null {
@@ -166,7 +258,8 @@ async function writeFallbackVault(data: FallbackVaultShape): Promise<void> {
 
 async function saveFallback(accountEmail: string, tokenPair: OAuthTokenPair): Promise<void> {
   const current = await readFallbackVault();
-  current[accountEmail] = {
+  const key = normalizeVaultEmail(accountEmail);
+  current[key] = {
     accessToken: tokenPair.accessToken,
     refreshToken: tokenPair.refreshToken,
     updatedAt: Date.now(),
@@ -176,7 +269,8 @@ async function saveFallback(accountEmail: string, tokenPair: OAuthTokenPair): Pr
 
 async function getFallback(accountEmail: string): Promise<OAuthTokenPair | null> {
   const current = await readFallbackVault();
-  const found = current[accountEmail];
+  const norm = normalizeVaultEmail(accountEmail);
+  const found = current[norm] ?? current[accountEmail];
   if (!found) return null;
   return {
     accessToken: found.accessToken,
@@ -186,7 +280,9 @@ async function getFallback(accountEmail: string): Promise<OAuthTokenPair | null>
 
 async function deleteFallback(accountEmail: string): Promise<void> {
   const current = await readFallbackVault();
-  if (!current[accountEmail]) return;
+  const norm = normalizeVaultEmail(accountEmail);
+  if (!current[norm] && !current[accountEmail]) return;
+  delete current[norm];
   delete current[accountEmail];
   await writeFallbackVault(current);
 }
@@ -204,11 +300,21 @@ function parseLegacyToken(raw: string): OAuthTokenPair | null {
 }
 
 export async function saveTokens(accountEmail: string, tokenPair: OAuthTokenPair): Promise<void> {
+  logDbVaultOnce();
+  const useDb = useDatabaseTokenVault();
   const keytar = await loadKeytar();
-  const payload = JSON.stringify(tokenPair);
+
+  if (useDb) {
+    try {
+      await saveTokensDb(accountEmail, tokenPair);
+    } catch (err) {
+      logger.error('TokenVault: oauth_token_store mentés sikertelen:', err);
+      throw err;
+    }
+  }
 
   if (keytar) {
-    await keytar.setPassword(SERVICE_NAME, accountEmail, payload);
+    await keytar.setPassword(SERVICE_NAME, accountEmail, JSON.stringify(tokenPair));
     return;
   }
 
@@ -216,18 +322,58 @@ export async function saveTokens(accountEmail: string, tokenPair: OAuthTokenPair
 }
 
 export async function getTokens(accountEmail: string): Promise<OAuthTokenPair | null> {
+  logDbVaultOnce();
+  const useDb = useDatabaseTokenVault();
+
+  if (useDb) {
+    try {
+      const fromDb = await getTokensDb(accountEmail);
+      if (fromDb) return fromDb;
+    } catch (err) {
+      logger.warn('TokenVault: oauth_token_store olvasás sikertelen, fallback:', err);
+    }
+  }
+
   const keytar = await loadKeytar();
 
   if (keytar) {
     const value = await keytar.getPassword(SERVICE_NAME, accountEmail);
     if (!value) return null;
-    return parseLegacyToken(value);
+    const pair = parseLegacyToken(value);
+    if (pair && useDb) {
+      try {
+        await saveTokensDb(accountEmail, pair);
+        logger.info(`TokenVault: keytar → oauth_token_store migráció (${accountEmail})`);
+      } catch (e) {
+        logger.warn('TokenVault: keytar→DB migráció sikertelen:', e);
+      }
+    }
+    return pair;
   }
 
-  return getFallback(accountEmail);
+  const fromFile = await getFallback(accountEmail);
+  if (fromFile && useDb) {
+    try {
+      await saveTokensDb(accountEmail, fromFile);
+      logger.info(`TokenVault: fájl vault → oauth_token_store migráció (${accountEmail})`);
+    } catch (e) {
+      logger.warn('TokenVault: fájl→DB migráció sikertelen:', e);
+    }
+  }
+  return fromFile;
 }
 
 export async function deleteTokens(accountEmail: string): Promise<void> {
+  logDbVaultOnce();
+  const useDb = useDatabaseTokenVault();
+  if (useDb) {
+    try {
+      await deleteTokensDb(accountEmail);
+    } catch (err) {
+      logger.warn('TokenVault: oauth_token_store törlés:', err);
+    }
+  }
+
   const keytar = await loadKeytar();
   if (keytar) {
     await keytar.deletePassword(SERVICE_NAME, accountEmail);

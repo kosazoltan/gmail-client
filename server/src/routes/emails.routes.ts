@@ -14,7 +14,7 @@ import {
   trashMessage,
 } from '../services/gmail.service.js';
 import { getEmailAttachments } from '../services/attachment.service.js';
-import { upsertContact } from '../services/contacts.service.js';
+import { safeUpsertContact } from '../services/contacts.service.js';
 import logger from '../utils/logger.js';
 
 // Adatbázis rekord interfész
@@ -377,8 +377,9 @@ router.post('/send', async (req, res) => {
         ],
       );
 
-      // Save recipients to contacts immediately
-      saveRecipientsToContacts(accountId, to, cc, bcc);
+      void saveRecipientsToContacts(accountId, to, cc, bcc).catch((e) =>
+        logger.warn('saveRecipientsToContacts (scheduled send):', e),
+      );
 
       res.json({
         success: true,
@@ -394,8 +395,9 @@ router.post('/send', async (req, res) => {
     const gmail = getGmailClient(oauth2Client);
     const result = await sendEmail(gmail, accountId, { to, subject, body, cc, bcc, attachments });
 
-    // Címzettek mentése a kontaktokba
-    saveRecipientsToContacts(accountId, to, cc, bcc);
+    void saveRecipientsToContacts(accountId, to, cc, bcc).catch((e) =>
+      logger.warn('saveRecipientsToContacts (send):', e),
+    );
 
     res.json({ success: true, messageId: result.id });
   } catch (error) {
@@ -466,8 +468,9 @@ router.post('/reply', async (req, res) => {
         ],
       );
 
-      // Save recipients to contacts immediately
-      saveRecipientsToContacts(accountId, to, cc, bcc);
+      void saveRecipientsToContacts(accountId, to, cc, bcc).catch((e) =>
+        logger.warn('saveRecipientsToContacts (scheduled reply):', e),
+      );
 
       res.json({
         success: true,
@@ -492,8 +495,9 @@ router.post('/reply', async (req, res) => {
       attachments,
     });
 
-    // Címzettek mentése a kontaktokba
-    saveRecipientsToContacts(accountId, to, cc, bcc);
+    void saveRecipientsToContacts(accountId, to, cc, bcc).catch((e) =>
+      logger.warn('saveRecipientsToContacts (reply):', e),
+    );
 
     res.json({ success: true, messageId: result.id });
   } catch (error) {
@@ -812,29 +816,26 @@ function formatEmail(email: EmailRecord) {
   };
 }
 
-// Címzettek mentése a kontaktokba küldéskor/válaszkor
-function saveRecipientsToContacts(accountId: string, to: string, cc?: string, bcc?: string) {
-  // To címek feldolgozása
+// Címzettek mentése a kontaktokba küldéskor/válaszkor (háttérben, hibatűrő)
+async function saveRecipientsToContacts(accountId: string, to: string, cc?: string, bcc?: string) {
   if (to) {
     const toAddresses = parseEmailAddresses(to);
     for (const addr of toAddresses) {
-      upsertContact(accountId, addr.email, addr.name);
+      await safeUpsertContact(accountId, addr.email, addr.name);
     }
   }
 
-  // CC címek feldolgozása
   if (cc) {
     const ccAddresses = parseEmailAddresses(cc);
     for (const addr of ccAddresses) {
-      upsertContact(accountId, addr.email, addr.name);
+      await safeUpsertContact(accountId, addr.email, addr.name);
     }
   }
 
-  // BCC címek feldolgozása
   if (bcc) {
     const bccAddresses = parseEmailAddresses(bcc);
     for (const addr of bccAddresses) {
-      upsertContact(accountId, addr.email, addr.name);
+      await safeUpsertContact(accountId, addr.email, addr.name);
     }
   }
 }

@@ -12,52 +12,49 @@ interface Contact {
   account_id: string;
 }
 
-// Kontakt hozzáadása vagy frissítése
-export async function upsertContact(accountId: string, email: string, name?: string | null): Promise<Contact> {
+// Kontakt hozzáadása vagy frissítése (egyetlen atomi UPSERT — nincs SELECT+INSERT verseny, kevesebb round-trip)
+export async function upsertContact(
+  accountId: string,
+  email: string,
+  name?: string | null,
+): Promise<Contact> {
   const normalizedEmail = email.toLowerCase().trim();
-
-  // Ellenőrizzük, hogy létezik-e már
-  const existing = await queryOne<Contact>('SELECT * FROM contacts WHERE email = ? AND account_id = ?', [
-    normalizedEmail,
-    accountId,
-  ]);
-
-  if (existing) {
-    // Frissítjük a gyakoriságot és az utolsó használat idejét
-    // Ha van új név és az régi üres, frissítjük
-    const newName = name && !existing.name ? name : existing.name;
-    await execute(
-      'UPDATE contacts SET frequency = frequency + 1, last_used_at = ?, name = ? WHERE id = ?',
-      [Date.now(), newName, existing.id],
-    );
-    return {
-      ...existing,
-      frequency: existing.frequency + 1,
-      last_used_at: Date.now(),
-      name: newName,
-    };
+  if (!normalizedEmail || !normalizedEmail.includes('@')) {
+    throw new Error('upsertContact: érvénytelen email');
   }
 
-  // Új kontakt létrehozása
   const id = uuid();
   const now = Date.now();
-  await execute(
-    'INSERT INTO contacts (id, email, name, frequency, last_used_at, account_id) VALUES (?, ?, ?, ?, ?, ?)',
-    [id, normalizedEmail, name || null, 1, now, accountId],
+  const nameVal = name?.trim() ? name.trim() : null;
+
+  const row = await queryOne<Contact>(
+    `INSERT INTO contacts (id, email, name, frequency, last_used_at, account_id)
+     VALUES (?, ?, ?, 1, ?, ?)
+     ON CONFLICT (email, account_id) DO UPDATE SET
+       frequency = contacts.frequency + 1,
+       last_used_at = EXCLUDED.last_used_at,
+       name = CASE
+         WHEN EXCLUDED.name IS NOT NULL AND TRIM(EXCLUDED.name) <> ''
+              AND (contacts.name IS NULL OR TRIM(COALESCE(contacts.name, '')) = '')
+         THEN EXCLUDED.name
+         ELSE contacts.name
+       END
+     RETURNING *`,
+    [id, normalizedEmail, nameVal, now, accountId],
   );
 
-  return {
-    id,
-    email: normalizedEmail,
-    name: name || null,
-    frequency: 1,
-    last_used_at: now,
-    account_id: accountId,
-  };
+  if (!row) {
+    throw new Error('upsertContact: RETURNING üres sor');
+  }
+  return row;
 }
 
 // Kontaktok keresése autocomplete-hez
-export async function searchContacts(accountId: string, query: string, limit = 10): Promise<Contact[]> {
+export async function searchContacts(
+  accountId: string,
+  query: string,
+  limit = 10,
+): Promise<Contact[]> {
   const searchQuery = `%${query.toLowerCase()}%`;
 
   return await queryAll<Contact>(
@@ -78,6 +75,20 @@ export async function getAllContacts(accountId: string): Promise<Contact[]> {
 }
 
 // Email címek kinyerése egy email-ből
+/** Szinkron / route handler: hiba esetén log, nem dob (ne omoljon össze a kérés) */
+export async function safeUpsertContact(
+  accountId: string,
+  email: string,
+  displayName?: string | null,
+): Promise<void> {
+  try {
+    await upsertContact(accountId, email, displayName);
+  } catch (err) {
+    // Szinkron / tömeges feldolgozásnál ne dobjuk el az egész tranzakciót (timeout, Neon hálózat, stb.)
+    logger.warn(`Kontakt upsert kihagyva (${email}):`, err);
+  }
+}
+
 export async function extractContactsFromEmail(
   accountId: string,
   fromEmail: string | null,
@@ -85,24 +96,21 @@ export async function extractContactsFromEmail(
   toEmail: string | null,
   ccEmail: string | null,
 ): Promise<void> {
-  // From cím feldolgozása
   if (fromEmail) {
-    await upsertContact(accountId, fromEmail, fromName);
+    await safeUpsertContact(accountId, fromEmail, fromName);
   }
 
-  // To címek feldolgozása (lehet több is, vesszővel elválasztva)
   if (toEmail) {
     const toAddresses = parseEmailAddresses(toEmail);
     for (const addr of toAddresses) {
-      await upsertContact(accountId, addr.email, addr.name);
+      await safeUpsertContact(accountId, addr.email, addr.name);
     }
   }
 
-  // CC címek feldolgozása
   if (ccEmail) {
     const ccAddresses = parseEmailAddresses(ccEmail);
     for (const addr of ccAddresses) {
-      await upsertContact(accountId, addr.email, addr.name);
+      await safeUpsertContact(accountId, addr.email, addr.name);
     }
   }
 }
@@ -139,10 +147,10 @@ function parseEmailAddresses(addressString: string): Array<{ email: string; name
 
 // Kontakt törlése
 export async function deleteContact(accountId: string, contactId: string): Promise<boolean> {
-  const existing = await queryOne<Contact>('SELECT * FROM contacts WHERE id = ? AND account_id = ?', [
-    contactId,
-    accountId,
-  ]);
+  const existing = await queryOne<Contact>(
+    'SELECT * FROM contacts WHERE id = ? AND account_id = ?',
+    [contactId, accountId],
+  );
 
   if (!existing) return false;
 
@@ -156,10 +164,10 @@ export async function updateContactName(
   contactId: string,
   name: string,
 ): Promise<Contact | null> {
-  const existing = await queryOne<Contact>('SELECT * FROM contacts WHERE id = ? AND account_id = ?', [
-    contactId,
-    accountId,
-  ]);
+  const existing = await queryOne<Contact>(
+    'SELECT * FROM contacts WHERE id = ? AND account_id = ?',
+    [contactId, accountId],
+  );
 
   if (!existing) return null;
 
@@ -193,21 +201,21 @@ export async function extractContactsFromExistingEmails(accountId: string): Prom
   let count = 0;
   for (const email of emails) {
     if (email.from_email) {
-      upsertContact(accountId, email.from_email, email.from_name);
+      await safeUpsertContact(accountId, email.from_email, email.from_name);
       count++;
     }
     if (email.to_email) {
       const toAddresses = parseEmailAddresses(email.to_email);
       count += toAddresses.length;
       for (const addr of toAddresses) {
-        upsertContact(accountId, addr.email, addr.name);
+        await safeUpsertContact(accountId, addr.email, addr.name);
       }
     }
     if (email.cc_email) {
       const ccAddresses = parseEmailAddresses(email.cc_email);
       count += ccAddresses.length;
       for (const addr of ccAddresses) {
-        upsertContact(accountId, addr.email, addr.name);
+        await safeUpsertContact(accountId, addr.email, addr.name);
       }
     }
   }
@@ -228,23 +236,34 @@ export function autoExtractContactsIfNeeded(accountId: string): void {
   // Utána: naponta egyszer, VAGY ha kevés kontakt van (< 50)
   if (!lastExtraction || now - lastExtraction > oneDayMs) {
     // Check contact count async — if few contacts, always rebuild
-    hasExtractedContacts(accountId).then(async (hasContacts) => {
-      const countResult = await queryOne<{ count: number }>(
-        'SELECT COUNT(*) as count FROM contacts WHERE account_id = ?',
-        [accountId],
-      );
-      const count = Number(countResult?.count ?? 0);
-      // Rebuild if no contacts, few contacts (< 50), or daily refresh
-      if (!hasContacts || count < 50 || !lastExtraction || now - (lastExtraction ?? 0) > oneDayMs) {
-        logger.info(`Kontaktok automatikus kinyerése (jelenlegi: ${count}): ${accountId}`);
-        lastExtractionTime.set(accountId, now);
-        extractContactsFromExistingEmails(accountId)
-          .then((extracted) => logger.info(`${extracted} email címből kontaktok kinyerve (összesen: ${count + extracted}).`))
-          .catch((err) => logger.error(`Kontakt kinyerés hiba (${accountId}):`, err));
-      } else {
-        lastExtractionTime.set(accountId, now);
-      }
-    }).catch((err) => logger.error(`Kontakt check hiba (${accountId}):`, err));
+    hasExtractedContacts(accountId)
+      .then(async (hasContacts) => {
+        const countResult = await queryOne<{ count: number }>(
+          'SELECT COUNT(*) as count FROM contacts WHERE account_id = ?',
+          [accountId],
+        );
+        const count = Number(countResult?.count ?? 0);
+        // Rebuild if no contacts, few contacts (< 50), or daily refresh
+        if (
+          !hasContacts ||
+          count < 50 ||
+          !lastExtraction ||
+          now - (lastExtraction ?? 0) > oneDayMs
+        ) {
+          logger.info(`Kontaktok automatikus kinyerése (jelenlegi: ${count}): ${accountId}`);
+          lastExtractionTime.set(accountId, now);
+          extractContactsFromExistingEmails(accountId)
+            .then((extracted) =>
+              logger.info(
+                `${extracted} email címből kontaktok kinyerve (összesen: ${count + extracted}).`,
+              ),
+            )
+            .catch((err) => logger.error(`Kontakt kinyerés hiba (${accountId}):`, err));
+        } else {
+          lastExtractionTime.set(accountId, now);
+        }
+      })
+      .catch((err) => logger.error(`Kontakt check hiba (${accountId}):`, err));
   }
 }
 
@@ -380,4 +399,3 @@ export async function fixAllNamesEncoding(accountId: string): Promise<{
     emails: emailsFixed,
   };
 }
-

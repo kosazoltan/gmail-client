@@ -5,6 +5,7 @@ import {
   getAccountById,
   deleteAccount,
   updateAccountColor,
+  isOAuthReloginError,
 } from '../services/auth.service.js';
 import {
   syncAccount,
@@ -18,7 +19,9 @@ const router = Router();
 // Összes hozzáadott fiók
 router.get('/', async (req, res) => {
   const accountIds = req.session.accountIds || [];
-  const accountsList = (await getAllAccounts()).filter((a: { id: string }) => accountIds.includes(a.id));
+  const accountsList = (await getAllAccounts()).filter((a: { id: string }) =>
+    accountIds.includes(a.id),
+  );
   res.json({ accounts: accountsList });
 });
 
@@ -97,7 +100,13 @@ router.post('/:id/sync', async (req, res) => {
     res.json(result);
   } catch (error) {
     logger.error('Szinkronizálás hiba:', error);
-    res.status(500).json({ error: 'Szinkronizálás sikertelen' });
+    const msg =
+      error instanceof Error && error.message.trim() ? error.message : 'Szinkronizálás sikertelen';
+    if (isOAuthReloginError(error)) {
+      res.status(401).json({ error: msg, code: 'OAUTH_RELOGIN_REQUIRED' });
+      return;
+    }
+    res.status(500).json({ error: msg });
   }
 });
 

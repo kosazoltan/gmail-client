@@ -19,6 +19,7 @@ import { toast } from '../../lib/toast';
 import { QuotaIndicator } from '../common/QuotaIndicator';
 import { AdvancedSearch } from '../email/AdvancedSearch';
 import { buildOperatorQuery, pushSearchHistory, getSearchHistory } from '../../hooks/useSearch';
+import { userVisibleApiError } from '../../lib/mutationErrors';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
@@ -145,7 +146,7 @@ export function Header({
             toast.success('Levelek sikeresen szinkronizálva');
           },
           onError: (error) => {
-            toast.error('Hiba történt a szinkronizálás során');
+            toast.error(userVisibleApiError(error, 'Hiba történt a szinkronizálás során'));
             reportManualRefreshError(error);
           },
         },

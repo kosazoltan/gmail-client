@@ -1,6 +1,6 @@
 import logger from '../utils/logger.js';
 import type { Request, Response, NextFunction } from 'express';
-import { buildAllowedOrigins } from '../utils/cors-config.js';
+import { applyCorsHeadersIfAllowed } from '../utils/cors-config.js';
 import { sendErrorReport } from '../lib/error-mailer.js';
 
 export class AppError extends Error {
@@ -15,24 +15,10 @@ export class AppError extends Error {
 
 /**
  * Ensures CORS headers are present on error responses.
- * Without this, Render cold-start 502s or unhandled 500s lack CORS headers,
- * causing the browser to block the response entirely as a CORS error.
+ * (502 a proxytól továbbra sem javítható itt — akkor a backend nem fut.)
  */
 function setCorsHeadersOnError(req: Request, res: Response): void {
-  // Only set if not already set (cors middleware may have already run)
-  if (res.getHeader('Access-Control-Allow-Origin')) return;
-
-  const origin = req.headers.origin;
-  if (!origin) return;
-
-  // H1: Use shared CORS config
-  const allowedOrigins = buildAllowedOrigins();
-
-  const normalizedOrigin = origin.trim();
-  if (allowedOrigins.includes(normalizedOrigin)) {
-    res.setHeader('Access-Control-Allow-Origin', normalizedOrigin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-  }
+  applyCorsHeadersIfAllowed(req, res);
 }
 
 export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction) {

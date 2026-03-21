@@ -14,7 +14,6 @@ import {
 import { cn, formatEmailDate, displaySender, getInitials, emailToColor } from '../../lib/utils';
 import { useSettings, defaultSettings } from '../../hooks/useSettings';
 import { setDraggedEmail } from '../../hooks/useDragDrop';
-import { QuickActionsRow } from './QuickActionsRow';
 import type { Email } from '../../types';
 
 interface EmailItemProps {
@@ -33,7 +32,6 @@ interface EmailItemProps {
   selectionMode?: boolean;
   isChecked?: boolean;
   onToggleCheck?: (emailId: string, event?: React.MouseEvent) => void;
-  showQuickActions?: boolean;
 }
 
 export function EmailItem({
@@ -51,7 +49,6 @@ export function EmailItem({
   selectionMode = false,
   isChecked = false,
   onToggleCheck,
-  showQuickActions = false,
 }: EmailItemProps) {
   const sender = displaySender(email.fromName, email.from);
   const initials = getInitials(sender);
@@ -60,7 +57,6 @@ export function EmailItem({
   const density = settings?.messageDensity ?? defaultSettings.messageDensity ?? 'normal';
 
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
-  const [showActions, setShowActions] = useState(false);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -90,8 +86,6 @@ export function EmailItem({
         }}
         onClick={handleItemClick}
         onContextMenu={handleContextMenu}
-        onMouseEnter={() => setShowActions(true)}
-        onMouseLeave={() => setShowActions(false)}
         className={cn(
           'dark:border-dark-border flex cursor-pointer items-start gap-2 border-b border-gray-100 transition-colors sm:gap-3',
           density === 'compact' && 'px-2 py-1.5 sm:px-3 sm:py-2',
@@ -229,20 +223,7 @@ export function EmailItem({
         </div>
       </div>
 
-      {/* Quick Actions Row (visible on hover, AquaMail-style) */}
-      {(showActions || showQuickActions) && (
-        <QuickActionsRow
-          email={email}
-          onToggleRead={() => onToggleRead?.(email.id, !email.isRead)}
-          onArchive={() => onArchive?.(email.id)}
-          onSnooze={() => onSnooze?.(email.id)}
-          onDelete={() => onDelete?.(email.id)}
-          dense={density === 'compact'}
-          className="animate-slide-down"
-        />
-      )}
-
-      {/* Context menu */}
+      {/* Context menu (jobb klikk) */}
       {contextMenu && (
         <div className="fixed inset-0 z-50" onClick={() => setContextMenu(null)}>
           <div
@@ -281,6 +262,30 @@ export function EmailItem({
               <Pin className={cn('h-4 w-4', isPinned && 'fill-amber-500 text-amber-500')} />
               {isPinned ? 'Kitűzés feloldása' : 'Kitűzés'}
             </button>
+            {onArchive && (
+              <button
+                onClick={() => {
+                  onArchive(email.id);
+                  setContextMenu(null);
+                }}
+                className="dark:text-dark-text dark:hover:bg-dark-bg-tertiary flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/10"
+              >
+                <Archive className="h-4 w-4" />
+                Archiválás
+              </button>
+            )}
+            {onSnooze && (
+              <button
+                onClick={() => {
+                  onSnooze(email.id);
+                  setContextMenu(null);
+                }}
+                className="dark:text-dark-text dark:hover:bg-dark-bg-tertiary flex w-full items-center gap-3 px-4 py-2 text-left text-sm text-purple-700 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-500/10"
+              >
+                <Clock className="h-4 w-4" />
+                Szundi
+              </button>
+            )}
             <div className="dark:border-dark-border my-1 border-t border-gray-100" />
             <button
               onClick={() => {
