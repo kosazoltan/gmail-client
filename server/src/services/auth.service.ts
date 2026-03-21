@@ -12,6 +12,15 @@ import {
   isVaultMarker,
 } from './token-vault.service.js';
 
+/** OAuth token hiányzik (vault üres / új deploy) — indításkor várt; megoldás: új bejelentkezés. */
+export const MISSING_VAULT_TOKEN_MESSAGE =
+  'Token nem található secure vaultban. Jelentkezz be újra.';
+
+export function isMissingVaultTokenError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.includes('Token nem található secure vaultban');
+}
+
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/gmail.send',
@@ -220,7 +229,7 @@ export async function getOAuth2ClientForAccount(accountId: string) {
   }
 
   if (!tokenPair) {
-    throw new Error('Token nem található secure vaultban. Jelentkezz be újra.');
+    throw new Error(MISSING_VAULT_TOKEN_MESSAGE);
   }
 
   oauth2Client.setCredentials({

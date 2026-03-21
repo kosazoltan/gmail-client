@@ -14,7 +14,7 @@ import {
   reprocessRecentOperationalSignals,
   syncAccount,
 } from './services/sync.service.js';
-import { getAllAccounts } from './services/auth.service.js';
+import { getAllAccounts, isMissingVaultTokenError } from './services/auth.service.js';
 import { v4 as uuidv4 } from 'uuid';
 import logger from './utils/logger.js';
 
@@ -268,9 +268,15 @@ async function start() {
   }
   // Azonnali szinkronizálás induláskor — ne kelljen kézzel frissíteni
   for (const account of existingAccounts) {
-    syncAccount(account.id).catch((err) =>
-      logger.error(`Startup immediate sync failed for ${account.email}`, err),
-    );
+    syncAccount(account.id).catch((err) => {
+      if (isMissingVaultTokenError(err)) {
+        logger.warn(
+          `Startup sync kihagyva (${account.email}): nincs OAuth token a vaultban — jelentkezz be újra a webappban (ZMAIL_TOKEN_VAULT_FILE + ENCRYPTION_KEY a Renderen).`,
+        );
+        return;
+      }
+      logger.error(`Startup immediate sync failed for ${account.email}`, err);
+    });
   }
 
   // Háttér szinkronizálás 30s késlelt. indítás (periódikus 5 percenként)
