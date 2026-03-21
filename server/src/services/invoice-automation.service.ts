@@ -104,7 +104,7 @@ function tryAutoReloadAccountingEnv(): void {
 export function validateInvoiceAutomationConfig(): { ok: boolean; missing: string[] } {
   const missing = getMissingRecipientEnvVars();
   if (missing.length > 0) {
-    logger.error(`🔴 INVOICE_AUTOMATION_ALERT: Missing env vars: ${missing.join(', ')}`);
+    // Opcionális funkció: nincs startup ERROR/WARN — csak akkor naplózunk, ha ténylegesen futtatjuk (notifyConfigIssue).
     return { ok: false, missing };
   }
   return { ok: true, missing: [] };
@@ -736,8 +736,8 @@ async function notifyConfigIssue(
     createdAt: Date.now(),
   };
 
-  logger.error(
-    `🔴 PROGRAM ALERT [JUNIOR_PROCESS_ALERT]: ${instruction.action} Missing: ${missing.join(', ')}`,
+  logger.debug(
+    `[invoice-automation] Konfig hiány (ACCOUNTING_*): ${missing.join(', ')} — user_settings marker elmentve.`,
   );
 
   await execute(

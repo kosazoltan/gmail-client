@@ -54,10 +54,7 @@ import detectedTasksRoutes from './routes/detected-tasks.routes.js';
 import sseRoutes from './routes/sse.routes.js';
 import briefRoutes, { generateAISummary } from './routes/brief.routes.js';
 import { runAiDigestScheduler } from './services/digest-scheduler.service.js';
-import {
-  runInvoiceAutomation,
-  validateInvoiceAutomationConfig,
-} from './services/invoice-automation.service.js';
+import { runInvoiceAutomation } from './services/invoice-automation.service.js';
 import invoiceAutomationRoutes from './routes/invoice-automation.routes.js';
 import {
   detectUnansweredEmails,
@@ -131,20 +128,8 @@ async function start() {
   await ensureErrorLogTable();
   await ensureAuditLogTable();
 
-  // Invoice automation config check (non-fatal): alert + auto re-check handled by scheduler.
-  const invoiceCfg = validateInvoiceAutomationConfig();
-  if (!invoiceCfg.ok) {
-    logger.error(
-      `🔴 Invoice automation recipient config hiányos startupkor: ${invoiceCfg.missing.join(', ')}`,
-    );
-  }
-
   const app = express();
   const frontendUrl = process.env.FRONTEND_URL;
-
-  if (!frontendUrl) {
-    logger.warn('FRONTEND_URL environment variable is not set. Using default.');
-  }
 
   // Security headers - lazább beállítások a mobil böngésző kompatibilitásért
   app.use(

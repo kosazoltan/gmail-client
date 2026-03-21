@@ -31,10 +31,10 @@ A kódból **nem látható**, hogy a Neon projektet / connection stringet más a
 
 ## Környezeti változók
 
-| Változó           | Kötelező | Leírás                                                         |
-| ----------------- | -------- | -------------------------------------------------------------- |
-| `DATABASE_URL`    | igen     | Neon / Postgres connection string (pooler, `sslmode=require`). |
-| `ZMAIL_PG_SCHEMA` | nem      | Pl. `zmail` — dedikált séma + `search_path`. Lásd fent.        |
+| Változó           | Kötelező | Leírás                                                                                                                                                                                                |
+| ----------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`    | igen     | Neon / Postgres connection string (pooler, `sslmode=require`). A szerver szükség esetén hozzáfűzi a `uselibpqcompat=true` paramétert, hogy a Node `pg` ne írjon SSL deprecation warningot induláskor. |
+| `ZMAIL_PG_SCHEMA` | nem      | Pl. `zmail` — dedikált séma + `search_path`. Lásd fent.                                                                                                                                               |
 
 ## Render (`gmail-client-api`) — dedikált Neon
 

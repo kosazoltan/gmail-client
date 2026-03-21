@@ -32,6 +32,28 @@ function getValidatedPgSchema(): string | null {
   return raw;
 }
 
+/**
+ * pg-connection-string / pg 8.x: sslmode=require|prefer|verify-ca esetén Node kiír egy SECURITY WARNING-ot.
+ * A jövőbeli libpq szemantikához: uselibpqcompat=true + sslmode=require együtt (Neon pooled URL tipikusan require).
+ * @see https://www.postgresql.org/docs/current/libpq-ssl.html
+ */
+function appendLibpqCompatForSslMode(url: string): string {
+  try {
+    const u = new URL(url);
+    const sslmode = (u.searchParams.get('sslmode') || '').toLowerCase();
+    if (!sslmode || sslmode === 'verify-full' || sslmode === 'disable') return url;
+    if (
+      ['require', 'prefer', 'verify-ca'].includes(sslmode) &&
+      !u.searchParams.has('uselibpqcompat')
+    ) {
+      u.searchParams.set('uselibpqcompat', 'true');
+    }
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
 /** Connection string + libpq options: search_path = séma, public (bővítmények / más app maradhat a public-ban). */
 function buildConnectionString(baseUrl: string, schema: string | null): string {
   if (!schema) return baseUrl;
@@ -60,7 +82,9 @@ if (!baseConnectionString) {
   process.exit(1);
 }
 
-const connectionString = buildConnectionString(baseConnectionString, zmailPgSchema);
+const connectionString = appendLibpqCompatForSslMode(
+  buildConnectionString(baseConnectionString, zmailPgSchema),
+);
 if (zmailPgSchema) {
   logger.info(`PostgreSQL schema isolation: search_path=${zmailPgSchema},public (ZMAIL_PG_SCHEMA)`);
 }
