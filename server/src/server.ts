@@ -256,9 +256,19 @@ async function start() {
   app.use('/api/audit', auditRoutes);
   app.use('/api/analytics', analyticsRoutes);
 
-  // Health check
+  // Health check — SELECT 1 igazolja, hogy a pg pool + DATABASE_URL él (Render / Neon)
   app.get('/api/health', async (_req, res) => {
-    res.json({ status: 'ok', timestamp: Date.now() });
+    try {
+      await queryOne('SELECT 1 AS ok');
+      res.json({ status: 'ok', database: 'connected', timestamp: Date.now() });
+    } catch (err) {
+      logger.error('Health check: database unreachable', err);
+      res.status(503).json({
+        status: 'error',
+        database: 'unavailable',
+        timestamp: Date.now(),
+      });
+    }
   });
 
   // Error handler

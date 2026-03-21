@@ -1,8 +1,20 @@
 import { useState } from 'react';
-import { Star, Paperclip, Trash2, Check, Pin, Mail, MailOpen, Crown } from 'lucide-react';
+import {
+  Star,
+  Paperclip,
+  Trash2,
+  Check,
+  Pin,
+  Mail,
+  MailOpen,
+  Crown,
+  Archive,
+  Clock,
+} from 'lucide-react';
 import { cn, formatEmailDate, displaySender, getInitials, emailToColor } from '../../lib/utils';
 import { useSettings, defaultSettings } from '../../hooks/useSettings';
 import { setDraggedEmail } from '../../hooks/useDragDrop';
+import { QuickActionsRow } from './QuickActionsRow';
 import type { Email } from '../../types';
 
 interface EmailItemProps {
@@ -13,12 +25,15 @@ interface EmailItemProps {
   onDelete?: (emailId: string) => void;
   onTogglePin?: (emailId: string) => void;
   onToggleRead?: (emailId: string, isRead: boolean) => void;
+  onArchive?: (emailId: string) => void;
+  onSnooze?: (emailId: string) => void;
   isPinned?: boolean;
   isVip?: boolean;
   // Selection mode props
   selectionMode?: boolean;
   isChecked?: boolean;
   onToggleCheck?: (emailId: string, event?: React.MouseEvent) => void;
+  showQuickActions?: boolean;
 }
 
 export function EmailItem({
@@ -29,11 +44,14 @@ export function EmailItem({
   onDelete,
   onTogglePin,
   onToggleRead,
+  onArchive,
+  onSnooze,
   isPinned = false,
   isVip = false,
   selectionMode = false,
   isChecked = false,
   onToggleCheck,
+  showQuickActions = false,
 }: EmailItemProps) {
   const sender = displaySender(email.fromName, email.from);
   const initials = getInitials(sender);
@@ -42,6 +60,7 @@ export function EmailItem({
   const density = settings?.messageDensity ?? defaultSettings.messageDensity ?? 'normal';
 
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [showActions, setShowActions] = useState(false);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -71,6 +90,8 @@ export function EmailItem({
         }}
         onClick={handleItemClick}
         onContextMenu={handleContextMenu}
+        onMouseEnter={() => setShowActions(true)}
+        onMouseLeave={() => setShowActions(false)}
         className={cn(
           'dark:border-dark-border flex cursor-pointer items-start gap-2 border-b border-gray-100 transition-colors sm:gap-3',
           density === 'compact' && 'px-2 py-1.5 sm:px-3 sm:py-2',
@@ -207,6 +228,19 @@ export function EmailItem({
           )}
         </div>
       </div>
+
+      {/* Quick Actions Row (visible on hover, AquaMail-style) */}
+      {(showActions || showQuickActions) && (
+        <QuickActionsRow
+          email={email}
+          onToggleRead={() => onToggleRead?.(email.id, !email.isRead)}
+          onArchive={() => onArchive?.(email.id)}
+          onSnooze={() => onSnooze?.(email.id)}
+          onDelete={() => onDelete?.(email.id)}
+          dense={density === 'compact'}
+          className="animate-slide-down"
+        />
+      )}
 
       {/* Context menu */}
       {contextMenu && (

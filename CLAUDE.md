@@ -18,8 +18,7 @@ KRITIKUS TANULSAGOK (2026-02-28)
 4. Delete Protection aktiv (server/src/middleware/delete-protection.ts)
 
 5. Deploy: Render backend (Frankfurt) + Vercel frontend autoDeploy. GitHub Actions NINCS.
-   Render web service neve: **gmail-client-api**. Adatbázis env kulcs: **DATABASE_URL** (Neon connection string).
-   A kod: `DATABASE_URL` elsobbseget kap, `NEON_DATABASE_URL` csak fallback.
+   Render web service neve: **gmail-client-api**. Adatbázis env kulcs: **DATABASE_URL** (Neon connection string, egyetlen kanonikus kulcs).
    Opcionalis megosztott Neon/Postgres: `ZMAIL_PG_SCHEMA=zmail` — ZMail tablak kulon semaban (`server/docs/NEON-AND-DATABASE.md`).
    Neon Management API nincs a repoban; futas: `pg` + connection string. `@neondatabase/serverless` nem hasznalt.
 

@@ -1,5 +1,11 @@
-# Render Blueprint — a Dashboard-on lévő web service neve: gmail-client-api
-# Postgres / Neon: Environment → DATABASE_URL (connection string, sslmode=require)
+# Render Blueprint — web service: gmail-client-api
+#
+# DATABASE_URL (kötelező a Dashboardon, sync: false = titkos érték):
+#   A dedikált ZMail Neon connection string (pooler), pl. host:
+#   ep-empty-hill-abv67xx3-pooler.eu-west-2.aws.neon.tech / adatbázis: neondb
+#   Illeszd be egy az egyben a Neon Console → Connection details → pooled string.
+#   A szerver induláskor futtatja a PostgreSQL sémát (initializeDatabase).
+#
 # https://render.com/docs/blueprint-spec
 
 services:

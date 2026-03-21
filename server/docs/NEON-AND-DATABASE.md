@@ -2,11 +2,11 @@
 
 ## Mi van a repóban?
 
-| Elem                                                       | Állapot                                                                                                                                     |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Neon Management API** (projekt, branch, kulcsok REST-en) | **Nincs** beépítve a kódba — a Neon konzolból / CI-ből kezeled. Dokumentáció: [Neon API](https://api-docs.neon.tech/).                      |
-| **`@neondatabase/serverless` npm csomag**                  | **Nem használt** — a szerver a hagyományos **`pg`** poolt és a **`DATABASE_URL`** (vagy `NEON_DATABASE_URL`) connection stringet használja. |
-| **Adatmodell**                                             | Egy PostgreSQL adatbázis (pl. Neon `neondb`), alapértelmezés szerint táblák a **`public`** sémában (vagy lásd `ZMAIL_PG_SCHEMA` lentebb).   |
+| Elem                                                       | Állapot                                                                                                                                   |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Neon Management API** (projekt, branch, kulcsok REST-en) | **Nincs** beépítve a kódba — a Neon konzolból / CI-ből kezeled. Dokumentáció: [Neon API](https://api-docs.neon.tech/).                    |
+| **`@neondatabase/serverless` npm csomag**                  | **Nem használt** — a szerver a **`pg`** poolt és csak a **`DATABASE_URL`** connection stringet használja.                                 |
+| **Adatmodell**                                             | Egy PostgreSQL adatbázis (pl. Neon `neondb`), alapértelmezés szerint táblák a **`public`** sémában (vagy lásd `ZMAIL_PG_SCHEMA` lentebb). |
 
 ## Táblák (ZMail tulajdonú objektumok)
 
@@ -31,10 +31,19 @@ A kódból **nem látható**, hogy a Neon projektet / connection stringet más a
 
 ## Környezeti változók
 
-| Változó           | Kötelező                        | Leírás                                                  |
-| ----------------- | ------------------------------- | ------------------------------------------------------- |
-| `DATABASE_URL`    | igen (vagy `NEON_DATABASE_URL`) | Neon / Postgres connection string.                      |
-| `ZMAIL_PG_SCHEMA` | nem                             | Pl. `zmail` — dedikált séma + `search_path`. Lásd fent. |
+| Változó           | Kötelező | Leírás                                                         |
+| ----------------- | -------- | -------------------------------------------------------------- |
+| `DATABASE_URL`    | igen     | Neon / Postgres connection string (pooler, `sslmode=require`). |
+| `ZMAIL_PG_SCHEMA` | nem      | Pl. `zmail` — dedikált séma + `search_path`. Lásd fent.        |
+
+## Render (`gmail-client-api`) — dedikált Neon
+
+1. Neon Console → a ZMailnek szánt projekt / branch → **Connection string** (pooler, `sslmode=require`).
+2. Render → **gmail-client-api** → **Environment** → **`DATABASE_URL`** = a teljes `postgresql://…` sor (egy az egyben a jegyzetfájlból / Neonból).
+3. Deploy / újraindítás után az alkalmazás **`initializeDatabase()`**-je létrehozza / frissíti a táblákat és indexeket (Express indulás).
+4. Helyi fejlesztés: `server/.env` → ugyanaz a `DATABASE_URL`, majd `cd server && npm run db:init` üres DB első feltöltésére (vagy elég az első `npm run dev` is).
+
+**Régió:** a példa Neon **eu-west-2**; a Render service **Frankfurt** lehet — működik, csak nőhet a DB-késleltetés. Ha zavar, Neon branch Frankfurt környéken is létrehozható.
 
 ## Kapcsolódó npm scriptek
 

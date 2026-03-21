@@ -5,7 +5,7 @@
  * Dupla dekódolás elkerülése: csak akkor futtatjuk a decodeRFC2047-et, ha a mezőben
  * van érvényes encoded-word minta; stabilizálás max. 5 passzal (ritka többrétegű kódolás).
  *
- * Futtatás: `cd server` + `.env` — `DATABASE_URL` vagy `NEON_DATABASE_URL` (Render: DATABASE_URL):
+ * Futtatás: `cd server` + `.env` — `DATABASE_URL` (Render ugyanígy):
  *   cd server && npx tsx src/scripts/migrate-decode-rfc2047-email-fields.ts
  *
  * Száraz futás (nincs UPDATE):

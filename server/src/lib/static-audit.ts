@@ -25,8 +25,8 @@ export async function runStaticAudit(): Promise<AuditCheck[]> {
 
   // 2. Required env vars
   const missingEnvs: string[] = [];
-  if (!process.env.DATABASE_URL && !process.env.NEON_DATABASE_URL) {
-    missingEnvs.push('DATABASE_URL (vagy NEON_DATABASE_URL)');
+  if (!process.env.DATABASE_URL) {
+    missingEnvs.push('DATABASE_URL');
   }
   for (const k of ['ERRORLOG_HMAC_SECRET', 'JUNIOR_EMAIL_PASSWORD'] as const) {
     if (!process.env[k]) missingEnvs.push(k);

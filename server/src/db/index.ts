@@ -53,10 +53,10 @@ function buildConnectionString(baseUrl: string, schema: string | null): string {
 
 export const zmailPgSchema: string | null = getValidatedPgSchema();
 
-// Fail-closed: PostgreSQL URL required. Render / sok hosting: DATABASE_URL; Neon konzol / régi .env: NEON_DATABASE_URL
-const baseConnectionString = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL;
+// Fail-closed: egyetlen kanonikus kulcs — Neon / Render / helyi: DATABASE_URL (teljes postgresql://… string)
+const baseConnectionString = process.env.DATABASE_URL;
 if (!baseConnectionString) {
-  logger.error('FATAL: DATABASE_URL or NEON_DATABASE_URL environment variable is not set!');
+  logger.error('FATAL: DATABASE_URL environment variable is not set!');
   process.exit(1);
 }
 
