@@ -281,7 +281,7 @@ export function Sidebar({ isOpen, onToggle, isMobile = false, isTablet = false }
     <aside
       className={cn(
         'dark:bg-dark-bg-secondary dark:border-dark-border flex h-full flex-col border-r border-gray-200/80 bg-white transition-all duration-200',
-        isMobile ? 'w-[85vw] max-w-[320px]' : isTablet ? 'w-20' : isOpen ? 'w-64' : 'w-16',
+        isMobile ? 'w-[92vw] max-w-[390px]' : isTablet ? 'w-20' : isOpen ? 'w-64' : 'w-16',
       )}
     >
       {/* Logo / Collapse */}

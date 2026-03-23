@@ -9,14 +9,32 @@ import { useSession } from '../../hooks/useAccounts';
 
 const getViewportWidth = () => (typeof window === 'undefined' ? 1280 : window.innerWidth);
 
+function getViewportFlags() {
+  if (typeof window === 'undefined') {
+    return { mobile: false, tablet: false };
+  }
+
+  const width = window.innerWidth;
+  const userAgent = window.navigator.userAgent || '';
+  const isSamsungFold = /SM-F9\d{2}|Galaxy Z Fold|Fold/i.test(userAgent);
+
+  // Fold cover kijelző: mobil, széthajtva: tablet tartomány
+  const mobileBreakpoint = isSamsungFold ? 680 : 768;
+  const tabletBreakpoint = 1024;
+
+  return {
+    mobile: width < mobileBreakpoint,
+    tablet: width >= mobileBreakpoint && width < tabletBreakpoint,
+  };
+}
+
 export function AppLayout() {
+  const initialFlags = getViewportFlags();
   const [sidebarOpen, setSidebarOpen] = useState(() => getViewportWidth() >= 1024);
   const [searchQuery, setSearchQuery] = useState('');
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
-  const [isMobile, setIsMobile] = useState(() => getViewportWidth() < 768);
-  const [isTablet, setIsTablet] = useState(
-    () => getViewportWidth() >= 768 && getViewportWidth() < 1024,
-  );
+  const [isMobile, setIsMobile] = useState(() => initialFlags.mobile);
+  const [isTablet, setIsTablet] = useState(() => initialFlags.tablet);
   const location = useLocation();
   const { data: session } = useSession();
 
@@ -26,13 +44,11 @@ export function AppLayout() {
   // Reszponzív sidebar kezelés
   useEffect(() => {
     const checkMobile = () => {
-      const width = window.innerWidth;
-      const mobile = width < 768;
-      const tablet = width >= 768 && width < 1024;
-      setIsMobile(mobile);
-      setIsTablet(tablet);
-      if (mobile) setSidebarOpen(false);
-      if (!mobile && !tablet) setSidebarOpen(true);
+      const flags = getViewportFlags();
+      setIsMobile(flags.mobile);
+      setIsTablet(flags.tablet);
+      if (flags.mobile) setSidebarOpen(false);
+      if (!flags.mobile && !flags.tablet) setSidebarOpen(true);
     };
 
     window.addEventListener('resize', checkMobile);
