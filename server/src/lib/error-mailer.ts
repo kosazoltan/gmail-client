@@ -10,7 +10,7 @@ const GITHUB_REPO = 'kosazoltan/gmail-client';
 const FORBIDDEN_REPO = 'D:\\repo\\Bookkeeper';
 const ENVIRONMENT = process.env.NODE_ENV ?? 'production';
 
-const HMAC_SECRET = process.env.ERRORLOG_HMAC_SECRET ?? 'errorlog-hmac-s3cr3t-zmail-2026-kz';
+const HMAC_SECRET = process.env.ERRORLOG_HMAC_SECRET ?? 'change-me-in-env-not-in-repo';
 const SMTP_USER = 'noraautomatizalas@gmail.com';
 const SMTP_PASS = process.env.JUNIOR_EMAIL_PASSWORD;
 const EMAIL_RECIPIENT = 'noraautomatizalas@gmail.com';

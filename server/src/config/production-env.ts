@@ -3,7 +3,7 @@ import logger from '../utils/logger.js';
 /** Dev-only placeholderek — productionben tiltottak. */
 export const DEV_SESSION_SECRET_PLACEHOLDER = 'dev-secret-change-me-32chars!!';
 export const DEV_ENCRYPTION_KEY_PLACEHOLDER = 'dev-only-encryption-key-32chars!';
-export const DEFAULT_ERRORLOG_HMAC_SECRET = 'errorlog-hmac-s3cr3t-zmail-2026-kz';
+export const DEFAULT_ERRORLOG_HMAC_SECRET = 'change-me-in-env-not-in-repo';
 
 export interface ProdEnvViolation {
   /** Gépi kód (log / monitoring), pl. PROD_ENV_MISSING:SESSION_SECRET */
