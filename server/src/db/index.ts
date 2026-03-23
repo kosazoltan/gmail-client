@@ -660,6 +660,10 @@ export async function initializeDatabase(): Promise<void> {
       ALTER TABLE categories ADD COLUMN IF NOT EXISTS description TEXT;
       ALTER TABLE categories ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
       ALTER TABLE categories ADD COLUMN IF NOT EXISTS created_at BIGINT DEFAULT 0;
+      ALTER TABLE contacts ADD COLUMN IF NOT EXISTS first_seen_at BIGINT;
+      ALTER TABLE contacts ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'email';
+      ALTER TABLE contacts ADD COLUMN IF NOT EXISTS created_at BIGINT;
+      ALTER TABLE contacts ADD COLUMN IF NOT EXISTS updated_at BIGINT;
       ALTER TABLE action_items ADD COLUMN IF NOT EXISTS source_quote TEXT;
       ALTER TABLE action_items ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'medium';
       ALTER TABLE action_items ADD COLUMN IF NOT EXISTS confidence REAL DEFAULT 0.5;
@@ -669,6 +673,16 @@ export async function initializeDatabase(): Promise<void> {
       ALTER TABLE action_items ADD COLUMN IF NOT EXISTS updated_at BIGINT;
       ALTER TABLE email_event_candidates ADD COLUMN IF NOT EXISTS google_event_link TEXT;
 
+    `);
+
+    // Backfill columns added by migrations where historical rows may be NULL.
+    await client.query(`
+      UPDATE contacts
+      SET first_seen_at = COALESCE(first_seen_at, last_used_at, (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT),
+          created_at = COALESCE(created_at, first_seen_at, last_used_at, (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT),
+          updated_at = COALESCE(updated_at, last_used_at, created_at, (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT),
+          source = COALESCE(NULLIF(TRIM(source), ''), 'email')
+      WHERE first_seen_at IS NULL OR created_at IS NULL OR updated_at IS NULL OR source IS NULL OR TRIM(source) = '';
     `);
 
     // Create indexes for columns that may have been added by migrations above.
