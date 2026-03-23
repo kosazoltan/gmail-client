@@ -18,9 +18,11 @@ export function createSessionMiddleware(): RequestHandler {
   const isProduction =
     process.env.NODE_ENV === 'production' || process.env.FRONTEND_URL?.startsWith('https://');
 
-  // Production ellenőrzés - kötelező SESSION_SECRET
-  if (isProduction && !process.env.SESSION_SECRET) {
-    throw new Error('SESSION_SECRET környezeti változó kötelező production módban!');
+  // Másodlagos védelem — elsődleges: assertProductionEnvironment() induláskor
+  if (isProduction && !process.env.SESSION_SECRET?.trim()) {
+    throw new Error(
+      '[ZMAIL][PROD_ENV][SESSION_SECRET_MISSING] SESSION_SECRET kötelező production módban.',
+    );
   }
 
   // PostgreSQL session store létrehozása (perzisztens session-ök)
@@ -45,7 +47,11 @@ export function createSessionMiddleware(): RequestHandler {
       // Ha különböző domain (pl. vercel.app vs onrender.com): cookieDomain marad undefined
       // Ilyenkor a böngésző a backend domain-jéhez köti a cookie-t
     } catch (err) {
-      logger.warn('Failed to parse URLs for cookie domain', { frontendUrl, backendUrl, error: err });
+      logger.warn('Failed to parse URLs for cookie domain', {
+        frontendUrl,
+        backendUrl,
+        error: err,
+      });
     }
   }
 

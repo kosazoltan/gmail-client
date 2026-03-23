@@ -5,6 +5,8 @@ dist/
 data/
 .env
 .env.local
+.env.secrets
+.env.*.local
 *.log
 logs/
 client_secret*.json

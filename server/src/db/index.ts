@@ -78,7 +78,9 @@ export const zmailPgSchema: string | null = getValidatedPgSchema();
 // Fail-closed: egyetlen kanonikus kulcs — Neon / Render / helyi: DATABASE_URL (teljes postgresql://… string)
 const baseConnectionString = process.env.DATABASE_URL;
 if (!baseConnectionString) {
-  logger.error('FATAL: DATABASE_URL environment variable is not set!');
+  logger.error(
+    '[ZMAIL][PROD_ENV][DATABASE_URL_MISSING] DATABASE_URL nincs beállítva — PostgreSQL connection string kötelező (Neon / Render). A szerver nem indul.',
+  );
   process.exit(1);
 }
 

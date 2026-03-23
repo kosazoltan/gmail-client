@@ -7,13 +7,15 @@ import { OfflineBanner } from '../common/OfflineBanner';
 import { useDesktopNotifications } from '../../hooks/useDesktopNotifications';
 import { useSession } from '../../hooks/useAccounts';
 
+const getViewportWidth = () => (typeof window === 'undefined' ? 1280 : window.innerWidth);
+
 export function AppLayout() {
-  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 1024);
+  const [sidebarOpen, setSidebarOpen] = useState(() => getViewportWidth() >= 1024);
   const [searchQuery, setSearchQuery] = useState('');
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(() => getViewportWidth() < 768);
   const [isTablet, setIsTablet] = useState(
-    () => window.innerWidth >= 768 && window.innerWidth < 1024,
+    () => getViewportWidth() >= 768 && getViewportWidth() < 1024,
   );
   const location = useLocation();
   const { data: session } = useSession();
@@ -52,7 +54,7 @@ export function AppLayout() {
   };
 
   return (
-    <div className="dark:bg-dark-bg flex h-screen overflow-hidden bg-gray-50/80">
+    <div className="dark:bg-dark-bg flex h-dvh min-h-dvh overflow-hidden bg-gray-50/80">
       {/* Mobil overlay */}
       {isMobile && sidebarOpen && (
         <div

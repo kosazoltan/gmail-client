@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "node ./scripts/generate-pwa-icons.mjs && tsc -b && vite build",
+    "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",

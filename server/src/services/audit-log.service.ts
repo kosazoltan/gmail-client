@@ -9,7 +9,9 @@ export type AuditEventType =
   | 'inbox_rule_created'
   | 'inbox_rule_updated'
   | 'settings_changed'
-  | 'failed_auth_attempt';
+  | 'failed_auth_attempt'
+  /** Kritikus percenkénti jobok SLA túllépés — /api/health fail-closed */
+  | 'system_watchdog_overdue';
 
 export interface AuditLogEntry {
   id: string;

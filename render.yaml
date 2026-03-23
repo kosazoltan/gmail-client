@@ -46,6 +46,9 @@ services:
         generateValue: true
       - key: ENCRYPTION_KEY
         sync: false
+      # Error report / static audit HMAC — ne az alapértelmezett repó-érték legyen (production assert)
+      - key: ERRORLOG_HMAC_SECRET
+        generateValue: true
       # OAuth: Neon oauth_token_store (újraindítás után is) + opcionális fájl másolat a lemezen
       - key: ZMAIL_USE_DB_TOKEN_VAULT
         value: "1"

@@ -9,6 +9,7 @@ import {
   Database,
   Keyboard,
   SlidersHorizontal,
+  ArrowLeft,
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useSession, useSyncAccount } from '../../hooks/useAccounts';
@@ -93,6 +94,7 @@ export function Header({
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [history, setHistory] = useState<string[]>(() => getSearchHistory());
   const justSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   // Cleanup timer on unmount to prevent memory leak
   useEffect(() => {
@@ -123,6 +125,9 @@ export function Header({
       onSearchChange(localQuery.trim());
       setHistory(pushSearchHistory(localQuery.trim()));
       navigate(`/search?q=${encodeURIComponent(localQuery.trim())}`);
+      if (window.innerWidth < 640) {
+        setMobileSearchOpen(false);
+      }
     }
   };
 
@@ -132,10 +137,19 @@ export function Header({
         event.preventDefault();
         setShowAdvanced(true);
       }
+      if (event.key === 'Escape' && mobileSearchOpen) {
+        setMobileSearchOpen(false);
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [mobileSearchOpen]);
+
+  useEffect(() => {
+    if (mobileSearchOpen) {
+      searchInputRef.current?.focus();
+    }
+  }, [mobileSearchOpen]);
 
   const handleSync = () => {
     if (session?.activeAccountId) {
@@ -206,15 +220,28 @@ export function Header({
       {/* Keresőbar */}
       <form
         onSubmit={handleSearch}
-        className={`min-w-0 flex-1 ${mobileSearchOpen ? 'max-w-full' : 'max-w-2xl'}`}
+        className={`min-w-0 flex-1 transition-all ${mobileSearchOpen ? 'dark:bg-dark-bg-secondary absolute inset-0 z-50 flex max-w-full items-center bg-white px-2 sm:static sm:z-auto sm:bg-transparent sm:px-0 sm:dark:bg-transparent' : 'max-w-2xl'}`}
       >
-        <div className="relative flex items-center gap-1 sm:gap-2">
+        <div
+          className={`relative flex items-center gap-1 sm:gap-2 ${mobileSearchOpen ? 'w-full' : 'min-w-0 flex-1'}`}
+        >
+          {mobileSearchOpen && (
+            <button
+              type="button"
+              onClick={() => setMobileSearchOpen(false)}
+              className="dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary mr-1 flex-shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 sm:hidden"
+              aria-label="Vissza"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          )}
           <div className="relative min-w-0 flex-1">
             <Search
               className="dark:text-dark-text-muted absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400"
               aria-hidden="true"
             />
             <input
+              ref={searchInputRef}
               type="text"
               value={localQuery}
               onChange={(e) => setLocalQuery(e.target.value)}

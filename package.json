@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "secrets:sync-github": "node scripts/sync-actions-secrets.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "lint": "cd client && npx eslint . --max-warnings 0",

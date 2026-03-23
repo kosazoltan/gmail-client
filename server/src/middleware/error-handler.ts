@@ -7,6 +7,8 @@ export class AppError extends Error {
   constructor(
     public statusCode: number,
     message: string,
+    /** Publikus API hibakód (kliens JSON `code` mező) — monitoring / support */
+    public readonly code?: string,
   ) {
     super(message);
     this.name = 'AppError';
@@ -32,18 +34,25 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   setCorsHeadersOnError(req, res);
 
   if (err instanceof AppError) {
-    res.status(err.statusCode).json({ error: err.message });
+    const body: { error: string; code?: string } = { error: err.message };
+    if (err.code) body.code = err.code;
+    res.status(err.statusCode).json(body);
     return;
   }
 
   // Handle JSON parse errors from Express body parser
   if (err instanceof SyntaxError && 'body' in err) {
-    res.status(400).json({ error: 'Érvénytelen JSON formátum' });
+    res.status(400).json({ error: 'Érvénytelen JSON formátum', code: 'INVALID_JSON_BODY' });
     return;
   }
 
   // Never leak internal error details to the client
-  res.status(500).json({ error: 'Belső szerverhiba' });
+  const rid = req.headers['x-request-id'];
+  res.status(500).json({
+    error: 'Belső szerverhiba',
+    code: 'INTERNAL_SERVER_ERROR',
+    ...(typeof rid === 'string' && rid ? { requestId: rid } : {}),
+  });
 
   // Async error report (non-blocking — never crash the request handler)
   sendErrorReport({

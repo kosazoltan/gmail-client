@@ -407,14 +407,13 @@ export async function runAiDigestScheduler(
         const { oauth2Client } = await getOAuth2ClientForAccount(account.id);
         const gmail = getGmailClient(oauth2Client);
 
-        // text/html: a plain részt külön pre-wrap szekcióban küldjük — különben a HTML whitespace-összeomlás
-        // miatt egybefüggő szövegfalként jelenik meg a kliensben.
+        // Fontos: csak tiszta HTML digestet küldünk.
+        // A korábbi "plain + html egy text/html body-ban" formátum a kliens oldali
+        // sanitization/render miatt szövegfalként jelent meg.
         const digestBodyHtml = `<!DOCTYPE html>
 <html lang="hu">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:16px;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;line-height:1.55;color:#111827">
-<section style="white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;margin:0 0 1.25rem;padding:0">${escapeHtml(digest.text)}</section>
-<hr style="border:none;border-top:1px solid #e5e7eb;margin:1.25rem 0"/>
 ${digest.html}
 </body></html>`;
 

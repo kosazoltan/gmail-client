@@ -17,7 +17,11 @@ KRITIKUS TANULSAGOK (2026-02-28)
 
 4. Delete Protection aktiv (server/src/middleware/delete-protection.ts)
 
-5. Deploy: Render backend (Frankfurt) + Vercel frontend autoDeploy. GitHub Actions NINCS.
+4b. **Production hardening** (`server/docs/PRODUCTION-HARDENING.md`): production runtime-ben (`NODE_ENV=production`, `RENDER`, stb.) indulás előtt **kötelező env** ellenőrzés — hiány/gyenge érték → `process.exit(1)` + `[ZMAIL][PROD_ENV][KÓD]` log. Ide tartozik: `SESSION_SECRET`, `ENCRYPTION_KEY`, Google OAuth trio (`GOOGLE_CLIENT_SECRET` tipikusan **GOCSPX-**), `FRONTEND_URL`/`BACKEND_URL` **https**, `ERRORLOG_HMAC_SECRET` (ne a repó default). **Watchdog:** percenkénti kritikus jobok (szundi + ütemezett levél); ha SLA túllépés (`ZMAIL_CRITICAL_JOBS_SLA_MS`, alap 15 perc), **`/api/health` → 503** fail-closed + `audit_log` `system_watchdog_overdue` (ritkítva). Render: `ERRORLOG_HMAC_SECRET` — új blueprint `generateValue`; **meglévő service** Dashboardon add hozzá, különben az új assert miatt nem indul.
+
+5. Deploy: Render backend (Frankfurt) + Vercel frontend autoDeploy.
+   GitHub Actions: **CI** (`.github/workflows/ci.yml`) — `npm run lint`, `tsc`, `npm run build` (server + client). **Deploy healthcheck** (`.github/workflows/deploy-healthcheck.yml`) csak **sikeres CI után** fut a `main`-en (`workflow_run`); `scripts/verify-production.py`: `/api/health` (JSON: status+database+timestamp), `/api/auth/login` (OAuth URL), frontend `/` (#root + prod jelző), `/manifest.json` (ZMail). Opcionális **Variables**: `ZMAIL_API_BASE`, `ZMAIL_API_HEALTH_URL`, `ZMAIL_FRONTEND_URL`, `VERIFY_SKIP_INITIAL_SLEEP`. Opcionális **Secrets**: `DEPLOY_HEALTHCHECK_URL` (verify után GET), `RENDER_API_KEY`, `GITHUB_PAT` — **`docs/CI-SECRETS.md`**, `npm run secrets:sync-github` (`gh` + `server/.env`). **API secrets smoke:** `.github/workflows/api-smoke.yml`. **Render Deploy Hook** _új deployt_ indít. Titkok ne kerüljenek gitbe; `server/.env` gitignore-olt.
+   Ha Actions piros: nézd **Render** (Deploy / Logs) és **Vercel** (Deployment → Build log) — javítás, újra merge/push.
    Render web service neve: **gmail-client-api**. Adatbázis env kulcs: **DATABASE_URL** (Neon connection string, egyetlen kanonikus kulcs).
    Opcionalis megosztott Neon/Postgres: `ZMAIL_PG_SCHEMA=zmail` — ZMail tablak kulon semaban (`server/docs/NEON-AND-DATABASE.md`).
    Neon Management API nincs a repoban; futas: `pg` + connection string. `@neondatabase/serverless` nem hasznalt.
@@ -48,6 +52,7 @@ Stack: React 19+TS+Tailwind4+Vite (Vercel) / Express 5+TS+PostgreSQL/Neon (Rende
 
 Push Checklist:
 
-1. cd server && npx tsc --noEmit && npm run build
-2. cd client && npx tsc --noEmit && npm run build
-3. git push origin main
+1. cd server && npm run lint && npx tsc --noEmit && npm run build
+2. cd client && npm run lint && npx tsc --noEmit && npm run build
+3. git push origin main (vagy PR → merge `main`-re; a repo életútja: lint + build lokálisan/CI-n, merge, majd platform deploy)
+4. GitHub → Actions: **CI** zöld a `main`-en → **Deploy healthcheck** lefut (zöld = tartalmi smoke OK + opcionális `DEPLOY_HEALTHCHECK_URL` GET). Hiba esetén deploy logok (Render/Vercel) + javítás.

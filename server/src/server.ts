@@ -71,15 +71,22 @@ import inboxRulesRoutes from './routes/inbox-rules.routes.js';
 import auditRoutes from './routes/audit.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import { securityHeaders } from './middleware/security-headers.js';
-import { ensureAuditLogTable } from './services/audit-log.service.js';
+import { ensureAuditLogTable, logAuditEvent } from './services/audit-log.service.js';
+import { assertProductionEnvironment } from './config/production-env.js';
+import {
+  ensureRuntimeWatchdogTable,
+  seedRuntimeWatchdogIfNeeded,
+  touchCriticalJobsOk,
+  getWatchdogHealthFailure,
+} from './services/runtime-watchdog.service.js';
 
 const PORT = parseInt(process.env.PORT || '5000', 10);
 const STARTUP_DB_RETRIES = 5;
 const STARTUP_DB_RETRY_DELAY_MS = 5000;
 
 // Track intervals and server handle for graceful shutdown
-let snoozeInterval: NodeJS.Timeout | null = null;
-let scheduledInterval: NodeJS.Timeout | null = null;
+/** Percenkénti kritikus jobok: szundi + ütemezett levelek + watchdog heartbeat */
+let criticalJobsInterval: NodeJS.Timeout | null = null;
 let workflowInterval: NodeJS.Timeout | null = null;
 let taskDetectionInterval: NodeJS.Timeout | null = null;
 let dailyBriefInterval: NodeJS.Timeout | null = null;
@@ -122,12 +129,54 @@ async function getLastDetectionRun(): Promise<number> {
   return result?.max_created || 0;
 }
 
+const WATCHDOG_AUDIT_INTERVAL_MS = 300_000;
+let lastWatchdogAuditAt = 0;
+
+async function auditWatchdogFailureOnce(detail: Record<string, unknown>): Promise<void> {
+  const now = Date.now();
+  if (now - lastWatchdogAuditAt < WATCHDOG_AUDIT_INTERVAL_MS) return;
+  lastWatchdogAuditAt = now;
+  try {
+    await logAuditEvent({
+      eventType: 'system_watchdog_overdue',
+      details: detail,
+    });
+  } catch (e) {
+    logger.error('[ZMAIL][WATCHDOG][AUDIT] audit_log írás sikertelen', e);
+  }
+}
+
+/** Szundi + ütemezett levelek egy tickben; csak mindkettő siker esetén frissül a watchdog. */
+async function runCriticalEmailJobsAndHeartbeat(): Promise<void> {
+  try {
+    await processExpiredSnoozes();
+  } catch (error) {
+    logger.error('[ZMAIL][CRITICAL_JOB] processExpiredSnoozes hiba', error);
+    return;
+  }
+  try {
+    await processScheduledEmails();
+  } catch (error) {
+    logger.error('[ZMAIL][CRITICAL_JOB] processScheduledEmails hiba', error);
+    return;
+  }
+  try {
+    await touchCriticalJobsOk();
+  } catch (error) {
+    logger.error('[ZMAIL][WATCHDOG] touchCriticalJobsOk hiba', error);
+  }
+}
+
 // Szerver indítás
 async function start() {
+  assertProductionEnvironment();
+
   // Adatbázis inicializálás ELŐSZÖR (session store-nak szüksége van rá)
   await initializeDatabaseWithRetry();
   await ensureErrorLogTable();
   await ensureAuditLogTable();
+  await ensureRuntimeWatchdogTable();
+  await seedRuntimeWatchdogIfNeeded();
 
   const app = express();
   const frontendUrl = process.env.FRONTEND_URL;
@@ -242,15 +291,32 @@ async function start() {
   app.use('/api/audit', auditRoutes);
   app.use('/api/analytics', analyticsRoutes);
 
-  // Health check — SELECT 1 igazolja, hogy a pg pool + DATABASE_URL él (Render / Neon)
+  // Health check — SELECT 1 + opcionális watchdog (fail-closed, ha kritikus jobok SLA túllépés)
   app.get('/api/health', async (_req, res) => {
     try {
       await queryOne('SELECT 1 AS ok');
+
+      const wd = await getWatchdogHealthFailure();
+      if (wd) {
+        logger.error('[ZMAIL][WATCHDOG][FAIL_CLOSED]', wd);
+        await auditWatchdogFailureOnce({ code: wd.code, ...wd.detail });
+        res.status(503).json({
+          status: 'error',
+          code: wd.code,
+          error: wd.message,
+          database: 'connected',
+          timestamp: Date.now(),
+        });
+        return;
+      }
+
       res.json({ status: 'ok', database: 'connected', timestamp: Date.now() });
     } catch (err) {
-      logger.error('Health check: database unreachable', err);
+      logger.error('[ZMAIL][HEALTH][HEALTH_DATABASE_UNAVAILABLE]', err);
       res.status(503).json({
         status: 'error',
+        code: 'HEALTH_DATABASE_UNAVAILABLE',
+        error: 'Adatbázis nem elérhető — health check sikertelen.',
         database: 'unavailable',
         timestamp: Date.now(),
       });
@@ -303,25 +369,10 @@ async function start() {
     }
   }, 30000);
 
-  // Lejárt szundik feldolgozása percenként
-  // Clear any previous interval to prevent accumulation
-  if (snoozeInterval) clearInterval(snoozeInterval);
-  snoozeInterval = setInterval(async () => {
-    try {
-      await processExpiredSnoozes();
-    } catch (error) {
-      logger.error('Error processing expired snoozes:', error);
-    }
-  }, 60000);
-
-  // Ütemezett emailek feldolgozása percenként
-  if (scheduledInterval) clearInterval(scheduledInterval);
-  scheduledInterval = setInterval(async () => {
-    try {
-      await processScheduledEmails();
-    } catch (error) {
-      logger.error('Error processing scheduled emails:', error);
-    }
+  // Kritikus percenkénti jobok (szundi + ütemezett) + watchdog heartbeat — egy időzítőben
+  if (criticalJobsInterval) clearInterval(criticalJobsInterval);
+  criticalJobsInterval = setInterval(() => {
+    void runCriticalEmailJobsAndHeartbeat();
   }, 60000);
 
   // Ütemezett workflow-k feldolgozása percenként
@@ -466,18 +517,9 @@ async function start() {
     }
   }, 900000);
 
-  // Első futtatás 60s késleltetéssel — ne terhelje a startup-ot
-  setTimeout(async () => {
-    try {
-      await processExpiredSnoozes();
-    } catch (err) {
-      logger.error('Initial snooze processing failed:', err);
-    }
-    try {
-      await processScheduledEmails();
-    } catch (err) {
-      logger.error('Initial scheduled processing failed:', err);
-    }
+  // Első kritikus tick 60s késleltetéssel — ne terhelje a startup-ot
+  setTimeout(() => {
+    void runCriticalEmailJobsAndHeartbeat();
   }, 60000);
 
   // Memory monitoring — log usage every 5 minutes, force GC if over 350MB
@@ -516,13 +558,9 @@ async function gracefulShutdown(signal: string) {
   stopAllBackgroundSyncs();
 
   // Clear periodic intervals
-  if (snoozeInterval) {
-    clearInterval(snoozeInterval);
-    snoozeInterval = null;
-  }
-  if (scheduledInterval) {
-    clearInterval(scheduledInterval);
-    scheduledInterval = null;
+  if (criticalJobsInterval) {
+    clearInterval(criticalJobsInterval);
+    criticalJobsInterval = null;
   }
   if (workflowInterval) {
     clearInterval(workflowInterval);

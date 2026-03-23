@@ -16,6 +16,7 @@ jobs:
           cache: 'npm'
           cache-dependency-path: server/package-lock.json
       - run: cd server && npm ci
+      - run: cd server && npm run lint
       - run: cd server && npx tsc --noEmit
       - run: cd server && npm run build
 
@@ -29,6 +30,7 @@ jobs:
           cache: 'npm'
           cache-dependency-path: client/package-lock.json
       - run: cd client && npm ci
+      - run: cd client && npm run lint
       - run: cd client && npx tsc --noEmit
       - run: cd client && npm run build
 
