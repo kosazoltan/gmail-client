@@ -10,6 +10,7 @@ import {
   Keyboard,
   SlidersHorizontal,
   ArrowLeft,
+  X,
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useSession, useSyncAccount } from '../../hooks/useAccounts';
@@ -72,6 +73,7 @@ interface HeaderProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onToggleSidebar: () => void;
+  sidebarOpen?: boolean;
   onShowShortcuts?: () => void;
 }
 
@@ -79,6 +81,7 @@ export function Header({
   searchQuery,
   onSearchChange,
   onToggleSidebar,
+  sidebarOpen = false,
   onShowShortcuts,
 }: HeaderProps) {
   const navigate = useNavigate();
@@ -211,10 +214,15 @@ export function Header({
       <button
         onClick={onToggleSidebar}
         className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary flex-shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 lg:hidden"
-        aria-label="Menü megnyitása"
-        title="Menü megnyitása"
+        aria-label={sidebarOpen ? 'Menü bezárása' : 'Menü megnyitása'}
+        title={sidebarOpen ? 'Menü bezárása' : 'Menü megnyitása'}
+        aria-pressed={sidebarOpen}
       >
-        <Menu className="h-5 w-5" aria-hidden="true" />
+        {sidebarOpen ? (
+          <X className="h-5 w-5" aria-hidden="true" />
+        ) : (
+          <Menu className="h-5 w-5" aria-hidden="true" />
+        )}
       </button>
 
       {/* Keresőbar */}

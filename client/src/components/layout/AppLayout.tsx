@@ -58,7 +58,7 @@ export function AppLayout() {
       {/* Mobil overlay */}
       {isMobile && sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm lg:hidden"
           onClick={handleOverlayClick}
           aria-hidden="true"
         />
@@ -66,7 +66,7 @@ export function AppLayout() {
 
       {/* Sidebar */}
       <div
-        className={` ${isMobile ? 'fixed inset-y-0 left-0 z-30' : 'relative'} ${isMobile && !sidebarOpen ? '-translate-x-full' : 'translate-x-0'} transition-transform duration-200`}
+        className={` ${isMobile ? 'fixed inset-y-0 left-0 z-[80]' : 'relative'} ${isMobile && !sidebarOpen ? '-translate-x-full' : 'translate-x-0'} transition-transform duration-200`}
       >
         <Sidebar
           isOpen={sidebarOpen || isTablet || isMobile}
@@ -82,6 +82,7 @@ export function AppLayout() {
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+          sidebarOpen={sidebarOpen}
           onShowShortcuts={() => setShowShortcutsHelp(true)}
         />
 
