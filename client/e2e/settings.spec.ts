@@ -5,16 +5,32 @@ test.describe('Settings — Page & Account Info', () => {
   test.beforeEach(async ({ page }) => {
     await setupAuthenticatedMocks(page);
     await page.route('**/api/emails**', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ emails: [], total: 0 }) })
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ emails: [], total: 0 }),
+      }),
     );
     await page.route('**/api/settings**', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ settings: {} }) })
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ settings: {} }),
+      }),
     );
     await page.route('**/api/vip**', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ senders: [] }) })
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ senders: [] }),
+      }),
     );
     await page.route('**/api/templates**', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ templates: [] }) })
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ templates: [] }),
+      }),
     );
   });
 
@@ -34,8 +50,10 @@ test.describe('Settings — Page & Account Info', () => {
     await page.goto('/settings');
 
     // All section labels from SettingsView should be present
-    await expect(page.locator('span').filter({ hasText: 'Swipe műveletek' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('span').filter({ hasText: 'Swipe műveletek' })).toBeVisible({
+      timeout: 10_000,
+    });
     await expect(page.locator('span').filter({ hasText: 'Email küldés' })).toBeVisible();
-    await expect(page.locator('span').filter({ hasText: 'Értesítések' })).toBeVisible();
+    await expect(page.getByText('Értesítések', { exact: true })).toBeVisible();
   });
 });
