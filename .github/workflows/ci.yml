@@ -46,6 +46,11 @@ jobs:
           cache: 'npm'
           cache-dependency-path: client/package-lock.json
       - run: cd client && npm ci
+      - name: Start mock backend for unmocked /api routes
+        run: |
+          node -e "const http=require('http');const server=http.createServer((req,res)=>{res.setHeader('Content-Type','application/json');res.end('{}');});server.listen(5000,'127.0.0.1',()=>console.log('Mock backend listening on 5000'));setInterval(()=>{},1<<30);" > /tmp/mock-backend.log 2>&1 &
+          sleep 1
+          curl -sSf http://127.0.0.1:5000 >/dev/null
       - run: cd client && npx playwright install --with-deps chromium
       - run: cd client && npx playwright test
       - uses: actions/upload-artifact@v4
