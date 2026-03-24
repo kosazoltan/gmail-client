@@ -144,14 +144,22 @@ export async function searchContacts(
   limit = 20,
 ): Promise<Contact[]> {
   const safeLimit = Math.max(1, Math.min(limit, 100));
-  const q = `${query.trim().toLowerCase()}%`;
+  const normalized = query.trim().toLowerCase();
+  const qContains = `%${normalized}%`;
+  const qPrefix = `${normalized}%`;
   return queryAll<Contact>(
     `SELECT * FROM contacts
      WHERE account_id = ?
        AND (LOWER(email) LIKE ? OR LOWER(COALESCE(name, '')) LIKE ?)
-     ORDER BY frequency DESC, last_used_at DESC
+     ORDER BY
+       CASE
+         WHEN LOWER(email) LIKE ? OR LOWER(COALESCE(name, '')) LIKE ? THEN 0
+         ELSE 1
+       END ASC,
+       frequency DESC,
+       last_used_at DESC
      LIMIT ?`,
-    [accountId, q, q, safeLimit],
+    [accountId, qContains, qContains, qPrefix, qPrefix, safeLimit],
   );
 }
 

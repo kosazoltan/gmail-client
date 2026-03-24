@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useSettings, defaultSettings } from './useSettings';
 import { useVipEmails, isVipEmail } from './useVip';
 import { toast } from '../lib/toast';
-import { api } from '../lib/api';
+import { api, getApiDegradationState, subscribeApiDegradation } from '../lib/api';
 
 interface NewEmailEvent {
   emailId: string;
@@ -33,9 +33,30 @@ export function useDesktopNotifications(enabled: boolean) {
     if (!enabled || !('Notification' in window)) return;
     if (Notification.permission === 'default') Notification.requestPermission();
 
-    // Production: VITE_API_URL → api.mindenes.org (relatív /api/... csak Vite proxy alatt működik)
-    const es = new EventSource(api.sse.eventsUrl(), { withCredentials: true });
-    es.addEventListener('new-email', (event) => {
+    let isActive = true;
+    let reconnectDelayMs = 2000;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let es: EventSource | null = null;
+
+    const clearReconnectTimer = () => {
+      if (!reconnectTimer) return;
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    };
+
+    const scheduleReconnect = (delayMs: number) => {
+      if (!isActive) return;
+      clearReconnectTimer();
+      reconnectTimer = setTimeout(
+        () => {
+          reconnectTimer = null;
+          connect();
+        },
+        Math.max(1000, delayMs),
+      );
+    };
+
+    const onNewEmail = (event: Event) => {
       let data: NewEmailEvent;
       try {
         data = JSON.parse((event as MessageEvent).data) as NewEmailEvent;
@@ -81,8 +102,71 @@ export function useDesktopNotifications(enabled: boolean) {
           toast.info(`📬 ${sender}: ${subject}`);
         }
       }
+    };
+
+    const closeEventSource = () => {
+      if (!es) return;
+      es.close();
+      es = null;
+    };
+
+    const connect = () => {
+      if (!isActive || !navigator.onLine) return;
+      const degradation = getApiDegradationState();
+      if (degradation.isDegraded) {
+        const waitMs = Math.max(1500, (degradation.retryAt ?? Date.now() + 1500) - Date.now());
+        scheduleReconnect(waitMs);
+        return;
+      }
+
+      closeEventSource();
+      // Production: VITE_API_URL → api.mindenes.org (relatív /api/... csak Vite proxy alatt működik)
+      es = new EventSource(api.sse.eventsUrl(), { withCredentials: true });
+      es.addEventListener('new-email', onNewEmail);
+      es.addEventListener('connected', () => {
+        reconnectDelayMs = 2000;
+      });
+      es.onerror = () => {
+        closeEventSource();
+        reconnectDelayMs = Math.min(reconnectDelayMs * 2, 30000);
+        scheduleReconnect(reconnectDelayMs);
+      };
+    };
+
+    const unsubscribeDegradation = subscribeApiDegradation((state) => {
+      if (!isActive) return;
+      if (state.isDegraded) {
+        closeEventSource();
+        const waitMs = Math.max(1500, (state.retryAt ?? Date.now() + 1500) - Date.now());
+        scheduleReconnect(waitMs);
+        return;
+      }
+      if (!es) {
+        scheduleReconnect(500);
+      }
     });
 
-    return () => es.close();
+    const handleOnline = () => {
+      reconnectDelayMs = 2000;
+      scheduleReconnect(500);
+    };
+
+    const handleOffline = () => {
+      closeEventSource();
+      clearReconnectTimer();
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    connect();
+
+    return () => {
+      isActive = false;
+      unsubscribeDegradation();
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      clearReconnectTimer();
+      closeEventSource();
+    };
   }, [enabled, queryClient, settings, vipEmails]);
 }

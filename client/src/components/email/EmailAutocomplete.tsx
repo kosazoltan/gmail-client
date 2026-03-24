@@ -9,6 +9,39 @@ interface EmailAutocompleteProps {
   className?: string;
 }
 
+function normalizeRecipientText(text: string): string {
+  return text.trim().toLowerCase();
+}
+
+function mergeAndRankContactSuggestions(items: Contact[], needle: string): Contact[] {
+  const map = new Map<string, Contact>();
+  for (const contact of items) {
+    const key = normalizeRecipientText(contact.email);
+    if (!key) continue;
+    if (!map.has(key)) map.set(key, contact);
+  }
+  const unique = Array.from(map.values());
+  const q = normalizeRecipientText(needle);
+  if (!q) return unique;
+
+  return unique
+    .filter((contact) => {
+      const email = normalizeRecipientText(contact.email);
+      const name = normalizeRecipientText(contact.name || '');
+      return email.includes(q) || name.includes(q);
+    })
+    .sort((a, b) => {
+      const aEmail = normalizeRecipientText(a.email);
+      const bEmail = normalizeRecipientText(b.email);
+      const aName = normalizeRecipientText(a.name || '');
+      const bName = normalizeRecipientText(b.name || '');
+      const aPrefix = aEmail.startsWith(q) || aName.startsWith(q);
+      const bPrefix = bEmail.startsWith(q) || bName.startsWith(q);
+      if (aPrefix !== bPrefix) return aPrefix ? -1 : 1;
+      return 0;
+    });
+}
+
 export function EmailAutocomplete({
   value,
   onChange,
@@ -30,19 +63,24 @@ export function EmailAutocomplete({
   }, []);
 
   const currentInput = useMemo(() => {
-    const parts = value.split(',');
-    return parts[parts.length - 1].trim();
+    const parts = value.split(/[;,]/);
+    return (parts[parts.length - 1] || '').trim();
   }, [value]);
 
   useEffect(() => {
     const timer = setTimeout(async () => {
       try {
-        const results = currentInput.length
-          ? await api.contacts.list(currentInput, 8)
-          : await api.contacts.frequent(5);
+        const [results, frequent] = await Promise.all([
+          currentInput.length ? api.contacts.list(currentInput, 30) : api.contacts.list('', 50),
+          api.contacts.frequent(30),
+        ]);
+        const merged = mergeAndRankContactSuggestions(
+          [...results, ...frequent],
+          currentInput,
+        ).slice(0, 20);
         if (!mountedRef.current) return;
-        setSuggestions(results);
-        setShowSuggestions(results.length > 0 && document.activeElement === inputRef.current);
+        setSuggestions(merged);
+        setShowSuggestions(merged.length > 0 && document.activeElement === inputRef.current);
         setSelectedIndex(0);
       } catch {
         if (!mountedRef.current) return;
@@ -66,9 +104,17 @@ export function EmailAutocomplete({
   }, []);
 
   const applySelection = (displayValue: string) => {
-    const parts = value.split(',').map((p) => p.trim());
-    parts[parts.length - 1] = displayValue;
-    onChange(parts.filter(Boolean).join(', '));
+    const trimmed = value.trim();
+    const lastComma = trimmed.lastIndexOf(',');
+    const lastSemicolon = trimmed.lastIndexOf(';');
+    const lastSep = Math.max(lastComma, lastSemicolon);
+
+    if (lastSep >= 0) {
+      const prefix = trimmed.slice(0, lastSep + 1).trimEnd();
+      onChange(`${prefix} ${displayValue}, `);
+    } else {
+      onChange(`${displayValue}, `);
+    }
     setShowSuggestions(false);
     inputRef.current?.focus();
   };
@@ -123,7 +169,7 @@ export function EmailAutocomplete({
     }
 
     try {
-      const frequent = await api.contacts.frequent(5);
+      const frequent = await api.contacts.list('', 50);
       if (!mountedRef.current) return;
       setSuggestions(frequent);
       setSelectedIndex(0);
@@ -151,7 +197,7 @@ export function EmailAutocomplete({
         <div className="dark:bg-dark-bg-secondary dark:border-dark-border absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
           {suggestions.map((contact, index) => (
             <button
-              key={contact.id}
+              key={contact.id || contact.email}
               type="button"
               onClick={() => selectSuggestion(contact)}
               className={`dark:hover:bg-dark-bg-tertiary flex w-full flex-col px-3 py-2 text-left hover:bg-gray-50 ${
