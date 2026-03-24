@@ -12,6 +12,26 @@ class TimeoutError extends Error {
   }
 }
 
+class HttpStatusError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'HttpStatusError';
+    this.status = status;
+  }
+}
+
+class ApiTemporarilyUnavailableError extends Error {
+  retryAt: number;
+
+  constructor(retryAt: number) {
+    super('API temporarily unavailable');
+    this.name = 'ApiTemporarilyUnavailableError';
+    this.retryAt = retryAt;
+  }
+}
+
 // Default request timeout (30 seconds)
 const DEFAULT_TIMEOUT = 30000;
 
@@ -19,9 +39,135 @@ const DEFAULT_TIMEOUT = 30000;
 const MAX_RETRIES = 5;
 const INITIAL_RETRY_DELAY = 1000; // 1s
 const MAX_RETRY_DELAY = 30000; // 30s
+const OUTAGE_COOLDOWN_MS = 15000;
+const HEALTH_PROBE_TIMEOUT = 8000;
 
 /** Track consecutive failures per endpoint prefix for adaptive polling */
 const _failureCounters = new Map<string, number>();
+
+type ApiDegradationReason = 'upstream' | 'network';
+
+export interface ApiDegradationState {
+  isDegraded: boolean;
+  retryAt: number | null;
+  reason: ApiDegradationReason | null;
+  message: string | null;
+}
+
+const _apiDegradationListeners = new Set<(state: ApiDegradationState) => void>();
+let _apiDegradationState: ApiDegradationState = {
+  isDegraded: false,
+  retryAt: null,
+  reason: null,
+  message: null,
+};
+
+function emitApiDegradationState(): void {
+  const snapshot = { ..._apiDegradationState };
+  _apiDegradationListeners.forEach((listener) => listener(snapshot));
+}
+
+function setApiDegraded(reason: ApiDegradationReason, message: string): void {
+  const nextRetryAt = Date.now() + OUTAGE_COOLDOWN_MS;
+  _apiDegradationState = {
+    isDegraded: true,
+    retryAt: Math.max(_apiDegradationState.retryAt ?? 0, nextRetryAt),
+    reason,
+    message,
+  };
+  emitApiDegradationState();
+}
+
+function clearApiDegraded(): void {
+  if (!_apiDegradationState.isDegraded) return;
+  _apiDegradationState = {
+    isDegraded: false,
+    retryAt: null,
+    reason: null,
+    message: null,
+  };
+  emitApiDegradationState();
+}
+
+function shouldShortCircuitRequest(endpointPrefix: string): boolean {
+  if (!_apiDegradationState.isDegraded || !_apiDegradationState.retryAt) return false;
+  if (Date.now() >= _apiDegradationState.retryAt) return false;
+  // A recovery probe endpointet engedjük.
+  return endpointPrefix !== '/health';
+}
+
+function isBrowserOnline(): boolean {
+  if (typeof navigator === 'undefined') return true;
+  return navigator.onLine !== false;
+}
+
+function isApiOutageSignal(err: unknown): boolean {
+  if (err instanceof HttpStatusError) return err.status >= 502;
+  if (err instanceof TimeoutError) return true;
+  if (err instanceof TypeError) return true;
+  if (err instanceof Error) {
+    return err.message === 'Failed to fetch' || err.message.includes('NetworkError');
+  }
+  return false;
+}
+
+function outageReasonFromError(err: unknown): ApiDegradationReason {
+  return err instanceof HttpStatusError ? 'upstream' : 'network';
+}
+
+function outageMessageFromError(err: unknown): string {
+  if (err instanceof HttpStatusError) return `HTTP ${err.status}`;
+  if (err instanceof TimeoutError) return 'Request timeout';
+  if (err instanceof Error) return err.message;
+  return 'Network failure';
+}
+
+export function getApiDegradationState(): ApiDegradationState {
+  return { ..._apiDegradationState };
+}
+
+export function subscribeApiDegradation(
+  listener: (state: ApiDegradationState) => void,
+): () => void {
+  _apiDegradationListeners.add(listener);
+  listener({ ..._apiDegradationState });
+  return () => {
+    _apiDegradationListeners.delete(listener);
+  };
+}
+
+export async function probeApiRecovery(): Promise<boolean> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), HEALTH_PROBE_TIMEOUT);
+  try {
+    const response = await fetch(`${BASE_URL}/health`, {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    if (response.ok) {
+      clearApiDegraded();
+      return true;
+    }
+    if (response.status >= 502 && isBrowserOnline()) {
+      setApiDegraded('upstream', `HTTP ${response.status}`);
+    }
+    return false;
+  } catch (err) {
+    const normalizedError =
+      err instanceof Error && err.name === 'AbortError' ? new TimeoutError() : err;
+    if (isApiOutageSignal(normalizedError) && isBrowserOnline()) {
+      setApiDegraded(
+        outageReasonFromError(normalizedError),
+        outageMessageFromError(normalizedError),
+      );
+    }
+    return false;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 export function getFailureCount(endpointPrefix: string): number {
   return _failureCounters.get(endpointPrefix) ?? 0;
@@ -33,8 +179,10 @@ export function resetFailureCount(endpointPrefix: string): void {
 
 /** Check if an error is retryable (network/server errors, not client errors) */
 function isRetryableError(err: unknown): boolean {
+  if (err instanceof ApiTemporarilyUnavailableError) return false;
   if (err instanceof TypeError) return true; // Network error (fetch failed)
   if (err instanceof TimeoutError) return true;
+  if (err instanceof HttpStatusError) return err.status >= 500 || err.status === 0;
   if (err instanceof Error) {
     // HTTP 5xx or 0 (network) are retryable; 4xx are not
     const httpMatch = err.message.match(/HTTP (\d+)/);
@@ -58,6 +206,10 @@ async function request<T>(
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
+    if (shouldShortCircuitRequest(endpointPrefix)) {
+      throw new ApiTemporarilyUnavailableError(_apiDegradationState.retryAt ?? Date.now());
+    }
+
     // Wait before retry (not on first attempt)
     if (attempt > 0) {
       const delay = Math.min(INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1), MAX_RETRY_DELAY);
@@ -80,17 +232,23 @@ async function request<T>(
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({ error: 'Hálózati hiba' }));
-        throw new Error(error.error || `HTTP ${response.status}`);
+        throw new HttpStatusError(response.status, error.error || `HTTP ${response.status}`);
       }
 
       // Success — reset failure counter
       _failureCounters.delete(endpointPrefix);
+      clearApiDegraded();
       return response.json();
     } catch (err) {
       lastError = err;
 
       if (err instanceof Error && err.name === 'AbortError') {
         lastError = new TimeoutError();
+      }
+
+      if (isApiOutageSignal(lastError) && isBrowserOnline()) {
+        setApiDegraded(outageReasonFromError(lastError), outageMessageFromError(lastError));
+        break;
       }
 
       // Only retry on retryable errors

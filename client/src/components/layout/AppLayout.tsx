@@ -4,6 +4,7 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { KeyboardShortcutsHelp } from '../common/KeyboardShortcutsHelp';
 import { OfflineBanner } from '../common/OfflineBanner';
+import { ApiDegradedBanner } from '../common/ApiDegradedBanner';
 import { useDesktopNotifications } from '../../hooks/useDesktopNotifications';
 import { useSession } from '../../hooks/useAccounts';
 
@@ -103,6 +104,7 @@ export function AppLayout() {
         />
 
         <OfflineBanner />
+        <ApiDegradedBanner />
 
         <main className="flex-1 overflow-auto">
           <Outlet context={{ searchQuery, showShortcutsHelp, setShowShortcutsHelp }} />
