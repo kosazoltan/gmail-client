@@ -182,10 +182,11 @@ router.get('/:id/thread', async (req, res) => {
       return;
     }
 
-    // Lekérjük az összes emailt ebből a thread-ből (időrendben)
+    // Lekérjük az összes NEM kukázott emailt ebből a thread-ből (időrendben)
     const threadEmails = await queryAll<EmailRecord>(
       `SELECT * FROM emails
        WHERE account_id = ? AND thread_id = ?
+         AND labels NOT LIKE '%"TRASH"%'
        ORDER BY date ASC`,
       [accountId, email.thread_id],
     );

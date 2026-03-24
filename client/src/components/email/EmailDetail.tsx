@@ -4,6 +4,7 @@ import {
   useEmailDetail,
   useMarkRead,
   useDeleteEmail,
+  useBatchDeleteEmails,
   useThreadConversation,
   useReplyEmail,
 } from '../../hooks/useEmails';
@@ -84,9 +85,13 @@ export function EmailDetail({
   );
   const markRead = useMarkRead();
   const deleteEmail = useDeleteEmail();
+  const batchDeleteEmails = useBatchDeleteEmails();
   const replyEmail = useReplyEmail();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showPruneThreadConfirm, setShowPruneThreadConfirm] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [pruneThreadError, setPruneThreadError] = useState<string | null>(null);
+  const [deletedThreadIds, setDeletedThreadIds] = useState<Set<string>>(new Set());
   const [showMoreActions, setShowMoreActions] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [showLabelManager, setShowLabelManager] = useState(false);
@@ -95,10 +100,19 @@ export function EmailDetail({
     useEmailTranslation();
   const [sendingQuickReply, setSendingQuickReply] = useState(false);
 
-  // Thread adatok
-  const threadEmails = useMemo(() => threadData?.emails ?? [], [threadData?.emails]);
+  // Thread adatok - lokálisan már törölt elemeket elrejtjük az azonnali UX-hez.
+  const threadEmails = useMemo(
+    () => (threadData?.emails ?? []).filter((e) => !deletedThreadIds.has(e.id)),
+    [threadData?.emails, deletedThreadIds],
+  );
   const hasThread = threadEmails.length > 1;
   const threadAccountEmail = threadData?.accountEmail || null;
+
+  useEffect(() => {
+    setDeletedThreadIds(new Set());
+    setShowPruneThreadConfirm(false);
+    setPruneThreadError(null);
+  }, [emailId]);
 
   // FIX: Track download timeouts for cleanup on unmount
   const downloadTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -284,6 +298,44 @@ export function EmailDetail({
       downloadTimeoutsRef.current = [];
     };
   }, []);
+
+  const handleDeleteOlderKeepLatest = useCallback(() => {
+    if (!email || threadEmails.length < 3 || batchDeleteEmails.isPending) return;
+
+    const latestEmail = threadEmails[threadEmails.length - 1];
+    const idsToDelete = threadEmails.slice(0, -1).map((threadEmail) => threadEmail.id);
+    if (idsToDelete.length === 0) return;
+
+    setPruneThreadError(null);
+    batchDeleteEmails.mutate(
+      { emailIds: idsToDelete, accountId },
+      {
+        onSuccess: () => {
+          setDeletedThreadIds((prev) => {
+            const next = new Set(prev);
+            idsToDelete.forEach((id) => next.add(id));
+            return next;
+          });
+
+          toast.success(`Régebbi üzenetek törölve (${idsToDelete.length} db)`);
+          setShowPruneThreadConfirm(false);
+
+          // Ha a jelenleg megnyitott email is törlődött, zárjuk be a részletnézetet.
+          if (idsToDelete.includes(email.id) && latestEmail.id !== email.id) {
+            onBack();
+          }
+        },
+        onError: (error) => {
+          const message = userVisibleApiError(
+            error,
+            'Nem sikerült a régebbi üzenetek törlése. Próbáld újra.',
+          );
+          setPruneThreadError(message);
+          toast.error(message);
+        },
+      },
+    );
+  }, [email, threadEmails, batchDeleteEmails, accountId, onBack]);
 
   if (!emailId) {
     return (
@@ -634,6 +686,52 @@ export function EmailDetail({
         </div>
       )}
 
+      {/* Thread "régebbiek törlése" megerősítő modal */}
+      {showPruneThreadConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="dark:bg-dark-bg-secondary dark:border-dark-border mx-4 max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:border">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="rounded-full bg-red-100 p-3 dark:bg-red-500/20">
+                <Trash2 className="h-6 w-6 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <h3 className="dark:text-dark-text text-lg font-semibold text-gray-900">
+                  Régebbi üzenetek törlése
+                </h3>
+                <p className="dark:text-dark-text-secondary text-sm text-gray-500">
+                  {Math.max(0, threadEmails.length - 1)} üzenet a kukába kerül, az utolsó megmarad.
+                </p>
+              </div>
+            </div>
+
+            {pruneThreadError && (
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">
+                {pruneThreadError}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowPruneThreadConfirm(false);
+                  setPruneThreadError(null);
+                }}
+                className="dark:border-dark-border dark:hover:bg-dark-bg-tertiary dark:text-dark-text flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-gray-50"
+              >
+                Mégse
+              </button>
+              <button
+                onClick={handleDeleteOlderKeepLatest}
+                disabled={batchDeleteEmails.isPending}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+              >
+                {batchDeleteEmails.isPending ? 'Törlés...' : 'Törlés'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Email tartalom - scrollozható */}
       <div className="flex-1 overflow-auto">
         <div className="mx-auto max-w-4xl p-2 sm:p-4">
@@ -761,12 +859,34 @@ export function EmailDetail({
                   <MessageSquare className="h-4 w-4 text-blue-500" />
                   Beszélgetés ({threadEmails.length} üzenet)
                 </div>
-                <button
-                  onClick={() => setShowConversation(false)}
-                  className="dark:text-dark-text-secondary dark:hover:text-dark-text dark:hover:bg-dark-bg-tertiary rounded px-2 py-1 text-[10px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 sm:text-xs"
-                >
-                  Csak ez az email
-                </button>
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <button
+                    onClick={() => {
+                      setPruneThreadError(null);
+                      setShowPruneThreadConfirm(true);
+                    }}
+                    disabled={threadEmails.length < 3 || batchDeleteEmails.isPending}
+                    className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 sm:text-xs dark:text-red-400 dark:hover:bg-red-500/10"
+                    title={
+                      threadEmails.length < 3
+                        ? 'Legalább 3 üzenet szükséges ehhez a művelethez'
+                        : 'Minden régebbi üzenet törlése, az utolsó megtartása'
+                    }
+                  >
+                    {batchDeleteEmails.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" />
+                    )}
+                    <span>Régebbiek törlése</span>
+                  </button>
+                  <button
+                    onClick={() => setShowConversation(false)}
+                    className="dark:text-dark-text-secondary dark:hover:text-dark-text dark:hover:bg-dark-bg-tertiary rounded px-2 py-1 text-[10px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 sm:text-xs"
+                  >
+                    Csak ez az email
+                  </button>
+                </div>
               </div>
 
               {isThreadLoading ? (
@@ -781,7 +901,22 @@ export function EmailDetail({
                   emails={threadEmails}
                   accountEmail={threadAccountEmail}
                   onDelete={(threadEmailId: string) => {
-                    deleteEmail.mutate({ emailId: threadEmailId, accountId });
+                    deleteEmail.mutate(
+                      { emailId: threadEmailId, accountId },
+                      {
+                        onSuccess: () => {
+                          setDeletedThreadIds((prev) => {
+                            const next = new Set(prev);
+                            next.add(threadEmailId);
+                            return next;
+                          });
+                          // Ha pont a főként megnyitott emailt töröltük, lépjünk vissza a listára.
+                          if (threadEmailId === email.id) {
+                            onBack();
+                          }
+                        },
+                      },
+                    );
                   }}
                   onReply={(threadEmail: ThreadEmail) => {
                     onReply({
