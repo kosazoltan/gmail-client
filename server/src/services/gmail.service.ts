@@ -454,6 +454,40 @@ function encodeRFC2047(text: string): string {
   return `=?UTF-8?B?${encoded}?=`;
 }
 
+function looksLikeHtml(input: string): boolean {
+  return /<[^>]+>/.test(input);
+}
+
+function textToHtml(text: string): string {
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+  return escaped
+    .split('\n')
+    .map((line) => (line.trim() ? `<div>${line}</div>` : '<div><br/></div>'))
+    .join('');
+}
+
+function htmlToText(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<\/(p|div|h1|h2|h3|li|tr|blockquote)>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 // Email küldés mellékletekkel
 export interface EmailAttachment {
   filename: string;
@@ -476,12 +510,17 @@ export async function sendEmail(
   },
 ) {
   const { to, subject, body, cc, bcc, inReplyTo, threadId, attachments } = options;
+  const htmlBody = looksLikeHtml(body) ? body : textToHtml(body);
+  const textBody = htmlToText(htmlBody);
+  const htmlBodyBase64 = Buffer.from(htmlBody, 'utf-8').toString('base64');
+  const textBodyBase64 = Buffer.from(textBody, 'utf-8').toString('base64');
 
   let raw: string;
 
   if (attachments && attachments.length > 0) {
     // Multipart email mellékletekkel
-    const boundary = `boundary_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const mixedBoundary = `mixed_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const altBoundary = `alt_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
     const headers = [
       `To: ${to}`,
@@ -489,27 +528,37 @@ export async function sendEmail(
       bcc ? `Bcc: ${bcc}` : '',
       `Subject: ${encodeRFC2047(subject)}`,
       'MIME-Version: 1.0',
-      `Content-Type: multipart/mixed; boundary="${boundary}"`,
+      `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`,
       inReplyTo ? `In-Reply-To: ${inReplyTo}` : '',
       inReplyTo ? `References: ${inReplyTo}` : '',
     ].filter(Boolean);
 
     const parts: string[] = [];
 
-    // Body rész - base64 kódolva az ékezetes karakterek megfelelő kezeléséhez
-    const bodyBase64 = Buffer.from(body, 'utf-8').toString('base64');
+    // Body rész multipart/alternative-ként (text + html)
     parts.push(
-      `--${boundary}`,
+      `--${mixedBoundary}`,
+      `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
+      '',
+      `--${altBoundary}`,
+      'Content-Type: text/plain; charset=utf-8',
+      'Content-Transfer-Encoding: base64',
+      '',
+      textBodyBase64,
+      '',
+      `--${altBoundary}`,
       'Content-Type: text/html; charset=utf-8',
       'Content-Transfer-Encoding: base64',
       '',
-      bodyBase64,
+      htmlBodyBase64,
+      '',
+      `--${altBoundary}--`,
     );
 
     // Melléklet részek
     for (const att of attachments) {
       parts.push(
-        `--${boundary}`,
+        `--${mixedBoundary}`,
         `Content-Type: ${att.mimeType}; name="${att.filename}"`,
         'Content-Transfer-Encoding: base64',
         `Content-Disposition: attachment; filename="${att.filename}"`,
@@ -518,20 +567,18 @@ export async function sendEmail(
       );
     }
 
-    parts.push(`--${boundary}--`);
+    parts.push(`--${mixedBoundary}--`);
 
     raw = Buffer.from([...headers, '', ...parts].join('\r\n')).toString('base64url');
   } else {
-    // Egyszerű email melléklet nélkül
-    // Body-t base64-be kódoljuk az ékezetes karakterek megfelelő kezeléséhez
-    const bodyBase64 = Buffer.from(body, 'utf-8').toString('base64');
+    // Egyszerű email melléklet nélkül, de text/html alternative résszel
+    const altBoundary = `alt_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
     const messageParts = [
       `To: ${to}`,
       `Subject: ${encodeRFC2047(subject)}`,
-      'Content-Type: text/html; charset=utf-8',
-      'Content-Transfer-Encoding: base64',
       'MIME-Version: 1.0',
+      `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
     ];
 
     if (cc) {
@@ -545,7 +592,22 @@ export async function sendEmail(
       messageParts.push(`References: ${inReplyTo}`);
     }
 
-    messageParts.push('', bodyBase64);
+    messageParts.push(
+      '',
+      `--${altBoundary}`,
+      'Content-Type: text/plain; charset=utf-8',
+      'Content-Transfer-Encoding: base64',
+      '',
+      textBodyBase64,
+      '',
+      `--${altBoundary}`,
+      'Content-Type: text/html; charset=utf-8',
+      'Content-Transfer-Encoding: base64',
+      '',
+      htmlBodyBase64,
+      '',
+      `--${altBoundary}--`,
+    );
 
     raw = Buffer.from(messageParts.join('\r\n')).toString('base64url');
   }

@@ -78,6 +78,70 @@ function formatEmailBody(text: string): string {
   });
 }
 
+function htmlToPlainText(html: string): string {
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
+  return temp.innerText;
+}
+
+function isEmptyEditorHtml(html: string): boolean {
+  return htmlToPlainText(html).trim().length === 0;
+}
+
+function cleanComposerHtml(html: string): string {
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      'a',
+      'b',
+      'blockquote',
+      'br',
+      'code',
+      'div',
+      'em',
+      'font',
+      'h1',
+      'h2',
+      'h3',
+      'hr',
+      'i',
+      'img',
+      'li',
+      'ol',
+      'p',
+      'pre',
+      'span',
+      'strong',
+      'table',
+      'tbody',
+      'td',
+      'th',
+      'thead',
+      'tr',
+      'u',
+      'ul',
+    ],
+    ALLOWED_ATTR: [
+      'align',
+      'alt',
+      'class',
+      'color',
+      'colspan',
+      'href',
+      'rel',
+      'rowspan',
+      'src',
+      'style',
+      'target',
+      'title',
+    ],
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|data):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
+  });
+}
+
+function insertHtmlAtCursor(html: string): void {
+  document.execCommand('insertHTML', false, html);
+}
+
 export function EmailCompose() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -201,9 +265,10 @@ export function EmailCompose() {
           : `\n\n--\n${signatureText}`
         : body;
 
+    const initialHtml = formatEmailBody(withSignature);
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setBody(withSignature);
-    bodyEditorRef.current.innerHTML = formatEmailBody(withSignature);
+    setBody(initialHtml);
+    bodyEditorRef.current.innerHTML = initialHtml;
     bodyEditorRef.current.focus();
     const range = document.createRange();
     range.selectNodeContents(bodyEditorRef.current);
@@ -217,7 +282,7 @@ export function EmailCompose() {
   // Body frissítése contenteditable div-ből
   const handleBodyInput = () => {
     if (bodyEditorRef.current) {
-      setBody(bodyEditorRef.current.innerText);
+      setBody(bodyEditorRef.current.innerHTML);
     }
   };
 
@@ -244,6 +309,18 @@ export function EmailCompose() {
       e.preventDefault();
       await addFilesAsAttachments(files);
       toast.success(`${files.length} kép mellékletként hozzáadva`);
+      return;
+    }
+
+    const html = e.clipboardData.getData('text/html');
+    const text = e.clipboardData.getData('text/plain');
+    if (!html && !text) return;
+
+    e.preventDefault();
+    const normalizedHtml = html ? cleanComposerHtml(html) : formatEmailBody(text);
+    insertHtmlAtCursor(normalizedHtml);
+    if (bodyEditorRef.current) {
+      setBody(bodyEditorRef.current.innerHTML);
     }
   };
 
@@ -252,13 +329,15 @@ export function EmailCompose() {
       setSubject(template.subject);
     }
 
-    const nextBody = body ? `${body}\n\n${template.body}` : template.body;
-    setBody(nextBody);
+    const currentText = bodyEditorRef.current?.innerText || '';
+    const nextBody = currentText ? `${currentText}\n\n${template.body}` : template.body;
+    const nextHtml = formatEmailBody(nextBody);
+    setBody(nextHtml);
 
     // A body state frissítés nem ír vissza automatikusan az editorba (szándékosan,
     // hogy gépelés közben ne ugráljon a kurzor), ezért itt manuálisan szinkronizálunk.
     if (bodyEditorRef.current) {
-      bodyEditorRef.current.innerHTML = formatEmailBody(nextBody);
+      bodyEditorRef.current.innerHTML = nextHtml;
       bodyEditorRef.current.focus();
       const range = document.createRange();
       range.selectNodeContents(bodyEditorRef.current);
@@ -368,7 +447,7 @@ export function EmailCompose() {
 
   // Email küldés - server-side undo send támogatással + offline fallback
   const handleSend = async () => {
-    if (!to || !body) return;
+    if (!to || isEmptyEditorHtml(body)) return;
 
     // Offline mód: draft mentése pending státusszal
     if (!isOnline) {
@@ -413,6 +492,7 @@ export function EmailCompose() {
     }));
 
     try {
+      const sanitizedBody = cleanComposerHtml(body);
       let result: {
         success: boolean;
         messageId?: string;
@@ -425,7 +505,7 @@ export function EmailCompose() {
         result = await replyEmail.mutateAsync({
           to,
           subject,
-          body,
+          body: sanitizedBody,
           cc,
           threadId,
           attachments: emailAttachments.length > 0 ? emailAttachments : undefined,
@@ -435,7 +515,7 @@ export function EmailCompose() {
         result = await sendEmail.mutateAsync({
           to,
           subject,
-          body,
+          body: sanitizedBody,
           cc,
           bcc,
           attachments: emailAttachments.length > 0 ? emailAttachments : undefined,
@@ -507,7 +587,7 @@ export function EmailCompose() {
 
   // Ütemezett email mentése és küldés a megfelelő időpontban
   const handleScheduledSend = async () => {
-    if (!to || !scheduledAt) return;
+    if (!to || !scheduledAt || isEmptyEditorHtml(body)) return;
 
     try {
       setIsSendPending(true);
@@ -515,7 +595,7 @@ export function EmailCompose() {
         to,
         cc: cc || undefined,
         subject: subject || undefined,
-        body: body || undefined,
+        body: cleanComposerHtml(body) || undefined,
         scheduledAt,
       });
       toast.success('Email sikeresen ütemezve!');
@@ -756,7 +836,7 @@ export function EmailCompose() {
               /* Azonnali küldés gomb */
               <button
                 onClick={handleSend}
-                disabled={!to || !body || isPending}
+                disabled={!to || isEmptyEditorHtml(body) || isPending}
                 className="flex items-center gap-2 rounded-lg bg-[#4f6ef7] px-6 py-2 text-white transition-colors hover:bg-[#3d5ce5] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isPending ? (
