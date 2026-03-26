@@ -1,1 +1,2 @@
+node scripts/check-staged-hygiene.mjs
 npx lint-staged
