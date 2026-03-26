@@ -679,9 +679,9 @@ async function batchDeleteHandler(req: any, res: any) {
     return;
   }
 
-  // Max 100 email egyszerre
-  if (emailIds.length > 100) {
-    res.status(400).json({ error: 'Maximum 100 email törölhető egyszerre' });
+  // Védőkorlát nagyon nagy payload ellen
+  if (emailIds.length > 500) {
+    res.status(400).json({ error: 'Maximum 500 email törölhető egyszerre' });
     return;
   }
 
@@ -691,31 +691,40 @@ async function batchDeleteHandler(req: any, res: any) {
 
     let successCount = 0;
     let failCount = 0;
+    const BATCH_SIZE = 20;
 
-    for (const emailId of emailIds) {
-      try {
-        await trashMessage(gmail, emailId, accountId);
+    // Korlátozott párhuzamosítás: gyorsabb nagyobb kijelölésnél, de nem terheli túl a Gmail API-t.
+    for (let i = 0; i < emailIds.length; i += BATCH_SIZE) {
+      const chunk = emailIds.slice(i, i + BATCH_SIZE);
+      const chunkResults = await Promise.allSettled(
+        chunk.map(async (emailId: string) => {
+          await trashMessage(gmail, emailId, accountId);
 
-        // Frissítsük az adatbázisban is
-        const email = await queryOne<{ labels: string | null }>(
-          'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
-          [emailId, accountId],
-        );
+          const email = await queryOne<{ labels: string | null }>(
+            'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
+            [emailId, accountId],
+          );
 
-        if (email) {
+          if (!email) return;
+
           const currentLabels = parseLabelsJson(email.labels, { emailId });
-
           const newLabels = [...currentLabels.filter((l: string) => l !== 'INBOX'), 'TRASH'];
+
           await execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
             JSON.stringify(newLabels),
             emailId,
             accountId,
           ]);
-        }
+        }),
+      );
 
-        successCount++;
-      } catch (err) {
-        logger.error('Batch delete - egyedi email törlés hiba', { emailId, error: err });
+      for (const [idx, result] of chunkResults.entries()) {
+        if (result.status === 'fulfilled') {
+          successCount++;
+          continue;
+        }
+        const emailId = chunk[idx];
+        logger.error('Batch delete - egyedi email törlés hiba', { emailId, error: result.reason });
         failCount++;
       }
     }

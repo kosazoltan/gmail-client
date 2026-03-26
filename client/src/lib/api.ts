@@ -403,6 +403,8 @@ export const api = {
         {
           method: 'POST',
           body: JSON.stringify({ emailIds }),
+          timeout: 180000, // Nagy batch törlés Gmail oldalon lassabb lehet.
+          retries: 0, // Írási műveletnél ne duplikáljunk retry-val.
         },
       ),
     batchMarkRead: (emailIds: string[], isRead: boolean, accountId?: string) =>

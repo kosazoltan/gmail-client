@@ -12,7 +12,7 @@ import {
   ArrowLeft,
   X,
 } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSession, useSyncAccount } from '../../hooks/useAccounts';
 import { useCreateSavedSearch } from '../../hooks/useSavedSearches';
 import { ThemeToggle } from './ThemeToggle';
@@ -97,13 +97,18 @@ export function Header({
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [history, setHistory] = useState<string[]>(() => getSearchHistory());
   const justSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoSearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const searchSuggestionListId = 'header-search-suggestions';
 
   // Cleanup timer on unmount to prevent memory leak
   useEffect(() => {
     return () => {
       if (justSavedTimerRef.current) {
         clearTimeout(justSavedTimerRef.current);
+      }
+      if (autoSearchTimerRef.current) {
+        clearTimeout(autoSearchTimerRef.current);
       }
     };
   }, []);
@@ -128,15 +133,68 @@ export function Header({
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (localQuery.trim()) {
-      onSearchChange(localQuery.trim());
-      setHistory(pushSearchHistory(localQuery.trim()));
-      navigate(`/search?q=${encodeURIComponent(localQuery.trim())}`);
-      if (window.innerWidth < 640) {
-        setMobileSearchOpen(false);
+    const normalized = localQuery.trim();
+
+    if (!normalized) {
+      onSearchChange('');
+      if (isSearchPage) {
+        navigate('/');
       }
+      if (window.innerWidth < 640) setMobileSearchOpen(false);
+      return;
+    }
+
+    onSearchChange(normalized);
+    setHistory(pushSearchHistory(normalized));
+    navigate(`/search?q=${encodeURIComponent(normalized)}`);
+    if (window.innerWidth < 640) {
+      setMobileSearchOpen(false);
     }
   };
+
+  // Prediktív keresés: a /search oldalon gépelés közben frissítjük a találatokat.
+  useEffect(() => {
+    if (!isSearchPage) return;
+    const normalized = localQuery.trim();
+    if (normalized === urlSearchQuery.trim()) return;
+
+    if (autoSearchTimerRef.current) {
+      clearTimeout(autoSearchTimerRef.current);
+    }
+
+    autoSearchTimerRef.current = setTimeout(() => {
+      if (!normalized) {
+        onSearchChange('');
+        navigate('/', { replace: true });
+        return;
+      }
+      onSearchChange(normalized);
+      navigate(`/search?q=${encodeURIComponent(normalized)}`, { replace: true });
+    }, 220);
+
+    return () => {
+      if (autoSearchTimerRef.current) {
+        clearTimeout(autoSearchTimerRef.current);
+      }
+    };
+  }, [isSearchPage, localQuery, urlSearchQuery, navigate, onSearchChange]);
+
+  const searchSuggestions = useMemo(() => {
+    const q = localQuery.trim().toLowerCase();
+    const historyMatches = history.filter((item) => {
+      const normalized = item.trim().toLowerCase();
+      if (!normalized) return false;
+      if (!q) return true;
+      return normalized.includes(q);
+    });
+
+    const operatorHints = ['from:', 'to:', 'cc:', 'subject:', 'body:', 'after:', 'before:'];
+    const operatorMatches = operatorHints.filter((op) => (q ? op.includes(q) : true));
+
+    return [...historyMatches, ...operatorMatches]
+      .filter((item, idx, arr) => arr.indexOf(item) === idx)
+      .slice(0, 8);
+  }, [history, localQuery]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -257,10 +315,24 @@ export function Header({
               type="text"
               value={localQuery}
               onChange={(e) => setLocalQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape' && isSearchPage) {
+                  e.preventDefault();
+                  setLocalQuery('');
+                  onSearchChange('');
+                  navigate('/');
+                }
+              }}
               placeholder="Keresés..."
               aria-label="Keresés a levelekben"
+              list={searchSuggestionListId}
               className={`dark:bg-dark-bg-tertiary dark:border-dark-border dark:text-dark-text dark:placeholder:text-dark-text-muted dark:focus:bg-dark-bg w-full rounded-xl border border-transparent bg-gray-100 py-2 pr-4 pl-10 text-sm text-gray-900 transition-all duration-200 outline-none placeholder:text-gray-400 focus:border-[#4f6ef7]/50 focus:bg-white focus:ring-2 focus:ring-[#4f6ef7]/20 dark:focus:border-[#4f6ef7]/50 ${mobileSearchOpen ? '' : 'hidden sm:block'}`}
             />
+            <datalist id={searchSuggestionListId}>
+              {searchSuggestions.map((item) => (
+                <option key={item} value={item} />
+              ))}
+            </datalist>
           </div>
 
           <button
