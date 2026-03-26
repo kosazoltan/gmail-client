@@ -112,15 +112,19 @@ export function Header({
   const isSearchPage = location.pathname === '/search';
   const urlSearchQuery = new URLSearchParams(location.search).get('q') || '';
 
-  // URL query szinkronizálása a localQuery-vel (pl. back button esetén)
+  // URL query szinkronizálása a localQuery-vel (pl. back/forward navigáció esetén).
+  // Fontos: ne figyeljük a localQuery-t, különben gépelés közben visszaírjuk az URL régi q értékét.
   useEffect(() => {
-    if (isSearchPage && urlSearchQuery && urlSearchQuery !== localQuery) {
+    if (isSearchPage) {
       setTimeout(() => setLocalQuery(urlSearchQuery), 0);
-    } else if (!isSearchPage && localQuery && !searchQuery) {
-      // Ha elhagyjuk a keresési oldalt és nincs külső searchQuery, töröljük a localQuery-t
+      return;
+    }
+
+    // Ha elhagyjuk a keresési oldalt és nincs külső searchQuery, töröljük a localQuery-t.
+    if (!searchQuery) {
       setTimeout(() => setLocalQuery(''), 0);
     }
-  }, [isSearchPage, urlSearchQuery, localQuery, searchQuery]);
+  }, [isSearchPage, urlSearchQuery, searchQuery]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

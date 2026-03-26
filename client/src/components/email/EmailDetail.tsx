@@ -999,7 +999,7 @@ export function EmailDetail({
                   {translatedContent?.body ? (
                     <div
                       className={cn(
-                        'email-content email-content--preserve max-w-none min-w-0 overflow-x-auto text-gray-900 dark:text-gray-200',
+                        'email-content max-w-none min-w-0 overflow-x-auto text-gray-900 dark:text-gray-200',
                         googleCalendarBodyClass,
                       )}
                       dangerouslySetInnerHTML={{
@@ -1015,7 +1015,7 @@ export function EmailDetail({
                       {sanitizedLegacyDigestPlain ? (
                         <div
                           className={cn(
-                            'email-content email-content--preserve dark:border-dark-border mb-5 max-w-none min-w-0 overflow-x-auto border-b border-gray-100 pb-5 text-gray-900 dark:text-gray-200',
+                            'email-content dark:border-dark-border mb-5 max-w-none min-w-0 overflow-x-auto border-b border-gray-100 pb-5 text-gray-900 dark:text-gray-200',
                             googleCalendarBodyClass,
                           )}
                           dangerouslySetInnerHTML={{ __html: sanitizedLegacyDigestPlain }}
@@ -1024,7 +1024,7 @@ export function EmailDetail({
                       {sanitizedHtml ? (
                         <div
                           className={cn(
-                            'email-content email-content--preserve max-w-none min-w-0 overflow-x-auto text-gray-900 dark:text-gray-200',
+                            'email-content max-w-none min-w-0 overflow-x-auto text-gray-900 dark:text-gray-200',
                             googleCalendarBodyClass,
                           )}
                           dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
@@ -1034,7 +1034,7 @@ export function EmailDetail({
                   ) : sanitizedHtml ? (
                     <div
                       className={cn(
-                        'email-content email-content--preserve max-w-none min-w-0 overflow-x-auto text-gray-900 dark:text-gray-200',
+                        'email-content max-w-none min-w-0 overflow-x-auto text-gray-900 dark:text-gray-200',
                         googleCalendarBodyClass,
                       )}
                       dangerouslySetInnerHTML={{ __html: sanitizedHtml }}

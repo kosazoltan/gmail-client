@@ -44,9 +44,34 @@ html.dark ::-webkit-scrollbar-thumb:hover { background: #4a4d54; }
 .email-content {
   color: #111827;
   line-height: 1.55;
+  font-size: 0.95rem;
   /* NE overflow-wrap: anywhere — szűk táblázatcellákban karakterenként tör (pl. GitHub „Status” függőlegesen) */
   word-break: normal;
   overflow-wrap: break-word;
+}
+.email-content :is(p, ul, ol, pre, blockquote, table) {
+  margin-top: 0;
+  margin-bottom: 0.85rem;
+}
+.email-content :is(h1, h2, h3, h4, h5, h6) {
+  margin-top: 1rem;
+  margin-bottom: 0.65rem;
+  line-height: 1.35;
+}
+.email-content h1 { font-size: 1.35rem; }
+.email-content h2 { font-size: 1.2rem; }
+.email-content h3 { font-size: 1.08rem; }
+.email-content :is(ul, ol) { padding-left: 1.2rem; }
+.email-content li { margin: 0.2rem 0; }
+.email-content blockquote {
+  margin-left: 0;
+  padding-left: 0.75rem;
+  border-left: 3px solid #d1d5db;
+}
+.email-content hr {
+  border: 0;
+  border-top: 1px solid #e5e7eb;
+  margin: 1rem 0;
 }
 /* Do not animate every nested email node -> prevents choppy/darabos rendering */
 .email-content, .email-content * {
@@ -127,6 +152,12 @@ html.dark .email-content--preserve {
 
 /* Dark mode email content fixes */
 html.dark .email-content:not(.email-content--preserve) { color: #d1d5db; }
+html.dark .email-content:not(.email-content--preserve) blockquote {
+  border-left-color: #4b5563;
+}
+html.dark .email-content:not(.email-content--preserve) hr {
+  border-top-color: #374151;
+}
 html.dark .email-content:not(.email-content--preserve) :is(
   p,
   div,

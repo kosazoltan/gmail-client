@@ -329,7 +329,7 @@ function MessageBubble({
                   {sanitizedLegacyDigestPlain ? (
                     <div
                       className={cn(
-                        'email-content email-content--preserve dark:border-dark-border mb-4 max-w-none min-w-0 overflow-x-auto border-b border-gray-100 pb-4 text-gray-900 dark:text-gray-200',
+                        'email-content dark:border-dark-border mb-4 max-w-none min-w-0 overflow-x-auto border-b border-gray-100 pb-4 text-gray-900 dark:text-gray-200',
                         googleCalendarBodyClass,
                       )}
                       dangerouslySetInnerHTML={{ __html: sanitizedLegacyDigestPlain }}
@@ -338,7 +338,7 @@ function MessageBubble({
                   {sanitizedHtml ? (
                     <div
                       className={cn(
-                        'email-content email-content--preserve max-w-none min-w-0 overflow-x-auto text-gray-900 dark:text-gray-200',
+                        'email-content max-w-none min-w-0 overflow-x-auto text-gray-900 dark:text-gray-200',
                         googleCalendarBodyClass,
                       )}
                       dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
@@ -348,7 +348,7 @@ function MessageBubble({
               ) : sanitizedHtml ? (
                 <div
                   className={cn(
-                    'email-content email-content--preserve max-w-none min-w-0 overflow-x-auto text-gray-900 dark:text-gray-200',
+                    'email-content max-w-none min-w-0 overflow-x-auto text-gray-900 dark:text-gray-200',
                     googleCalendarBodyClass,
                   )}
                   dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
