@@ -1,0 +1,208 @@
+# ZMail Memory Index — master catalog
+# Regeneralhato: node memory/search.mjs --reindex
+# Utolso frissites: 2026-04-10
+
+collections:
+  - name: memory-semantic
+    description: "Stabil tenyek, architektura, konfiguracio, kapcsolatok"
+    path: memory/semantic
+    query_hint: "Ki/mi/mit tudunk errol?"
+
+  - name: memory-episodic
+    description: "Esemenyek, incidensek, migraciok, idovonalak"
+    path: memory/episodic
+    query_hint: "Mi tortent? Mikor? Mi valtozot?"
+
+  - name: memory-procedural
+    description: "Hogyan kell csinalni, workflow-k, szabalyok, checklist-ek"
+    path: memory/procedural
+    query_hint: "Hogyan? Mit kell csinalni? Mi a szabaly?"
+
+  - name: memory-projects
+    description: "Aktiv celok, tiltasok, dontesek, nyitott kerdesek"
+    path: memory/projects
+    query_hint: "Min dolgozunk? Mi a statusz? Mi a kovetkezo?"
+
+  - name: memory-wiki
+    description: "Osszefoglalo oldalak, entitasok, temak"
+    path: memory/wiki
+    query_hint: "Adj attekinteset errol a temarol"
+
+# --- Teljes chunk registry ---
+
+chunks:
+  # === SEMANTIC ===
+  - id: sem_arch_stack_001
+    type: semantic
+    title: "ZMail technologiai stack"
+    path: memory/semantic/architecture/stack.md
+    importance: 0.98
+    tags: [stack, architecture, frontend, backend, framework]
+    entities: [React, Vite, Tailwind, Express, PostgreSQL, Neon, TypeScript]
+
+  - id: sem_arch_deploy_001
+    type: semantic
+    title: "ZMail deployment architektura"
+    path: memory/semantic/architecture/deployment.md
+    importance: 0.97
+    tags: [deployment, infrastructure, hosting, domain, DNS]
+    entities: [Vercel, Render, Neon, Cloudflare, mindenes.org]
+
+  - id: sem_arch_features_001
+    type: semantic
+    title: "ZMail funkciok es szolgaltatasok"
+    path: memory/semantic/architecture/features.md
+    importance: 0.90
+    tags: [features, functionality, services, capabilities]
+    entities: [Command Palette, AI Dashboard, Copilot, SSE, RSS, Crypto]
+
+  - id: sem_db_neon_001
+    type: semantic
+    title: "Neon PostgreSQL adatbazis konfiguracio"
+    path: memory/semantic/database/neon_postgres.md
+    importance: 0.96
+    tags: [database, Neon, PostgreSQL, connection, schema]
+    entities: [Neon, PostgreSQL, DATABASE_URL, pg]
+
+  - id: sem_oauth_google_001
+    type: semantic
+    title: "Google OAuth 2.0 konfiguracio"
+    path: memory/semantic/oauth/google_oauth.md
+    importance: 0.95
+    tags: [oauth, google, authentication, credentials, Gmail API]
+    entities: [Google OAuth, Gmail API, GOCSPX, redirect_uri]
+
+  - id: sem_sec_hardening_001
+    type: semantic
+    title: "Production hardening es kotelezo env valtozok"
+    path: memory/semantic/security/production_hardening.md
+    importance: 0.97
+    tags: [security, production, environment, hardening, watchdog]
+    entities: [SESSION_SECRET, ENCRYPTION_KEY, ERRORLOG_HMAC_SECRET, watchdog]
+
+  - id: sem_sec_cors_001
+    type: semantic
+    title: "CORS konfiguracio"
+    path: memory/semantic/security/cors_config.md
+    importance: 0.88
+    tags: [security, CORS, cross-origin, API]
+    entities: [CORS, origin, whitelist]
+
+  - id: sem_infra_env_001
+    type: semantic
+    title: "Osszes kornyezeti valtozo referencia"
+    path: memory/semantic/infrastructure/environment_variables.md
+    importance: 0.95
+    tags: [environment, configuration, secrets, env-vars]
+    entities: [environment variables, server/.env, Render, Vercel]
+
+  - id: sem_infra_cicd_001
+    type: semantic
+    title: "CI/CD pipeline es GitHub Actions"
+    path: memory/semantic/infrastructure/ci_cd.md
+    importance: 0.92
+    tags: [CI/CD, GitHub Actions, testing, automation, pipeline]
+    entities: [GitHub Actions, CI, Playwright, Gitleaks]
+
+  # === EPISODIC ===
+  - id: ev_2026_02_16_001
+    type: episodic
+    title: "CORS hiba javitasa"
+    path: memory/episodic/2026/2026-02-16/ev_cors_fix.md
+    importance: 0.85
+    event_time: 2026-02-16
+    tags: [bugfix, CORS, production, incident]
+    entities: [CORS, mindenes.org]
+
+  - id: ev_2026_02_27_001
+    type: episodic
+    title: "2026 Redesign — code splitting, Tailwind 4, design system"
+    path: memory/episodic/2026/2026-02-27/ev_2026_redesign.md
+    importance: 0.88
+    event_time: 2026-02-27
+    tags: [redesign, performance, frontend, CSS, dark-mode]
+    entities: [code splitting, Tailwind 4, dark mode, design system]
+
+  - id: ev_2026_02_27_002
+    type: episodic
+    title: "Teljes stack modernizacio"
+    path: memory/episodic/2026/2026-02-27/ev_modernization.md
+    importance: 0.90
+    event_time: 2026-02-27
+    tags: [upgrade, modernization, dependencies, tooling]
+    entities: [React 19, Vite 7, Tailwind CSS 4, Express 5, Docker, Winston]
+
+  - id: ev_2026_03_11_001
+    type: episodic
+    title: "sql.js → Neon PostgreSQL migracio"
+    path: memory/episodic/2026/2026-03-11/ev_neon_migration.md
+    importance: 0.93
+    event_time: 2026-03-11
+    tags: [migration, database, breaking-change, infrastructure]
+    entities: [sql.js, Neon, PostgreSQL, BIGINT]
+
+  # === PROCEDURAL ===
+  - id: proc_deploy_checklist_001
+    type: procedural
+    title: "Deploy es push checklist"
+    path: memory/procedural/workflows/deploy_checklist.md
+    importance: 0.99
+    tags: [deploy, checklist, workflow, CI/CD]
+    entities: [deploy, CI, lint, build, push]
+
+  - id: proc_secrets_mgmt_001
+    type: procedural
+    title: "Titkok es API kulcsok kezelese"
+    path: memory/procedural/workflows/secrets_management.md
+    importance: 0.94
+    tags: [secrets, security, workflow, API keys]
+    entities: [secrets, GitHub Secrets, Render, .env]
+
+  - id: proc_docker_001
+    type: procedural
+    title: "Docker hasznalat"
+    path: memory/procedural/workflows/docker_usage.md
+    importance: 0.75
+    tags: [docker, containerization, development, workflow]
+    entities: [Docker, docker-compose]
+
+  - id: proc_rules_critical_001
+    type: procedural
+    title: "Kritikus fejlesztesi szabalyok (CLAUDE.md)"
+    path: memory/procedural/policies/critical_rules.md
+    importance: 1.00
+    tags: [rules, policy, critical, constraints, CLAUDE.md]
+    entities: [CLAUDE.md, PowerShell, devDependencies, VITE_API_URL]
+
+  # === PROJECT ===
+  - id: proj_zmail_state_001
+    type: project
+    title: "ZMail projekt aktualis allapota"
+    path: memory/projects/zmail/state.md
+    importance: 0.99
+    tags: [project-state, current, overview]
+    entities: [ZMail, gmail-client, mindenes.org]
+
+  - id: proj_zmail_constraints_001
+    type: project
+    title: "ZMail aktiv korlatozasok es tiltasok"
+    path: memory/projects/zmail/constraints.md
+    importance: 1.00
+    tags: [constraints, restrictions, must-not, active-rules]
+    entities: [constraints, rules, restrictions]
+
+  - id: proj_zmail_dec_arch_001
+    type: project
+    title: "Architekturalis dontesek"
+    path: memory/projects/zmail/decisions/architecture_decisions.md
+    importance: 0.92
+    tags: [decisions, architecture, rationale]
+    entities: [architecture, decisions]
+
+  - id: proj_zmail_open_001
+    type: project
+    title: "Nyitott kerdesek es kovetkezo lepesek"
+    path: memory/projects/zmail/open_questions.md
+    importance: 0.80
+    tags: [open-questions, future, todo, roadmap]
+    entities: [open questions, future work]
