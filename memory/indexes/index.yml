@@ -232,6 +232,79 @@ chunks:
     tags: [competitor, comparison, AquaMail, ZMail, feature-comparison]
     entities: [Aqua Mail, ZMail, comparison]
 
+  # === CODEBASE ===
+  - id: sem_code_client_structure_001
+    type: semantic
+    title: "Client kodbazis struktura es routing"
+    path: memory/semantic/codebase/client_structure.md
+    importance: 0.94
+    tags: [codebase, client, structure, routing, frontend]
+    entities: [client/src, App.tsx, main.tsx, React Router]
+
+  - id: sem_code_client_components_001
+    type: semantic
+    title: "Client komponensek es hookok reszletes listaja"
+    path: memory/semantic/codebase/client_components.md
+    importance: 0.90
+    tags: [codebase, client, components, hooks, detailed]
+    entities: [hooks, components, email, settings, viewers, AI]
+
+  - id: sem_code_client_api_001
+    type: semantic
+    title: "Client API kliens — osszes endpoint (70+)"
+    path: memory/semantic/codebase/client_api.md
+    importance: 0.93
+    tags: [codebase, client, API, endpoints, data-fetching]
+    entities: [api.ts, endpoints, TanStack Query]
+
+  - id: sem_code_client_types_001
+    type: semantic
+    title: "Client TypeScript tipusok (90+ interface)"
+    path: memory/semantic/codebase/client_types.md
+    importance: 0.88
+    tags: [codebase, client, types, TypeScript, interfaces]
+    entities: [types/index.ts, Email, Account, interface]
+
+  - id: sem_code_server_structure_001
+    type: semantic
+    title: "Server kodbazis struktura es entry point"
+    path: memory/semantic/codebase/server_structure.md
+    importance: 0.95
+    tags: [codebase, server, structure, entry-point, middleware]
+    entities: [server/src, server.ts, Express, middleware, routes]
+
+  - id: sem_code_server_routes_001
+    type: semantic
+    title: "Server API route-ok teljes listaja (40 fajl)"
+    path: memory/semantic/codebase/server_routes.md
+    importance: 0.93
+    tags: [codebase, server, routes, API, endpoints]
+    entities: [routes, API, endpoints, REST]
+
+  - id: sem_code_server_services_001
+    type: semantic
+    title: "Server service-ek teljes listaja (41 fajl)"
+    path: memory/semantic/codebase/server_services.md
+    importance: 0.93
+    tags: [codebase, server, services, business-logic]
+    entities: [services, gmail.service, auth.service, sync.service, ai-agent.service]
+
+  - id: sem_code_server_db_schema_001
+    type: semantic
+    title: "Server adatbazis sema — 36 tabla reszletezve"
+    path: memory/semantic/codebase/server_database_schema.md
+    importance: 0.96
+    tags: [codebase, server, database, schema, tables]
+    entities: [db/index.ts, tables, schema, PostgreSQL]
+
+  - id: sem_code_root_config_001
+    type: semantic
+    title: "Root konfiguracios fajlok es scriptek"
+    path: memory/semantic/codebase/root_config.md
+    importance: 0.80
+    tags: [codebase, config, root, tooling, scripts]
+    entities: [husky, prettier, lint-staged, gitleaks, scripts]
+
   # === WIKI ===
   - id: wiki_zmail_overview
     type: semantic
