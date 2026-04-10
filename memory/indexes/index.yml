@@ -206,3 +206,37 @@ chunks:
     importance: 0.80
     tags: [open-questions, future, todo, roadmap]
     entities: [open questions, future work]
+
+  # === COMPETITORS ===
+  - id: sem_comp_aquamail_overview_001
+    type: semantic
+    title: "Aqua Mail — attekintes es alapadatok"
+    path: memory/semantic/competitors/aquamail_overview.md
+    importance: 0.85
+    tags: [competitor, AquaMail, email-client, mobile, overview]
+    entities: [Aqua Mail, MobiSystems, Android, iOS]
+
+  - id: sem_comp_aquamail_features_001
+    type: semantic
+    title: "Aqua Mail — teljes funkciolista"
+    path: memory/semantic/competitors/aquamail_features.md
+    importance: 0.88
+    tags: [competitor, AquaMail, features, functionality, detailed]
+    entities: [Aqua Mail, S/MIME, Smart Folder, Tasker, Wear OS, Exchange, Widget]
+
+  - id: sem_comp_aquamail_vs_zmail_001
+    type: semantic
+    title: "Aqua Mail vs ZMail osszehasonlitas"
+    path: memory/semantic/competitors/aquamail_vs_zmail.md
+    importance: 0.90
+    tags: [competitor, comparison, AquaMail, ZMail, feature-comparison]
+    entities: [Aqua Mail, ZMail, comparison]
+
+  # === WIKI ===
+  - id: wiki_zmail_overview
+    type: semantic
+    title: "ZMail — projekt attekintes (wiki)"
+    path: memory/wiki/topics/zmail_overview.md
+    importance: 0.95
+    tags: [wiki, overview, synthesis]
+    entities: [ZMail]
