@@ -169,7 +169,7 @@ export function createApp(): express.Express {
 
   // Routes
   app.use('/api/auth', authLimiter, authRoutes);
-  app.use('/api/emails', sendLimiter, emailsRoutes);
+  app.use('/api/emails', apiLimiter, emailsRoutes);
   app.use('/api/accounts', accountsRoutes);
   app.use('/api/categories', categoriesRoutes);
   app.use('/api/search', searchRoutes);
@@ -244,16 +244,18 @@ export function createApp(): express.Express {
     }
   });
 
-  // DB pool stats (dev/admin only)
-  app.get('/api/pool-stats', (_req, res) => {
-    const p = getPool();
-    res.json({
-      totalCount: p.totalCount,
-      idleCount: p.idleCount,
-      waitingCount: p.waitingCount,
-      timestamp: Date.now(),
+  // DB pool stats (non-production only)
+  if (process.env.NODE_ENV !== 'production') {
+    app.get('/api/pool-stats', (_req, res) => {
+      const p = getPool();
+      res.json({
+        totalCount: p.totalCount,
+        idleCount: p.idleCount,
+        waitingCount: p.waitingCount,
+        timestamp: Date.now(),
+      });
     });
-  });
+  }
 
   // Error handler — must be last
   app.use(errorHandler);
