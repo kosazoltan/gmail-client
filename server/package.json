@@ -10,7 +10,9 @@
     "dev": "tsx watch src/server.ts",
     "start": "node --max-old-space-size=384 --expose-gc dist/server.js",
     "build": "tsc",
-    "test": "tsx --test tests/**/*.test.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "lint": "eslint .",
     "db:init": "tsx src/scripts/init-neon-schema.ts",
     "db:migrate:rfc2047": "tsx src/scripts/migrate-decode-rfc2047-email-fields.ts"
@@ -47,10 +49,12 @@
     "@types/pg": "^8.18.0",
     "@types/uuid": "^10.0.0",
     "@types/web-push": "^3.6.4",
+    "@vitest/coverage-v8": "^4.1.4",
     "eslint": "^10.0.3",
     "globals": "^17.4.0",
     "tsx": "^4.19.2",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.57.1"
+    "typescript-eslint": "^8.57.1",
+    "vitest": "^4.1.4"
   }
 }
