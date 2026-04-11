@@ -2,6 +2,7 @@ import logger from '../utils/logger.js';
 import type { Request, Response, NextFunction } from 'express';
 import { applyCorsHeadersIfAllowed } from '../utils/cors-config.js';
 import { sendErrorReport } from '../lib/error-mailer.js';
+import { captureException } from '../utils/sentry.js';
 
 export class AppError extends Error {
   constructor(
@@ -29,6 +30,13 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   const stack = err instanceof Error ? err.stack : undefined;
 
   logger.error(`[HIBA] ${message}`, stack || '');
+
+  // Report to Sentry (non-blocking)
+  captureException(err, {
+    url: req.originalUrl,
+    method: req.method,
+    requestId: req.headers['x-request-id'] as string,
+  });
 
   // Ensure CORS headers are present even on error responses
   setCorsHeadersOnError(req, res);

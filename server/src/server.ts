@@ -3,6 +3,8 @@
  * Express app: ./app.ts | Background jobs: ./cron.ts
  */
 import 'dotenv/config';
+import { initSentry, captureException } from './utils/sentry.js';
+initSentry(); // Must initialize before other imports load
 import type { Server } from 'http';
 import logger from './utils/logger.js';
 import { initializeDatabase, closeDatabase } from './db/index.js';
