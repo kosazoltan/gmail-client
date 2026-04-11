@@ -10,6 +10,7 @@ import { createSessionMiddleware } from './middleware/session.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { deleteProtection } from './middleware/delete-protection.js';
 import { queryOne } from './db/index.js';
+import { getPool } from './db/pool.js';
 import logger from './utils/logger.js';
 
 // Routes
@@ -132,12 +133,43 @@ export function createApp(): express.Express {
     max: 120,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
+    keyGenerator: (req) => {
+      // Per-user rate limiting: use session accountId if available, else IP
+      const accountId = req.session?.activeAccountId;
+      return accountId ?? (req.ip || 'unknown');
+    },
     message: { status: 429, message: 'API rate limit elérve.' },
+  });
+
+  // Stricter rate limit for AI/expensive endpoints
+  const aiLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => {
+      const accountId = req.session?.activeAccountId;
+      return accountId ?? (req.ip || 'unknown');
+    },
+    message: { status: 429, message: 'AI rate limit elérve — próbáld újra 1 perc múlva.' },
+  });
+
+  // Send/compose rate limit
+  const sendLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 15,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => {
+      const accountId = req.session?.activeAccountId;
+      return accountId ?? (req.ip || 'unknown');
+    },
+    message: { status: 429, message: 'Küldési rate limit elérve.' },
   });
 
   // Routes
   app.use('/api/auth', authLimiter, authRoutes);
-  app.use('/api/emails', emailsRoutes);
+  app.use('/api/emails', sendLimiter, emailsRoutes);
   app.use('/api/accounts', accountsRoutes);
   app.use('/api/categories', categoriesRoutes);
   app.use('/api/search', searchRoutes);
@@ -162,10 +194,10 @@ export function createApp(): express.Express {
   app.use('/api/dashboard', dashboardRoutes);
   app.use('/api/market', marketRoutes);
   app.use('/api/workflows', workflowRoutes);
-  app.use('/api/smart', smartFeaturesRoutes);
-  app.use('/api/intelligence', intelligenceRoutes);
+  app.use('/api/smart', aiLimiter, smartFeaturesRoutes);
+  app.use('/api/intelligence', aiLimiter, intelligenceRoutes);
   app.use('/api/smart-folders', smartFoldersRoutes);
-  app.use('/api/ai', aiChatRoutes);
+  app.use('/api/ai', aiLimiter, aiChatRoutes);
   app.use('/api/detected-tasks', detectedTasksRoutes);
   app.use('/api/sse', sseRoutes);
   app.use('/api/brief', briefRoutes);
@@ -210,6 +242,17 @@ export function createApp(): express.Express {
         timestamp: Date.now(),
       });
     }
+  });
+
+  // DB pool stats (dev/admin only)
+  app.get('/api/pool-stats', (_req, res) => {
+    const p = getPool();
+    res.json({
+      totalCount: p.totalCount,
+      idleCount: p.idleCount,
+      waitingCount: p.waitingCount,
+      timestamp: Date.now(),
+    });
   });
 
   // Error handler — must be last
