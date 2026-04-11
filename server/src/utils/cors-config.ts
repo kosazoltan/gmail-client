@@ -23,6 +23,7 @@ export function buildAllowedOrigins(): string[] {
         'https://www.mindenes.org',
         'https://mail.mindenes.org',
         'https://api.mindenes.org',
+        'https://gmail-client.vercel.app',
         'https://gmail-client-7gc9rv71u-kosa-zoltans-projects.vercel.app',
         'https://gmail-client-m9scbaznv-kosa-zoltans-projects.vercel.app',
         'https://gmail-client-ly41jy423-kosa-zoltans-projects.vercel.app',
