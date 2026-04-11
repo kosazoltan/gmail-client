@@ -93,6 +93,58 @@ function validateEmailAddresses(addressString: string): boolean {
   return true;
 }
 
+/**
+ * @openapi
+ * /api/emails:
+ *   get:
+ *     tags: [Emails]
+ *     summary: Levelek listázása
+ *     parameters:
+ *       - in: query
+ *         name: accountId
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *           maximum: 100
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *       - in: query
+ *         name: label
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: isRead
+ *         schema:
+ *           type: string
+ *           enum: ['0', '1']
+ *     responses:
+ *       200:
+ *         description: Levelek listája
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 emails:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Email'
+ *                 total:
+ *                   type: integer
+ *       400:
+ *         description: Nincs aktív fiók
+ */
 router.get('/', async (req, res) => {
   try {
     const accountId = validateAccountAccess(req);

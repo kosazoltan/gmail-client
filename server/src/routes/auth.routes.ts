@@ -30,13 +30,38 @@ function triggerInvoiceAutomationOnNewLogin(accountId: string): void {
   for (const delayMs of delays) {
     setTimeout(() => {
       runForAccount().catch((err) =>
-        logger.error(`Invoice automation login-trigger failed for ${accountId} (+${delayMs}ms)`, err),
+        logger.error(
+          `Invoice automation login-trigger failed for ${accountId} (+${delayMs}ms)`,
+          err,
+        ),
       );
     }, delayMs);
   }
 }
 
-// OAuth2 login redirect URL generálás
+/**
+ * @openapi
+ * /api/auth/login:
+ *   get:
+ *     tags: [Auth]
+ *     summary: Google OAuth2 bejelentkezés indítása
+ *     description: Generál egy Google OAuth2 authorization URL-t és átirányít.
+ *     parameters:
+ *       - in: query
+ *         name: accountId
+ *         schema:
+ *           type: string
+ *         description: Meglévő fiók ID újra-hitelesítéshez
+ *     responses:
+ *       302:
+ *         description: Átirányítás a Google OAuth consent oldalra
+ *       500:
+ *         description: Hiba az OAuth URL generálásakor
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get('/login', async (req, res) => {
   // Generate CSRF state token
   const state = crypto.randomBytes(32).toString('hex');
@@ -55,6 +80,30 @@ router.get('/login', async (req, res) => {
 });
 
 // OAuth2 callback - Google ide irányít vissza
+/**
+ * @openapi
+ * /api/auth/callback:
+ *   get:
+ *     tags: [Auth]
+ *     summary: Google OAuth2 callback
+ *     description: Google átirányít ide a consent után. Session-t hoz létre és szinkronizálást indít.
+ *     parameters:
+ *       - in: query
+ *         name: code
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: state
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       302:
+ *         description: Sikeres bejelentkezés → frontend redirect
+ *       400:
+ *         description: Hiányzó authorization code
+ */
 router.get('/callback', async (req, res) => {
   try {
     const code = req.query.code as string;
@@ -110,7 +159,32 @@ router.get('/callback', async (req, res) => {
   }
 });
 
-// Kijelentkezés
+/**
+ * @openapi
+ * /api/auth/logout:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Kijelentkezés
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               accountId:
+ *                 type: string
+ *                 description: Opcionális — adott fiók kijelentkezése
+ *     responses:
+ *       200:
+ *         description: Sikeres kijelentkezés
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ */
 router.post('/logout', async (req, res) => {
   const parsed = logoutSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -124,8 +198,8 @@ router.post('/logout', async (req, res) => {
       req.session.activeAccountId = req.session.accountIds[0] || null;
     }
     // Push subscription-ök törlése a kijelentkezett fiókhoz
-    deleteSubscriptionsByAccount(accountId).catch(err =>
-      logger.warn('Push subscription cleanup error:', err)
+    deleteSubscriptionsByAccount(accountId).catch((err) =>
+      logger.warn('Push subscription cleanup error:', err),
     );
   }
 
@@ -140,7 +214,30 @@ router.post('/logout', async (req, res) => {
   });
 });
 
-// Session info
+/**
+ * @openapi
+ * /api/auth/session:
+ *   get:
+ *     tags: [Auth]
+ *     summary: Aktuális session információ
+ *     responses:
+ *       200:
+ *         description: Session állapot
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 authenticated:
+ *                   type: boolean
+ *                 accounts:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Account'
+ *                 activeAccountId:
+ *                   type: string
+ *                   nullable: true
+ */
 router.get('/session', async (req, res) => {
   const accountIds = req.session.accountIds || [];
   const activeAccountId = req.session.activeAccountId || null;
@@ -159,7 +256,28 @@ router.get('/session', async (req, res) => {
   });
 });
 
-// Aktív fiók váltás
+/**
+ * @openapi
+ * /api/auth/switch-account:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Aktív fiók váltás
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [accountId]
+ *             properties:
+ *               accountId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Sikeres váltás
+ *       400:
+ *         description: Érvénytelen fiók
+ */
 router.post('/switch-account', async (req, res) => {
   const parsed = switchAccountSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -185,4 +303,3 @@ router.post('/switch-account', async (req, res) => {
 });
 
 export default router;
-

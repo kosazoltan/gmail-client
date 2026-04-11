@@ -58,6 +58,7 @@ import { requestIdMiddleware } from './middleware/request-id.js';
 import { securityHeaders } from './middleware/security-headers.js';
 import { getWatchdogHealthFailure } from './services/runtime-watchdog.service.js';
 import { logAuditEvent } from './services/audit-log.service.js';
+import { setupSwagger } from './utils/swagger.js';
 
 const WATCHDOG_AUDIT_INTERVAL_MS = 300_000;
 let lastWatchdogAuditAt = 0;
@@ -175,6 +176,11 @@ export function createApp(): express.Express {
   app.use('/api/inbox-rules', inboxRulesRoutes);
   app.use('/api/audit', auditRoutes);
   app.use('/api/analytics', analyticsRoutes);
+
+  // Swagger API docs (before health check, after routes)
+  if (process.env.NODE_ENV !== 'production') {
+    setupSwagger(app);
+  }
 
   // Health check
   app.get('/api/health', async (_req, res) => {
