@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 
-export function useOnlineStatus() {
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+/**
+ * Hook that tracks navigator.onLine status and fires on change.
+ */
+export function useOnlineStatus(): boolean {
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== 'undefined' ? navigator.onLine : true,
+  );
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
