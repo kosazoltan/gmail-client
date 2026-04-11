@@ -16,3 +16,6 @@ client/playwright-report/
 client/test-results/
 *.tsbuildinfo
 *.eslintcache
+
+configs/secrets.json
+.openclaw/
