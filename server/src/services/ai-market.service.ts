@@ -257,10 +257,144 @@ function normalizeImpact(value: unknown): 'Magas' | 'Közepes' | 'Alacsony' {
   return 'Közepes';
 }
 
+const REQUIRED_MARKET_PAIRS = ['EURUSD', 'EURHUF', 'USDHUF', 'GBPHUF', 'CHFHUF'] as const;
+
+function inferPairsFromText(text: string): string[] {
+  const normalized = text.toUpperCase().replace(/[^A-Z0-9]+/g, ' ');
+  const pairs = new Set<string>();
+  for (const pair of [...REQUIRED_MARKET_PAIRS, 'XAUUSD', 'XAUEUR', 'XAUHUF']) {
+    const spaced = `${pair.slice(0, 3)} ${pair.slice(3)}`;
+    if (normalized.includes(pair) || normalized.includes(spaced)) {
+      pairs.add(pair);
+    }
+  }
+  if (normalized.includes('ARANY') || normalized.includes('GOLD') || normalized.includes('XAU')) {
+    pairs.add('XAUUSD');
+  }
+  if (normalized.includes('FORINT') || normalized.includes('HUF')) {
+    pairs.add('EURHUF');
+    pairs.add('USDHUF');
+  }
+  return pairs.size > 0 ? [...pairs] : ['EURHUF'];
+}
+
+function rateDirection(rate?: RateInfo): 'bullish' | 'bearish' | 'neutral' {
+  if (!rate) return 'neutral';
+  if (rate.changePercent > 0.15) return 'bullish';
+  if (rate.changePercent < -0.15) return 'bearish';
+  return 'neutral';
+}
+
+function rateScore(rate?: RateInfo): number {
+  if (!rate) return 50;
+  return Math.max(0, Math.min(100, Math.round(50 + rate.changePercent * 8)));
+}
+
+function formatRate(rate?: RateInfo): string {
+  if (!rate) return 'aktuális árfolyam nem elérhető';
+  const value =
+    rate.pair.startsWith('XAU') || rate.pair.endsWith('HUF')
+      ? rate.rate.toFixed(2)
+      : rate.rate.toFixed(4);
+  return `${value} (${rate.changePercent >= 0 ? '+' : ''}${rate.changePercent.toFixed(2)}%)`;
+}
+
+function buildFallbackNewsItems(sourceNews: NewsItemInput[]): AIAnalysisResult['newsItems'] {
+  const marketDataItem: AIAnalysisResult['newsItems'][number] = {
+    title: 'Piaci árfolyam-frissítés',
+    source: 'ZMail Market Data',
+    originalLanguage: 'hu',
+    impact: 'Közepes',
+    pairs: ['EURHUF', 'USDHUF'],
+    summary:
+      'Az AI elemzés kiegészítő kontextusként az élő árfolyammozgásokat is figyelembe veszi.',
+    publishedAt: new Date().toISOString(),
+    url: 'https://api.mindenes.org/api/market/briefing',
+  };
+
+  if (sourceNews.length === 0) {
+    return [marketDataItem];
+  }
+
+  const items: AIAnalysisResult['newsItems'] = sourceNews.slice(0, 3).map((item) => ({
+    title: item.title,
+    source: item.source || 'Piaci hírforrás',
+    originalLanguage: 'hu',
+    impact: 'Közepes',
+    pairs: inferPairsFromText(`${item.title} ${item.summary ?? ''}`),
+    summary: item.summary?.trim() || `Friss piaci hír: ${item.title}`,
+    publishedAt: item.publishedAt || new Date().toISOString(),
+    url: item.url,
+  }));
+  if (items.length < 2) items.push(marketDataItem);
+  return items;
+}
+
+function hasUsableAIContent(parsed: Partial<AIAnalysisResult>): boolean {
+  return (
+    (Array.isArray(parsed.analyses) && parsed.analyses.length > 0) ||
+    (Array.isArray(parsed.newsItems) && parsed.newsItems.length > 0) ||
+    (Array.isArray(parsed.positioning) && parsed.positioning.length > 0) ||
+    (parsed.weightedConclusion !== undefined &&
+      parsed.weightedConclusion !== null &&
+      Object.keys(parsed.weightedConclusion).length > 0) ||
+    (typeof parsed.overallSentiment === 'string' && parsed.overallSentiment.trim().length > 0)
+  );
+}
+
+function buildFallbackAnalysis(
+  rate: RateInfo,
+  index: number,
+): AIAnalysisResult['analyses'][number] {
+  const direction = rateDirection(rate);
+  const score = rateScore(rate);
+  return {
+    sourceId: `AI_RATE_${rate.pair}`,
+    source: 'AI árfolyam-összegzés',
+    direction,
+    pairs: [rate.pair],
+    summary: `${rate.label} jelenlegi szintje ${formatRate(rate)}. Az AI válasz hiányos szekcióját az élő árfolyammozgás alapján óvatosan egészítettük ki.`,
+    keyLevel: formatRate(rate),
+    outlook:
+      direction === 'bullish'
+        ? 'Rövid távon mérsékelt emelkedési nyomás látszik.'
+        : direction === 'bearish'
+          ? 'Rövid távon mérsékelt korrekciós nyomás látszik.'
+          : 'Rövid távon oldalazó, kiváró piac valószínű.',
+    confidence: Math.max(40, Math.min(75, Math.round(score))),
+    weight: index === 0 ? 1.2 : 1,
+    speciality: 'Élő árfolyam validáció',
+    url: 'https://api.mindenes.org/api/market/briefing',
+    originalLanguage: 'hu',
+  };
+}
+
+function buildFallbackPositioning(rate: RateInfo): AIAnalysisResult['positioning'][number] {
+  const longPct = Math.max(30, Math.min(70, Math.round(50 + rate.changePercent * 6)));
+  const shortPct = 100 - longPct;
+  const spread = rate.rate * (rate.pair.startsWith('XAU') ? 0.025 : 0.012);
+  return {
+    pair: rate.pair,
+    longPct,
+    shortPct,
+    bias: longPct > 55 ? 'Long' : shortPct > 55 ? 'Short' : 'Vegyes',
+    targetLow: Number((rate.rate - spread).toFixed(rate.pair.endsWith('HUF') ? 2 : 4)),
+    targetHigh: Number((rate.rate + spread).toFixed(rate.pair.endsWith('HUF') ? 2 : 4)),
+    support: Number((rate.rate - spread * 0.6).toFixed(rate.pair.endsWith('HUF') ? 2 : 4)),
+    resistance: Number((rate.rate + spread * 0.6).toFixed(rate.pair.endsWith('HUF') ? 2 : 4)),
+    catalyst48h: 'Friss makroadatok, jegybanki kommunikáció és kockázati hangulat.',
+    scenarioBull: `${rate.pair} emelkedhet, ha a jelenlegi momentum fennmarad.`,
+    scenarioBear: `${rate.pair} korrigálhat, ha a kockázati hangulat romlik.`,
+  };
+}
+
 function normalizeAIAnalysisResult(
   parsed: Partial<AIAnalysisResult>,
   allowedNewsUrls: Set<string>,
+  rates: RateInfo[],
+  sourceNews: NewsItemInput[],
 ): AIAnalysisResult {
+  const rateByPair = new Map(rates.map((rate) => [rate.pair, rate]));
   const analyses = Array.isArray(parsed.analyses)
     ? parsed.analyses
         .map((entry) => ({
@@ -280,6 +414,14 @@ function normalizeAIAnalysisResult(
         .filter((entry) => entry.summary.length > 0)
         .slice(0, 6)
     : [];
+
+  for (const pair of REQUIRED_MARKET_PAIRS) {
+    if (analyses.length >= 3) break;
+    const rate = rateByPair.get(pair);
+    if (rate && !analyses.some((entry) => entry.pairs.includes(pair))) {
+      analyses.push(buildFallbackAnalysis(rate, analyses.length));
+    }
+  }
 
   const fallbackNewsUrl = allowedNewsUrls.values().next().value as string | undefined;
   const newsItems = Array.isArray(parsed.newsItems)
@@ -307,6 +449,17 @@ function normalizeAIAnalysisResult(
         .slice(0, 8)
     : [];
 
+  if (newsItems.length < 2) {
+    for (const item of buildFallbackNewsItems(sourceNews)) {
+      if (newsItems.length >= 2) break;
+      if (
+        !newsItems.some((existing) => existing.url === item.url || existing.title === item.title)
+      ) {
+        newsItems.push(item);
+      }
+    }
+  }
+
   const positioning = Array.isArray(parsed.positioning)
     ? parsed.positioning
         .map((entry) => ({
@@ -326,6 +479,13 @@ function normalizeAIAnalysisResult(
         .slice(0, 12)
     : [];
 
+  for (const rate of rates) {
+    if (positioning.length >= Math.min(5, rates.length)) break;
+    if (!positioning.some((entry) => entry.pair === rate.pair)) {
+      positioning.push(buildFallbackPositioning(rate));
+    }
+  }
+
   const weightedConclusion: AIAnalysisResult['weightedConclusion'] = {};
   if (parsed.weightedConclusion && typeof parsed.weightedConclusion === 'object') {
     for (const [pair, value] of Object.entries(parsed.weightedConclusion)) {
@@ -334,6 +494,18 @@ function normalizeAIAnalysisResult(
         direction: String((value as { direction?: string }).direction ?? 'neutral'),
         score: Number((value as { score?: number }).score ?? 50),
         summary: String((value as { summary?: string }).summary ?? '').trim(),
+      };
+    }
+  }
+
+  for (const pair of REQUIRED_MARKET_PAIRS) {
+    if (!weightedConclusion[pair]) {
+      const rate = rateByPair.get(pair);
+      const score = rateScore(rate);
+      weightedConclusion[pair] = {
+        direction: score > 60 ? 'bullish' : score < 40 ? 'bearish' : 'neutral',
+        score,
+        summary: `${pair}: ${formatRate(rate)} alapján óvatos, adatvezérelt következtetés.`,
       };
     }
   }
@@ -421,7 +593,11 @@ async function createMarketAnalysisMessage(prompt: string): Promise<string> {
       },
       { role: 'user', content: prompt },
     ],
-    { maxTokens: 3500, timeoutMs: BRIEFING_ANALYSIS_REQUEST_TIMEOUT_MS },
+    {
+      maxTokens: 6000,
+      timeoutMs: BRIEFING_ANALYSIS_REQUEST_TIMEOUT_MS,
+      responseFormat: 'json_object',
+    },
   );
   return response.text;
 }
@@ -436,7 +612,11 @@ async function createDeepAnalysisMessage(prompt: string): Promise<string> {
       },
       { role: 'user', content: prompt },
     ],
-    { maxTokens: 3000, timeoutMs: DEEP_ANALYSIS_REQUEST_TIMEOUT_MS },
+    {
+      maxTokens: 4500,
+      timeoutMs: DEEP_ANALYSIS_REQUEST_TIMEOUT_MS,
+      responseFormat: 'json_object',
+    },
   );
   return response.text;
 }
@@ -784,8 +964,10 @@ KOVETELMENYEK:
         const parsed = parseJsonLenient<Partial<AIAnalysisResult>>(jsonObjectText);
         if (!parsed) {
           lastValidationReason = 'json_parse_failed';
+        } else if (!hasUsableAIContent(parsed)) {
+          lastValidationReason = 'empty_ai_response';
         } else {
-          const result = normalizeAIAnalysisResult(parsed, allowedNewsUrls);
+          const result = normalizeAIAnalysisResult(parsed, allowedNewsUrls, rates, newsItems);
           const validation = validateAIAnalysisResult(result);
           if (validation.ok) {
             // BUG5 FIX: clamp confidence and score values to valid ranges

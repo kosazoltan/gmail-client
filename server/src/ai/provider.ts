@@ -24,7 +24,7 @@ export function isAIAvailable(): boolean {
 
 export async function callAI(
   messages: AIMessage[],
-  options?: { maxTokens?: number; timeoutMs?: number },
+  options?: { maxTokens?: number; timeoutMs?: number; responseFormat?: 'json_object' },
 ): Promise<AIResponse> {
   const maxTokens = options?.maxTokens ?? 2048;
   const timeoutMs = options?.timeoutMs ?? 60_000;
@@ -38,6 +38,9 @@ export async function callAI(
       model: MODEL,
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
       max_tokens: maxTokens,
+      ...(options?.responseFormat === 'json_object'
+        ? { response_format: { type: 'json_object' as const } }
+        : {}),
     });
     return {
       text: response.choices[0]?.message?.content ?? '',
