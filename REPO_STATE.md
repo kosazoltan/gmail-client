@@ -1,6 +1,15 @@
 # 📋 REPO STATE — Gmail Client (ZMail)
 
-> Frissítve: 2026-03-11
+> Frissítve: 2026-04-28
+
+## 2026-04-28 repo felmérés
+
+- A lokális `main` fast-forwarddal frissítve lett az `origin/main` állapotára (`ci: add auto-review workflow`).
+- Lokális ágak: `feature/2026-redesign`, `fix/compose-editor-cursor-jump`, `fix/mobile-list-full-width` már be vannak olvasztva a `main`-be.
+- Távoli ágak: `origin/claude/pull-latest-changes-GeBbR` már be van olvasztva a `main`-be.
+- Nem merge-elt távoli ág: `origin/claude/vector-database-docs-kLiej`. Tartalma egy `memory/` tudásbázis volt, ezt a felmérés során beemeltük a munkafába.
+- Dokumentációs korrekció: az AI provider a kódban OpenAI/Anthropic absztrakció (`server/src/ai/provider.ts`), nem Google Gemini.
+- Frontend korrekció: a hibajelentő endpointok most a központi `API_BASE` értékre épülnek, így a kötelező production `VITE_API_URL=https://api.mindenes.org/api` mellett nem duplázódik az `/api` útvonal.
 
 ## ⚡ Főbb Változások
 
@@ -20,7 +29,7 @@ Ez a frissítés jelentős áttérést hoz az adatbázis-kezelésben és új fun
 
 - **Command Palette:** Gyors parancsok elérése `Ctrl+K`-val.
 - **AI Dashboard:** Intelligens áttekintés `Bento Grid` elrendezésben.
-- **Inline Copilot:** Kódszerkesztés közbeni AI segítség.
+- **Inline Copilot:** Email részleteknél elérhető AI műveletsáv.
 - **Thread View:** Levelek szálakba rendezése.
 - **SSE Real-time Push:** Valós idejű adatok pusholása szerverről.
 - **Daily AI Brief:** Napi AI összefoglaló (cron `8:00`-kor).

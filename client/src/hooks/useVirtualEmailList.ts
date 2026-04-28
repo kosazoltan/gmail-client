@@ -2,8 +2,8 @@
  * Virtual email list hook using @tanstack/react-virtual.
  * Renders only visible rows — enables 10K+ email lists without DOM bloat.
  */
-import { useRef, useCallback } from 'react';
 import { useVirtualizer, type VirtualItem } from '@tanstack/react-virtual';
+import { useCallback, useRef } from 'react';
 
 export interface VirtualEmailListOptions {
   /** Total number of items */
@@ -23,6 +23,8 @@ export function useVirtualEmailList(options: VirtualEmailListOptions) {
 
   const parentRef = useRef<HTMLDivElement>(null);
 
+  // TanStack Virtual intentionally returns imperative helpers that React Compiler cannot memoize safely.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count,
     getScrollElement: () => parentRef.current,

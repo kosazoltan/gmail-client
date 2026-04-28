@@ -5,6 +5,7 @@
   "scripts": {
     "secrets:sync-github": "node scripts/sync-actions-secrets.mjs",
     "hygiene:check-staged": "node scripts/check-staged-hygiene.mjs",
+    "memory:search": "node memory/search.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "lint": "cd client && npx eslint . --max-warnings 0",

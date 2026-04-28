@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { v4 as uuid } from 'uuid';
-import { queryAll, queryOne, execute } from '../db/index.js';
-import logger from '../utils/logger.js';
 import { callAI } from '../ai/provider.js';
+import { execute, queryAll, queryOne } from '../db/index.js';
+import logger from '../utils/logger.js';
 
 const router = Router();
 
-// Generate AI summary of today's emails using Anthropic
+// Generate AI summary of today's emails using the configured AI provider.
 async function generateAISummary(accountId: string): Promise<{
   summary: string;
   highlights: string[];
@@ -146,7 +146,17 @@ router.post('/generate', async (req, res) => {
          urgent_count = excluded.urgent_count,
          total_emails = excluded.total_emails,
          generated_at = excluded.generated_at`,
-      [id, accountId, today, result.summary, JSON.stringify(result.highlights), result.actionItemsCount, result.urgentCount, result.totalEmails, now],
+      [
+        id,
+        accountId,
+        today,
+        result.summary,
+        JSON.stringify(result.highlights),
+        result.actionItemsCount,
+        result.urgentCount,
+        result.totalEmails,
+        now,
+      ],
     );
 
     return res.json({

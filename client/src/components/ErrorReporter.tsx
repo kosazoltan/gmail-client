@@ -7,7 +7,8 @@
  * Usage: import and call setupErrorReporter() in main.tsx BEFORE rendering the app.
  */
 
-const API_BASE = import.meta.env.VITE_API_URL ?? '';
+import { API_BASE } from '../lib/api';
+
 const MAX_BREADCRUMBS = 30;
 
 interface Breadcrumb {
@@ -29,11 +30,11 @@ function sendReport(payload: Record<string, unknown>): void {
     const body = JSON.stringify({ ...payload, breadcrumbs: [...breadcrumbs] });
     if (navigator.sendBeacon) {
       navigator.sendBeacon(
-        `${API_BASE}/api/error-report`,
+        `${API_BASE}/error-report`,
         new Blob([body], { type: 'application/json' }),
       );
     } else {
-      fetch(`${API_BASE}/api/error-report`, {
+      fetch(`${API_BASE}/error-report`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body,
@@ -54,12 +55,19 @@ export function setupErrorReporter(): void {
   };
 
   // Track clicks
-  document.addEventListener('click', (e) => {
-    const target = e.target as HTMLElement | null;
-    if (target) {
-      addBreadcrumb('ui', `click: ${target.tagName.toLowerCase()}${target.id ? '#' + target.id : ''}`);
-    }
-  }, { capture: true, passive: true });
+  document.addEventListener(
+    'click',
+    (e) => {
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        addBreadcrumb(
+          'ui',
+          `click: ${target.tagName.toLowerCase()}${target.id ? '#' + target.id : ''}`,
+        );
+      }
+    },
+    { capture: true, passive: true },
+  );
 
   // Global JS errors
   window.addEventListener('error', (event) => {

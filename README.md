@@ -4,16 +4,16 @@ Full-featured Gmail kliens a [mindenes.org](https://mindenes.org) platformhoz.
 
 ## Tech Stack
 
-| Layer          | Technológia                                           |
-| -------------- | ----------------------------------------------------- |
-| **Frontend**   | React 19 + TypeScript + Vite + TailwindCSS            |
-| **Backend**    | Node.js + Express + TypeScript                        |
-| **Database**   | PostgreSQL 16                                         |
-| **Auth**       | Google OAuth 2.0                                      |
-| **AI**         | Google Gemini (AI chat, kategorizáció, összefoglalás) |
-| **Testing**    | Vitest + Testing Library                              |
-| **API Docs**   | Swagger / OpenAPI 3.0                                 |
-| **Monitoring** | Sentry (server + client)                              |
+| Layer          | Technológia                                                            |
+| -------------- | ---------------------------------------------------------------------- |
+| **Frontend**   | React 19 + TypeScript + Vite + TailwindCSS                             |
+| **Backend**    | Node.js + Express + TypeScript                                         |
+| **Database**   | PostgreSQL 16                                                          |
+| **Auth**       | Google OAuth 2.0                                                       |
+| **AI**         | OpenAI vagy Anthropic provider (AI chat, kategorizáció, összefoglalás) |
+| **Testing**    | Vitest + Testing Library                                               |
+| **API Docs**   | Swagger / OpenAPI 3.0                                                  |
+| **Monitoring** | Sentry (server + client)                                               |
 
 ## Könyvtárszerkezet
 
@@ -73,17 +73,22 @@ npm run dev
 
 ### Környezeti változók (server `.env`)
 
-| Változó                 | Leírás                       | Kötelező             |
-| ----------------------- | ---------------------------- | -------------------- |
-| `DATABASE_URL`          | PostgreSQL connection string | ✅                   |
-| `GOOGLE_CLIENT_ID`      | Google OAuth Client ID       | ✅                   |
-| `GOOGLE_CLIENT_SECRET`  | Google OAuth Client Secret   | ✅                   |
-| `SESSION_SECRET`        | Express session titkosítás   | ✅                   |
-| `FRONTEND_URL`          | Frontend URL (CORS)          | ✅                   |
-| `PORT`                  | Server port                  | ❌ (default: 5000)   |
-| `SENTRY_DSN`            | Sentry error tracking        | ❌                   |
-| `GOOGLE_GEMINI_API_KEY` | AI funkciókhoz               | ❌                   |
-| `ZMAIL_PG_SCHEMA`       | PostgreSQL schema            | ❌ (default: public) |
+| Változó                | Leírás                                            | Kötelező                  |
+| ---------------------- | ------------------------------------------------- | ------------------------- |
+| `DATABASE_URL`         | PostgreSQL connection string                      | ✅                        |
+| `GOOGLE_CLIENT_ID`     | Google OAuth Client ID                            | ✅                        |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth Client Secret                        | ✅                        |
+| `SESSION_SECRET`       | Express session titkosítás                        | ✅                        |
+| `FRONTEND_URL`         | Frontend URL (CORS)                               | ✅                        |
+| `PORT`                 | Server port                                       | ❌ (default: 5000)        |
+| `SENTRY_DSN`           | Sentry error tracking                             | ❌                        |
+| `AI_PROVIDER`          | `openai` vagy `anthropic`                         | ❌ (default: openai)      |
+| `AI_MODEL`             | Provider modell neve                              | ❌ (default: gpt-4o-mini) |
+| `OPENAI_API_KEY`       | OpenAI-alapú AI funkciókhoz                       | ❌                        |
+| `ANTHROPIC_API_KEY`    | Anthropic-alapú AI funkciókhoz / piaci elemzéshez | ❌                        |
+| `ERRORLOG_HMAC_SECRET` | Error report aláírás productionben                | ✅ productionben          |
+| `BACKEND_URL`          | Backend publikus URL productionben                | ✅ productionben          |
+| `ZMAIL_PG_SCHEMA`      | PostgreSQL schema                                 | ❌ (default: public)      |
 
 ### Tesztek
 
@@ -109,7 +114,7 @@ JSON spec: `http://localhost:5000/api-docs.json`
 
 - **Multi-fiók kezelés** — több Gmail fiók egyidejű használata
 - **Valós idejű szinkronizálás** — push notifikációk + háttér sync
-- **AI kategorizáció** — Gemini alapú automatikus levél-kategorizálás
+- **AI kategorizáció** — provider-alapú automatikus levél-kategorizálás (OpenAI/Anthropic)
 - **AI összefoglalás** — napi brief, thread összefoglaló
 - **AI chat** — levelekkel kapcsolatos kérdések
 - **Intelligens keresés** — mentett keresések, smart folderek
@@ -131,7 +136,7 @@ Client (React) ──> Express API ──> PostgreSQL
                         │
                         ├── Google Gmail API
                         ├── Google Calendar API
-                        ├── Google Gemini AI
+                        ├── OpenAI / Anthropic AI provider
                         └── Sentry (monitoring)
 ```
 
@@ -145,14 +150,14 @@ A backend moduláris felépítésű:
 
 Pipeline: **Junior** (implement) → **Eszter** (review) → **Tamás** (test) → **Bence** (deploy)
 
-Commit előtt kötelező:
+Commit / push előtt kötelező:
 
 ```bash
-npx tsc --noEmit     # TypeScript ellenőrzés
-npx eslint .         # Lint
-npx prettier --check . # Formázás
-npm test             # Tesztek
+cd server && npm run lint && npx tsc --noEmit && npm run build
+cd ../client && npm run lint && npx tsc --noEmit && npm run build
 ```
+
+A GitHub Actions CI ugyanezt futtatja külön server és client jobban. A Playwright e2e job jelenleg `continue-on-error: true`, tehát regressziójelző, nem merge-blokkoló gate.
 
 ## Licenc
 

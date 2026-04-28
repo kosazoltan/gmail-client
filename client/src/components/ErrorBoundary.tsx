@@ -1,4 +1,5 @@
-import { Component, ReactNode, ErrorInfo } from 'react';
+import { Component, ErrorInfo, ReactNode } from 'react';
+import { API_BASE } from '../lib/api';
 
 interface Props {
   children: ReactNode;
@@ -9,12 +10,11 @@ interface State {
   error?: Error;
 }
 
-const API_BASE = import.meta.env.VITE_API_URL ?? '';
-
 function reportError(payload: Record<string, unknown>): void {
   try {
     const isProduction =
-      window.location.hostname === 'mindenes.org' || window.location.hostname === 'www.mindenes.org';
+      window.location.hostname === 'mindenes.org' ||
+      window.location.hostname === 'www.mindenes.org';
     if (!isProduction) {
       return;
     }
@@ -26,11 +26,11 @@ function reportError(payload: Record<string, unknown>): void {
 
     if (navigator.sendBeacon) {
       navigator.sendBeacon(
-        `${API_BASE}/api/error-report`,
+        `${API_BASE}/error-report`,
         new Blob([JSON.stringify(payload)], { type: 'application/json' }),
       );
     } else {
-      fetch(`${API_BASE}/api/error-report`, {
+      fetch(`${API_BASE}/error-report`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

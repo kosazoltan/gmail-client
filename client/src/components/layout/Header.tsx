@@ -1,29 +1,28 @@
-import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  Search,
-  Menu,
-  RefreshCw,
+  ArrowLeft,
   BookmarkPlus,
   Check,
-  Settings,
   Database,
   Keyboard,
+  Menu,
+  RefreshCw,
+  Search,
+  Settings,
   SlidersHorizontal,
-  ArrowLeft,
   X,
 } from 'lucide-react';
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useSession, useSyncAccount } from '../../hooks/useAccounts';
 import { useCreateSavedSearch } from '../../hooks/useSavedSearches';
-import { ThemeToggle } from './ThemeToggle';
-import { HeaderAccountSwitcher } from '../accounts/HeaderAccountSwitcher';
+import { buildOperatorQuery, getSearchHistory, pushSearchHistory } from '../../hooks/useSearch';
+import { API_BASE } from '../../lib/api';
+import { userVisibleApiError } from '../../lib/mutationErrors';
 import { toast } from '../../lib/toast';
+import { HeaderAccountSwitcher } from '../accounts/HeaderAccountSwitcher';
 import { QuotaIndicator } from '../common/QuotaIndicator';
 import { AdvancedSearch } from '../email/AdvancedSearch';
-import { buildOperatorQuery, pushSearchHistory, getSearchHistory } from '../../hooks/useSearch';
-import { userVisibleApiError } from '../../lib/mutationErrors';
-
-const API_BASE = import.meta.env.VITE_API_URL ?? '';
+import { ThemeToggle } from './ThemeToggle';
 
 function reportManualRefreshError(error: unknown): void {
   try {
@@ -53,11 +52,11 @@ function reportManualRefreshError(error: unknown): void {
 
     if (navigator.sendBeacon) {
       navigator.sendBeacon(
-        `${API_BASE}/api/error-report`,
+        `${API_BASE}/error-report`,
         new Blob([JSON.stringify(payload)], { type: 'application/json' }),
       );
     } else {
-      fetch(`${API_BASE}/api/error-report`, {
+      fetch(`${API_BASE}/error-report`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -275,7 +274,7 @@ export function Header({
     <header className="dark:bg-dark-bg-secondary dark:border-dark-border relative z-50 flex items-center gap-2 border-b border-gray-200/80 bg-white px-3 py-2.5 backdrop-blur-sm sm:gap-4 sm:px-5">
       <button
         onClick={onToggleSidebar}
-        className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary flex-shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 lg:hidden"
+        className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 lg:hidden"
         aria-label={sidebarOpen ? 'Menü bezárása' : 'Menü megnyitása'}
         title={sidebarOpen ? 'Menü bezárása' : 'Menü megnyitása'}
         aria-pressed={sidebarOpen}
@@ -299,7 +298,7 @@ export function Header({
             <button
               type="button"
               onClick={() => setMobileSearchOpen(false)}
-              className="dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary mr-1 flex-shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 sm:hidden"
+              className="dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary mr-1 shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 sm:hidden"
               aria-label="Vissza"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -326,7 +325,7 @@ export function Header({
               placeholder="Keresés..."
               aria-label="Keresés a levelekben"
               list={searchSuggestionListId}
-              className={`dark:bg-dark-bg-tertiary dark:border-dark-border dark:text-dark-text dark:placeholder:text-dark-text-muted dark:focus:bg-dark-bg w-full rounded-xl border border-transparent bg-gray-100 py-2 pr-4 pl-10 text-sm text-gray-900 transition-all duration-200 outline-none placeholder:text-gray-400 focus:border-[#4f6ef7]/50 focus:bg-white focus:ring-2 focus:ring-[#4f6ef7]/20 dark:focus:border-[#4f6ef7]/50 ${mobileSearchOpen ? '' : 'hidden sm:block'}`}
+              className={`dark:bg-dark-bg-tertiary dark:border-dark-border dark:text-dark-text dark:placeholder:text-dark-text-muted dark:focus:bg-dark-bg focus:border-accent/50 focus:ring-accent/20 dark:focus:border-accent/50 w-full rounded-xl border border-transparent bg-gray-100 py-2 pr-4 pl-10 text-sm text-gray-900 transition-all duration-200 outline-none placeholder:text-gray-400 focus:bg-white focus:ring-2 ${mobileSearchOpen ? '' : 'hidden sm:block'}`}
             />
             <datalist id={searchSuggestionListId}>
               {searchSuggestions.map((item) => (
@@ -338,7 +337,7 @@ export function Header({
           <button
             type="button"
             onClick={() => setShowAdvanced((v) => !v)}
-            className="dark:hover:bg-dark-bg-tertiary flex-shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+            className="dark:hover:bg-dark-bg-tertiary shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100"
             title="Szűrők (Ctrl+Shift+F)"
           >
             <SlidersHorizontal className="h-5 w-5" />
@@ -398,7 +397,7 @@ export function Header({
                 <button
                   type="button"
                   onClick={() => setShowSaveInput(true)}
-                  className={`dark:hover:bg-dark-bg-tertiary flex-shrink-0 rounded-lg p-2 transition-colors hover:bg-gray-100 ${
+                  className={`dark:hover:bg-dark-bg-tertiary shrink-0 rounded-lg p-2 transition-colors hover:bg-gray-100 ${
                     justSaved
                       ? 'text-green-600 dark:text-green-400'
                       : 'dark:text-dark-text-secondary text-gray-500'
@@ -436,7 +435,7 @@ export function Header({
       )}
 
       {/* Téma váltó - rejtett nagyon kis képernyőn */}
-      <div className="hidden flex-shrink-0 sm:block">
+      <div className="hidden shrink-0 sm:block">
         <ThemeToggle />
       </div>
 
@@ -454,7 +453,7 @@ export function Header({
         <button
           onClick={handleSync}
           disabled={syncAccount.isPending}
-          className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary flex-shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 disabled:opacity-50"
+          className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 disabled:opacity-50"
           title="Levelek szinkronizálása"
           aria-label="Levelek szinkronizálása"
         >
@@ -473,11 +472,11 @@ export function Header({
               key={item.label}
               type="button"
               onClick={item.action}
-              className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary flex-shrink-0 rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:hover:text-white"
+              className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary shrink-0 rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:hover:text-white"
               title={item.label}
               aria-label={item.label}
             >
-              <Icon className="h-4.5 w-4.5 flex-shrink-0" />
+              <Icon className="h-4.5 w-4.5 shrink-0" />
             </button>
           );
         })}
