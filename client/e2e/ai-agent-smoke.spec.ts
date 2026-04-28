@@ -1,17 +1,26 @@
-import { test, expect } from '@playwright/test';
-import { setupAuthenticatedMocks, mockEmails } from './helpers';
+import { expect, test } from '@playwright/test';
+import { mockEmails, setupAuthenticatedMocks } from './helpers';
 
 test.describe('AI Agent Workflow - Smoke Test', () => {
   test.beforeEach(async ({ page }) => {
     await setupAuthenticatedMocks(page);
-    
+    type WorkflowMock = {
+      id: string;
+      name: string;
+      triggerType: string;
+      triggerConfig: Record<string, unknown>;
+      steps: unknown[];
+      isActive: boolean;
+    };
+    const savedWorkflowRef: { current: WorkflowMock | null } = { current: null };
+
     // Mock emails endpoint with test data
     await page.route('**/api/emails**', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ emails: mockEmails, total: mockEmails.length }),
-      })
+      }),
     );
 
     // Mock AI conversations list
@@ -20,17 +29,36 @@ test.describe('AI Agent Workflow - Smoke Test', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ conversations: [] }),
-      })
+      }),
     );
 
-    // Mock workflows list
-    await page.route('**/api/workflows**', (route) =>
-      route.fulfill({
+    // Mock workflows list and create endpoint
+    await page.route('**/api/workflows**', (route) => {
+      if (route.request().method() === 'POST') {
+        savedWorkflowRef.current = {
+          id: 'wf-1',
+          name: 'Teszt Workflow',
+          triggerType: 'new_email',
+          triggerConfig: {},
+          steps: [],
+          isActive: false,
+        };
+
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ workflow: savedWorkflowRef.current }),
+        });
+      }
+
+      return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ workflows: [] }),
-      })
-    );
+        body: JSON.stringify({
+          workflows: savedWorkflowRef.current ? [savedWorkflowRef.current] : [],
+        }),
+      });
+    });
   });
 
   test('AI Agent Flow: search → create workflow → approve save → approve run', async ({ page }) => {
@@ -69,7 +97,7 @@ test.describe('AI Agent Workflow - Smoke Test', () => {
       if (await errorHeading.isVisible({ timeout: 2000 }).catch(() => false)) {
         testResults.blockers.push('App shows error page on load');
         console.log('BLOCKER: App shows error page on load');
-        
+
         // Try to get more details about the error
         const errorText = await page.locator('body').textContent();
         if (errorText) {
@@ -89,26 +117,26 @@ test.describe('AI Agent Workflow - Smoke Test', () => {
 
       // Navigate to AI Assistant
       await page.goto('/ai-assistant', { waitUntil: 'domcontentloaded', timeout: 10000 });
-      
+
       // Check for error page again
       if (await errorHeading.isVisible({ timeout: 2000 }).catch(() => false)) {
         testResults.blockers.push('AI Assistant page shows error');
         console.log('BLOCKER: AI Assistant page shows error');
-        
+
         const errorText = await page.locator('body').textContent();
         if (errorText) {
           testResults.errors.push(`AI Assistant error: ${errorText}`);
         }
         return;
       }
-      
+
       // Wait for AI assistant interface to load
       const chatInput = page.locator('textarea').first();
       await expect(chatInput).toBeVisible({ timeout: 10000 });
 
       // STEP 1: Search for emails from AI assistant
       console.log('STEP 1: Searching for emails...');
-      
+
       // Mock the AI chat response with search result
       await page.route('**/api/ai/chat', (route) => {
         route.fulfill({
@@ -135,7 +163,7 @@ test.describe('AI Agent Workflow - Smoke Test', () => {
       // Wait for search result to appear
       await expect(page.getByText(/találtam.*email/i)).toBeVisible({ timeout: 10000 });
       await expect(page.getByText(/email keresés eredménye/i)).toBeVisible({ timeout: 5000 });
-      
+
       testResults.step1_search = 'PASS';
       console.log('✓ STEP 1: PASS - Search completed');
 
@@ -176,11 +204,13 @@ test.describe('AI Agent Workflow - Smoke Test', () => {
 
       // Wait for AI response and potential tab switch
       await page.waitForTimeout(3000);
-      
+
       // Check if we switched to workflows tab and workflow builder is visible
       const workflowBuilderHeading = page.getByText(/workflow builder/i);
-      const workflowBuilderVisible = await workflowBuilderHeading.isVisible({ timeout: 8000 }).catch(() => false);
-      
+      const workflowBuilderVisible = await workflowBuilderHeading
+        .isVisible({ timeout: 8000 })
+        .catch(() => false);
+
       if (!workflowBuilderVisible) {
         testResults.step2_createWorkflow = 'FAIL';
         testResults.errors.push('Workflow Builder not visible after requesting workflow creation');
@@ -190,15 +220,23 @@ test.describe('AI Agent Workflow - Smoke Test', () => {
 
       // Look for workflow draft UI elements - check multiple ways
       // 1. Check for "Teszt Workflow" text
-      const workflowNameVisible = await page.getByText('Teszt Workflow', { exact: true }).isVisible({ timeout: 3000 }).catch(() => false);
-      
+      const workflowNameVisible = await page
+        .getByText('Teszt Workflow', { exact: true })
+        .isVisible({ timeout: 3000 })
+        .catch(() => false);
+
       // 2. Check for "Workflow neve" input field with value
       const workflowNameInput = page.locator('input[value="Teszt Workflow"]');
-      const workflowInputVisible = await workflowNameInput.isVisible({ timeout: 3000 }).catch(() => false);
-      
+      const workflowInputVisible = await workflowNameInput
+        .isVisible({ timeout: 3000 })
+        .catch(() => false);
+
       // 3. Check for any workflow-related content
-      const hasWorkflowContent = await page.getByText(/lépések/i).isVisible({ timeout: 3000 }).catch(() => false);
-      
+      const hasWorkflowContent = await page
+        .getByText(/lépések/i)
+        .isVisible({ timeout: 3000 })
+        .catch(() => false);
+
       if (workflowNameVisible || workflowInputVisible || hasWorkflowContent) {
         testResults.step2_createWorkflow = 'PASS';
         console.log('✓ STEP 2: PASS - Workflow draft created and visible in builder');
@@ -213,12 +251,14 @@ test.describe('AI Agent Workflow - Smoke Test', () => {
       console.log('STEP 3: Saving workflow from builder...');
 
       // Look for the save button in the workflow builder
-      const saveButton = page.locator('button').filter({ has: page.locator('svg.lucide-save') }).or(
-        page.getByText(/mentés/i).locator('button')
-      ).first();
+      const saveButton = page
+        .locator('button')
+        .filter({ has: page.locator('svg.lucide-save') })
+        .or(page.getByText(/mentés/i).locator('button'))
+        .first();
 
       const hasSaveButton = await saveButton.isVisible({ timeout: 5000 }).catch(() => false);
-      
+
       if (!hasSaveButton) {
         testResults.step3_approveSave = 'BLOCKER';
         testResults.blockers.push('No save button found in workflow builder');
@@ -226,36 +266,17 @@ test.describe('AI Agent Workflow - Smoke Test', () => {
         return;
       }
 
-      // Mock workflow save API
-      await page.route('**/api/workflows', (route) => {
-        if (route.request().method() === 'POST') {
-          route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-              workflow: {
-                id: 'wf-1',
-                name: 'Teszt Workflow',
-                triggerType: 'new_email',
-                triggerConfig: {},
-                steps: [],
-                isActive: false,
-              },
-            }),
-          });
-        } else {
-          route.continue();
-        }
-      });
-
       await saveButton.click();
 
       // Wait a moment for the save to process
       await page.waitForTimeout(2000);
-      
+
       // Check if workflow appears in the list
-      const workflowInList = await page.getByText(/teszt workflow/i).isVisible({ timeout: 3000 }).catch(() => false);
-      
+      const workflowInList = await page
+        .getByText(/teszt workflow/i)
+        .isVisible({ timeout: 3000 })
+        .catch(() => false);
+
       if (workflowInList) {
         testResults.step3_approveSave = 'PASS';
         console.log('✓ STEP 3: PASS - Workflow saved successfully');
@@ -269,15 +290,18 @@ test.describe('AI Agent Workflow - Smoke Test', () => {
       console.log('STEP 4: Running workflow on search results...');
 
       // Look for the run/play button in the workflow builder or list
-      const runButton = page.locator('button').filter({ has: page.locator('svg.lucide-play') }).first();
+      const runButton = page
+        .locator('button')
+        .filter({ has: page.locator('svg.lucide-play') })
+        .first();
 
       const hasRunButton = await runButton.isVisible({ timeout: 5000 }).catch(() => false);
-      
+
       if (!hasRunButton) {
         testResults.step4_approveRun = 'BLOCKER';
         testResults.blockers.push('No run button found for workflow');
         console.log('BLOCKER: No run button for workflow');
-        
+
         // This is acceptable - the workflow run feature may not be fully implemented in the UI
         // Mark as PASS since we successfully created and saved the workflow
         testResults.step4_approveRun = 'SKIPPED';
@@ -303,11 +327,10 @@ test.describe('AI Agent Workflow - Smoke Test', () => {
 
       // Wait a moment for the run to process
       await page.waitForTimeout(2000);
-      
+
       // Check for any success indication (this is flexible as the UI may vary)
       testResults.step4_approveRun = 'PASS';
       console.log('✓ STEP 4: PASS - Workflow run initiated');
-
     } catch (error) {
       testResults.errors.push(`Unexpected error: ${error}`);
       console.error('Test error:', error);
@@ -320,12 +343,12 @@ test.describe('AI Agent Workflow - Smoke Test', () => {
       console.log(`Step 2 (Create Workflow): ${testResults.step2_createWorkflow}`);
       console.log(`Step 3 (Approve Save): ${testResults.step3_approveSave}`);
       console.log(`Step 4 (Approve Run): ${testResults.step4_approveRun}`);
-      
+
       if (testResults.errors.length > 0) {
         console.log('\nErrors:');
         testResults.errors.forEach((err) => console.log(`  - ${err}`));
       }
-      
+
       if (testResults.blockers.length > 0) {
         console.log('\nBlockers:');
         testResults.blockers.forEach((blocker) => console.log(`  - ${blocker}`));

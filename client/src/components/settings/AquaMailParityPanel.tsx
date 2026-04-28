@@ -16,8 +16,8 @@ const parityGroups = [
   {
     title: 'AquaMail-szintű kezelés',
     items: [
-      { label: 'Swipe műveletek', state: 'ready', icon: MoveHorizontal },
-      { label: 'Bulk műveletek', state: 'ready', icon: Archive },
+      { label: 'Swipe gesztusok', state: 'ready', icon: MoveHorizontal },
+      { label: 'Tömeges kezelés', state: 'ready', icon: Archive },
       { label: 'Szundi és ütemezés', state: 'ready', icon: CalendarClock },
       { label: 'VIP értesítések', state: 'ready', icon: Bell },
     ],
