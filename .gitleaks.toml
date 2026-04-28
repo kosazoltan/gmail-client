@@ -6,5 +6,6 @@ useDefault = true
 [[rules]]
 id = "custom-env-file"
 description = "Possible .env file committed"
+path = '''(^|/)\.env$|(^|/)\.env\.(local|production|secrets)$|(^|/)server/\.env$'''
 regex = '''(?i)(api[_-]?key|secret|password|token)\s*=\s*.{6,}'''
 tags = ["env", "secret"]

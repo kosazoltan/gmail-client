@@ -70,6 +70,9 @@ retrieval_hints:
 | Naptar integracio   | Exchange/O365    | -                  |
 | Snooze              | Igen             | Igen               |
 | Schedule send       | Igen             | Igen               |
+| PDF export          | Igen             | Igen               |
+| EML export          | Igen             | Igen               |
+| Biztonsagi jelzesek | DKIM/SPF/SSL     | Helyi eredet panel |
 
 ### Csak Aqua Mail-ben
 
@@ -139,6 +142,14 @@ retrieval_hints:
 - Csak Gmail API (nem IMAP/POP3/Exchange)
 - Nincs natív mobil app (PWA)
 - Nincs S/MIME / E2E encryption
+- DKIM/SPF nyers fejlec megjelenites nincs bekotve a Gmail API adatmodellbe
 - Nincs okosora tamogatas
 - Kisebb felhasznaloi bázis
 - Szemelyes projekt (nem vallalati tamogatas)
+
+## 2026-04-28 parity frissites
+
+- ZMail email reszletnezet: PDF/print melle EML export bekerult.
+- ZMail email reszletnezet: eredet es biztonsag panel mutatja a felado domaint, kulso linkeket, melleklet kockazatot es Gmail API forras megjegyzest.
+- ZMail Beallitasok: AquaMail parity terkep mutatja a kesz AquaMail-szintu funkciokat, a ZMail+ extrakat es a protokoll/nativ kliens korlatokat.
+- A ZMail tobblettudasa nem lett visszavagva: AI, Smart Folders, PWA, Neon cloud sync, dokumentum AI elemzes es workflow funkciok megmaradtak.

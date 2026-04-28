@@ -1,25 +1,27 @@
-import { lazy, Suspense, useState } from 'react';
 import {
-  Settings,
-  MoveHorizontal,
-  Send,
-  Moon,
   Crown,
-  Wrench,
   LayoutGrid,
-  Palette,
-  Signature,
   Mail,
+  Moon,
+  MoveHorizontal,
+  Palette,
+  Send,
+  Settings,
   Shield,
+  ShieldCheck,
+  Signature,
+  Wrench,
 } from 'lucide-react';
+import { lazy, Suspense, useState } from 'react';
 import { useLockScreen } from '../../hooks/useLockScreen';
-import { SwipeSettings } from '../settings/SwipeSettings';
-import { UndoSendSettings } from '../settings/UndoSendSettings';
-import { QuietHoursSettings } from '../settings/QuietHoursSettings';
-import { VIPSettings } from '../settings/VIPSettings';
-import { ToolbarSettings } from '../settings/ToolbarSettings';
+import { AquaMailParityPanel } from '../settings/AquaMailParityPanel';
 import { InboxRulesSettings } from '../settings/InboxRulesSettings';
 import { NotificationPreferences } from '../settings/NotificationPreferences';
+import { QuietHoursSettings } from '../settings/QuietHoursSettings';
+import { SwipeSettings } from '../settings/SwipeSettings';
+import { ToolbarSettings } from '../settings/ToolbarSettings';
+import { UndoSendSettings } from '../settings/UndoSendSettings';
+import { VIPSettings } from '../settings/VIPSettings';
 
 const DensitySettings = lazy(() =>
   import('../settings/DensitySettings').then((m) => ({ default: m.DensitySettings })),
@@ -53,6 +55,16 @@ export function SettingsView() {
 
         {/* Settings sections */}
         <div className="space-y-6">
+          <section className="dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
+            <div className="mb-4 flex items-center gap-2">
+              <ShieldCheck className="dark:text-dark-text-muted h-5 w-5 text-gray-500" />
+              <span className="dark:text-dark-text-muted text-sm font-medium tracking-wider text-gray-500 uppercase">
+                AquaMail szint
+              </span>
+            </div>
+            <AquaMailParityPanel />
+          </section>
+
           {/* Swipe Settings */}
           <section className="dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
             <div className="mb-4 flex items-center gap-2">

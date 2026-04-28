@@ -71,6 +71,7 @@ retrieval_hints:
 - RSS News, Crypto Prices
 - PDF/DOCX AI Analysis
 - Offline Compose (IndexedDB)
+- AquaMail parity kor: EML export, email eredet/biztonsag panel, Beallitasok parity terkep
 - Dark mode, PWA, reszponziv
 
 ## Statisztikak es repo allapot (2026-04-28)
@@ -78,6 +79,7 @@ retrieval_hints:
 - `main` frissitve az `origin/main` legfrissebb allapotara
 - Lokalis regi fix/design branchek: mainbe merge-elve
 - Nem merge-elt tavoli branch: `origin/claude/vector-database-docs-kLiej` → `memory/` tudastar beemelve
+- AquaMail osszehasonlitas alapjan bevezetve: EML export, biztonsagi insight panel, parity terkep; ZMail AI/PWA/Cloud extrak megmaradtak
 - Render: `srv-d6h9il450q8c73af5lk0`
 - Index chunk: 248KB (gzip: 75KB)
 - Build ido: ~3.2s (client), ~4.3s (server)

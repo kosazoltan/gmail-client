@@ -1,50 +1,52 @@
-import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import DOMPurify from 'dompurify';
 import {
-  useEmailDetail,
-  useMarkRead,
-  useDeleteEmail,
-  useBatchDeleteEmails,
-  useThreadConversation,
-  useReplyEmail,
-} from '../../hooks/useEmails';
-import { AttachmentView } from './AttachmentView';
-import { ConversationView } from './ConversationView';
-import { formatFullDate, displaySender, getInitials, emailToColor, cn } from '../../lib/utils';
-import {
   ArrowLeft,
-  Reply,
-  ReplyAll,
-  Forward,
-  Trash2,
-  Loader2,
-  Paperclip,
-  MoreHorizontal,
-  Clock,
-  Mail,
   ChevronDown,
   ChevronUp,
-  Tag,
+  Clock,
   Download,
   FileText,
-  Printer,
+  Forward,
   Languages,
-  X,
+  Loader2,
+  Mail,
   MessageSquare,
+  MoreHorizontal,
+  Paperclip,
+  Printer,
+  Reply,
+  ReplyAll,
+  Tag,
+  Trash2,
+  X,
 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useBatchDeleteEmails,
+  useDeleteEmail,
+  useEmailDetail,
+  useMarkRead,
+  useReplyEmail,
+  useThreadConversation,
+} from '../../hooks/useEmails';
+import { useEmailTranslation } from '../../hooks/useTranslate';
 import { api } from '../../lib/api';
-import { SnoozeMenu } from './SnoozeMenu';
-import { ReminderMenu } from './ReminderMenu';
-import { LabelManager } from './LabelManager';
+import { exportEmailToEml } from '../../lib/emailExport';
+import { isGoogleCalendarNotificationFrom } from '../../lib/googleCalendarNotification';
+import { trySplitLegacyAiDigestBodyHtml } from '../../lib/legacyDigestEmail';
+import { userVisibleApiError } from '../../lib/mutationErrors';
 import { exportEmailToPdf, exportThreadToPdf } from '../../lib/pdfExport';
 import { toast } from '../../lib/toast';
-import { useEmailTranslation } from '../../hooks/useTranslate';
+import { cn, displaySender, emailToColor, formatFullDate, getInitials } from '../../lib/utils';
 import type { ThreadEmail } from '../../types';
 import { InlineCopilotBar } from '../ai/InlineCopilotBar';
+import { AttachmentView } from './AttachmentView';
+import { ConversationView } from './ConversationView';
+import { EmailSecurityPanel } from './EmailSecurityPanel';
+import { LabelManager } from './LabelManager';
 import { QuickReply } from './QuickReply';
-import { trySplitLegacyAiDigestBodyHtml } from '../../lib/legacyDigestEmail';
-import { isGoogleCalendarNotificationFrom } from '../../lib/googleCalendarNotification';
-import { userVisibleApiError } from '../../lib/mutationErrors';
+import { ReminderMenu } from './ReminderMenu';
+import { SnoozeMenu } from './SnoozeMenu';
 
 interface EmailDetailProps {
   emailId: string | null;
@@ -417,7 +419,7 @@ export function EmailDetail({
         </button>
 
         <div className="min-w-0 flex-1">
-          <h1 className="dark:text-dark-text truncate text-sm font-semibold break-words text-gray-900 sm:text-base">
+          <h1 className="dark:text-dark-text truncate text-sm font-semibold wrap-break-word text-gray-900 sm:text-base">
             {email.subject || '(Nincs tárgy)'}
           </h1>
         </div>
@@ -590,6 +592,17 @@ export function EmailDetail({
                     <span>Mentés PDF-ként</span>
                   </button>
                   <button
+                    onClick={() => {
+                      setShowMoreActions(false);
+                      exportEmailToEml(email);
+                      toast.success('EML export elkészült');
+                    }}
+                    className="dark:text-dark-text dark:hover:bg-dark-bg-tertiary flex w-full items-center gap-3 px-4 py-3 text-sm text-gray-700 transition-colors hover:bg-gray-100"
+                  >
+                    <Download className="h-5 w-5" />
+                    <span>Mentés EML-ként</span>
+                  </button>
+                  <button
                     onClick={async () => {
                       setShowMoreActions(false);
                       if (translatedContent) {
@@ -741,7 +754,7 @@ export function EmailDetail({
               <div className="flex items-start gap-2 sm:gap-3">
                 {/* Avatar */}
                 <div
-                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white shadow-sm sm:h-12 sm:w-12 sm:text-base"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white shadow-sm sm:h-12 sm:w-12 sm:text-base"
                   style={{ backgroundColor: avatarColor }}
                 >
                   {initials}
@@ -751,11 +764,11 @@ export function EmailDetail({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-1 sm:gap-2">
                     <div className="flex min-w-0 items-center gap-1 sm:gap-2">
-                      <span className="dark:text-dark-text truncate text-sm font-semibold break-words text-gray-900 sm:text-base">
+                      <span className="dark:text-dark-text truncate text-sm font-semibold wrap-break-word text-gray-900 sm:text-base">
                         {sender}
                       </span>
                     </div>
-                    <div className="flex flex-shrink-0 items-center gap-1 sm:gap-2">
+                    <div className="flex shrink-0 items-center gap-1 sm:gap-2">
                       <div className="dark:text-dark-text-muted flex items-center gap-1 text-[10px] text-gray-400 sm:text-xs">
                         <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                         <span>{formatTime(email.date)}</span>
@@ -772,7 +785,7 @@ export function EmailDetail({
                     </div>
                   </div>
 
-                  <div className="dark:text-dark-text-secondary mt-0.5 truncate text-xs break-words text-gray-500 sm:text-sm">
+                  <div className="dark:text-dark-text-secondary mt-0.5 truncate text-xs wrap-break-word text-gray-500 sm:text-sm">
                     {email.from}
                   </div>
 
@@ -829,6 +842,7 @@ export function EmailDetail({
                       </div>
                     </div>
                   )}
+                  <EmailSecurityPanel email={email} />
                 </div>
               </div>
             </div>
@@ -836,7 +850,7 @@ export function EmailDetail({
 
           {/* Separator between header and body */}
           <div className="my-1 flex items-center gap-3 px-2 sm:my-2">
-            <div className="dark:via-dark-border h-px flex-1 bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
+            <div className="dark:via-dark-border h-px flex-1 bg-linear-to-r from-transparent via-gray-200 to-transparent" />
           </div>
 
           {/* AI Copilot Bar */}

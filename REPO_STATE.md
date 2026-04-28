@@ -11,6 +11,13 @@
 - Dokumentációs korrekció: az AI provider a kódban OpenAI/Anthropic absztrakció (`server/src/ai/provider.ts`), nem Google Gemini.
 - Frontend korrekció: a hibajelentő endpointok most a központi `API_BASE` értékre épülnek, így a kötelező production `VITE_API_URL=https://api.mindenes.org/api` mellett nem duplázódik az `/api` útvonal.
 
+## 2026-04-28 AquaMail parity kör
+
+- Megtalált összehasonlítások: `memory/semantic/competitors/aquamail_overview.md`, `aquamail_features.md`, `aquamail_vs_zmail.md`.
+- ZMail megtartott többlettudás: AI Dashboard, Inline Copilot, Daily Brief, Smart Folders, PWA, Neon cloud sync, PDF/DOCX AI elemzés.
+- AquaMail irányból beépített tudás: EML export az email részletnézetben, PDF/print mellé; email eredet és biztonság panel küldő domainnel, link/melléklet kockázatjelzéssel; Beállításokban AquaMail parity térkép.
+- Tudatos korlát: IMAP/POP3/EWS, S/MIME, natív widget és Wear OS csak külön protokollréteggel vagy natív klienssel érhető el, nem a Gmail API-only web kliens jelenlegi rétegében.
+
 ## ⚡ Főbb Változások
 
 Ez a frissítés jelentős áttérést hoz az adatbázis-kezelésben és új funkciókat vezet be.
@@ -37,6 +44,7 @@ Ez a frissítés jelentős áttérést hoz az adatbázis-kezelésben és új fun
 - **Crypto Prices:** Valós idejű kriptovaluta árfolyamok.
 - **PDF/DOCX AI Analysis:** Dokumentumok AI alapú elemzése.
 - **Offline Compose:** Levelek offline összeállítása `IndexedDB` segítségével.
+- **EML export + eredet panel:** Egyedi levelek RFC822/EML mentése és helyi biztonsági áttekintése.
 - **Új Service-ek:** `news.service`, `crypto.service`, `document-parser.service`, `ai-market.service`.
 
 ### 📦 Új Dependencies:
