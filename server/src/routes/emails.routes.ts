@@ -5,6 +5,7 @@ import { getEmailAttachments } from '../services/attachment.service.js';
 import {
   getOAuth2ClientForAccount,
   isMissingVaultTokenError,
+  isOAuthReloginError,
   OAUTH_RELOGIN_REQUIRED_MESSAGE,
 } from '../services/auth.service.js';
 import { safeUpsertContact } from '../services/contacts.service.js';
@@ -43,6 +44,8 @@ const router = Router();
 const MAX_LIMIT = 100;
 const MAX_BODY_SIZE = 5 * 1024 * 1024; // 5MB email body limit
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const GMAIL_RELOGIN_REQUIRED_FOR_TRASH_MESSAGE =
+  'A Gmail törléshez új Google-belépés szükséges. Jelentkezz ki, majd jelentkezz be újra, hogy a ZMail megkapja a kukába helyezéshez szükséges Gmail jogosultságot.';
 
 // FIX: Extract JSON parse helper to avoid code duplication
 function parseLabelsJson(labels: string | null, context?: { emailId?: string }): string[] {
@@ -90,6 +93,71 @@ function validateEmailAddresses(addressString: string): boolean {
     const email = match ? match[1] : addr;
     if (!isValidEmail(email)) return false;
   }
+  return true;
+}
+
+function getExternalErrorStatus(error: unknown): number | null {
+  if (!error || typeof error !== 'object') return null;
+  const err = error as {
+    status?: unknown;
+    statusCode?: unknown;
+    code?: unknown;
+    response?: { status?: unknown };
+  };
+  const status = err.status ?? err.statusCode ?? err.response?.status ?? err.code;
+  return typeof status === 'number' ? status : null;
+}
+
+function getExternalErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  return String(error);
+}
+
+function isGmailMessageGoneError(error: unknown): boolean {
+  const status = getExternalErrorStatus(error);
+  if (status === 404 || status === 410) return true;
+  return /not found|requested entity was not found|message not found/i.test(
+    getExternalErrorMessage(error),
+  );
+}
+
+function isGmailAuthActionRequired(error: unknown): boolean {
+  if (isOAuthReloginError(error)) return true;
+  const status = getExternalErrorStatus(error);
+  if (status === 401) return true;
+  if (status !== 403) return false;
+  return /insufficient authentication scopes|invalid credentials/i.test(
+    getExternalErrorMessage(error),
+  );
+}
+
+async function markEmailAsTrashedInDatabase(emailId: string, accountId: string): Promise<boolean> {
+  const email = await queryOne<{ labels: string | null }>(
+    'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
+    [emailId, accountId],
+  );
+
+  if (!email) return false;
+
+  const currentLabels = parseLabelsJson(email.labels, { emailId });
+  const newLabels = Array.from(
+    new Set([...currentLabels.filter((label: string) => label !== 'INBOX'), 'TRASH']),
+  );
+
+  await execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
+    JSON.stringify(newLabels),
+    emailId,
+    accountId,
+  ]);
+
+  logger.info('Local DB TRASH label update sikeres', {
+    emailId,
+    accountId,
+    labelsBefore: currentLabels,
+    labelsAfter: newLabels,
+  });
+
   return true;
 }
 
@@ -750,23 +818,18 @@ async function batchDeleteHandler(req: any, res: any) {
       const chunk = emailIds.slice(i, i + BATCH_SIZE);
       const chunkResults = await Promise.allSettled(
         chunk.map(async (emailId: string) => {
-          await trashMessage(gmail, emailId, accountId);
+          try {
+            await trashMessage(gmail, emailId, accountId);
+          } catch (error) {
+            if (!isGmailMessageGoneError(error)) throw error;
+            logger.warn('Batch delete: Gmail message már nem található, lokálisan kukázzuk', {
+              emailId,
+              accountId,
+              error: getExternalErrorMessage(error),
+            });
+          }
 
-          const email = await queryOne<{ labels: string | null }>(
-            'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
-            [emailId, accountId],
-          );
-
-          if (!email) return;
-
-          const currentLabels = parseLabelsJson(email.labels, { emailId });
-          const newLabels = [...currentLabels.filter((l: string) => l !== 'INBOX'), 'TRASH'];
-
-          await execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
-            JSON.stringify(newLabels),
-            emailId,
-            accountId,
-          ]);
+          await markEmailAsTrashedInDatabase(emailId, accountId);
         }),
       );
 
@@ -783,8 +846,13 @@ async function batchDeleteHandler(req: any, res: any) {
 
     res.json({ success: true, deletedCount: successCount, failedCount: failCount });
   } catch (error) {
-    if (isMissingVaultTokenError(error)) {
-      res.status(401).json({ error: OAUTH_RELOGIN_REQUIRED_MESSAGE, code: 'OAUTH_VAULT_MISSING' });
+    if (isMissingVaultTokenError(error) || isGmailAuthActionRequired(error)) {
+      res.status(401).json({
+        error: isMissingVaultTokenError(error)
+          ? OAUTH_RELOGIN_REQUIRED_MESSAGE
+          : GMAIL_RELOGIN_REQUIRED_FOR_TRASH_MESSAGE,
+        code: 'OAUTH_RELOGIN_REQUIRED',
+      });
       return;
     }
     logger.error('Batch törlés hiba:', error);
@@ -811,40 +879,34 @@ async function trashSingleEmailHandler(req: any, res: any) {
     const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
 
-    await trashMessage(gmail, emailId, accountId);
-    logger.info('Gmail trash sikeres', { emailId, accountId });
-
-    // Frissítsük az adatbázisban is - hozzáadjuk a TRASH labelt
-    const email = await queryOne<{ labels: string | null }>(
-      'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
-      [emailId, accountId],
-    );
-
-    if (email) {
-      const currentLabels = parseLabelsJson(email.labels, { emailId });
-
-      // Hozzáadjuk a TRASH labelt és eltávolítjuk az INBOX-ot
-      const newLabels = [...currentLabels.filter((l: string) => l !== 'INBOX'), 'TRASH'];
-      await execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
-        JSON.stringify(newLabels),
+    let gmailSynced = true;
+    try {
+      await trashMessage(gmail, emailId, accountId);
+      logger.info('Gmail trash sikeres', { emailId, accountId });
+    } catch (error) {
+      if (!isGmailMessageGoneError(error)) throw error;
+      gmailSynced = false;
+      logger.warn('Gmail message már nem található, lokálisan kukázzuk', {
         emailId,
         accountId,
-      ]);
-
-      logger.info('Local DB TRASH label update sikeres', {
-        emailId,
-        accountId,
-        labelsBefore: currentLabels,
-        labelsAfter: newLabels,
+        error: getExternalErrorMessage(error),
       });
-    } else {
+    }
+
+    const localUpdated = await markEmailAsTrashedInDatabase(emailId, accountId);
+    if (!localUpdated) {
       logger.warn('Local DB email record nem található törlés után', { emailId, accountId });
     }
 
-    res.json({ success: true });
+    res.json({ success: true, gmailSynced, localUpdated });
   } catch (error) {
-    if (isMissingVaultTokenError(error)) {
-      res.status(401).json({ error: OAUTH_RELOGIN_REQUIRED_MESSAGE, code: 'OAUTH_VAULT_MISSING' });
+    if (isMissingVaultTokenError(error) || isGmailAuthActionRequired(error)) {
+      res.status(401).json({
+        error: isMissingVaultTokenError(error)
+          ? OAUTH_RELOGIN_REQUIRED_MESSAGE
+          : GMAIL_RELOGIN_REQUIRED_FOR_TRASH_MESSAGE,
+        code: 'OAUTH_RELOGIN_REQUIRED',
+      });
       return;
     }
     logger.error('Törlés hiba:', {
@@ -853,7 +915,9 @@ async function trashSingleEmailHandler(req: any, res: any) {
       requestId: req.headers['x-request-id'] || null,
       error,
     });
-    res.status(500).json({ error: 'Törlés sikertelen' });
+    res.status(502).json({
+      error: 'A Gmail nem tudta kukába helyezni a levelet. Próbáld újra később.',
+    });
   }
 }
 
