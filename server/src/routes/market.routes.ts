@@ -1,20 +1,24 @@
-import { isAIAvailable } from '../ai/provider.js';
 import { Router } from 'express';
-import logger from '../utils/logger.js';
-import { generateAIAnalysis, generateDeepAnalysis } from '../services/ai-market.service.js';
+import { isAIAvailable } from '../ai/provider.js';
 import type { DeepAnalysisResult } from '../services/ai-market.service.js';
+import {
+  generateAIAnalysis,
+  generateDeepAnalysis,
+  MarketAIGenerationError,
+} from '../services/ai-market.service.js';
+import { fetchCryptoPrices } from '../services/crypto.service.js';
 import {
   BRIEFING_ROUTE_TIMEOUT_MS,
   DEEP_ANALYSIS_ROUTE_TIMEOUT_MS,
 } from '../services/market-ai-config.js';
+import type { RateInfo, TrendDataPoint } from '../services/market-data.service.js';
 import {
-  fetchMarketRates,
   fetchMarketNews,
+  fetchMarketRates,
   fetchTrendData,
 } from '../services/market-data.service.js';
-import type { RateInfo, TrendDataPoint } from '../services/market-data.service.js';
 import { fetchNews } from '../services/news.service.js';
-import { fetchCryptoPrices } from '../services/crypto.service.js';
+import logger from '../utils/logger.js';
 
 const router = Router();
 
@@ -83,7 +87,7 @@ interface MarketBriefingData {
   generatedAt: string;
   cached: boolean;
   isAIPowered: boolean;
-  fallbackReason?: 'missing_api_key' | 'timeout' | 'generation_failed';
+  fallbackReason?: MarketFallbackReason;
   fallbackMessage?: string;
   rates: RateInfo[];
   analyses: AnalysisItem[];
@@ -102,7 +106,11 @@ interface DeepAnalysisPayload extends DeepAnalysisResult {
   fallbackMessage?: string;
 }
 
-type MarketFallbackReason = 'missing_api_key' | 'timeout' | 'generation_failed';
+type MarketFallbackReason =
+  | 'missing_api_key'
+  | 'timeout'
+  | 'generation_failed'
+  | 'provider_unavailable';
 
 function getBriefingFallbackMessage(reason: MarketFallbackReason): string {
   switch (reason) {
@@ -110,6 +118,8 @@ function getBriefingFallbackMessage(reason: MarketFallbackReason): string {
       return 'Sablon-alapú becslés fut, mert a market AI API kulcs nincs beállítva a szerveren.';
     case 'timeout':
       return 'Sablon-alapú becslés fut, mert a market AI elemzés időtúllépés miatt fallbackre váltott.';
+    case 'provider_unavailable':
+      return 'Sablon-alapú becslés fut, mert az AI szolgáltató kvótája vagy kapacitása átmenetileg nem elérhető.';
     default:
       return 'Sablon-alapú becslés fut, mert a market AI elemzés hibára futott vagy érvénytelen választ adott.';
   }
@@ -593,12 +603,10 @@ router.get('/briefing', async (req, res) => {
     if (cachedBriefing) {
       return res.json({ success: true, data: { ...cachedBriefing, cached: true } });
     }
-    return res
-      .status(503)
-      .json({
-        success: false,
-        error: 'Elemzés folyamatban, kérlek próbáld újra 30 másodperc múlva.',
-      });
+    return res.status(503).json({
+      success: false,
+      error: 'Elemzés folyamatban, kérlek próbáld újra 30 másodperc múlva.',
+    });
   }
 
   isGenerating = true;
@@ -616,17 +624,29 @@ router.get('/briefing', async (req, res) => {
       `[BRIEFING] Step 2: generateAIAnalysis starting... (ANTHROPIC_API_KEY=${process.env.ANTHROPIC_API_KEY ? 'SET' : 'MISSING'})`,
     );
     const t1 = Date.now();
-    const aiResult = await Promise.race([
-      generateAIAnalysis(rates, marketNews),
-      new Promise<'timeout'>((resolve) =>
-        setTimeout(() => {
-          logger.warn(
-            `generateAIAnalysis hard timeout (${BRIEFING_ROUTE_TIMEOUT_MS}ms) — falling back to template or cached AI result`,
-          );
-          resolve('timeout');
-        }, BRIEFING_ROUTE_TIMEOUT_MS),
-      ),
-    ]);
+    let aiFailureReason: MarketFallbackReason | undefined;
+    let aiResult: Awaited<ReturnType<typeof generateAIAnalysis>> | 'timeout' = null;
+    try {
+      aiResult = await Promise.race([
+        generateAIAnalysis(rates, marketNews),
+        new Promise<'timeout'>((resolve) =>
+          setTimeout(() => {
+            logger.warn(
+              `generateAIAnalysis hard timeout (${BRIEFING_ROUTE_TIMEOUT_MS}ms) — falling back to template or cached AI result`,
+            );
+            resolve('timeout');
+          }, BRIEFING_ROUTE_TIMEOUT_MS),
+        ),
+      ]);
+    } catch (error) {
+      if (!(error instanceof MarketAIGenerationError)) throw error;
+      aiFailureReason =
+        error.reason === 'provider_unavailable' ? 'provider_unavailable' : 'generation_failed';
+      logger.warn('[BRIEFING] AI generation failed, falling back to template', {
+        reason: aiFailureReason,
+        message: error.message,
+      });
+    }
     logger.info(`[BRIEFING] Step 2 done: AI=${!!aiResult} in ${Date.now() - t1}ms`);
 
     let analyses: AnalysisItem[];
@@ -651,9 +671,7 @@ router.get('/briefing', async (req, res) => {
       logger.info('[BRIEFING] Step 3: generating template fallback...');
       fallbackReason = !isAIAvailable()
         ? 'missing_api_key'
-        : aiResult === 'timeout'
-          ? 'timeout'
-          : 'generation_failed';
+        : (aiFailureReason ?? (aiResult === 'timeout' ? 'timeout' : 'generation_failed'));
       if (fallbackReason !== 'missing_api_key' && cachedSuccessfulAIBriefing) {
         logger.warn(
           `[BRIEFING] Reusing last successful AI briefing because generation ended with ${fallbackReason}`,

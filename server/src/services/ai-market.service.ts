@@ -1,4 +1,4 @@
-import { callAI, isAIAvailable } from '../ai/provider.js';
+import { callAI, isAIAvailable, isAIProviderCapacityError } from '../ai/provider.js';
 import logger from '../utils/logger.js';
 import {
   BRIEFING_ANALYSIS_REQUEST_TIMEOUT_MS,
@@ -654,6 +654,18 @@ export interface TrendDataPoint {
   rates: Record<string, number | null>;
 }
 
+export type MarketAIFailureReason = 'provider_unavailable' | 'invalid_response';
+
+export class MarketAIGenerationError extends Error {
+  reason: MarketAIFailureReason;
+
+  constructor(reason: MarketAIFailureReason, message: string) {
+    super(message);
+    this.name = 'MarketAIGenerationError';
+    this.reason = reason;
+  }
+}
+
 export async function generateDeepAnalysis(
   rates: RateInfo[],
   trendData: TrendDataPoint[],
@@ -797,6 +809,8 @@ ${lastResponseText.slice(0, 1400)}`;
     logger.error('Deep analysis invalid after retries:', lastValidationReason);
     return null;
   } catch (err) {
+    if (err instanceof MarketAIGenerationError) throw err;
+
     // Timeout vagy rate limit esetén NE retry-olj — úgysem segít
     if (err instanceof Error) {
       const isTimeout =
@@ -1008,7 +1022,10 @@ ${lastResponseText.slice(0, 1600)}`;
     }
 
     logger.error('AI piaci elemzes invalid after retries:', lastValidationReason);
-    return null;
+    throw new MarketAIGenerationError(
+      'invalid_response',
+      `AI market response invalid after retries: ${lastValidationReason}`,
+    );
   } catch (err) {
     // Timeout vagy rate limit esetén NE retry-olj — úgysem segít
     if (err instanceof Error) {
@@ -1021,8 +1038,17 @@ ${lastResponseText.slice(0, 1600)}`;
         logger.warn(
           `AI elemzés megszakítva (${isTimeout ? 'timeout' : 'rate limit'}), nem retry-olunk`,
         );
-        return null;
+        throw new MarketAIGenerationError(
+          'provider_unavailable',
+          `Market AI provider unavailable: ${err.message}`,
+        );
       }
+    }
+    if (isAIProviderCapacityError(err)) {
+      throw new MarketAIGenerationError(
+        'provider_unavailable',
+        `Market AI provider capacity error: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
     logger.error('AI elemzés hiba:', {
       name: (err as Error)?.name,
@@ -1030,6 +1056,9 @@ ${lastResponseText.slice(0, 1600)}`;
       status: (err as { status?: number })?.status,
       error: String(err),
     });
-    return null;
+    throw new MarketAIGenerationError(
+      'provider_unavailable',
+      `Market AI provider error: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 }
