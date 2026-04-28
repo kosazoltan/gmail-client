@@ -1,20 +1,20 @@
 import { Router } from 'express';
 import { v4 as uuid } from 'uuid';
-import { queryOne, queryAll, execute } from '../db/index.js';
+import { execute, queryAll, queryOne } from '../db/index.js';
+import { getEmailAttachments } from '../services/attachment.service.js';
 import {
   getOAuth2ClientForAccount,
   isMissingVaultTokenError,
   OAUTH_RELOGIN_REQUIRED_MESSAGE,
 } from '../services/auth.service.js';
+import { safeUpsertContact } from '../services/contacts.service.js';
 import {
   getGmailClient,
   getMessage,
-  sendEmail,
   modifyMessage,
+  sendEmail,
   trashMessage,
 } from '../services/gmail.service.js';
-import { getEmailAttachments } from '../services/attachment.service.js';
-import { safeUpsertContact } from '../services/contacts.service.js';
 import logger from '../utils/logger.js';
 
 // Adatbázis rekord interfész
@@ -792,8 +792,7 @@ async function batchDeleteHandler(req: any, res: any) {
   }
 }
 
-// Email törlése (kukába helyezés)
-router.delete('/:id', async (req, res) => {
+async function trashSingleEmailHandler(req: any, res: any) {
   const emailId = req.params.id;
   const accountId = validateAccountAccess(req);
   if (!accountId) {
@@ -803,7 +802,7 @@ router.delete('/:id', async (req, res) => {
 
   try {
     logger.info('Email törlés kérés érkezett', {
-      route: 'DELETE /api/emails/:id',
+      route: `${req.method} /api/emails/:id${req.path.endsWith('/trash') ? '/trash' : ''}`,
       emailId,
       accountId,
       requestId: req.headers['x-request-id'] || null,
@@ -856,7 +855,11 @@ router.delete('/:id', async (req, res) => {
     });
     res.status(500).json({ error: 'Törlés sikertelen' });
   }
-});
+}
+
+// Email törlése (kukába helyezés) — POST is elfogadott proxy/webview kompatibilitás miatt.
+router.post('/:id/trash', trashSingleEmailHandler);
+router.delete('/:id', trashSingleEmailHandler);
 
 function formatEmail(email: EmailRecord) {
   return {

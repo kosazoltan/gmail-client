@@ -394,9 +394,13 @@ export const api = {
         },
       ),
     delete: (id: string, accountId?: string) =>
-      request(`/emails/${id}${accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''}`, {
-        method: 'DELETE',
-      }),
+      request(
+        `/emails/${id}/trash${accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''}`,
+        {
+          method: 'POST',
+          retries: 0,
+        },
+      ),
     batchDelete: (emailIds: string[], accountId?: string) =>
       request<{ deletedCount: number; failedCount: number }>(
         `/emails/batch-delete${accountId ? `?accountId=${encodeURIComponent(accountId)}` : ''}`,
