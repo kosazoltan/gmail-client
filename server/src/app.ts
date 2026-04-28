@@ -5,7 +5,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import { rateLimit } from 'express-rate-limit';
+import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 import { createSessionMiddleware } from './middleware/session.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { deleteProtection } from './middleware/delete-protection.js';
@@ -63,6 +63,11 @@ import { setupSwagger } from './utils/swagger.js';
 
 const WATCHDOG_AUDIT_INTERVAL_MS = 300_000;
 let lastWatchdogAuditAt = 0;
+
+function rateLimitKeyFromSessionOrIp(req: express.Request): string {
+  const accountId = req.session?.activeAccountId;
+  return accountId ?? ipKeyGenerator(req.ip || 'unknown');
+}
 
 async function auditWatchdogFailureOnce(detail: Record<string, unknown>): Promise<void> {
   const now = Date.now();
@@ -133,11 +138,7 @@ export function createApp(): express.Express {
     max: 120,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
-    keyGenerator: (req) => {
-      // Per-user rate limiting: use session accountId if available, else IP
-      const accountId = req.session?.activeAccountId;
-      return accountId ?? (req.ip || 'unknown');
-    },
+    keyGenerator: rateLimitKeyFromSessionOrIp,
     message: { status: 429, message: 'API rate limit elérve.' },
   });
 
@@ -147,10 +148,7 @@ export function createApp(): express.Express {
     max: 10,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
-    keyGenerator: (req) => {
-      const accountId = req.session?.activeAccountId;
-      return accountId ?? (req.ip || 'unknown');
-    },
+    keyGenerator: rateLimitKeyFromSessionOrIp,
     message: { status: 429, message: 'AI rate limit elérve — próbáld újra 1 perc múlva.' },
   });
 
@@ -160,10 +158,7 @@ export function createApp(): express.Express {
     max: 15,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
-    keyGenerator: (req) => {
-      const accountId = req.session?.activeAccountId;
-      return accountId ?? (req.ip || 'unknown');
-    },
+    keyGenerator: rateLimitKeyFromSessionOrIp,
     message: { status: 429, message: 'Küldési rate limit elérve.' },
   });
 
