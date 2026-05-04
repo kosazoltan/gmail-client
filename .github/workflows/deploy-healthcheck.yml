@@ -26,9 +26,6 @@ concurrency:
   group: deploy-healthcheck-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
 jobs:
   verify-production:
     if: >-
@@ -38,7 +35,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: "Checkout (workflow_run: a CI által tesztelt commit)"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || github.event.workflow_run.head_sha }}
 
