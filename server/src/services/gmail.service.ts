@@ -1,8 +1,8 @@
-import { google, gmail_v1 } from 'googleapis';
 import type { OAuth2Client } from 'google-auth-library';
+import { gmail_v1, google } from 'googleapis';
 import iconv from 'iconv-lite';
+import { trackQuota, withGmailBackoff } from '../middleware/rate-limiter.js';
 import logger from '../utils/logger.js';
-import { withGmailBackoff, trackQuota } from '../middleware/rate-limiter.js';
 
 // Gmail API wrapper
 export function getGmailClient(auth: OAuth2Client): gmail_v1.Gmail {
@@ -672,16 +672,28 @@ export async function getHistory(
   startHistoryId: string,
   accountId?: string,
 ) {
-  const response = await gmail.users.history.list({
-    userId: 'me',
-    startHistoryId,
-    historyTypes: ['messageAdded', 'messageDeleted', 'labelAdded', 'labelRemoved'],
-  });
-  if (accountId) trackQuota(accountId);
+  const history: gmail_v1.Schema$History[] = [];
+  let pageToken: string | undefined;
+  let latestHistoryId: string | null | undefined;
+
+  do {
+    const response = await gmail.users.history.list({
+      userId: 'me',
+      startHistoryId,
+      historyTypes: ['messageAdded', 'messageDeleted', 'labelAdded', 'labelRemoved'],
+      maxResults: 500,
+      pageToken,
+    });
+    if (accountId) trackQuota(accountId);
+
+    history.push(...(response.data.history || []));
+    latestHistoryId = response.data.historyId ?? latestHistoryId;
+    pageToken = response.data.nextPageToken || undefined;
+  } while (pageToken);
 
   return {
-    history: response.data.history || [],
-    historyId: response.data.historyId,
+    history,
+    historyId: latestHistoryId,
   };
 }
 

@@ -236,12 +236,15 @@ router.get('/', async (req, res) => {
     const orderBy = ALLOWED_SORTS[sort] || 'date DESC';
 
     const results = await queryAll<EmailRecord>(
-      'SELECT * FROM emails WHERE account_id = ? ORDER BY ' + orderBy + ' LIMIT ? OFFSET ?',
+      `SELECT * FROM emails
+       WHERE account_id = ? AND (labels IS NULL OR labels NOT LIKE '%"TRASH"%')
+       ORDER BY ${orderBy} LIMIT ? OFFSET ?`,
       [accountId, limit, offset],
     );
 
     const countResult = await queryOne<{ total: number }>(
-      'SELECT COUNT(*) as total FROM emails WHERE account_id = ?',
+      `SELECT COUNT(*) as total FROM emails
+       WHERE account_id = ? AND (labels IS NULL OR labels NOT LIKE '%"TRASH"%')`,
       [accountId],
     );
     const total = countResult?.total || 0;

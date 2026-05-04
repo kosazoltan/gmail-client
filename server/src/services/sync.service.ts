@@ -1,27 +1,27 @@
-import logger from '../utils/logger.js';
-import { queryAll, queryOne, execute, runInTransaction } from '../db/index.js';
 import { v4 as uuidv4 } from 'uuid';
+import { execute, queryAll, queryOne, runInTransaction } from '../db/index.js';
+import { broadcastNewEmail } from '../routes/sse.routes.js';
+import logger from '../utils/logger.js';
 import { getOAuth2ClientForAccount, isMissingVaultTokenError } from './auth.service.js';
-import { hasStoredOAuthTokensForAccount } from './token-vault.service.js';
+import { extractAndStoreEventCandidatesForEmail } from './calendar-automation.service.js';
+import { categorizeEmail } from './categorization.service.js';
+import { harvestContactsForNewEmails } from './contact-harvester.service.js';
+import { autoExtractContactsIfNeeded, extractContactsFromEmail } from './contacts.service.js';
+import { extractActionItems } from './email-intelligence.service.js';
 import {
   getGmailClient,
-  listMessages,
+  getHistory,
   getMessage,
   getProfile,
-  getHistory,
+  listMessages,
 } from './gmail.service.js';
-import { categorizeEmail } from './categorization.service.js';
-import { extractContactsFromEmail, autoExtractContactsIfNeeded } from './contacts.service.js';
-import { harvestContactsForNewEmails } from './contact-harvester.service.js';
 import { sendPushToAccount } from './push.service.js';
-import { getActiveWorkflowsForAccount, executeWorkflow } from './workflow.service.js';
-import { extractActionItems } from './email-intelligence.service.js';
-import { extractAndStoreEventCandidatesForEmail } from './calendar-automation.service.js';
 import {
-  upsertDetectedTaskForEmail,
   resolveDetectedTasksForThread,
+  upsertDetectedTaskForEmail,
 } from './task-detection.service.js';
-import { broadcastNewEmail } from '../routes/sse.routes.js';
+import { hasStoredOAuthTokensForAccount } from './token-vault.service.js';
+import { executeWorkflow, getActiveWorkflowsForAccount } from './workflow.service.js';
 
 const OPERATIONAL_REPROCESS_KEY = 'operational_reprocess_last_run';
 const syncPromises = new Map<string, Promise<{ success: boolean; messagesProcessed: number }>>();
@@ -255,10 +255,13 @@ export async function syncAccount(accountId: string, fullSync = false) {
       let processedCount = 0;
       let newEmailIds: string[] = [];
 
+      let latestHistoryId: string | null | undefined;
+
       if (!fullSync && account.history_id) {
         const incrementalResult = await incrementalSync(gmail, accountId, account.history_id);
         processedCount = incrementalResult.processedCount;
         newEmailIds = incrementalResult.newEmailIds;
+        latestHistoryId = incrementalResult.historyId;
       } else {
         const daysBack = Math.max(1, parseInt(process.env.SYNC_DAYS_BACK || '30', 10));
         const fullSyncResult = await fullSyncMessages(gmail, accountId, daysBack);
@@ -268,7 +271,11 @@ export async function syncAccount(accountId: string, fullSync = false) {
 
       const profile = await getProfile(gmail);
       await execute('UPDATE accounts SET history_id = ?, last_sync_at = ? WHERE id = ?', [
-        profile.historyId ? profile.historyId.toString() : null,
+        latestHistoryId
+          ? latestHistoryId.toString()
+          : profile.historyId
+            ? profile.historyId.toString()
+            : null,
         Date.now(),
         accountId,
       ]);
@@ -318,14 +325,12 @@ async function fullSyncMessages(
   const afterDate = new Date();
   afterDate.setDate(afterDate.getDate() - daysBack);
   const afterStr = `${afterDate.getFullYear()}/${afterDate.getMonth() + 1}/${afterDate.getDate()}`;
-  // Lekérjük MINDENT: beérkezett, elküldött, törölt és spam leveleket is
-  // in:anywhere tartalmazza a beérkezett és spam/trash leveleket
-  // OR in:sent hozzáadja az elküldött leveleket is
-  const query = `after:${afterStr} (in:anywhere OR in:sent)`;
+  const query = `after:${afterStr} -in:trash -in:spam`;
 
   let pageToken: string | undefined;
   let totalProcessed = 0;
   const newEmailIds: string[] = [];
+  const gmailVisibleIds = new Set<string>();
 
   do {
     const result = await listMessages(gmail, accountId, {
@@ -337,6 +342,7 @@ async function fullSyncMessages(
     const batch: string[] = [];
     for (const msg of result.messages) {
       if (!msg.id) continue;
+      gmailVisibleIds.add(msg.id);
 
       const existing = await queryOne<{ id: string }>(
         'SELECT id FROM emails WHERE id = ? AND account_id = ?',
@@ -380,6 +386,8 @@ async function fullSyncMessages(
     pageToken = result.nextPageToken || undefined;
   } while (pageToken);
 
+  await reconcileRecentLocalState(gmail, accountId, afterDate.getTime(), gmailVisibleIds);
+
   return { processedCount: totalProcessed, newEmailIds };
 }
 
@@ -387,14 +395,20 @@ async function incrementalSync(
   gmail: ReturnType<typeof getGmailClient>,
   accountId: string,
   historyId: string,
-): Promise<{ processedCount: number; newEmailIds: string[] }> {
+): Promise<{ processedCount: number; newEmailIds: string[]; historyId?: string | null }> {
   let processedCount = 0;
   const newEmailIds: string[] = [];
+  let latestHistoryId: string | null | undefined;
 
   try {
-    const { history } = await getHistory(gmail, historyId);
+    const historyResult = await getHistory(gmail, historyId, accountId);
+    const { history } = historyResult;
+    latestHistoryId = historyResult.historyId;
 
     const newMessageIds = new Set<string>();
+    const deletedMessageIds = new Set<string>();
+    const labelAdds = new Map<string, Set<string>>();
+    const labelRemoves = new Map<string, Set<string>>();
     for (const entry of history) {
       if (entry.messagesAdded) {
         for (const added of entry.messagesAdded) {
@@ -403,12 +417,43 @@ async function incrementalSync(
           }
         }
       }
+
+      if (entry.messagesDeleted) {
+        for (const deleted of entry.messagesDeleted) {
+          if (deleted.message?.id) {
+            deletedMessageIds.add(deleted.message.id);
+          }
+        }
+      }
+
+      if (entry.labelsAdded) {
+        for (const labelAdded of entry.labelsAdded) {
+          collectLabelChange(labelAdds, labelAdded.message?.id, labelAdded.labelIds || []);
+        }
+      }
+
+      if (entry.labelsRemoved) {
+        for (const labelRemoved of entry.labelsRemoved) {
+          collectLabelChange(labelRemoves, labelRemoved.message?.id, labelRemoved.labelIds || []);
+        }
+      }
+    }
+
+    for (const msgId of deletedMessageIds) {
+      const deleted = await deleteLocalEmail(accountId, msgId);
+      if (deleted) processedCount++;
+      newMessageIds.delete(msgId);
+      labelAdds.delete(msgId);
+      labelRemoves.delete(msgId);
     }
 
     for (const msgId of newMessageIds) {
       try {
         const msg = await getMessage(gmail, msgId, accountId);
         const isNew = await saveEmail(accountId, msg);
+        if (!isNew) {
+          await updateEmailState(accountId, msg);
+        }
         if (isNew) {
           processedCount++;
           newEmailIds.push(msg.id);
@@ -417,9 +462,28 @@ async function incrementalSync(
             runUserWorkflows: true,
           });
         }
+        labelAdds.delete(msgId);
+        labelRemoves.delete(msgId);
       } catch (err) {
         logger.error(`Hiba inkrementális szinkronizálásnál (${msgId}):`, err);
       }
+    }
+
+    for (const [msgId, addedLabels] of labelAdds) {
+      const removedLabels = labelRemoves.get(msgId) || new Set<string>();
+      const updated = await applyLocalLabelDelta(accountId, msgId, addedLabels, removedLabels);
+      if (updated) processedCount++;
+      labelRemoves.delete(msgId);
+    }
+
+    for (const [msgId, removedLabels] of labelRemoves) {
+      const updated = await applyLocalLabelDelta(
+        accountId,
+        msgId,
+        new Set<string>(),
+        removedLabels,
+      );
+      if (updated) processedCount++;
     }
   } catch (err) {
     const errorCode =
@@ -435,7 +499,125 @@ async function incrementalSync(
     }
   }
 
-  return { processedCount, newEmailIds };
+  return { processedCount, newEmailIds, historyId: latestHistoryId };
+}
+
+function parseLabelsJson(labels: string | null, emailId: string): string[] {
+  if (!labels) return [];
+  try {
+    const parsed = JSON.parse(labels);
+    return Array.isArray(parsed) ? parsed.filter((label) => typeof label === 'string') : [];
+  } catch (error) {
+    logger.warn('Labels JSON parse failed during sync', { emailId, error });
+    return [];
+  }
+}
+
+function collectLabelChange(
+  target: Map<string, Set<string>>,
+  messageId: string | null | undefined,
+  labelIds: string[],
+): void {
+  if (!messageId || labelIds.length === 0) return;
+  const labels = target.get(messageId) || new Set<string>();
+  for (const labelId of labelIds) {
+    labels.add(labelId);
+  }
+  target.set(messageId, labels);
+}
+
+async function deleteLocalEmail(accountId: string, emailId: string): Promise<boolean> {
+  const existing = await queryOne<{ id: string }>(
+    'SELECT id FROM emails WHERE id = ? AND account_id = ?',
+    [emailId, accountId],
+  );
+  if (!existing) return false;
+
+  await execute('DELETE FROM emails WHERE id = ? AND account_id = ?', [emailId, accountId]);
+  logger.info('Local email removed after Gmail permanent deletion', { accountId, emailId });
+  return true;
+}
+
+async function applyLocalLabelDelta(
+  accountId: string,
+  emailId: string,
+  addedLabels: Set<string>,
+  removedLabels: Set<string>,
+): Promise<boolean> {
+  const email = await queryOne<{ labels: string | null }>(
+    'SELECT labels FROM emails WHERE id = ? AND account_id = ?',
+    [emailId, accountId],
+  );
+  if (!email) return false;
+
+  const labels = new Set(parseLabelsJson(email.labels, emailId));
+  for (const label of removedLabels) labels.delete(label);
+  for (const label of addedLabels) labels.add(label);
+  if (addedLabels.has('TRASH')) labels.delete('INBOX');
+
+  await execute('UPDATE emails SET labels = ? WHERE id = ? AND account_id = ?', [
+    JSON.stringify(Array.from(labels)),
+    emailId,
+    accountId,
+  ]);
+  return true;
+}
+
+async function updateEmailState(accountId: string, msg: GmailMessage): Promise<void> {
+  await execute(
+    `UPDATE emails
+     SET thread_id = ?, is_read = ?, is_starred = ?, labels = ?, has_attachments = ?
+     WHERE id = ? AND account_id = ?`,
+    [
+      msg.threadId,
+      msg.isRead ? 1 : 0,
+      msg.isStarred ? 1 : 0,
+      JSON.stringify(msg.labels),
+      msg.hasAttachments ? 1 : 0,
+      msg.id,
+      accountId,
+    ],
+  );
+}
+
+async function reconcileRecentLocalState(
+  gmail: ReturnType<typeof getGmailClient>,
+  accountId: string,
+  sinceDate: number,
+  gmailVisibleIds: Set<string>,
+): Promise<void> {
+  const maxChecks = Math.max(0, parseInt(process.env.SYNC_RECONCILE_MAX || '500', 10));
+  if (maxChecks === 0) return;
+
+  const localEmails = await queryAll<{ id: string }>(
+    `SELECT id FROM emails
+     WHERE account_id = ? AND date >= ? AND (labels IS NULL OR labels NOT LIKE '%"TRASH"%')
+     ORDER BY date DESC
+     LIMIT ?`,
+    [accountId, sinceDate, maxChecks],
+  );
+
+  for (const localEmail of localEmails) {
+    if (gmailVisibleIds.has(localEmail.id)) continue;
+    try {
+      const msg = await getMessage(gmail, localEmail.id, accountId);
+      await updateEmailState(accountId, msg);
+    } catch (error) {
+      const status =
+        error && typeof error === 'object' && 'code' in error
+          ? (error as { code?: number }).code
+          : undefined;
+      if (status === 404 || status === 410) {
+        await deleteLocalEmail(accountId, localEmail.id);
+        continue;
+      }
+      logger.warn('Recent Gmail reconciliation failed for email', {
+        accountId,
+        emailId: localEmail.id,
+        error,
+      });
+    }
+  }
 }
 
 async function saveEmail(accountId: string, msg: GmailMessage): Promise<boolean> {
