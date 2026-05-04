@@ -19,6 +19,27 @@ export interface AIResponse {
   provider: AIProvider;
 }
 
+export interface AIJsonObjectSchema {
+  type: 'object';
+  properties?: Record<string, unknown>;
+  required?: readonly string[];
+  additionalProperties?: boolean | Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface AIResponseSchema {
+  name: string;
+  description?: string;
+  schema: AIJsonObjectSchema;
+}
+
+interface AIRequestOptions {
+  maxTokens: number;
+  timeoutMs: number;
+  responseFormat?: 'json_object';
+  responseSchema?: AIResponseSchema;
+}
+
 function configuredProvider(): AIProvider {
   return process.env.AI_PROVIDER === 'anthropic' ? 'anthropic' : 'openai';
 }
@@ -101,7 +122,7 @@ function isAIProviderFailoverError(err: unknown): boolean {
 async function callProvider(
   provider: AIProvider,
   messages: AIMessage[],
-  options: { maxTokens: number; timeoutMs: number; responseFormat?: 'json_object' },
+  options: AIRequestOptions,
 ): Promise<AIResponse> {
   const model = modelForProvider(provider);
 
@@ -114,7 +135,20 @@ async function callProvider(
       model,
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
       max_tokens: options.maxTokens,
-      ...(options.responseFormat === 'json_object'
+      ...(options.responseSchema
+        ? {
+            response_format: {
+              type: 'json_schema' as const,
+              json_schema: {
+                name: options.responseSchema.name,
+                description: options.responseSchema.description,
+                schema: options.responseSchema.schema,
+                strict: true,
+              },
+            },
+          }
+        : {}),
+      ...(!options.responseSchema && options.responseFormat === 'json_object'
         ? { response_format: { type: 'json_object' as const } }
         : {}),
     });
@@ -131,15 +165,44 @@ async function callProvider(
   });
   const systemMsg = messages.find((m) => m.role === 'system')?.content;
   const userMessages = messages.filter((m) => m.role !== 'system');
+  const inputSchema = options.responseSchema
+    ? (JSON.parse(JSON.stringify(options.responseSchema.schema)) as Anthropic.Tool.InputSchema)
+    : undefined;
+  const tools: Anthropic.Tool[] | undefined =
+    options.responseSchema && inputSchema
+      ? [
+          {
+            name: options.responseSchema.name,
+            description: options.responseSchema.description ?? 'Submit the final JSON response.',
+            input_schema: inputSchema,
+          },
+        ]
+      : undefined;
   const response = await anthropic.messages.create({
     model,
     max_tokens: options.maxTokens,
     ...(systemMsg ? { system: systemMsg } : {}),
+    ...(tools ? { tools } : {}),
+    ...(options.responseSchema
+      ? { tool_choice: { type: 'tool' as const, name: options.responseSchema.name } }
+      : {}),
     messages: userMessages.map((m) => ({
       role: m.role as 'user' | 'assistant',
       content: m.content,
     })),
   });
+  if (options.responseSchema) {
+    const toolUse = response.content.find(
+      (block) => block.type === 'tool_use' && block.name === options.responseSchema?.name,
+    );
+    if (toolUse?.type === 'tool_use') {
+      return {
+        text: JSON.stringify(toolUse.input),
+        model,
+        provider: 'anthropic',
+      };
+    }
+  }
   return {
     text: response.content[0]?.type === 'text' ? response.content[0].text : '',
     model,
@@ -149,7 +212,12 @@ async function callProvider(
 
 export async function callAI(
   messages: AIMessage[],
-  options?: { maxTokens?: number; timeoutMs?: number; responseFormat?: 'json_object' },
+  options?: {
+    maxTokens?: number;
+    timeoutMs?: number;
+    responseFormat?: 'json_object';
+    responseSchema?: AIResponseSchema;
+  },
 ): Promise<AIResponse> {
   const maxTokens = options?.maxTokens ?? 2048;
   const timeoutMs = options?.timeoutMs ?? 60_000;
@@ -166,6 +234,7 @@ export async function callAI(
         maxTokens,
         timeoutMs,
         responseFormat: options?.responseFormat,
+        responseSchema: options?.responseSchema,
       });
     } catch (err) {
       lastError = err;

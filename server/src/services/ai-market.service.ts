@@ -597,6 +597,11 @@ async function createMarketAnalysisMessage(prompt: string): Promise<string> {
       maxTokens: 6000,
       timeoutMs: BRIEFING_ANALYSIS_REQUEST_TIMEOUT_MS,
       responseFormat: 'json_object',
+      responseSchema: {
+        name: 'market_analysis_result',
+        description: 'Structured market briefing for the ZMail Market view.',
+        schema: MARKET_ANALYSIS_OUTPUT_SCHEMA,
+      },
     },
   );
   return response.text;
@@ -616,6 +621,11 @@ async function createDeepAnalysisMessage(prompt: string): Promise<string> {
       maxTokens: 4500,
       timeoutMs: DEEP_ANALYSIS_REQUEST_TIMEOUT_MS,
       responseFormat: 'json_object',
+      responseSchema: {
+        name: 'deep_market_analysis_result',
+        description: 'Structured deep market analysis for the ZMail Market view.',
+        schema: DEEP_ANALYSIS_OUTPUT_SCHEMA,
+      },
     },
   );
   return response.text;
@@ -1027,6 +1037,8 @@ ${lastResponseText.slice(0, 1600)}`;
       `AI market response invalid after retries: ${lastValidationReason}`,
     );
   } catch (err) {
+    if (err instanceof MarketAIGenerationError) throw err;
+
     // Timeout vagy rate limit esetén NE retry-olj — úgysem segít
     if (err instanceof Error) {
       const isTimeout =

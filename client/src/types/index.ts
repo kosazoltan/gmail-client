@@ -531,7 +531,7 @@ export interface MarketBriefingData {
   weightedConclusion: Record<string, MarketWeightedConclusion>;
   overallSentiment: string;
   isAIPowered: boolean;
-  fallbackReason?: 'missing_api_key' | 'timeout' | 'generation_failed';
+  fallbackReason?: 'missing_api_key' | 'timeout' | 'generation_failed' | 'provider_unavailable';
   fallbackMessage?: string;
 }
 
@@ -567,7 +567,7 @@ export interface DeepAnalysisData {
   trendData?: TrendDataPoint[];
   rates?: MarketRateInfo[];
   isAIPowered?: boolean;
-  fallbackReason?: 'missing_api_key' | 'timeout' | 'generation_failed';
+  fallbackReason?: 'missing_api_key' | 'timeout' | 'generation_failed' | 'provider_unavailable';
   fallbackMessage?: string;
 }
 
