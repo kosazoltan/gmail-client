@@ -104,18 +104,26 @@ export function isAIProviderCapacityError(err: unknown): boolean {
   );
 }
 
-function isAIProviderFailoverError(err: unknown): boolean {
+export function isAIProviderFailoverError(err: unknown): boolean {
   const status =
     err && typeof err === 'object' && 'status' in err
       ? (err as { status?: unknown }).status
       : undefined;
+  const code =
+    err && typeof err === 'object' && 'code' in err ? (err as { code?: unknown }).code : undefined;
+  const message = err instanceof Error ? err.message : String(err);
   return (
     isAIProviderCapacityError(err) ||
+    status === 401 ||
+    status === 403 ||
     status === 408 ||
     status === 500 ||
     status === 502 ||
     status === 503 ||
-    status === 504
+    status === 504 ||
+    code === 'invalid_api_key' ||
+    code === 'authentication_error' ||
+    /invalid api key|incorrect api key|authentication|unauthorized|forbidden/i.test(message)
   );
 }
 
