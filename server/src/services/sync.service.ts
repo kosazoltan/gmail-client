@@ -262,6 +262,9 @@ export async function syncAccount(accountId: string, fullSync = false) {
         processedCount = incrementalResult.processedCount;
         newEmailIds = incrementalResult.newEmailIds;
         latestHistoryId = incrementalResult.historyId;
+
+        const daysBack = Math.max(1, parseInt(process.env.SYNC_DAYS_BACK || '30', 10));
+        processedCount += await reconcileRecentMailboxWindow(gmail, accountId, daysBack);
       } else {
         const daysBack = Math.max(1, parseInt(process.env.SYNC_DAYS_BACK || '30', 10));
         const fullSyncResult = await fullSyncMessages(gmail, accountId, daysBack);
@@ -386,9 +389,57 @@ async function fullSyncMessages(
     pageToken = result.nextPageToken || undefined;
   } while (pageToken);
 
-  await reconcileRecentLocalState(gmail, accountId, afterDate.getTime(), gmailVisibleIds);
+  totalProcessed += await reconcileRecentLocalState(
+    gmail,
+    accountId,
+    afterDate.getTime(),
+    gmailVisibleIds,
+  );
 
   return { processedCount: totalProcessed, newEmailIds };
+}
+
+async function reconcileRecentMailboxWindow(
+  gmail: ReturnType<typeof getGmailClient>,
+  accountId: string,
+  daysBack: number,
+): Promise<number> {
+  const maxChecks = getSyncReconcileMax();
+  if (maxChecks === 0) return 0;
+
+  const afterDate = new Date();
+  afterDate.setDate(afterDate.getDate() - daysBack);
+  const gmailVisibleIds = await listRecentVisibleMessageIds(gmail, accountId, afterDate, maxChecks);
+  return reconcileRecentLocalState(gmail, accountId, afterDate.getTime(), gmailVisibleIds);
+}
+
+async function listRecentVisibleMessageIds(
+  gmail: ReturnType<typeof getGmailClient>,
+  accountId: string,
+  afterDate: Date,
+  maxMessages: number,
+): Promise<Set<string>> {
+  const afterStr = `${afterDate.getFullYear()}/${afterDate.getMonth() + 1}/${afterDate.getDate()}`;
+  const query = `after:${afterStr} -in:trash -in:spam`;
+  const ids = new Set<string>();
+  let pageToken: string | undefined;
+
+  do {
+    const result = await listMessages(gmail, accountId, {
+      query,
+      maxResults: Math.min(100, maxMessages - ids.size),
+      pageToken,
+    });
+
+    for (const message of result.messages) {
+      if (message.id) ids.add(message.id);
+      if (ids.size >= maxMessages) break;
+    }
+
+    pageToken = ids.size < maxMessages ? result.nextPageToken || undefined : undefined;
+  } while (pageToken);
+
+  return ids;
 }
 
 async function incrementalSync(
@@ -585,9 +636,9 @@ async function reconcileRecentLocalState(
   accountId: string,
   sinceDate: number,
   gmailVisibleIds: Set<string>,
-): Promise<void> {
-  const maxChecks = Math.max(0, parseInt(process.env.SYNC_RECONCILE_MAX || '500', 10));
-  if (maxChecks === 0) return;
+): Promise<number> {
+  const maxChecks = getSyncReconcileMax();
+  if (maxChecks === 0) return 0;
 
   const localEmails = await queryAll<{ id: string }>(
     `SELECT id FROM emails
@@ -597,18 +648,18 @@ async function reconcileRecentLocalState(
     [accountId, sinceDate, maxChecks],
   );
 
+  let reconciledCount = 0;
   for (const localEmail of localEmails) {
     if (gmailVisibleIds.has(localEmail.id)) continue;
     try {
       const msg = await getMessage(gmail, localEmail.id, accountId);
       await updateEmailState(accountId, msg);
+      reconciledCount++;
     } catch (error) {
-      const status =
-        error && typeof error === 'object' && 'code' in error
-          ? (error as { code?: number }).code
-          : undefined;
+      const status = getGmailErrorStatus(error);
       if (status === 404 || status === 410) {
-        await deleteLocalEmail(accountId, localEmail.id);
+        const deleted = await deleteLocalEmail(accountId, localEmail.id);
+        if (deleted) reconciledCount++;
         continue;
       }
       logger.warn('Recent Gmail reconciliation failed for email', {
@@ -618,6 +669,24 @@ async function reconcileRecentLocalState(
       });
     }
   }
+
+  return reconciledCount;
+}
+
+function getSyncReconcileMax(): number {
+  return Math.max(0, parseInt(process.env.SYNC_RECONCILE_MAX || '500', 10));
+}
+
+function getGmailErrorStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') return undefined;
+  const err = error as {
+    code?: unknown;
+    status?: unknown;
+    statusCode?: unknown;
+    response?: { status?: unknown };
+  };
+  const status = err.code ?? err.status ?? err.statusCode ?? err.response?.status;
+  return typeof status === 'number' ? status : undefined;
 }
 
 async function saveEmail(accountId: string, msg: GmailMessage): Promise<boolean> {
