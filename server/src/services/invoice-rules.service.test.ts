@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   EBC_COMPANY,
   EC_COMPANY,
+  COMPANY_TARGETS,
   UNKNOWN_COMPANY,
   assessVatStatus,
   classifyCompanyFromText,
@@ -32,6 +33,17 @@ describe('invoice-rules.service', () => {
     expect(shouldSkipInvoiceAttachment('logo.png')).toBe(true);
     expect(shouldSkipInvoiceAttachment('meeting.ics')).toBe(true);
     expect(shouldSkipInvoiceAttachment('invoice.pdf')).toBe(false);
+  });
+
+  it('keeps non-secret default accounting recipients for Gmail distribution', () => {
+    expect(COMPANY_TARGETS[EBC_COMPANY].defaultRecipients).toEqual([
+      'kardos.ildiko.ebc@gmail.com',
+      'brandt.zsuzsanna.ebc@gmail.com',
+    ]);
+    expect(COMPANY_TARGETS[EC_COMPANY].defaultRecipients).toEqual([
+      'nagy.marianna.exz.hu@gmail.com',
+      'kardos.ildiko.ebc@gmail.com',
+    ]);
   });
 
   it('flags Anthropic reverse-charge invoices with 27 percent VAT after 2026-04-01', () => {

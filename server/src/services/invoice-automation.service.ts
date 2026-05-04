@@ -106,11 +106,17 @@ function previousMonthKey(now = new Date()): string {
 }
 
 function getMissingRecipientEnvVars(): string[] {
-  const required = new Set<string>();
+  const missing: string[] = [];
   for (const cfg of Object.values(COMPANY_TARGETS)) {
-    for (const k of cfg.envRecipients) required.add(k);
+    const hasConfiguredRecipient = [...cfg.envRecipients, ...cfg.defaultRecipients].some(
+      (keyOrEmail) => {
+        if (keyOrEmail.includes('@')) return Boolean(keyOrEmail.trim());
+        return Boolean((process.env[keyOrEmail] || '').trim());
+      },
+    );
+    if (!hasConfiguredRecipient) missing.push(...cfg.envRecipients);
   }
-  return Array.from(required).filter((k) => !(process.env[k] || '').trim());
+  return Array.from(new Set(missing));
 }
 
 function tryAutoReloadAccountingEnv(): void {
@@ -198,8 +204,7 @@ async function getRecipientEmails(_accountId: string, company: string): Promise<
     .map((key: string) => (process.env[key] || '').trim())
     .filter(Boolean);
 
-  // Recipient safety: only explicit env allowlist is allowed for monthly accounting distribution.
-  return Array.from(new Set(fromEnv));
+  return Array.from(new Set([...fromEnv, ...cfg.defaultRecipients]));
 }
 
 async function ensureDriveFolder(

@@ -6,7 +6,12 @@ export type InvoiceCompany = typeof EBC_COMPANY | typeof EC_COMPANY | typeof UNK
 
 export const COMPANY_TARGETS: Record<
   Exclude<InvoiceCompany, typeof UNKNOWN_COMPANY>,
-  { aliases: RegExp[]; envRecipients: string[]; fallbackNames: string[] }
+  {
+    aliases: RegExp[];
+    envRecipients: string[];
+    defaultRecipients: string[];
+    fallbackNames: string[];
+  }
 > = {
   [EBC_COMPANY]: {
     aliases: [
@@ -18,11 +23,13 @@ export const COMPANY_TARGETS: Record<
       /\bhu\s*32313332\b/i,
     ],
     envRecipients: ['ACCOUNTING_KARDOS_ILDIKO_EMAIL', 'ACCOUNTING_BRAND_ZSUZSA_EMAIL'],
+    defaultRecipients: ['kardos.ildiko.ebc@gmail.com', 'brandt.zsuzsanna.ebc@gmail.com'],
     fallbackNames: ['Kardos Ildiko', 'Brand Zsuzsa'],
   },
   [EC_COMPANY]: {
     aliases: [/\bec\s+ingatlan\b/i, /\bec\s+ingatlan\s+kft\b/i],
     envRecipients: ['ACCOUNTING_NAGY_MARIAN_EMAIL', 'ACCOUNTING_KARDOS_ILDIKO_EMAIL'],
+    defaultRecipients: ['nagy.marianna.exz.hu@gmail.com', 'kardos.ildiko.ebc@gmail.com'],
     fallbackNames: ['Nagy Marian', 'Kardos Ildiko'],
   },
 };
