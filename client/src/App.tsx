@@ -39,6 +39,11 @@ const PersonalView = lazy(() =>
 const InvoicesView = lazy(() =>
   import('./components/views/InvoicesView').then((m) => ({ default: m.InvoicesView })),
 );
+const InvoiceAutomationView = lazy(() =>
+  import('./components/views/InvoiceAutomationView').then((m) => ({
+    default: m.InvoiceAutomationView,
+  })),
+);
 const TrashView = lazy(() =>
   import('./components/views/TrashView').then((m) => ({ default: m.TrashView })),
 );
@@ -288,6 +293,14 @@ function AppRoutes() {
           element={
             <Suspense fallback={<LoadingSkeleton />}>
               <InvoicesView />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/invoice-automation"
+          element={
+            <Suspense fallback={<LoadingSkeleton />}>
+              <InvoiceAutomationView />
             </Suspense>
           }
         />

@@ -42,6 +42,24 @@ function orderedAvailableProviders(): AIProvider[] {
   return [primary, secondary].filter(hasProviderKey);
 }
 
+export function getAIProviderStatus(): {
+  configuredProvider: AIProvider;
+  availableProviders: Array<{ provider: AIProvider; model: string; hasApiKey: boolean }>;
+  primaryInvoiceModel: string | null;
+} {
+  const available = orderedAvailableProviders();
+  return {
+    configuredProvider: configuredProvider(),
+    availableProviders: (['openai', 'anthropic'] as AIProvider[]).map((provider) => ({
+      provider,
+      model: modelForProvider(provider),
+      hasApiKey: hasProviderKey(provider),
+    })),
+    primaryInvoiceModel:
+      available.length > 0 ? `${available[0]}:${modelForProvider(available[0])}` : null,
+  };
+}
+
 export function isAIAvailable(): boolean {
   return orderedAvailableProviders().length > 0;
 }

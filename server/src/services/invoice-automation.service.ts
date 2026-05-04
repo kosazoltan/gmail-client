@@ -1,39 +1,27 @@
 import { createHash, randomUUID } from 'crypto';
 import { readFileSync, existsSync } from 'fs';
-import { isIP } from 'net';
-import { lookup } from 'dns/promises';
 import { google } from 'googleapis';
 import { queryAll, queryOne, execute } from '../db/index.js';
 import logger from '../utils/logger.js';
-import { callAI, isAIAvailable } from '../ai/provider.js';
+import { callAI, getAIProviderStatus, isAIAvailable } from '../ai/provider.js';
 import { getOAuth2ClientForAccount } from './auth.service.js';
-import { getGmailClient, sendEmail } from './gmail.service.js';
-
-const INVOICE_KEYWORDS = [
-  'számla',
-  'invoice',
-  'e-számla',
-  'fizetés',
-  'payment',
-  'díjbekérő',
-  'receipt',
-];
-
-const COMPANY_TARGETS: Record<
-  string,
-  { aliases: string[]; envRecipients: string[]; fallbackNames: string[] }
-> = {
-  'EXCLUSIVE BEST CHANGE ZRT': {
-    aliases: ['exclusive best change', 'ebc', 'exclusive best change zrt'],
-    envRecipients: ['ACCOUNTING_KARDOS_ILDIKO_EMAIL', 'ACCOUNTING_BRAND_ZSUZSA_EMAIL'],
-    fallbackNames: ['Kardos Ildikó', 'Brand Zsuzsa'],
-  },
-  'EC INGATLAN KFT': {
-    aliases: ['ec ingatlan', 'ec ingatlan kft'],
-    envRecipients: ['ACCOUNTING_NAGY_MARIAN_EMAIL', 'ACCOUNTING_KARDOS_ILDIKO_EMAIL'],
-    fallbackNames: ['Nagy Marian', 'Kardos Ildikó'],
-  },
-};
+import { getAttachment, getGmailClient, sendEmail } from './gmail.service.js';
+import { parseDocument, isAnalyzable } from './document-parser.service.js';
+import {
+  COMPANY_TARGETS,
+  EBC_COMPANY,
+  UNKNOWN_COMPANY,
+  type InvoiceCompany,
+  classifyCompanyFromText,
+  hasInvoiceIntent,
+  reviewInvoiceEvidence,
+  shouldSkipInvoiceAttachment,
+} from './invoice-rules.service.js';
+import {
+  downloadInvoiceFromLink as downloadInvoiceFromPublicLink,
+  extractInvoiceLinkCandidates,
+  normalizeInvoiceUrl,
+} from './invoice-link.service.js';
 
 interface InvoiceEmailRow {
   id: string;
@@ -55,13 +43,66 @@ interface StoredInvoice {
   driveLink: string;
   monthKey: string;
   createdAt: number;
+  sourceKind?: 'attachment' | 'link';
+  sha256?: string;
+  textSha256?: string;
+  reviewStatus?: string;
+  sourceUrl?: string;
+}
+
+interface AttachmentRow {
+  id: string;
+  email_id: string;
+  filename: string;
+  mime_type: string;
+  size: number;
+  gmail_attachment_id: string;
+}
+
+interface PreparedInvoiceDocument {
+  sourceKind: 'attachment' | 'link';
+  fileName: string;
+  mimeType: string;
+  buffer: Buffer;
+  text: string;
+  sha256: string;
+  textSha256: string;
+  sourceUrl?: string;
+  reviewStatus: string;
+  company: InvoiceCompany;
 }
 
 type CompanyInvoiceMap = Map<string, StoredInvoice[]>;
 
+interface InvoiceCollectionOptions {
+  fromMs?: number;
+  toMs?: number;
+  limit?: number;
+  runKind?: 'daily' | 'monthly' | 'manual';
+}
+
+export type InvoiceManualRunMode = 'daily' | 'previous_month' | 'month';
+
 function monthKeyFromTs(ts: number): string {
   const d = new Date(ts);
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+function monthRangeFromKey(monthKey: string): { fromMs: number; toMs: number } {
+  const match = /^(\d{4})-(\d{2})$/.exec(monthKey);
+  if (!match) throw new Error('Érvénytelen monthKey (YYYY-MM)');
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  return {
+    fromMs: Date.UTC(year, monthIndex, 1, 0, 0, 0, 0),
+    toMs: Date.UTC(year, monthIndex + 1, 1, 0, 0, 0, 0),
+  };
+}
+
+function previousMonthKey(now = new Date()): string {
+  const budapest = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Budapest' }));
+  const prevMonth = new Date(Date.UTC(budapest.getFullYear(), budapest.getMonth() - 1, 1));
+  return `${prevMonth.getUTCFullYear()}-${String(prevMonth.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 function getMissingRecipientEnvVars(): string[] {
@@ -110,102 +151,16 @@ export function validateInvoiceAutomationConfig(): { ok: boolean; missing: strin
   return { ok: true, missing: [] };
 }
 
-function normalize(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-}
-
-function extractHttpLinks(raw: string): string[] {
-  const links = new Set<string>();
-  const regex = /https?:\/\/[^\s"'<>]+/gi;
-  for (const m of raw.matchAll(regex)) {
-    if (!m[0]) continue;
-    links.add(m[0].replace(/[),.;]+$/, ''));
-  }
-  return Array.from(links);
-}
-
-function likelyInvoiceContentType(contentType: string | null): boolean {
-  if (!contentType) return false;
-  const c = contentType.toLowerCase();
-  return c.includes('application/pdf') || c.includes('octet-stream') || c.includes('xml');
-}
-
 function sha(input: string): string {
   return createHash('sha256').update(input).digest('hex');
 }
 
-function isPrivateOrLocalHost(hostname: string): boolean {
-  const h = hostname.toLowerCase();
-  if (h === 'localhost' || h.endsWith('.local')) return true;
-
-  const ipVer = isIP(h);
-  if (!ipVer) return false;
-
-  if (ipVer === 4) {
-    if (h.startsWith('10.')) return true;
-    if (h.startsWith('127.')) return true;
-    if (h.startsWith('192.168.')) return true;
-    const second = Number(h.split('.')[1] || '0');
-    if (h.startsWith('172.') && second >= 16 && second <= 31) return true;
-  }
-
-  if (ipVer === 6) {
-    if (h === '::1' || h.startsWith('fc') || h.startsWith('fd') || h.startsWith('fe80'))
-      return true;
-  }
-
-  return false;
-}
-
-function normalizeInvoiceUrl(rawUrl: string): string {
-  try {
-    const u = new URL(rawUrl);
-    const removable = [
-      'utm_source',
-      'utm_medium',
-      'utm_campaign',
-      'utm_term',
-      'utm_content',
-      'fbclid',
-      'gclid',
-    ];
-    for (const key of removable) u.searchParams.delete(key);
-    return u.toString();
-  } catch {
-    return rawUrl;
-  }
-}
-
-async function isSafePublicHttpsUrl(rawUrl: string): Promise<boolean> {
-  try {
-    const u = new URL(rawUrl);
-    if (u.protocol !== 'https:') return false;
-    if (isPrivateOrLocalHost(u.hostname)) return false;
-
-    const resolved = await lookup(u.hostname, { all: true, verbatim: true });
-    if (!resolved || resolved.length === 0) return false;
-
-    for (const r of resolved) {
-      if (isPrivateOrLocalHost(r.address)) return false;
-    }
-
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function resolveCompany(email: InvoiceEmailRow): Promise<string> {
-  const text = normalize(`${email.subject || ''} ${email.snippet || ''} ${email.body || ''}`);
+  const text = `${email.subject || ''} ${email.snippet || ''} ${email.body || ''}`;
+  const ruleCompany = classifyCompanyFromText(text);
+  if (ruleCompany !== UNKNOWN_COMPANY) return ruleCompany;
 
-  for (const [company, cfg] of Object.entries(COMPANY_TARGETS)) {
-    if (cfg.aliases.some((a) => text.includes(a))) return company;
-  }
-
-  if (!isAIAvailable()) return 'EXCLUSIVE BEST CHANGE ZRT';
+  if (!isAIAvailable()) return UNKNOWN_COMPANY;
 
   try {
     const response = await callAI(
@@ -226,17 +181,22 @@ Body: ${(email.body || '').slice(0, 600)}`,
 
     const out = (response.text || '').toUpperCase();
     if (out.includes('EC INGATLAN')) return 'EC INGATLAN KFT';
-    return 'EXCLUSIVE BEST CHANGE ZRT';
+    if (out.includes('EXCLUSIVE BEST CHANGE')) return EBC_COMPANY;
+    return UNKNOWN_COMPANY;
   } catch {
-    return 'EXCLUSIVE BEST CHANGE ZRT';
+    return UNKNOWN_COMPANY;
   }
 }
 
 async function getRecipientEmails(_accountId: string, company: string): Promise<string[]> {
-  const cfg = COMPANY_TARGETS[company];
-  if (!cfg) return [];
+  if (company === UNKNOWN_COMPANY) return [];
+  const knownCompany = company as keyof typeof COMPANY_TARGETS;
+  if (!(knownCompany in COMPANY_TARGETS)) return [];
+  const cfg = COMPANY_TARGETS[knownCompany];
 
-  const fromEnv = cfg.envRecipients.map((k) => (process.env[k] || '').trim()).filter(Boolean);
+  const fromEnv = cfg.envRecipients
+    .map((key: string) => (process.env[key] || '').trim())
+    .filter(Boolean);
 
   // Recipient safety: only explicit env allowlist is allowed for monthly accounting distribution.
   return Array.from(new Set(fromEnv));
@@ -273,13 +233,111 @@ async function ensureDriveFolder(
 }
 
 async function saveInvoiceRecord(record: StoredInvoice): Promise<void> {
-  const key = `invoice_auto_${record.accountId}_${record.emailId}_${sha(record.driveFileId).slice(0, 16)}`;
+  const identity = record.sha256 || record.driveFileId;
+  const key = `invoice_auto_${record.accountId}_${record.emailId}_${sha(identity).slice(0, 16)}`;
   await execute(
     `INSERT INTO user_settings (id, account_id, key, value, updated_at)
      VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(account_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
     [randomUUID(), record.accountId, key, JSON.stringify(record), Date.now()],
   );
+}
+
+function shaBuffer(input: Buffer): string {
+  return createHash('sha256').update(input).digest('hex');
+}
+
+function textSha(input: string): string {
+  return sha(input.replace(/\s+/g, ' ').trim().toLowerCase());
+}
+
+async function alreadyHandledDocumentHash(accountId: string, digest: string): Promise<boolean> {
+  const row = await queryOne<{ value: string }>(
+    'SELECT value FROM user_settings WHERE account_id = ? AND key = ?',
+    [accountId, `invoice_doc_sha_${digest}`],
+  );
+  return Boolean(row);
+}
+
+async function markHandledDocumentHash(
+  accountId: string,
+  digest: string,
+  payload: object,
+): Promise<void> {
+  await execute(
+    `INSERT INTO user_settings (id, account_id, key, value, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(account_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+    [randomUUID(), accountId, `invoice_doc_sha_${digest}`, JSON.stringify(payload), Date.now()],
+  );
+}
+
+function emailEvidenceText(email: InvoiceEmailRow): string {
+  return `${email.subject || ''}\n${email.snippet || ''}\n${email.body || ''}\n${email.body_html || ''}`;
+}
+
+async function prepareInvoiceDocument(input: {
+  sourceKind: 'attachment' | 'link';
+  fileName: string;
+  mimeType: string;
+  buffer: Buffer;
+  email: InvoiceEmailRow;
+  sourceUrl?: string;
+}): Promise<PreparedInvoiceDocument | null> {
+  let text = '';
+  if (isAnalyzable(input.mimeType, input.fileName)) {
+    try {
+      const parsed = await parseDocument(input.buffer, input.mimeType, input.fileName);
+      text = parsed.text;
+    } catch (err) {
+      logger.warn('Invoice document parse failed', {
+        emailId: input.email.id,
+        fileName: input.fileName,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  const digest = shaBuffer(input.buffer);
+  const textDigest = text ? textSha(text) : '';
+  const review = reviewInvoiceEvidence({
+    documentText: text,
+    emailText: emailEvidenceText(input.email),
+    emailDate: input.email.date,
+    alreadySent: false,
+  });
+
+  if (!review.isInvoiceCandidate && !hasInvoiceIntent(emailEvidenceText(input.email))) return null;
+  if (review.company === UNKNOWN_COMPANY) {
+    logger.warn('Invoice candidate requires manual company review before dispatch', {
+      emailId: input.email.id,
+      fileName: input.fileName,
+      reason: review.humanReviewReason,
+    });
+    return null;
+  }
+  if (review.routeStatus !== 'ready') {
+    logger.warn('Invoice candidate blocked by review gate', {
+      emailId: input.email.id,
+      fileName: input.fileName,
+      status: review.routeStatus,
+      reason: review.humanReviewReason,
+    });
+    return null;
+  }
+
+  return {
+    sourceKind: input.sourceKind,
+    fileName: input.fileName,
+    mimeType: input.mimeType,
+    buffer: input.buffer,
+    text,
+    sha256: digest,
+    textSha256: textDigest,
+    sourceUrl: input.sourceUrl,
+    reviewStatus: review.routeStatus,
+    company: review.company,
+  };
 }
 
 async function alreadyHandledLink(
@@ -312,91 +370,16 @@ async function markHandledLink(
   );
 }
 
-async function downloadInvoiceFromLink(
-  url: string,
-): Promise<{ buffer: Buffer; fileName: string; contentType: string | null } | null> {
-  try {
-    let currentUrl = normalizeInvoiceUrl(url);
-    if (!(await isSafePublicHttpsUrl(currentUrl))) return null;
-
-    const timeoutMs = 15000;
-    const maxBytes = 15 * 1024 * 1024;
-
-    let resp: Response | null = null;
-    for (let hop = 0; hop < 4; hop++) {
-      const controller = new AbortController();
-      const t = setTimeout(() => controller.abort(), timeoutMs);
-      const r = await fetch(currentUrl, {
-        redirect: 'manual',
-        signal: controller.signal,
-      });
-      clearTimeout(t);
-
-      if (r.status >= 300 && r.status < 400) {
-        const location = r.headers.get('location');
-        if (!location) return null;
-        const next = new URL(location, currentUrl).toString();
-        if (!(await isSafePublicHttpsUrl(next))) return null;
-        currentUrl = normalizeInvoiceUrl(next);
-        continue;
-      }
-
-      resp = r;
-      break;
-    }
-
-    if (!resp || !resp.ok) return null;
-
-    const contentType = resp.headers.get('content-type');
-    const disp = resp.headers.get('content-disposition') || '';
-    const contentLength = Number(resp.headers.get('content-length') || '0');
-    if (Number.isFinite(contentLength) && contentLength > maxBytes) return null;
-
-    if (
-      !likelyInvoiceContentType(contentType) &&
-      !/invoice|szamla|pdf/i.test(currentUrl) &&
-      !/invoice|szamla|pdf/i.test(disp)
-    ) {
-      return null;
-    }
-
-    const reader = resp.body?.getReader();
-    if (!reader) return null;
-
-    const chunks: Uint8Array[] = [];
-    let total = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (!value) continue;
-      total += value.byteLength;
-      if (total > maxBytes) return null;
-      chunks.push(value);
-    }
-
-    const buf = Buffer.concat(chunks.map((c) => Buffer.from(c)));
-    if (buf.length === 0) return null;
-
-    const byDisp = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(disp);
-    const fileNameRaw = decodeURIComponent(byDisp?.[1] || byDisp?.[2] || '').trim();
-    const fromUrl = new URL(currentUrl).pathname.split('/').pop() || '';
-    const fileName = (fileNameRaw || fromUrl || `invoice-${Date.now()}.pdf`).replace(
-      /[^\w.\-() ]/g,
-      '_',
-    );
-
-    return { buffer: buf, fileName, contentType };
-  } catch {
-    return null;
-  }
-}
-
-async function runDailyInvoiceCollectorForAccount(account: {
-  id: string;
-  email: string;
-}): Promise<void> {
+async function runDailyInvoiceCollectorForAccount(
+  account: {
+    id: string;
+    email: string;
+  },
+  options: InvoiceCollectionOptions = {},
+): Promise<void> {
   const { oauth2Client } = await getOAuth2ClientForAccount(account.id);
   const drive = google.drive({ version: 'v3', auth: oauth2Client });
+  const gmail = getGmailClient(oauth2Client);
 
   try {
     await drive.about.get({ fields: 'user(emailAddress)' });
@@ -411,13 +394,16 @@ async function runDailyInvoiceCollectorForAccount(account: {
   }
 
   const now = Date.now();
-  const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+  const fromMs = options.fromMs ?? now - 7 * 24 * 60 * 60 * 1000;
+  const toMs = options.toMs ?? now + 1;
+  const limit = options.limit ?? 500;
 
   const rows = await queryAll<InvoiceEmailRow>(
     `SELECT id, subject, from_email, to_email, snippet, body, body_html, date
      FROM emails
      WHERE account_id = ?
        AND date >= ?
+       AND date < ?
        AND labels NOT LIKE '%TRASH%'
        AND (
          LOWER(subject) LIKE '%számla%' OR LOWER(subject) LIKE '%invoice%' OR LOWER(subject) LIKE '%e-számla%'
@@ -426,67 +412,148 @@ async function runDailyInvoiceCollectorForAccount(account: {
          OR LOWER(body_html) LIKE '%számla%' OR LOWER(body_html) LIKE '%invoice%' OR LOWER(body_html) LIKE '%fizetés%' OR LOWER(body_html) LIKE '%payment%' OR LOWER(body_html) LIKE '%receipt%' OR LOWER(body_html) LIKE '%díjbekérő%'
        )
      ORDER BY date DESC
-     LIMIT 200`,
-    [account.id, weekAgo],
+     LIMIT ?`,
+    [account.id, fromMs, toMs, limit],
   );
+
+  logger.info('Invoice collector run started', {
+    account: account.email,
+    runKind: options.runKind || 'daily',
+    fromMs,
+    toMs,
+    candidateEmails: rows.length,
+  });
 
   const rootFolder = await ensureDriveFolder(drive, 'Junior-Invoice-Automation');
 
+  async function uploadPrepared(email: InvoiceEmailRow, prepared: PreparedInvoiceDocument) {
+    if (await alreadyHandledDocumentHash(account.id, prepared.sha256)) return;
+
+    const monthKey = monthKeyFromTs(email.date || now);
+    const monthFolder = await ensureDriveFolder(drive, monthKey, rootFolder);
+    const companyFolder = await ensureDriveFolder(drive, prepared.company, monthFolder);
+
+    const uploaded = await drive.files.create({
+      requestBody: {
+        name: prepared.fileName,
+        parents: [companyFolder],
+      },
+      media: {
+        mimeType: prepared.mimeType || 'application/pdf',
+        body: Buffer.from(prepared.buffer),
+      },
+      fields: 'id,webViewLink,name',
+    });
+
+    const fileId = uploaded.data.id;
+    if (!fileId) return;
+
+    const record: StoredInvoice = {
+      emailId: email.id,
+      accountId: account.id,
+      company: prepared.company,
+      fileName: uploaded.data.name || prepared.fileName,
+      driveFileId: fileId,
+      driveLink: uploaded.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`,
+      monthKey,
+      createdAt: Date.now(),
+      sourceKind: prepared.sourceKind,
+      sha256: prepared.sha256,
+      textSha256: prepared.textSha256,
+      reviewStatus: prepared.reviewStatus,
+      sourceUrl: prepared.sourceUrl,
+    };
+
+    await saveInvoiceRecord(record);
+    await markHandledDocumentHash(account.id, prepared.sha256, {
+      status: 'uploaded',
+      fileId,
+      monthKey,
+      company: prepared.company,
+      sourceKind: prepared.sourceKind,
+      emailId: email.id,
+    });
+  }
+
   for (const email of rows) {
-    const ownScoped = normalize(`${email.from_email || ''} ${email.to_email || ''}`).includes(
-      normalize(account.email),
-    );
+    const ownScoped = `${email.from_email || ''} ${email.to_email || ''}`
+      .toLowerCase()
+      .includes(account.email.toLowerCase());
     if (!ownScoped) continue;
 
-    const combined = `${email.body_html || ''} ${email.body || ''} ${email.snippet || ''}`;
-    if (!INVOICE_KEYWORDS.some((k) => normalize(combined).includes(normalize(k)))) continue;
+    const combined = emailEvidenceText(email);
+    if (!hasInvoiceIntent(combined)) continue;
 
-    const links = extractHttpLinks(combined);
-    if (links.length === 0) continue;
+    const attachments = await queryAll<AttachmentRow>(
+      'SELECT id, email_id, filename, mime_type, size, gmail_attachment_id FROM attachments WHERE email_id = ?',
+      [email.id],
+    );
 
-    const company = await resolveCompany(email);
-    const monthKey = monthKeyFromTs(email.date || now);
+    for (const attachment of attachments) {
+      if (shouldSkipInvoiceAttachment(attachment.filename)) continue;
+      if (
+        await alreadyHandledLink(
+          account.id,
+          email.id,
+          `attachment:${attachment.gmail_attachment_id}`,
+        )
+      )
+        continue;
+      const data = await getAttachment(gmail, email.id, attachment.gmail_attachment_id, account.id);
+      const prepared = await prepareInvoiceDocument({
+        sourceKind: 'attachment',
+        fileName: attachment.filename,
+        mimeType: attachment.mime_type,
+        buffer: data.data,
+        email,
+      });
+      if (!prepared) continue;
+      await uploadPrepared(email, prepared);
+      await markHandledLink(account.id, email.id, `attachment:${attachment.gmail_attachment_id}`, {
+        status: 'uploaded',
+        sha256: prepared.sha256,
+        company: prepared.company,
+      });
+    }
 
-    const monthFolder = await ensureDriveFolder(drive, monthKey, rootFolder);
-    const companyFolder = await ensureDriveFolder(drive, company, monthFolder);
-
-    for (const link of links) {
+    const links = extractInvoiceLinkCandidates(
+      email.body_html || '',
+      `${email.body || ''}\n${email.snippet || ''}`,
+    );
+    for (const candidate of links) {
+      const link = candidate.url;
       if (await alreadyHandledLink(account.id, email.id, link)) continue;
 
-      const downloaded = await downloadInvoiceFromLink(link);
-      if (!downloaded) continue;
+      const downloaded = await downloadInvoiceFromPublicLink(link);
+      if (!downloaded.ok || !downloaded.buffer || !downloaded.fileName) {
+        await markHandledLink(account.id, email.id, link, {
+          status: downloaded.status,
+          detail: downloaded.detail,
+          finalUrl: downloaded.finalUrl,
+          score: candidate.score,
+          scoreReasons: candidate.reasons,
+        });
+        continue;
+      }
 
-      const uploaded = await drive.files.create({
-        requestBody: {
-          name: downloaded.fileName,
-          parents: [companyFolder],
-        },
-        media: {
-          mimeType: downloaded.contentType || 'application/pdf',
-          body: Buffer.from(downloaded.buffer),
-        },
-        fields: 'id,webViewLink,name',
+      const prepared = await prepareInvoiceDocument({
+        sourceKind: 'link',
+        fileName: downloaded.fileName,
+        mimeType: downloaded.contentType || 'application/pdf',
+        buffer: downloaded.buffer,
+        email,
+        sourceUrl: downloaded.finalUrl || link,
       });
+      if (!prepared) continue;
 
-      const fileId = uploaded.data.id;
-      if (!fileId) continue;
-
-      await saveInvoiceRecord({
-        emailId: email.id,
-        accountId: account.id,
-        company,
-        fileName: uploaded.data.name || downloaded.fileName,
-        driveFileId: fileId,
-        driveLink: uploaded.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`,
-        monthKey,
-        createdAt: Date.now(),
-      });
-
+      await uploadPrepared(email, prepared);
       await markHandledLink(account.id, email.id, link, {
         status: 'uploaded',
-        fileId,
-        monthKey,
-        company,
+        sha256: prepared.sha256,
+        company: prepared.company,
+        finalUrl: downloaded.finalUrl,
+        score: candidate.score,
+        scoreReasons: candidate.reasons,
       });
     }
   }
@@ -571,6 +638,135 @@ export async function approveMonthlyInvoiceDistribution(
       Date.now(),
     ],
   );
+}
+
+export function getInvoiceAutomationAIStatus(): ReturnType<typeof getAIProviderStatus> & {
+  invoiceAiAvailable: boolean;
+  accuracyGate: string;
+} {
+  return {
+    ...getAIProviderStatus(),
+    invoiceAiAvailable: isAIAvailable(),
+    accuracyGate:
+      'AI is advisory only: deterministic document text rules decide routing; unknown/ambiguous/VAT-risk invoices are blocked for human review.',
+  };
+}
+
+export async function verifyInvoiceAutomationAIModelLive(): Promise<{
+  ok: boolean;
+  provider: string;
+  model: string;
+  text: string;
+}> {
+  const response = await callAI(
+    [
+      {
+        role: 'system',
+        content:
+          'You are a strict invoice-processing health-check model. Return only compact JSON.',
+      },
+      {
+        role: 'user',
+        content:
+          '{"task":"invoice_automation_health_check","expected":"return ok true and no routing decision"}',
+      },
+    ],
+    { maxTokens: 80, timeoutMs: 20_000, responseFormat: 'json_object' },
+  );
+  return { ok: true, provider: response.provider, model: response.model, text: response.text };
+}
+
+export async function runInvoiceAutomationForAccountNow(
+  account: { id: string; email: string },
+  options: { mode?: InvoiceManualRunMode; monthKey?: string } = {},
+): Promise<{
+  ok: boolean;
+  accountId: string;
+  email: string;
+  mode: InvoiceManualRunMode;
+  monthKey?: string;
+  missingConfig?: string[];
+}> {
+  let config = validateInvoiceAutomationConfig();
+  if (!config.ok) {
+    tryAutoReloadAccountingEnv();
+    config = validateInvoiceAutomationConfig();
+  }
+  if (!config.ok) {
+    await notifyConfigIssue(account, config.missing).catch(() => {});
+    return {
+      ok: false,
+      accountId: account.id,
+      email: account.email,
+      mode: options.mode || 'daily',
+      missingConfig: config.missing,
+    };
+  }
+
+  const mode = options.mode || 'daily';
+  if (mode === 'daily') {
+    await runDailyInvoiceCollectorForAccount(account, { runKind: 'manual' });
+    return { ok: true, accountId: account.id, email: account.email, mode };
+  }
+
+  const monthKey = mode === 'previous_month' ? previousMonthKey() : options.monthKey;
+  if (!monthKey) throw new Error('monthKey szükséges month módhoz');
+  const range = monthRangeFromKey(monthKey);
+  await runDailyInvoiceCollectorForAccount(account, {
+    ...range,
+    limit: 2000,
+    runKind: 'manual',
+  });
+  return { ok: true, accountId: account.id, email: account.email, mode, monthKey };
+}
+
+export async function getInvoiceAutomationStatusForAccount(accountId: string): Promise<{
+  config: { ok: boolean; missing: string[] };
+  ai: ReturnType<typeof getInvoiceAutomationAIStatus>;
+  schedule: { daily: string; monthly: string; retry: string; previousMonthKey: string };
+  recentMarkers: Array<{ key: string; value: unknown; updatedAt: number }>;
+}> {
+  let config = validateInvoiceAutomationConfig();
+  if (!config.ok) {
+    tryAutoReloadAccountingEnv();
+    config = validateInvoiceAutomationConfig();
+  }
+  const markers = await queryAll<{ key: string; value: string; updated_at: number }>(
+    `SELECT key, value, updated_at
+     FROM user_settings
+     WHERE account_id = ?
+       AND (
+         key LIKE 'invoice_daily_collected_%'
+         OR key LIKE 'invoice_monthly_collected_%'
+         OR key LIKE 'invoice_monthly_preview_sent_%'
+         OR key LIKE 'invoice_monthly_sent_%'
+         OR key LIKE 'invoice_config_instruction_alert_%'
+       )
+     ORDER BY updated_at DESC
+     LIMIT 20`,
+    [accountId],
+  );
+  return {
+    config,
+    ai: getInvoiceAutomationAIStatus(),
+    schedule: {
+      daily: 'Europe/Budapest szerint 07:00 után, naponta egyszer, legutóbbi 7 napra.',
+      monthly:
+        'Minden hónap 1-jén 07:00 után először teljes előző havi gyűjtés, utána havi előnézet/kiküldés jóváhagyási kapuval.',
+      retry:
+        'A kézi újrafuttatás a UI-ból elérhető; hash- és linkmarkerek miatt idempotens, nem küld automatikusan duplán.',
+      previousMonthKey: previousMonthKey(),
+    },
+    recentMarkers: markers.map((marker) => {
+      let parsed: unknown = marker.value;
+      try {
+        parsed = JSON.parse(marker.value);
+      } catch {
+        // keep raw value
+      }
+      return { key: marker.key, value: parsed, updatedAt: marker.updated_at };
+    }),
+  };
 }
 
 async function sendMonthlyPreviewForApproval(
@@ -713,6 +909,36 @@ async function markDailyCollected(accountId: string, dateKey: string): Promise<v
   );
 }
 
+async function claimMonthlyCollectionSlot(accountId: string, monthKey: string): Promise<boolean> {
+  const key = `invoice_monthly_collected_${monthKey}`;
+  const row = await queryOne<{ key: string }>(
+    `INSERT INTO user_settings (id, account_id, key, value, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(account_id, key) DO NOTHING
+     RETURNING key`,
+    [
+      randomUUID(),
+      accountId,
+      key,
+      JSON.stringify({ status: 'started', at: Date.now() }),
+      Date.now(),
+    ],
+  );
+  return Boolean(row?.key);
+}
+
+async function markMonthlyCollected(accountId: string, monthKey: string): Promise<void> {
+  await execute(
+    'UPDATE user_settings SET value = ?, updated_at = ? WHERE account_id = ? AND key = ?',
+    [
+      JSON.stringify({ status: 'done', at: Date.now() }),
+      Date.now(),
+      accountId,
+      `invoice_monthly_collected_${monthKey}`,
+    ],
+  );
+}
+
 async function notifyConfigIssue(
   account: { id: string; email: string },
   missing: string[],
@@ -780,6 +1006,15 @@ export async function runInvoiceAutomation(
       }
 
       if (dueMonthly) {
+        const monthlyClaimed = await claimMonthlyCollectionSlot(account.id, monthKeyPrev);
+        if (monthlyClaimed) {
+          await runDailyInvoiceCollectorForAccount(account, {
+            ...monthRangeFromKey(monthKeyPrev),
+            limit: 2000,
+            runKind: 'monthly',
+          });
+          await markMonthlyCollected(account.id, monthKeyPrev);
+        }
         await runMonthlyDistributionForAccount(account, monthKeyPrev);
       }
     } catch (err) {

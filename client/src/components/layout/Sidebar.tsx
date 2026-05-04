@@ -385,6 +385,12 @@ export function Sidebar({ isOpen, onToggle, isMobile = false, isTablet = false }
             <NavItem path="/by-category" icon={Tags} label="Kategóriák" sidebarOpen={isOpen} />
             <NavItem path="/invoices" icon={Receipt} label="Számlák" sidebarOpen={isOpen} />
             <NavItem
+              path="/invoice-automation"
+              icon={CalendarClock}
+              label="Számla automatizálás"
+              sidebarOpen={isOpen}
+            />
+            <NavItem
               path="/attachments"
               icon={Paperclip}
               label="Mellékletek"

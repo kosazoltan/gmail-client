@@ -857,6 +857,37 @@ export const api = {
       request<{ success: boolean }>(`/settings/${key}`, { method: 'DELETE' }),
   },
 
+  invoiceAutomation: {
+    status: () =>
+      request<{
+        config: { ok: boolean; missing: string[] };
+        ai: {
+          configuredProvider: string;
+          availableProviders: Array<{ provider: string; model: string; hasApiKey: boolean }>;
+          primaryInvoiceModel: string | null;
+          invoiceAiAvailable: boolean;
+          accuracyGate: string;
+        };
+        schedule: {
+          daily: string;
+          monthly: string;
+          retry: string;
+          previousMonthKey: string;
+        };
+        recentMarkers: Array<{ key: string; value: unknown; updatedAt: number }>;
+      }>('/invoice-automation/status'),
+    run: (data: { mode: 'daily' | 'previous_month' | 'month'; monthKey?: string }) =>
+      request<{ ok: boolean; mode: string; monthKey?: string; missingConfig?: string[] }>(
+        '/invoice-automation/run',
+        { method: 'POST', body: JSON.stringify(data), timeout: 120000, retries: 0 },
+      ),
+    aiStatusLive: () =>
+      request<{ live?: { ok: boolean; provider: string; model: string; text: string } }>(
+        '/invoice-automation/ai-status?live=1',
+        { timeout: 30000, retries: 0 },
+      ),
+  },
+
   quota: {
     get: () => request<{ quota: { calls: number; limit: number; percent: number } }>('/quota'),
   },
