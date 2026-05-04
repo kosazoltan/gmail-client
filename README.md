@@ -73,22 +73,22 @@ npm run dev
 
 ### Környezeti változók (server `.env`)
 
-| Változó                | Leírás                                            | Kötelező                  |
-| ---------------------- | ------------------------------------------------- | ------------------------- |
-| `DATABASE_URL`         | PostgreSQL connection string                      | ✅                        |
-| `GOOGLE_CLIENT_ID`     | Google OAuth Client ID                            | ✅                        |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth Client Secret                        | ✅                        |
-| `SESSION_SECRET`       | Express session titkosítás                        | ✅                        |
-| `FRONTEND_URL`         | Frontend URL (CORS)                               | ✅                        |
-| `PORT`                 | Server port                                       | ❌ (default: 5000)        |
-| `SENTRY_DSN`           | Sentry error tracking                             | ❌                        |
-| `AI_PROVIDER`          | `openai` vagy `anthropic`                         | ❌ (default: openai)      |
-| `AI_MODEL`             | Provider modell neve                              | ❌ (default: gpt-4o-mini) |
-| `OPENAI_API_KEY`       | OpenAI-alapú AI funkciókhoz                       | ❌                        |
-| `ANTHROPIC_API_KEY`    | Anthropic-alapú AI funkciókhoz / piaci elemzéshez | ❌                        |
-| `ERRORLOG_HMAC_SECRET` | Error report aláírás productionben                | ✅ productionben          |
-| `BACKEND_URL`          | Backend publikus URL productionben                | ✅ productionben          |
-| `ZMAIL_PG_SCHEMA`      | PostgreSQL schema                                 | ❌ (default: public)      |
+| Változó                | Leírás                                            | Kötelező                                                           |
+| ---------------------- | ------------------------------------------------- | ------------------------------------------------------------------ |
+| `DATABASE_URL`         | PostgreSQL connection string                      | ✅                                                                 |
+| `GOOGLE_CLIENT_ID`     | Google OAuth Client ID                            | ✅                                                                 |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth Client Secret                        | ✅                                                                 |
+| `SESSION_SECRET`       | Express session titkosítás                        | ✅                                                                 |
+| `FRONTEND_URL`         | Frontend URL (CORS)                               | ✅                                                                 |
+| `PORT`                 | Server port                                       | ❌ (default: 5000)                                                 |
+| `SENTRY_DSN`           | Sentry error tracking                             | ❌                                                                 |
+| `AI_PROVIDER`          | `openai` vagy `anthropic`                         | ❌ (default: openai)                                               |
+| `AI_MODEL`             | Provider modell neve                              | ❌ (default: OpenAI `gpt-5.4-mini`, Anthropic `claude-sonnet-4-6`) |
+| `OPENAI_API_KEY`       | OpenAI-alapú AI funkciókhoz                       | ❌                                                                 |
+| `ANTHROPIC_API_KEY`    | Anthropic-alapú AI funkciókhoz / piaci elemzéshez | ❌                                                                 |
+| `ERRORLOG_HMAC_SECRET` | Error report aláírás productionben                | ✅ productionben                                                   |
+| `BACKEND_URL`          | Backend publikus URL productionben                | ✅ productionben                                                   |
+| `ZMAIL_PG_SCHEMA`      | PostgreSQL schema                                 | ❌ (default: public)                                               |
 
 ### Tesztek
 

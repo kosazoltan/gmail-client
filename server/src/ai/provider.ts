@@ -5,6 +5,8 @@ export type AIProvider = 'anthropic' | 'openai';
 
 const DEFAULT_OPENAI_MODEL = 'gpt-5.4-mini';
 const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
+const LEGACY_OPENAI_MODELS = new Set(['gpt-4o-mini']);
+const LEGACY_ANTHROPIC_MODELS = new Set(['claude-sonnet-4-5-20250929', 'claude-sonnet-4-5']);
 
 export interface AIMessage {
   role: 'user' | 'assistant' | 'system';
@@ -27,13 +29,14 @@ function hasProviderKey(provider: AIProvider): boolean {
 
 function modelForProvider(provider: AIProvider): string {
   if (provider === 'openai') {
-    return process.env.OPENAI_MODEL || process.env.AI_MODEL || DEFAULT_OPENAI_MODEL;
+    const configured = process.env.OPENAI_MODEL || process.env.AI_MODEL || DEFAULT_OPENAI_MODEL;
+    return LEGACY_OPENAI_MODELS.has(configured.trim()) ? DEFAULT_OPENAI_MODEL : configured;
   }
-  return (
+  const configured =
     process.env.ANTHROPIC_MODEL ||
     (configuredProvider() === 'anthropic' ? process.env.AI_MODEL : undefined) ||
-    DEFAULT_ANTHROPIC_MODEL
-  );
+    DEFAULT_ANTHROPIC_MODEL;
+  return LEGACY_ANTHROPIC_MODELS.has(configured.trim()) ? DEFAULT_ANTHROPIC_MODEL : configured;
 }
 
 function orderedAvailableProviders(): AIProvider[] {
