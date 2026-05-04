@@ -1,0 +1,92 @@
+name: Render accounting env
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply accounting env vars to Render
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_NAME: gmail-client-api
+        run: |
+          set -euo pipefail
+          if [ -z "${RENDER_API_KEY:-}" ]; then
+            echo "::error::RENDER_API_KEY secret is not configured."
+            exit 1
+          fi
+
+          curl -fsS \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            "https://api.render.com/v1/services?limit=100" > services.json
+
+          service_id="$(python3 - <<'PY'
+          import json
+
+          with open('services.json', 'r', encoding='utf-8') as fh:
+              items = json.load(fh)
+
+          for item in items:
+              service = item.get('service', item)
+              if service.get('name') == 'gmail-client-api':
+                  print(service['id'])
+                  break
+          else:
+              raise SystemExit('Render service gmail-client-api not found')
+          PY
+          )"
+
+          cat > env-vars.json <<'JSON'
+          [
+            {"key":"ACCOUNTING_KARDOS_ILDIKO_EMAIL","value":"kardos.ildiko.ebc@gmail.com"},
+            {"key":"ACCOUNTING_BRAND_ZSUZSA_EMAIL","value":"brandt.zsuzsanna.ebc@gmail.com"},
+            {"key":"ACCOUNTING_NAGY_MARIAN_EMAIL","value":"nagy.marianna.exz.hu@gmail.com"}
+          ]
+          JSON
+
+          status="$(curl -sS -o apply-response.json -w '%{http_code}' \
+            -X POST \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Content-Type: application/json" \
+            --data-binary @env-vars.json \
+            "https://api.render.com/v1/services/${service_id}/env-vars")"
+          if [ "${status}" -lt 200 ] || [ "${status}" -ge 300 ]; then
+            echo "::error::Render env-var create failed with HTTP ${status}"
+            cat apply-response.json
+            exit 1
+          fi
+
+          curl -fsS \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            "https://api.render.com/v1/services/${service_id}/env-vars" > current-env.json
+
+          python3 - <<'PY'
+          import json
+
+          required = {
+              'ACCOUNTING_KARDOS_ILDIKO_EMAIL',
+              'ACCOUNTING_BRAND_ZSUZSA_EMAIL',
+              'ACCOUNTING_NAGY_MARIAN_EMAIL',
+          }
+          with open('current-env.json', 'r', encoding='utf-8') as fh:
+              items = json.load(fh)
+          keys = {item.get('envVar', item).get('key') for item in items}
+          missing = sorted(required - keys)
+          if missing:
+              raise SystemExit(f'Missing Render env vars after apply: {missing}')
+          print('OK: accounting env vars are present on Render')
+          PY
+
+          curl -fsS \
+            -X POST \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Content-Type: application/json" \
+            --data '{"clearCache":"do_not_clear"}' \
+            "https://api.render.com/v1/services/${service_id}/deploys"
+
+          echo "OK: Render deploy triggered"
