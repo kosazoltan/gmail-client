@@ -9,6 +9,8 @@
 #   VERIFY_SKIP_INITIAL_SLEEP — "1" esetén nincs 45s kezdeti várakozás (workflow_dispatch gyors teszt)
 #
 # Kötelező / ajánlott Secret (Actions → Secrets and variables → Secrets):
+#   RENDER_API_KEY          — Render REST API kulcs. Ha be van állítva, a workflow CI után
+#                             explicit deployt indít a gmail-client-api service-re és megvárja.
 #   DEPLOY_HEALTHCHECK_URL  — pl. Render Deploy Hook URL (Dashboard → service → Deploy → Deploy Hook),
 #                             vagy külső ping/webhook. A sikeres verify-production UTÁN egy GET hívás
 #                             (token az URL-ben — ezért Secret, ne Variable!). Üres = lépés kihagyva.
@@ -38,6 +40,18 @@ jobs:
         uses: actions/checkout@v5
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || github.event.workflow_run.head_sha }}
+
+      - name: Render deploy — gmail-client-api
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_NAME: ${{ vars.RENDER_SERVICE_NAME || 'gmail-client-api' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RENDER_API_KEY}" ]; then
+            echo "RENDER_API_KEY nincs beállítva — explicit Render deploy kihagyva."
+            exit 0
+          fi
+          python3 scripts/render-deploy.py
 
       - name: Production — tartalmi ellenőrzés (API + frontend)
         env:
