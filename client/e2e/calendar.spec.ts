@@ -34,21 +34,25 @@ test.describe('Calendar — View & Event Management', () => {
   test.beforeEach(async ({ page }) => {
     await setupAuthenticatedMocks(page);
     await page.route('**/api/emails**', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ emails: [], total: 0 }) })
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ emails: [], total: 0 }),
+      }),
     );
     // Mock calendar events — all calendar endpoints
     const calendarBody = JSON.stringify({ events: mockEvents });
     await page.route('**/api/calendar/events**', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: calendarBody })
+      route.fulfill({ status: 200, contentType: 'application/json', body: calendarBody }),
     );
     await page.route('**/api/calendar/today', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: calendarBody })
+      route.fulfill({ status: 200, contentType: 'application/json', body: calendarBody }),
     );
     await page.route('**/api/calendar/week', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: calendarBody })
+      route.fulfill({ status: 200, contentType: 'application/json', body: calendarBody }),
     );
     await page.route('**/api/calendar/*', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: calendarBody })
+      route.fulfill({ status: 200, contentType: 'application/json', body: calendarBody }),
     );
   });
 
@@ -56,7 +60,12 @@ test.describe('Calendar — View & Event Management', () => {
     await page.goto('/calendar');
 
     // Calendar heading/icon should be visible
-    await expect(page.locator('svg.lucide-calendar').or(page.getByText(/naptár/i)).first()).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page
+        .locator('svg.lucide-calendar')
+        .or(page.getByText(/naptár/i))
+        .first(),
+    ).toBeVisible({ timeout: 10_000 });
 
     // Events should be displayed
     await expect(page.getByText('Heti standup')).toBeVisible({ timeout: 10_000 });
@@ -66,18 +75,18 @@ test.describe('Calendar — View & Event Management', () => {
   test('create event button opens modal', async ({ page }) => {
     await page.goto('/calendar');
 
-    // Find the "+" or "Új esemény" / Plus button — visible, not hover-only!
-    const createButton = page.locator('button').filter({ has: page.locator('svg.lucide-plus') });
-    await expect(createButton.first()).toBeVisible({ timeout: 10_000 });
+    const createButton = page.getByRole('button', { name: /új esemény/i });
+    await expect(createButton).toBeVisible({ timeout: 10_000 });
 
-    await createButton.first().click();
+    await createButton.click();
 
     // Modal should open with form fields
     await expect(
-      page.getByPlaceholder(/esemény neve/i)
+      page
+        .getByPlaceholder(/esemény neve/i)
         .or(page.getByPlaceholder(/cím/i))
         .or(page.getByText(/új esemény/i))
-        .first()
+        .first(),
     ).toBeVisible({ timeout: 5_000 });
   });
 
