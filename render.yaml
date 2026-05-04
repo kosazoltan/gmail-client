@@ -54,3 +54,10 @@ services:
         value: "1"
       - key: ZMAIL_TOKEN_VAULT_FILE
         value: /data/.secure/token-vault.enc.json
+      # Számlaautomatizálás címzett routing — nem titkos címek, config gate kötelező
+      - key: ACCOUNTING_KARDOS_ILDIKO_EMAIL
+        value: kardos.ildiko.ebc@gmail.com
+      - key: ACCOUNTING_BRAND_ZSUZSA_EMAIL
+        value: brandt.zsuzsanna.ebc@gmail.com
+      - key: ACCOUNTING_NAGY_MARIAN_EMAIL
+        value: nagy.marianna.exz.hu@gmail.com
