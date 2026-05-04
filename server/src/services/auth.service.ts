@@ -86,12 +86,15 @@ export function createOAuth2Client() {
   );
 }
 
-export function getAuthUrl(state?: string): string {
+export function getAuthUrl(state?: string, options: { forceConsent?: boolean } = {}): string {
   const oauth2Client = createOAuth2Client();
+  const prompt =
+    options.forceConsent || process.env.GOOGLE_OAUTH_FORCE_CONSENT === '1' ? 'consent' : undefined;
   return oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: SCOPES,
-    prompt: 'consent',
+    include_granted_scopes: true,
+    ...(prompt ? { prompt } : {}),
     state, // CSRF protection - state parameter validated in callback
   });
 }
@@ -110,10 +113,6 @@ export async function handleAuthCallback(code: string) {
   if (!tokens.access_token) {
     throw new Error('Hiányzó access token a Google válaszból');
   }
-  if (!tokens.refresh_token) {
-    throw new Error('Hiányzó refresh token a Google válaszból');
-  }
-
   const email = userInfo.data.email;
   const name = userInfo.data.name || email;
 
@@ -123,11 +122,20 @@ export async function handleAuthCallback(code: string) {
   );
 
   const accountId = existingAccount?.id || uuidv4();
+  const existingTokens = existingAccount ? await getTokens(email) : null;
+  const refreshToken = tokens.refresh_token || existingTokens?.refreshToken;
+
+  if (!refreshToken) {
+    throw new Error(
+      'Hiányzó refresh token a Google válaszból. Indítsd újra a bejelentkezést forceConsent=1 paraméterrel.',
+    );
+  }
+
   const vaultMarker = getVaultMarker();
 
   await saveTokens(email, {
     accessToken: tokens.access_token,
-    refreshToken: tokens.refresh_token,
+    refreshToken,
   });
 
   if (existingAccount) {

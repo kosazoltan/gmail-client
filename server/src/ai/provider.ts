@@ -3,8 +3,8 @@ import OpenAI from 'openai';
 
 export type AIProvider = 'anthropic' | 'openai';
 
-const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
-const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-5-20250929';
+const DEFAULT_OPENAI_MODEL = 'gpt-5.4-mini';
+const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
 
 export interface AIMessage {
   role: 'user' | 'assistant' | 'system';

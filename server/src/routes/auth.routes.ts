@@ -74,7 +74,8 @@ router.get('/login', async (req, res) => {
       res.status(500).json({ error: 'Session hiba' });
       return;
     }
-    const url = getAuthUrl(state);
+    const forceConsent = req.query.forceConsent === '1' || req.query.forceConsent === 'true';
+    const url = getAuthUrl(state, { forceConsent });
     res.json({ url });
   });
 });
