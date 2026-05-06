@@ -271,7 +271,7 @@ export function Header({
   ];
 
   return (
-    <header className="dark:bg-dark-bg-secondary dark:border-dark-border relative z-50 flex items-center gap-2 border-b border-gray-200/80 bg-white px-3 py-2.5 backdrop-blur-sm sm:gap-4 sm:px-5">
+    <header className="dark:bg-dark-bg-secondary/85 dark:border-dark-border/60 relative z-50 flex items-center gap-2 border-b border-gray-200/60 bg-white/85 px-3 py-2.5 backdrop-blur-md backdrop-saturate-150 sm:gap-4 sm:px-5">
       <button
         onClick={onToggleSidebar}
         className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 lg:hidden"
@@ -325,7 +325,7 @@ export function Header({
               placeholder="Keresés..."
               aria-label="Keresés a levelekben"
               list={searchSuggestionListId}
-              className={`dark:bg-dark-bg-tertiary dark:border-dark-border dark:text-dark-text dark:placeholder:text-dark-text-muted dark:focus:bg-dark-bg focus:border-accent/50 focus:ring-accent/20 dark:focus:border-accent/50 w-full rounded-xl border border-transparent bg-gray-100 py-2 pr-4 pl-10 text-sm text-gray-900 transition-all duration-200 outline-none placeholder:text-gray-400 focus:bg-white focus:ring-2 ${mobileSearchOpen ? '' : 'hidden sm:block'}`}
+              className={`dark:bg-dark-bg-tertiary/70 dark:border-dark-border/40 dark:text-dark-text dark:placeholder:text-dark-text-muted dark:focus:bg-dark-bg dark:hover:bg-dark-bg-tertiary w-full rounded-xl border border-transparent bg-gray-100/80 py-2 pr-4 pl-10 text-sm text-gray-900 transition-all duration-200 outline-none placeholder:text-gray-400 hover:bg-gray-100 focus:border-[#5b78ff]/50 focus:bg-white focus:ring-4 focus:ring-[#5b78ff]/15 dark:focus:border-[#5b78ff]/50 dark:focus:ring-[#5b78ff]/20 ${mobileSearchOpen ? '' : 'hidden sm:block'}`}
             />
             <datalist id={searchSuggestionListId}>
               {searchSuggestions.map((item) => (

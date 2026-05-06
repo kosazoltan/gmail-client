@@ -86,6 +86,13 @@ function useCollapsibleGroup(key: string, defaultOpen = true) {
   return { isOpen, toggle };
 }
 
+// --- Shared nav state classes (DRY: NavItem + saved-search button) ---
+// WCAG 2.2 AA: light-mode foreground #3651d4 a #5b78ff/14 hatteren ~5.4:1
+const ACTIVE_NAV_CLASS =
+  'bg-gradient-to-r from-[#5b78ff]/14 to-[#5b78ff]/8 text-[#3651d4] shadow-[inset_0_0_0_1px_rgba(91,120,255,0.18)] dark:from-[#5b78ff]/20 dark:to-[#5b78ff]/10 dark:text-[#a3b6ff] dark:shadow-[inset_0_0_0_1px_rgba(91,120,255,0.28)]';
+const INACTIVE_NAV_CLASS =
+  'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary/80 dark:hover:text-dark-text text-gray-600 hover:bg-gray-100/80 hover:text-gray-900';
+
 // --- Navigation item component ---
 
 function NavItem({
@@ -106,11 +113,11 @@ function NavItem({
   onDropEmail?: (payload: { emailId: string; accountId?: string }) => void;
 }) {
   const badgeColors: Record<string, string> = {
-    blue: 'bg-[#4f6ef7]/10 text-[#4f6ef7] dark:bg-[#4f6ef7]/20 dark:text-[#6d8cff]',
-    purple: 'bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400',
-    green: 'bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400',
-    red: 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400',
-    orange: 'bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400',
+    blue: 'bg-[#5b78ff]/12 text-[#3651d4] dark:bg-[#5b78ff]/18 dark:text-[#8ba3ff]',
+    purple: 'bg-purple-100 text-[#7e22ce] dark:bg-purple-500/18 dark:text-purple-300',
+    green: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/18 dark:text-emerald-300',
+    red: 'bg-rose-100 text-[#be123c] dark:bg-rose-500/18 dark:text-rose-300',
+    orange: 'bg-amber-100 text-[#92400e] dark:bg-amber-500/18 dark:text-amber-300',
   };
 
   const drag = useDragDrop();
@@ -135,19 +142,18 @@ function NavItem({
       }
       className={({ isActive }) =>
         cn(
-          'flex min-h-[40px] touch-manipulation items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
-          isActive
-            ? 'bg-[#4f6ef7]/10 font-medium text-[#4f6ef7] dark:bg-[#4f6ef7]/15 dark:text-[#6d8cff]'
-            : 'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-          drag.isDraggingOver && 'border-2 border-dashed border-[#4f6ef7] bg-[#4f6ef7]/10',
+          'group/nav relative flex min-h-[40px] touch-manipulation items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
+          isActive ? ACTIVE_NAV_CLASS : INACTIVE_NAV_CLASS,
+          drag.isDraggingOver &&
+            'bg-[#5b78ff]/10 ring-2 ring-[#5b78ff]/50 ring-offset-1 ring-offset-transparent',
           !sidebarOpen && 'justify-center px-2',
         )
       }
     >
       <div className="relative">
-        <Icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+        <Icon className="h-[18px] w-[18px] flex-shrink-0" aria-hidden="true" />
         {badge !== undefined && badge > 0 && !sidebarOpen && (
-          <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-[#4f6ef7]" />
+          <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-[#5b78ff] ring-2 ring-white dark:ring-[#14171f]" />
         )}
       </div>
       {sidebarOpen && (
@@ -280,16 +286,18 @@ export function Sidebar({ isOpen, onToggle, isMobile = false, isTablet = false }
   return (
     <aside
       className={cn(
-        'dark:bg-dark-bg-secondary dark:border-dark-border flex h-full flex-col border-r border-gray-200/80 bg-white transition-all duration-200',
+        'dark:bg-dark-bg-secondary/95 dark:border-dark-border flex h-full flex-col border-r border-gray-200/70 bg-white/95 backdrop-blur-md transition-all duration-200',
         isMobile ? 'w-[92vw] max-w-[390px]' : isTablet ? 'w-20' : isOpen ? 'w-64' : 'w-16',
       )}
     >
       {/* Logo / Collapse */}
-      <div className="dark:border-dark-border flex items-center justify-between border-b border-gray-100 p-4">
+      <div className="dark:border-dark-border/60 flex items-center justify-between border-b border-gray-100/80 p-4">
         {isOpen && !isTablet ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <ZMailLogo size={28} />
-            <span className="dark:text-dark-text font-semibold text-gray-800">ZMail</span>
+            <span className="dark:text-dark-text bg-gradient-to-br from-gray-900 to-gray-700 bg-clip-text text-base font-semibold tracking-tight text-transparent dark:from-white dark:to-gray-300">
+              ZMail
+            </span>
           </div>
         ) : (
           <ZMailLogo size={28} className="mx-auto" />
@@ -312,14 +320,14 @@ export function Sidebar({ isOpen, onToggle, isMobile = false, isTablet = false }
         <button
           onClick={() => navigate('/compose')}
           className={cn(
-            'flex items-center gap-2 rounded-xl bg-[#4f6ef7] text-white shadow-md transition-all duration-200 hover:bg-[#3d5ce5] hover:shadow-lg',
+            'group/compose flex items-center gap-2 rounded-xl bg-gradient-to-br from-[#5b78ff] to-[#4861e8] font-semibold text-white shadow-[0_4px_14px_rgba(91,120,255,0.35)] transition-all duration-200 hover:from-[#4861e8] hover:to-[#3a4ed1] hover:shadow-[0_6px_20px_rgba(91,120,255,0.5)] active:scale-[0.98]',
             isOpen ? 'w-full justify-center px-6 py-3' : 'mx-auto p-3',
           )}
           aria-label="Új levél írása"
           title="Új levél írása"
         >
-          <PenSquare className="h-5 w-5" />
-          {isOpen && !isTablet && <span className="font-medium">Új levél</span>}
+          <PenSquare className="h-5 w-5 transition-transform group-hover/compose:rotate-[-6deg]" />
+          {isOpen && !isTablet && <span>Új levél</span>}
         </button>
       </div>
 
@@ -562,10 +570,8 @@ export function Sidebar({ isOpen, onToggle, isMobile = false, isTablet = false }
                     <button
                       onClick={() => handleSavedSearchClick(search.id, search.query)}
                       className={cn(
-                        'flex min-h-[40px] w-full touch-manipulation items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors',
-                        isActive
-                          ? 'bg-[#4f6ef7]/10 font-medium text-[#4f6ef7] dark:bg-[#4f6ef7]/15 dark:text-[#6d8cff]'
-                          : 'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary dark:hover:text-dark-text text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+                        'flex min-h-[40px] w-full touch-manipulation items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-all duration-150',
+                        isActive ? ACTIVE_NAV_CLASS : INACTIVE_NAV_CLASS,
                         !isOpen && 'justify-center px-2',
                       )}
                       title={isOpen ? search.query : `${search.name}: ${search.query}`}

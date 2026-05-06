@@ -71,7 +71,7 @@ export function AppLayout() {
   };
 
   return (
-    <div className="dark:bg-dark-bg flex h-dvh min-h-dvh overflow-hidden bg-gray-50/80">
+    <div className="app-shell-bg flex h-dvh min-h-dvh overflow-hidden">
       {/* Mobil overlay */}
       {isMobile && sidebarOpen && (
         <div

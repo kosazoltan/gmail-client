@@ -87,16 +87,16 @@ export function EmailItem({
         onClick={handleItemClick}
         onContextMenu={handleContextMenu}
         className={cn(
-          'dark:border-dark-border flex cursor-pointer items-start gap-2 border-b border-gray-100 transition-colors sm:gap-3',
+          'group/item dark:border-dark-border/40 relative flex cursor-pointer items-start gap-2 border-b border-gray-100/70 transition-all duration-150 sm:gap-3',
           density === 'compact' && 'px-2 py-1.5 sm:px-3 sm:py-2',
-          density === 'normal' && 'px-3 py-2 sm:px-4 sm:py-3',
+          density === 'normal' && 'px-3 py-2.5 sm:px-4 sm:py-3',
           density === 'comfortable' && 'px-4 py-3 sm:px-5 sm:py-4',
           isSelected && !selectionMode
-            ? 'border-l-2 border-l-blue-500 bg-blue-50 dark:bg-blue-500/10'
-            : 'dark:hover:bg-dark-bg-tertiary hover:bg-gray-50',
-          isChecked && 'bg-blue-50 dark:bg-blue-500/10',
+            ? 'bg-gradient-to-r from-[#5b78ff]/8 to-transparent before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[#5b78ff] dark:from-[#5b78ff]/14'
+            : 'dark:hover:bg-dark-bg-tertiary/60 hover:bg-gray-50/80',
+          isChecked && 'bg-[#5b78ff]/8 dark:bg-[#5b78ff]/14',
           !email.isRead && !isChecked && 'dark:bg-dark-bg-secondary bg-white',
-          email.isRead && !isSelected && !isChecked && 'dark:bg-dark-bg/50 bg-gray-50/50',
+          email.isRead && !isSelected && !isChecked && 'dark:bg-dark-bg/40 bg-gray-50/40',
         )}
       >
         {email.accountColor && (
@@ -112,21 +112,21 @@ export function EmailItem({
           <button
             onClick={handleCheckboxClick}
             className={cn(
-              'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full transition-colors sm:h-10 sm:w-10',
+              'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ring-1 transition-all sm:h-10 sm:w-10 sm:text-sm',
               isChecked
-                ? 'bg-blue-500 text-white'
-                : 'dark:bg-dark-bg-tertiary dark:text-dark-text-secondary dark:hover:bg-dark-border bg-gray-200 text-gray-500 hover:bg-gray-300',
+                ? 'bg-gradient-to-br from-[#5b78ff] to-[#4861e8] text-white shadow-md shadow-[#5b78ff]/30 ring-[#4861e8]/40'
+                : 'dark:bg-dark-bg-tertiary dark:text-dark-text-secondary dark:hover:bg-dark-border dark:ring-dark-border bg-gray-100 text-gray-500 ring-gray-200 hover:bg-gray-200',
             )}
           >
             {isChecked ? (
-              <Check className="h-4 w-4 sm:h-5 sm:w-5" />
+              <Check className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={3} />
             ) : (
-              <span className="text-xs font-medium sm:text-sm">{initials}</span>
+              <span>{initials}</span>
             )}
           </button>
         ) : (
           <div
-            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-medium text-white sm:h-10 sm:w-10 sm:text-sm"
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white shadow-sm ring-1 ring-black/5 sm:h-10 sm:w-10 sm:text-sm dark:ring-white/10"
             style={{ backgroundColor: avatarColor }}
           >
             {initials}
@@ -205,15 +205,15 @@ export function EmailItem({
               e.stopPropagation();
               onToggleStar(e);
             }}
-            className="dark:hover:bg-dark-bg-tertiary touch-manipulation rounded-lg p-1.5 transition-colors hover:bg-gray-200 sm:p-2.5"
+            className="dark:hover:bg-dark-bg-tertiary touch-manipulation rounded-lg p-1.5 transition-all hover:scale-110 hover:bg-gray-200/80 active:scale-95 sm:p-2.5"
             aria-label={email.isStarred ? 'Csillag eltávolítása' : 'Csillagozás'}
           >
             <Star
               className={cn(
-                'h-4 w-4 sm:h-5 sm:w-5',
+                'h-4 w-4 transition-all sm:h-5 sm:w-5',
                 email.isStarred
-                  ? 'fill-yellow-400 text-yellow-400'
-                  : 'dark:text-dark-text-muted dark:hover:text-dark-text-secondary text-gray-300 hover:text-gray-400',
+                  ? 'fill-amber-400 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.4)]'
+                  : 'dark:text-dark-text-muted dark:hover:text-dark-text-secondary text-gray-300 hover:text-amber-400',
               )}
             />
           </button>
