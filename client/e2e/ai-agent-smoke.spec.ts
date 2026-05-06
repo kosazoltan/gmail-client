@@ -73,12 +73,22 @@ test.describe('AI Agent Workflow - Smoke Test', () => {
       blockers: [] as string[],
     };
 
-    // Capture console errors
+    // Capture console errors, but ignore benign network noise that does not
+    // reflect a real product bug:
+    //  - ERR_CONNECTION_REFUSED / ERR_NETWORK on unmocked backend assets
+    //    (e2e CI uses a tiny mock backend, some early prefetches can race it)
+    //  - Failed to load resource asset 404s for legitimately optional resources
+    const IGNORED_CONSOLE_ERROR_PATTERNS = [
+      /ERR_CONNECTION_REFUSED/i,
+      /ERR_NETWORK/i,
+      /Failed to load resource: net::/i,
+    ];
     page.on('console', (msg) => {
-      if (msg.type() === 'error') {
-        testResults.errors.push(`Console error: ${msg.text()}`);
-        console.error('Browser console error:', msg.text());
-      }
+      if (msg.type() !== 'error') return;
+      const text = msg.text();
+      if (IGNORED_CONSOLE_ERROR_PATTERNS.some((re) => re.test(text))) return;
+      testResults.errors.push(`Console error: ${text}`);
+      console.error('Browser console error:', text);
     });
 
     // Capture page errors

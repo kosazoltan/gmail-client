@@ -5,6 +5,12 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  # Suppress noisy Node.js deprecation warnings from third-party tooling
+  # (DEP0040 punycode, DEP0169 url.parse) that we cannot fix at our level.
+  # Our own code does not emit deprecation warnings; this only quiets transitive deps.
+  NODE_OPTIONS: --no-deprecation
+
 jobs:
   server:
     runs-on: ubuntu-latest
@@ -49,7 +55,14 @@ jobs:
       - name: Start mock backend for unmocked /api routes
         run: |
           node -e "const http=require('http');const server=http.createServer((req,res)=>{res.setHeader('Content-Type','application/json');res.end('{}');});server.listen(5000,'127.0.0.1',()=>console.log('Mock backend listening on 5000'));setInterval(()=>{},1<<30);" > /tmp/mock-backend.log 2>&1 &
-          sleep 1
+          # Wait up to 10s for the mock backend to accept connections to avoid
+          # ERR_CONNECTION_REFUSED races during early Playwright page navigations.
+          for i in $(seq 1 20); do
+            if curl -sSf http://127.0.0.1:5000 >/dev/null 2>&1; then
+              echo "Mock backend ready (attempt $i)"; break
+            fi
+            sleep 0.5
+          done
           curl -sSf http://127.0.0.1:5000 >/dev/null
       - run: cd client && npx playwright install --with-deps chromium
       - run: cd client && npx playwright test

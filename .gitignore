@@ -19,3 +19,4 @@ client/test-results/
 
 configs/secrets.json
 .openclaw/
+.vercel

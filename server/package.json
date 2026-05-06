@@ -4,7 +4,10 @@
   "type": "module",
   "description": "Gmail kliens szerver - Express + TypeScript",
   "engines": {
-    "node": "20.18.1"
+    "node": ">=20.18.1"
+  },
+  "overrides": {
+    "glob": "^10.4.5"
   },
   "scripts": {
     "dev": "tsx watch src/server.ts",
