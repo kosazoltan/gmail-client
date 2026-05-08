@@ -14,9 +14,9 @@
 @theme {
   /* === DARK MODE — 5-shade gray, Superhuman Carbon-inspired === */
   /* Mélységérzet: háttér -> felület -> emelt felület -> overlay */
-  --color-dark-bg: #0b0d12;              /* App háttér — legmélyebb */
-  --color-dark-bg-secondary: #14171f;    /* Sidebar / panel — 1. szint */
-  --color-dark-bg-tertiary: #1e2230;     /* Hover / aktív item — 2. szint */
+  --color-dark-bg: #07090e;              /* mélyebb, cinemásabb */
+  --color-dark-bg-secondary: #0f1219;    /* gazdagabb navy-dark */
+  --color-dark-bg-tertiary: #181e2c;     /* melegebb blue-dark */
   --color-dark-bg-elevated: #272b3a;     /* Modal / dropdown — 3. szint */
   --color-dark-border: #2a2f40;          /* Subtle border */
   --color-dark-border-strong: #3a4055;   /* Erős border (focus, hangsúly) */
@@ -56,6 +56,13 @@
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* === TED-premium kiegészítők === */
+  --color-vip-gold: #e8a838;           /* VIP / csillagozott */
+  --color-vip-gold-light: rgba(232, 168, 56, 0.14);
+  --tracking-display: -0.03em;         /* display headings */
+  --tracking-tight: -0.02em;           /* UI elemek */
+  --tracking-normal: -0.01em;          /* body text */
 }
 
 /* ==========================================================================
@@ -335,6 +342,28 @@ html.dark input:focus, html.dark textarea:focus, html.dark select:focus {
   border-radius: 0.25rem;
 }
 
+/* ==========================================================================
+   Email list — unread row indicator (TED-premium dark mode)
+   ========================================================================== */
+html.dark .email-item-unread {
+  position: relative;
+}
+html.dark .email-item-unread::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 55%;
+  border-radius: 0 2px 2px 0;
+  background: linear-gradient(
+    180deg,
+    rgba(91, 120, 255, 0.9) 0%,
+    rgba(91, 120, 255, 0.5) 100%
+  );
+}
+
 /* Smooth scrolling */
 html { scroll-behavior: smooth; }
 
@@ -428,8 +457,9 @@ html.dark .glass {
 }
 html.dark .app-shell-bg {
   background:
-    radial-gradient(1400px 700px at 100% 0%, rgba(91, 120, 255, 0.06), transparent 60%),
-    radial-gradient(1000px 600px at 0% 100%, rgba(168, 85, 247, 0.04), transparent 60%),
+    radial-gradient(1600px 800px at 80% 0%, rgba(91, 120, 255, 0.09), transparent 55%),
+    radial-gradient(800px 600px at 10% 90%, rgba(168, 85, 247, 0.06), transparent 50%),
+    radial-gradient(400px 300px at 95% 95%, rgba(232, 168, 56, 0.04), transparent 55%),
     var(--color-dark-bg);
 }
 
