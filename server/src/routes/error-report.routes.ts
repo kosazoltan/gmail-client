@@ -12,7 +12,7 @@ function validateString(val: unknown, max: number): string {
 
 router.post('/', async (req, res) => {
   try {
-    const ua = (req.headers['user-agent'] as string | undefined) || '';
+    const ua = req.get('user-agent') || '';
     if (isBotUserAgent(ua)) {
       logger.debug(`[error-report] skipped bot UA: ${ua.slice(0, 200)}`);
       res.status(204).end();
@@ -24,7 +24,7 @@ router.post('/', async (req, res) => {
     // or a long-tail cache. Drop without mailing.
     const bodyMessage = typeof req.body?.message === 'string' ? req.body.message : '';
     if (
-      /Failed to fetch dynamically imported module|ChunkLoadError|Loading chunk [\d]+ failed/i.test(
+      /Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError|Loading chunk [\d]+ failed|Loading CSS chunk [\d]+ failed/i.test(
         bodyMessage,
       )
     ) {

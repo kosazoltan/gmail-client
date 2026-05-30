@@ -89,10 +89,12 @@ export function lazyWithRetry<T extends ComponentType<any>>(
       try {
         storage.setItem(storageKey, '1');
       } catch {
-        /* ignore quota errors and still attempt reload */
+        // If the guard flag cannot be saved (e.g. storage quota exceeded or blocked),
+        // do NOT reload — without the guard we cannot prevent an infinite reload loop.
+        throw err;
       }
 
-      // Use replace() so the user does not land on a broken history entry.
+      // reload() fetches the fresh index.html; no new history entry is created.
       window.location.reload();
 
       // Return a never-resolving promise so React keeps showing the Suspense fallback

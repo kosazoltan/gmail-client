@@ -35,7 +35,7 @@ function reportError(payload: Record<string, unknown>): void {
     // Stale chunk errors are already handled by lazyWithRetry (single auto-reload).
     // If we still reach ErrorBoundary with this signature it means the reload already
     // happened; emailing it once per occurrence would still be noisy. Suppress.
-    if (isChunkLoadError({ message } as Error)) {
+    if (isChunkLoadError(message)) {
       return;
     }
 
