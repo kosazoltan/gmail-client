@@ -5,7 +5,8 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { AppLayout } from './components/layout/AppLayout';
 import { InstallPrompt } from './components/pwa/InstallPrompt';
 import { ToastContainer } from './components/common/ToastContainer';
-import { Suspense, lazy, useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
+import { lazyWithRetry } from './lib/lazyWithRetry';
 import { LockScreen } from './components/auth/LockScreen';
 import { useLockScreen } from './hooks/useLockScreen';
 import { LoadingSkeleton } from './components/common/LoadingSkeleton';
@@ -14,95 +15,131 @@ import { useOfflineSync } from './hooks/useOfflineSync';
 import { useSession } from './hooks/useAccounts';
 import { warmUpBackend } from './lib/api';
 
-// Lazy loaded views — code splitting
-const InboxView = lazy(() =>
-  import('./components/views/InboxView').then((m) => ({ default: m.InboxView })),
+// Lazy loaded views — code splitting with stale-chunk reload recovery (lazyWithRetry)
+const InboxView = lazyWithRetry(
+  () => import('./components/views/InboxView').then((m) => ({ default: m.InboxView })),
+  'InboxView',
 );
-const UnifiedInboxView = lazy(() =>
-  import('./components/views/UnifiedInboxView').then((m) => ({ default: m.UnifiedInboxView })),
+const UnifiedInboxView = lazyWithRetry(
+  () =>
+    import('./components/views/UnifiedInboxView').then((m) => ({ default: m.UnifiedInboxView })),
+  'UnifiedInboxView',
 );
-const BySenderView = lazy(() =>
-  import('./components/views/BySenderView').then((m) => ({ default: m.BySenderView })),
+const BySenderView = lazyWithRetry(
+  () => import('./components/views/BySenderView').then((m) => ({ default: m.BySenderView })),
+  'BySenderView',
 );
-const ByTopicView = lazy(() =>
-  import('./components/views/ByTopicView').then((m) => ({ default: m.ByTopicView })),
+const ByTopicView = lazyWithRetry(
+  () => import('./components/views/ByTopicView').then((m) => ({ default: m.ByTopicView })),
+  'ByTopicView',
 );
-const ByTimeView = lazy(() =>
-  import('./components/views/ByTimeView').then((m) => ({ default: m.ByTimeView })),
+const ByTimeView = lazyWithRetry(
+  () => import('./components/views/ByTimeView').then((m) => ({ default: m.ByTimeView })),
+  'ByTimeView',
 );
-const CategoryView = lazy(() =>
-  import('./components/views/CategoryView').then((m) => ({ default: m.CategoryView })),
+const CategoryView = lazyWithRetry(
+  () => import('./components/views/CategoryView').then((m) => ({ default: m.CategoryView })),
+  'CategoryView',
 );
-const PersonalView = lazy(() =>
-  import('./components/views/PersonalView').then((m) => ({ default: m.PersonalView })),
+const PersonalView = lazyWithRetry(
+  () => import('./components/views/PersonalView').then((m) => ({ default: m.PersonalView })),
+  'PersonalView',
 );
-const InvoicesView = lazy(() =>
-  import('./components/views/InvoicesView').then((m) => ({ default: m.InvoicesView })),
+const InvoicesView = lazyWithRetry(
+  () => import('./components/views/InvoicesView').then((m) => ({ default: m.InvoicesView })),
+  'InvoicesView',
 );
-const InvoiceAutomationView = lazy(() =>
-  import('./components/views/InvoiceAutomationView').then((m) => ({
-    default: m.InvoiceAutomationView,
-  })),
+const InvoiceAutomationView = lazyWithRetry(
+  () =>
+    import('./components/views/InvoiceAutomationView').then((m) => ({
+      default: m.InvoiceAutomationView,
+    })),
+  'InvoiceAutomationView',
 );
-const TrashView = lazy(() =>
-  import('./components/views/TrashView').then((m) => ({ default: m.TrashView })),
+const TrashView = lazyWithRetry(
+  () => import('./components/views/TrashView').then((m) => ({ default: m.TrashView })),
+  'TrashView',
 );
-const LabelView = lazy(() =>
-  import('./components/views/LabelView').then((m) => ({ default: m.LabelView })),
+const LabelView = lazyWithRetry(
+  () => import('./components/views/LabelView').then((m) => ({ default: m.LabelView })),
+  'LabelView',
 );
-const AttachmentsView = lazy(() =>
-  import('./components/views/AttachmentsView').then((m) => ({ default: m.AttachmentsView })),
+const AttachmentsView = lazyWithRetry(
+  () => import('./components/views/AttachmentsView').then((m) => ({ default: m.AttachmentsView })),
+  'AttachmentsView',
 );
-const RemindersView = lazy(() =>
-  import('./components/views/RemindersView').then((m) => ({ default: m.RemindersView })),
+const RemindersView = lazyWithRetry(
+  () => import('./components/views/RemindersView').then((m) => ({ default: m.RemindersView })),
+  'RemindersView',
 );
-const NewslettersView = lazy(() =>
-  import('./components/views/NewslettersView').then((m) => ({ default: m.NewslettersView })),
+const NewslettersView = lazyWithRetry(
+  () => import('./components/views/NewslettersView').then((m) => ({ default: m.NewslettersView })),
+  'NewslettersView',
 );
-const SearchResults = lazy(() =>
-  import('./components/views/SearchResults').then((m) => ({ default: m.SearchResults })),
+const SearchResults = lazyWithRetry(
+  () => import('./components/views/SearchResults').then((m) => ({ default: m.SearchResults })),
+  'SearchResults',
 );
-const EmailCompose = lazy(() =>
-  import('./components/email/EmailCompose').then((m) => ({ default: m.EmailCompose })),
+const EmailCompose = lazyWithRetry(
+  () => import('./components/email/EmailCompose').then((m) => ({ default: m.EmailCompose })),
+  'EmailCompose',
 );
-const DatabaseManager = lazy(() =>
-  import('./components/database/DatabaseManager').then((m) => ({ default: m.DatabaseManager })),
+const DatabaseManager = lazyWithRetry(
+  () =>
+    import('./components/database/DatabaseManager').then((m) => ({ default: m.DatabaseManager })),
+  'DatabaseManager',
 );
-const SettingsView = lazy(() =>
-  import('./components/views/SettingsView').then((m) => ({ default: m.SettingsView })),
+const SettingsView = lazyWithRetry(
+  () => import('./components/views/SettingsView').then((m) => ({ default: m.SettingsView })),
+  'SettingsView',
 );
-const ScheduledView = lazy(() =>
-  import('./components/views/ScheduledView').then((m) => ({ default: m.ScheduledView })),
+const ScheduledView = lazyWithRetry(
+  () => import('./components/views/ScheduledView').then((m) => ({ default: m.ScheduledView })),
+  'ScheduledView',
 );
-const PrivacyPolicy = lazy(() =>
-  import('./components/pages/PrivacyPolicy').then((m) => ({ default: m.PrivacyPolicy })),
+const PrivacyPolicy = lazyWithRetry(
+  () => import('./components/pages/PrivacyPolicy').then((m) => ({ default: m.PrivacyPolicy })),
+  'PrivacyPolicy',
 );
-const TermsOfService = lazy(() =>
-  import('./components/pages/TermsOfService').then((m) => ({ default: m.TermsOfService })),
+const TermsOfService = lazyWithRetry(
+  () => import('./components/pages/TermsOfService').then((m) => ({ default: m.TermsOfService })),
+  'TermsOfService',
 );
-const DashboardView = lazy(() =>
-  import('./components/views/DashboardView').then((m) => ({ default: m.DashboardView })),
+const DashboardView = lazyWithRetry(
+  () => import('./components/views/DashboardView').then((m) => ({ default: m.DashboardView })),
+  'DashboardView',
 );
-const CalendarView = lazy(() =>
-  import('./components/views/CalendarView').then((m) => ({ default: m.CalendarView })),
+const CalendarView = lazyWithRetry(
+  () => import('./components/views/CalendarView').then((m) => ({ default: m.CalendarView })),
+  'CalendarView',
 );
-const TasksView = lazy(() =>
-  import('./components/views/TasksView').then((m) => ({ default: m.TasksView })),
+const TasksView = lazyWithRetry(
+  () => import('./components/views/TasksView').then((m) => ({ default: m.TasksView })),
+  'TasksView',
 );
-const MarketAnalysisView = lazy(() =>
-  import('./components/views/MarketAnalysisView').then((m) => ({ default: m.MarketAnalysisView })),
+const MarketAnalysisView = lazyWithRetry(
+  () =>
+    import('./components/views/MarketAnalysisView').then((m) => ({
+      default: m.MarketAnalysisView,
+    })),
+  'MarketAnalysisView',
 );
-const SmartFoldersView = lazy(() =>
-  import('./components/views/SmartFoldersView').then((m) => ({ default: m.SmartFoldersView })),
+const SmartFoldersView = lazyWithRetry(
+  () =>
+    import('./components/views/SmartFoldersView').then((m) => ({ default: m.SmartFoldersView })),
+  'SmartFoldersView',
 );
-const AIAssistantView = lazy(() =>
-  import('./components/ai/AIAssistantView').then((m) => ({ default: m.AIAssistantView })),
+const AIAssistantView = lazyWithRetry(
+  () => import('./components/ai/AIAssistantView').then((m) => ({ default: m.AIAssistantView })),
+  'AIAssistantView',
 );
-const ThreadView = lazy(() =>
-  import('./components/views/ThreadView').then((m) => ({ default: m.ThreadView })),
+const ThreadView = lazyWithRetry(
+  () => import('./components/views/ThreadView').then((m) => ({ default: m.ThreadView })),
+  'ThreadView',
 );
-const AnalyticsView = lazy(() =>
-  import('./components/views/AnalyticsView').then((m) => ({ default: m.AnalyticsView })),
+const AnalyticsView = lazyWithRetry(
+  () => import('./components/views/AnalyticsView').then((m) => ({ default: m.AnalyticsView })),
+  'AnalyticsView',
 );
 
 const queryClient = new QueryClient({
