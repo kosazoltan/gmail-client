@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { sendErrorReport } from '../lib/error-mailer.js';
 import logger from '../utils/logger.js';
+import { isBotUserAgent } from '../utils/bot-user-agent.js';
 
 const router = Router();
 
@@ -11,6 +12,27 @@ function validateString(val: unknown, max: number): string {
 
 router.post('/', async (req, res) => {
   try {
+    const ua = (req.headers['user-agent'] as string | undefined) || '';
+    if (isBotUserAgent(ua)) {
+      logger.debug(`[error-report] skipped bot UA: ${ua.slice(0, 200)}`);
+      res.status(204).end();
+      return;
+    }
+
+    // Stale chunk noise: lazyWithRetry auto-reloads once. If a client still POSTs
+    // this signature it is almost always a crawler that slipped past UA detection
+    // or a long-tail cache. Drop without mailing.
+    const bodyMessage = typeof req.body?.message === 'string' ? req.body.message : '';
+    if (
+      /Failed to fetch dynamically imported module|ChunkLoadError|Loading chunk [\d]+ failed/i.test(
+        bodyMessage,
+      )
+    ) {
+      logger.debug(`[error-report] dropped stale-chunk report: ${bodyMessage.slice(0, 200)}`);
+      res.status(204).end();
+      return;
+    }
+
     const requestId = req.headers['x-request-id'] as string | undefined;
     await sendErrorReport({
       errorType: validateString(req.body.errorType, 50) || 'unknown',

@@ -1,5 +1,7 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
 import { API_BASE } from '../lib/api';
+import { isBotUserAgent } from '../lib/isBotUserAgent';
+import { isChunkLoadError } from '../lib/lazyWithRetry';
 
 interface Props {
   children: ReactNode;
@@ -19,8 +21,21 @@ function reportError(payload: Record<string, unknown>): void {
       return;
     }
 
+    // Suppress reports coming from automated crawlers (bingbot, googlebot, etc.).
+    // They generate stale-chunk noise after every deploy and do not represent real users.
+    if (typeof navigator !== 'undefined' && isBotUserAgent(navigator.userAgent)) {
+      return;
+    }
+
     const message = typeof payload.message === 'string' ? payload.message : '';
     if (message.includes('Not allowed by CORS')) {
+      return;
+    }
+
+    // Stale chunk errors are already handled by lazyWithRetry (single auto-reload).
+    // If we still reach ErrorBoundary with this signature it means the reload already
+    // happened; emailing it once per occurrence would still be noisy. Suppress.
+    if (isChunkLoadError({ message } as Error)) {
       return;
     }
 
@@ -68,9 +83,13 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="dark:bg-dark-bg flex h-screen items-center justify-center bg-gray-50">
+        <div
+          className="dark:bg-dark-bg flex h-screen items-center justify-center bg-gray-50"
+          role="alert"
+          aria-live="assertive"
+        >
           <div className="p-8 text-center">
-            <h1 className="mb-4 text-2xl font-bold text-red-600">Hiba történt</h1>
+            <h1 className="mb-4 text-2xl font-bold text-red-600 dark:text-red-400">Hiba történt</h1>
             <p className="dark:text-dark-text-muted mb-4 text-gray-600">
               {this.state.error?.message || 'Ismeretlen hiba'}
             </p>
