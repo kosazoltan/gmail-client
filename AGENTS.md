@@ -77,3 +77,16 @@ node memory/search.mjs --type episodic "CORS"
    ```bash
    node memory/search.mjs --reindex
    ```
+
+---
+
+## 5. AI Agent Hibavédelmi Protokoll (2026 május v2)
+
+Minden ügynök köteles szigorúan követni a `memory/procedural/policies/agent_fault_protection.md` fájlban leírt hibavédelmi protokollt.
+
+### Legfontosabb szabályok:
+
+1. **Kísérlet-napló (Attempt Ledger) kötelező:** Jegyezd fel a megközelítéseket, parancsokat, teszteredményeket és hibaüzeneteket.
+2. **Doom loop / variáció-csapda tilalom:** Ha egy parancs/teszt 2× vagy egy fájl 3× elbukik, állj meg! Ne próbáld meg finomítani az eddigi megközelítés puszta variációival.
+3. **STRATÉGIA-ROTÁCIÓ elakadáskor:** Válts ortogonális tengelyre (másik hipotézis, réteg, ellenkező feltételezés, Drop a Gear kitörés).
+4. **Biztonságos eszkaláció:** Ha a feladat megbízhatóan nem oldható meg, a szelektív feladás és emberi segítségkérés érvényes és biztonságos válasz.

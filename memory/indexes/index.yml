@@ -159,6 +159,15 @@ chunks:
     tags: [modernization, qa, build, test, delivery]
     entities: [ZMail, Frontend, Backend, VFP]
 
+  - id: ev_2026_05_31_003
+    type: episodic
+    title: "AI Agent Hibavédelmi Protokoll 2026 v2 integrálása"
+    path: memory/episodic/2026/2026-05-31/ev_hibavedelmi_protokoll_complete.md
+    importance: 1.00
+    event_time: 2026-05-31
+    tags: [protocol, memory, policy, fault-protection, strategy-rotation]
+    entities: [ZMail, AGENTS.md, CLAUDE.md, AI_agent_hibavedelmi_protokoll_2026_v2.md]
+
   # === PROCEDURAL ===
   - id: proc_deploy_checklist_001
     type: procedural
@@ -191,6 +200,14 @@ chunks:
     importance: 1.00
     tags: [rules, policy, critical, constraints, CLAUDE.md]
     entities: [CLAUDE.md, PowerShell, devDependencies, VITE_API_URL]
+
+  - id: proc_agent_fault_protection_001
+    type: procedural
+    title: "AI Agent Hibavédelmi Protokoll (2026 május v2)"
+    path: memory/procedural/policies/agent_fault_protection.md
+    importance: 1.00
+    tags: [rules, policy, fault-protection, strategy-rotation, doom-loop]
+    entities: [AI Agent Fault Protection Protocol, Stratégia-Rotáció, Kísérlet-Napló]
 
   # === PROJECT ===
   - id: proj_zmail_state_001

@@ -48,6 +48,12 @@ KRITIKUS TANULSAGOK (2026-02-28)
     Domain=.mindenes.org; SameSite=None; Secure; HttpOnly
     Ez mukodik cross-subdomain (mail.mindenes.org <-> api.mindenes.org).
 
+11. **AI Agent Hibavédelmi Protokoll v2 (2026 május):**
+    Kötelező a `memory/procedural/policies/agent_fault_protection.md` követése.
+    - Doom loop / variáció-csapda tilalom (2× bukó teszt, 3× bukó szerkesztés után állj le!).
+    - Stratégia-Rotáció elakadáskor (ortogonális tengelyre váltás: hipotézis, réteg, ellenkező feltételezés).
+    - Drop a Gear kitörés (kisebb lépésméret, replan, friss kontextus alügynök, vagy szelektív feladás).
+
 Stack: React 19+TS+Tailwind4+Vite (Vercel) / Express 5+TS+PostgreSQL/Neon (Render Frankfurt)
 
 Push Checklist:
