@@ -12,45 +12,56 @@
 */
 
 @theme {
+  /* === LIGHT MODE — Google MD3-inspired elegant tokens === */
+  --color-google-blue: #0b57d0;          /* Primary Google Blue */
+  --color-google-blue-hover: #0842a0;
+  --color-google-blue-light: rgba(11, 87, 208, 0.08);
+  --color-google-blue-active: #042449;
+  --color-google-bg: #f6f8fc;            /* Soft Google Gray-Blue background */
+  --color-google-surface: #ffffff;
+  --color-google-border: #e0e3e9;
+  --color-google-text: #1f1f1f;
+  --color-google-text-secondary: #474747;
+
   /* === DARK MODE — 5-shade gray, Superhuman Carbon-inspired === */
   /* Mélységérzet: háttér -> felület -> emelt felület -> overlay */
-  --color-dark-bg: #07090e;              /* mélyebb, cinemásabb */
-  --color-dark-bg-secondary: #0f1219;    /* gazdagabb navy-dark */
-  --color-dark-bg-tertiary: #181e2c;     /* melegebb blue-dark */
-  --color-dark-bg-elevated: #272b3a;     /* Modal / dropdown — 3. szint */
-  --color-dark-border: #2a2f40;          /* Subtle border */
-  --color-dark-border-strong: #3a4055;   /* Erős border (focus, hangsúly) */
+  --color-dark-bg: #0b0d14;              /* mélyebb, cinemásabb */
+  --color-dark-bg-secondary: #131722;    /* gazdagabb navy-dark */
+  --color-dark-bg-tertiary: #1b2132;     /* melegebb blue-dark */
+  --color-dark-bg-elevated: #282f46;     /* Modal / dropdown — 3. szint */
+  --color-dark-border: #22293b;          /* Subtle border */
+  --color-dark-border-strong: #36415f;   /* Erős border (focus, hangsúly) */
 
   /* Szöveg — opacity-vezérelt, jobb kontraszt */
-  --color-dark-text: #e7e8ee;            /* Elsődleges (90% white) */
-  --color-dark-text-secondary: #9ca0b3;  /* Másodlagos */
-  --color-dark-text-muted: #5e6478;      /* Halvány / placeholder */
+  --color-dark-text: #f1f3f9;            /* Elsődleges (90% white) */
+  --color-dark-text-secondary: #a3aabf;  /* Másodlagos */
+  --color-dark-text-muted: #646d8c;      /* Halvány / placeholder */
 
-  /* === ACCENT — élénkebb indigo, jobb a11y === */
-  --color-accent: #5b78ff;               /* Új primary indigo (jobb kontraszt #4f6ef7-nél) */
-  --color-accent-hover: #4861e8;
-  --color-accent-active: #3a4ed1;
-  --color-accent-light: rgba(91, 120, 255, 0.12);
-  --color-accent-glow: rgba(91, 120, 255, 0.35);
+  /* === ACCENT — Google Blue / modern indigo, jobb a11y === */
+  --color-accent: #0b57d0;               /* Google Blue as primary */
+  --color-accent-hover: #0842a0;
+  --color-accent-active: #042449;
+  --color-accent-light: rgba(11, 87, 208, 0.08);
+  --color-accent-glow: rgba(11, 87, 208, 0.25);
 
   /* === SEMANTIC SZÍNEK === */
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --color-info: #3b82f6;
+  --color-success: #0f9d58;              /* Google Green */
+  --color-warning: #f4b400;              /* Google Yellow */
+  --color-danger: #db4437;               /* Google Red */
+  --color-info: #4285f4;
 
   /* === SHADOW (világos mód) — finomabb, többrétegű === */
-  --shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
-  --shadow-medium: 0 2px 4px rgba(15, 23, 42, 0.05), 0 4px 8px rgba(15, 23, 42, 0.08);
-  --shadow-large: 0 4px 8px rgba(15, 23, 42, 0.06), 0 10px 24px rgba(15, 23, 42, 0.12);
-  --shadow-glow: 0 0 0 1px rgba(91, 120, 255, 0.15), 0 4px 16px rgba(91, 120, 255, 0.18);
+  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-medium: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-large: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.06);
+  --shadow-glow: 0 0 0 1px rgba(11, 87, 208, 0.15), 0 4px 20px rgba(11, 87, 208, 0.2);
 
   /* === RADIUS — egységes léptékek === */
   --radius-xs: 0.375rem;
   --radius-sm: 0.5rem;
-  --radius-md: 0.625rem;
-  --radius-lg: 0.875rem;
-  --radius-xl: 1.125rem;
+  --radius-md: 0.75rem;                  /* MD3 rounded shapes */
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;                   /* Pill and FAB curves */
 
   /* === MOTION === */
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
@@ -58,11 +69,11 @@
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
   /* === TED-premium kiegészítők === */
-  --color-vip-gold: #e8a838;           /* VIP / csillagozott */
-  --color-vip-gold-light: rgba(232, 168, 56, 0.14);
-  --tracking-display: -0.03em;         /* display headings */
-  --tracking-tight: -0.02em;           /* UI elemek */
-  --tracking-normal: -0.01em;          /* body text */
+  --color-vip-gold: #f4b400;             /* VIP / csillagozott */
+  --color-vip-gold-light: rgba(244, 180, 0, 0.12);
+  --tracking-display: -0.02em;           /* display headings */
+  --tracking-tight: -0.01em;             /* UI elemek */
+  --tracking-normal: 0em;                /* body text */
 }
 
 /* ==========================================================================
@@ -451,15 +462,15 @@ html.dark .glass {
    ========================================================================== */
 .app-shell-bg {
   background:
-    radial-gradient(1200px 600px at 100% 0%, rgba(91, 120, 255, 0.04), transparent 60%),
+    radial-gradient(1200px 600px at 100% 0%, rgba(11, 87, 208, 0.05), transparent 60%),
     radial-gradient(900px 500px at 0% 100%, rgba(168, 85, 247, 0.03), transparent 60%),
-    #f8fafc;
+    var(--color-google-bg);
 }
 html.dark .app-shell-bg {
   background:
-    radial-gradient(1600px 800px at 80% 0%, rgba(91, 120, 255, 0.09), transparent 55%),
-    radial-gradient(800px 600px at 10% 90%, rgba(168, 85, 247, 0.06), transparent 50%),
-    radial-gradient(400px 300px at 95% 95%, rgba(232, 168, 56, 0.04), transparent 55%),
+    radial-gradient(1600px 800px at 80% 0%, rgba(11, 87, 208, 0.09), transparent 55%),
+    radial-gradient(800px 600px at 10% 90%, rgba(168, 85, 247, 0.05), transparent 50%),
+    radial-gradient(400px 300px at 95% 95%, rgba(244, 180, 0, 0.03), transparent 55%),
     var(--color-dark-bg);
 }
 
@@ -481,6 +492,52 @@ html.dark .app-shell-bg {
 /* Touch target minimum */
 @media (max-width: 768px) {
   button, a, [role="button"] { min-height: 44px; min-width: 44px; }
+}
+
+/* ==========================================================================
+   Samsung Galaxy Z Fold 7 — Responsive Optimizations (2025)
+   Cover screen:   ~430px wide, 21:9 portrait (tall narrow)
+   Unfolded:       ~787–874px wide, 10:9 (near-square)
+   Flex mode:      viewport-segments: 2 (half-folded hinge)
+   ========================================================================== */
+
+/* --- KÜLSŐ KIJELZŐ: ~430px, magas/keskeny 21:9 --- */
+@media screen and (max-width: 460px) and (orientation: portrait) {
+  /* Email lista: tömörebb, jobb érintési célpont */
+  .email-item-unread::before,
+  html.dark .email-item-unread::before {
+    height: 48%;
+  }
+  /* Olvasható szövegek megmaradnak a kis képernyőn */
+  body {
+    font-size: 15px;
+  }
+}
+
+/* --- BELSŐ KIJELZŐ KINYITVA: ~787–874px, 10:9 (négyzetes) --- */
+/* max-aspect-ratio 6/5 (=1.2) fogja az egyedi négyzetes Fold-arányokat */
+@media screen and (min-width: 720px) and (max-width: 920px) and (max-aspect-ratio: 6/5) {
+}
+
+/* --- FOLD FLEX MODE: félig hajtva (hinge detector) --- */
+/* CSS Viewport Segments API — Two adjacent panels at the fold seam */
+@media (horizontal-viewport-segments: 2) {
+}
+
+/* --- DARK MODE MOBIL MEGERŐSÍTÉS --- */
+/* Biztosítja, hogy az új TED-tokenek mobilon is érvényesülnek */
+@media screen and (max-width: 768px) {
+  html.dark .app-shell-bg {
+    background:
+      radial-gradient(800px 400px at 80% 0%, rgba(91, 120, 255, 0.07), transparent 55%),
+      radial-gradient(400px 300px at 10% 90%, rgba(168, 85, 247, 0.05), transparent 50%),
+      radial-gradient(250px 200px at 95% 95%, rgba(232, 168, 56, 0.03), transparent 55%),
+      var(--color-dark-bg);
+  }
+  html.dark body {
+    /* OLED: a legmélyebb fekete háttér az akkumulátor kímélésére */
+    background-color: var(--color-dark-bg);
+  }
 }
 
 /* ==========================================================================

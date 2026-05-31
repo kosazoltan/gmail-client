@@ -87,11 +87,11 @@ function useCollapsibleGroup(key: string, defaultOpen = true) {
 }
 
 // --- Shared nav state classes (DRY: NavItem + saved-search button) ---
-// WCAG 2.2 AA: light-mode foreground #3651d4 a #5b78ff/14 hatteren ~5.4:1
+// WCAG 2.2 AA: light-mode foreground #041e49 a #d3e3fd hatteren ~6.5:1
 const ACTIVE_NAV_CLASS =
-  'bg-gradient-to-r from-[#5b78ff]/14 to-[#5b78ff]/8 text-[#3651d4] shadow-[inset_0_0_0_1px_rgba(91,120,255,0.18)] dark:from-[#5b78ff]/20 dark:to-[#5b78ff]/10 dark:text-[#a3b6ff] dark:shadow-[inset_0_0_0_1px_rgba(91,120,255,0.28)]';
+  'bg-[#d3e3fd] text-[#041e49] font-semibold dark:bg-[#004a77]/80 dark:text-[#c2e7ff] shadow-sm';
 const INACTIVE_NAV_CLASS =
-  'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary/80 dark:hover:text-dark-text text-gray-600 hover:bg-gray-100/80 hover:text-gray-900';
+  'dark:text-dark-text-secondary dark:hover:bg-dark-bg-tertiary/50 dark:hover:text-dark-text text-gray-700 hover:bg-gray-200/50 hover:text-gray-900';
 
 // --- Navigation item component ---
 
@@ -113,7 +113,7 @@ function NavItem({
   onDropEmail?: (payload: { emailId: string; accountId?: string }) => void;
 }) {
   const badgeColors: Record<string, string> = {
-    blue: 'bg-[#5b78ff]/12 text-[#3651d4] dark:bg-[#5b78ff]/18 dark:text-[#8ba3ff]',
+    blue: 'bg-blue-100 text-[#0b57d0] dark:bg-blue-500/18 dark:text-blue-300',
     purple: 'bg-purple-100 text-[#7e22ce] dark:bg-purple-500/18 dark:text-purple-300',
     green: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/18 dark:text-emerald-300',
     red: 'bg-rose-100 text-[#be123c] dark:bg-rose-500/18 dark:text-rose-300',
@@ -142,16 +142,19 @@ function NavItem({
       }
       className={({ isActive }) =>
         cn(
-          'group/nav relative flex min-h-[40px] touch-manipulation items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
+          'group/nav relative flex min-h-[40px] touch-manipulation items-center gap-3 rounded-full px-4 py-2 text-sm font-medium transition-all duration-150',
           isActive ? ACTIVE_NAV_CLASS : INACTIVE_NAV_CLASS,
           drag.isDraggingOver &&
-            'bg-[#5b78ff]/10 ring-2 ring-[#5b78ff]/50 ring-offset-1 ring-offset-transparent',
+            'bg-[#0b57d0]/10 ring-2 ring-[#0b57d0]/50 ring-offset-1 ring-offset-transparent',
           !sidebarOpen && 'justify-center px-2',
         )
       }
     >
       <div className="relative">
-        <Icon className="h-[18px] w-[18px] flex-shrink-0" aria-hidden="true" />
+        <Icon
+          className="h-[18px] w-[18px] flex-shrink-0 transition-transform group-hover/nav:scale-110"
+          aria-hidden="true"
+        />
         {badge !== undefined && badge > 0 && !sidebarOpen && (
           <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-[#5b78ff] ring-2 ring-white dark:ring-[#14171f]" />
         )}
@@ -286,7 +289,7 @@ export function Sidebar({ isOpen, onToggle, isMobile = false, isTablet = false }
   return (
     <aside
       className={cn(
-        'dark:bg-dark-bg-secondary/95 dark:border-dark-border flex h-full flex-col border-r border-gray-200/70 bg-white/95 backdrop-blur-md transition-all duration-200',
+        'flex h-full flex-col border-r border-[#e0e3e9]/70 bg-[#f6f8fc]/95 backdrop-blur-md transition-all duration-200 dark:border-[#22293b]/60 dark:bg-[#131722]/95',
         isMobile ? 'w-[92vw] max-w-[390px]' : isTablet ? 'w-20' : isOpen ? 'w-64' : 'w-16',
       )}
     >
@@ -316,18 +319,20 @@ export function Sidebar({ isOpen, onToggle, isMobile = false, isTablet = false }
       </div>
 
       {/* Új levél gomb */}
-      <div className="p-3">
+      <div className="px-2 py-4">
         <button
           onClick={() => navigate('/compose')}
           className={cn(
-            'group/compose flex items-center gap-2 rounded-xl bg-gradient-to-br from-[#5b78ff] to-[#4861e8] font-semibold text-white shadow-[0_4px_14px_rgba(91,120,255,0.35)] transition-all duration-200 hover:from-[#4861e8] hover:to-[#3a4ed1] hover:shadow-[0_6px_20px_rgba(91,120,255,0.5)] active:scale-[0.98]',
-            isOpen ? 'w-full justify-center px-6 py-3' : 'mx-auto p-3',
+            'group/compose flex items-center gap-3 rounded-2xl border border-transparent bg-[#c2e7ff] font-bold text-[#001d35] shadow-md transition-all duration-200 hover:scale-[1.03] hover:bg-[#b3def6] hover:shadow-lg active:scale-[0.97] dark:bg-[#004a77] dark:text-[#c2e7ff] dark:hover:bg-[#005c93]',
+            isOpen ? 'mx-2.5 w-auto justify-center px-6 py-3.5' : 'mx-auto p-4',
           )}
           aria-label="Új levél írása"
           title="Új levél írása"
         >
-          <PenSquare className="h-5 w-5 transition-transform group-hover/compose:rotate-[-6deg]" />
-          {isOpen && !isTablet && <span>Új levél</span>}
+          <PenSquare className="h-[22px] w-[22px] transition-transform group-hover/compose:rotate-[-6deg]" />
+          {isOpen && !isTablet && (
+            <span className="text-sm font-semibold tracking-tight">Új levél</span>
+          )}
         </button>
       </div>
 

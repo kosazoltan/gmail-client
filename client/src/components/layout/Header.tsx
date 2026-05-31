@@ -271,7 +271,7 @@ export function Header({
   ];
 
   return (
-    <header className="dark:bg-dark-bg-secondary/85 dark:border-dark-border/60 relative z-50 flex items-center gap-2 border-b border-gray-200/60 bg-white/85 px-3 py-2.5 backdrop-blur-md backdrop-saturate-150 sm:gap-4 sm:px-5">
+    <header className="relative z-50 flex items-center gap-2 border-b border-[#e0e3e9]/60 bg-[#f6f8fc]/85 px-3 py-2.5 backdrop-blur-md backdrop-saturate-150 sm:gap-4 sm:px-5 dark:border-[#22293b]/60 dark:bg-[#131722]/85">
       <button
         onClick={onToggleSidebar}
         className="dark:hover:bg-dark-bg-tertiary dark:text-dark-text-secondary shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 lg:hidden"
@@ -306,7 +306,7 @@ export function Header({
           )}
           <div className="relative min-w-0 flex-1">
             <Search
-              className="dark:text-dark-text-muted absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400"
+              className="dark:text-dark-text-muted absolute top-1/2 left-4.5 h-4 w-4 -translate-y-1/2 text-gray-400"
               aria-hidden="true"
             />
             <input
@@ -322,10 +322,10 @@ export function Header({
                   navigate('/');
                 }
               }}
-              placeholder="Keresés..."
+              placeholder="Keresés a levelekben..."
               aria-label="Keresés a levelekben"
               list={searchSuggestionListId}
-              className={`dark:bg-dark-bg-tertiary/70 dark:border-dark-border/40 dark:text-dark-text dark:placeholder:text-dark-text-muted dark:focus:bg-dark-bg dark:hover:bg-dark-bg-tertiary w-full rounded-xl border border-transparent bg-gray-100/80 py-2 pr-4 pl-10 text-sm text-gray-900 transition-all duration-200 outline-none placeholder:text-gray-400 hover:bg-gray-100 focus:border-[#5b78ff]/50 focus:bg-white focus:ring-4 focus:ring-[#5b78ff]/15 dark:focus:border-[#5b78ff]/50 dark:focus:ring-[#5b78ff]/20 ${mobileSearchOpen ? '' : 'hidden sm:block'}`}
+              className={`shadow-soft hover:shadow-medium w-full rounded-full border border-transparent bg-[#eaf1fb] py-2.5 pr-4 pl-12 text-sm text-gray-900 placeholder-gray-500 transition-all duration-200 outline-none hover:bg-[#e3ecfa] focus:bg-white focus:ring-4 focus:ring-[#0b57d0]/12 dark:border-[#22293b] dark:bg-[#1b2132] dark:text-[#f1f3f9] dark:placeholder-[#646d8c] dark:hover:bg-[#1e263a] dark:focus:border-[#0b57d0]/50 dark:focus:bg-[#0b0d14] dark:focus:ring-[#0b57d0]/20 ${mobileSearchOpen ? '' : 'hidden sm:block'}`}
             />
             <datalist id={searchSuggestionListId}>
               {searchSuggestions.map((item) => (

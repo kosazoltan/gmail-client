@@ -574,7 +574,7 @@ function ActionCenterCard({
   const visibleItems = expanded ? list : list.slice(0, DEFAULT_VISIBLE_ITEMS);
 
   return (
-    <div className="dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div className="glass shadow-soft hover:shadow-medium rounded-xl border border-[#e0e3e9]/60 p-5 transition-all duration-200 dark:border-[#22293b]/60">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h3 className="dark:text-dark-text text-base font-semibold text-gray-900">{title}</h3>
         {list.length > DEFAULT_VISIBLE_ITEMS && (
@@ -771,7 +771,7 @@ function OpenTasksCard({
   const visibleTasks = expanded ? filteredTasks : filteredTasks.slice(0, DEFAULT_VISIBLE_ITEMS);
 
   return (
-    <div className="dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div className="glass shadow-soft hover:shadow-medium rounded-xl border border-[#e0e3e9]/60 p-5 transition-all duration-200 dark:border-[#22293b]/60">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h3 className="dark:text-dark-text text-base font-semibold text-gray-900">{title}</h3>
         {filteredTasks.length > DEFAULT_VISIBLE_ITEMS && (
@@ -911,7 +911,7 @@ function CalendarCard({
   onDeleteEvent?: (eventId: string) => void;
 }) {
   return (
-    <div className="dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div className="glass shadow-soft hover:shadow-medium rounded-xl border border-[#e0e3e9]/60 p-5 transition-all duration-200 dark:border-[#22293b]/60">
       <div className="mb-3 flex items-center gap-2">
         <Calendar className="h-5 w-5 text-purple-500" />
         <h3 className="dark:text-dark-text text-base font-semibold text-gray-900">{title}</h3>
@@ -990,7 +990,7 @@ function BriefSummaryCard({
   onOpen: () => void;
 }) {
   return (
-    <div className="dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div className="glass shadow-soft hover:shadow-medium rounded-xl border border-[#e0e3e9]/60 p-5 transition-all duration-200 dark:border-[#22293b]/60">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-[#4f6ef7]" />
@@ -1066,7 +1066,7 @@ function MarketSummaryCard({
   onOpen: () => void;
 }) {
   return (
-    <div className="dark:bg-dark-bg-secondary dark:border-dark-border rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div className="glass shadow-soft hover:shadow-medium rounded-xl border border-[#e0e3e9]/60 p-5 transition-all duration-200 dark:border-[#22293b]/60">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">

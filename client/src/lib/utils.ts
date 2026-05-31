@@ -74,12 +74,13 @@ export function getInitials(name: string): string {
   return trimmed.slice(0, 2).toUpperCase() || '??';
 }
 
-// Szín generálás email alapján (konzisztens)
+// Szín generálás email alapján (konzisztens, Material You pasztell-szerű tónusok)
 export function emailToColor(email: string): string {
   let hash = 0;
   for (let i = 0; i < email.length; i++) {
     hash = email.charCodeAt(i) + ((hash << 5) - hash);
   }
   const hue = Math.abs(hash) % 360;
-  return `hsl(${hue}, 65%, 45%)`;
+  // Softer saturation and slightly elevated lightness for a modern, elegant pastel palette
+  return `hsl(${hue}, 48%, 46%)`;
 }

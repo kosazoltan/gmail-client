@@ -19,8 +19,8 @@ interface ResizablePanelsProps {
 export function ResizablePanels({
   leftPanel,
   rightPanel,
-  defaultLeftWidth = 35,
-  minLeftWidth = 20,
+  defaultLeftWidth = 38,
+  minLeftWidth = 25,
   maxLeftWidth = 60,
   storageKey = 'email-list-width',
   rightPanelActive = false,
@@ -41,7 +41,8 @@ export function ResizablePanels({
   const [isDragging, setIsDragging] = useState(false);
   const [isMobile, setIsMobile] = useState(() => {
     if (typeof window === 'undefined') return false;
-    return window.innerWidth < 768;
+    const isFold = /SM-F9[56789]\d|Galaxy Z Fold|ZFold|z fold/i.test(navigator.userAgent);
+    return window.innerWidth < (isFold ? 680 : 768);
   });
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -52,7 +53,10 @@ export function ResizablePanels({
 
   // Mobil nézet detektálás (lista legyen teljes szélességben)
   useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 768);
+    const onResize = () => {
+      const isFold = /SM-F9[56789]\d|Galaxy Z Fold|ZFold|z fold/i.test(navigator.userAgent);
+      setIsMobile(window.innerWidth < (isFold ? 680 : 768));
+    };
     onResize();
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);

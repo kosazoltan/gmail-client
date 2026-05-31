@@ -17,7 +17,7 @@ function getViewportFlags() {
 
   const width = window.innerWidth;
   const userAgent = window.navigator.userAgent || '';
-  const isSamsungFold = /SM-F9\d{2}|Galaxy Z Fold|Fold/i.test(userAgent);
+  const isSamsungFold = /SM-F9[56789]\d|Galaxy Z Fold|ZFold|z fold/i.test(userAgent);
 
   // Fold cover kijelző: mobil, széthajtva: tablet tartomány
   const mobileBreakpoint = isSamsungFold ? 680 : 768;
@@ -36,6 +36,11 @@ export function AppLayout() {
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [isMobile, setIsMobile] = useState(() => initialFlags.mobile);
   const [isTablet, setIsTablet] = useState(() => initialFlags.tablet);
+  const [_isFold] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return /SM-F9[56789]\d|Galaxy Z Fold|ZFold|z fold/i.test(navigator.userAgent);
+  });
+  void _isFold;
   const location = useLocation();
   const { data: session } = useSession();
 

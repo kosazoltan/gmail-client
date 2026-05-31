@@ -141,6 +141,24 @@ chunks:
     tags: [migration, database, breaking-change, infrastructure]
     entities: [sql.js, Neon, PostgreSQL, BIGINT]
 
+  - id: ev_2026_05_31_001
+    type: episodic
+    title: "Universal Agent Protocol bevezetese es vizualis modernizacios terv"
+    path: memory/episodic/2026/2026-05-31/ev_modernization_prep.md
+    importance: 0.95
+    event_time: 2026-05-31
+    tags: [protocol, memory, initialization, prep]
+    entities: [ZMail, AGENTS.md, universal_agent_protocol.md]
+
+  - id: ev_2026_05_31_002
+    type: episodic
+    title: "Visual Modernization and VFP Delivery Completed Successfully"
+    path: memory/episodic/2026/2026-05-31/ev_modernization_complete.md
+    importance: 1.00
+    event_time: 2026-05-31
+    tags: [modernization, qa, build, test, delivery]
+    entities: [ZMail, Frontend, Backend, VFP]
+
   # === PROCEDURAL ===
   - id: proc_deploy_checklist_001
     type: procedural

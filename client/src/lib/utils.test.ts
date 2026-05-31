@@ -137,7 +137,7 @@ describe('emailToColor', () => {
 
   it('returns valid HSL format', () => {
     const color = emailToColor('user@test.com');
-    expect(color).toMatch(/^hsl\(\d+, 65%, 45%\)$/);
+    expect(color).toMatch(/^hsl\(\d+, 48%, 46%\)$/);
   });
 
   it('generates different colors for different emails', () => {

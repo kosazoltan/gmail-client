@@ -87,16 +87,16 @@ export function EmailItem({
         onClick={handleItemClick}
         onContextMenu={handleContextMenu}
         className={cn(
-          'group/item dark:border-dark-border/40 relative flex cursor-pointer items-start gap-2 border-b border-gray-100/70 transition-all duration-150 sm:gap-3',
+          'group/item dark:border-dark-border/40 relative flex cursor-pointer items-start gap-2 border-b border-[#e0e3e9]/60 transition-all duration-150 sm:gap-3',
           density === 'compact' && 'px-2 py-1.5 sm:px-3 sm:py-2',
           density === 'normal' && 'px-3 py-2.5 sm:px-4 sm:py-3',
           density === 'comfortable' && 'px-4 py-3 sm:px-5 sm:py-4',
           isSelected && !selectionMode
-            ? 'bg-gradient-to-r from-[#5b78ff]/8 to-transparent before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[#5b78ff] dark:from-[#5b78ff]/14'
+            ? 'bg-[#e8f0fe] before:absolute before:inset-y-0 before:left-0 before:w-[4px] before:bg-[#0b57d0] dark:bg-[#004a77]/25 dark:before:bg-[#a8c7fa]'
             : 'dark:hover:bg-dark-bg-tertiary/60 hover:bg-gray-50/80',
-          isChecked && 'bg-[#5b78ff]/8 dark:bg-[#5b78ff]/14',
-          !email.isRead && !isChecked && 'dark:bg-dark-bg-secondary bg-white',
-          email.isRead && !isSelected && !isChecked && 'dark:bg-dark-bg/40 bg-gray-50/40',
+          isChecked && 'bg-[#e8f0fe]/80 dark:bg-[#004a77]/20',
+          !email.isRead && !isChecked && !isSelected && 'dark:bg-dark-bg-secondary bg-white',
+          email.isRead && !isSelected && !isChecked && 'dark:bg-dark-bg/40 bg-gray-50/20',
         )}
       >
         {email.accountColor && (
@@ -114,7 +114,7 @@ export function EmailItem({
             className={cn(
               'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ring-1 transition-all sm:h-10 sm:w-10 sm:text-sm',
               isChecked
-                ? 'bg-gradient-to-br from-[#5b78ff] to-[#4861e8] text-white shadow-md shadow-[#5b78ff]/30 ring-[#4861e8]/40'
+                ? 'bg-gradient-to-br from-[#0b57d0] to-[#0842a0] text-white shadow-md shadow-[#0b57d0]/25 ring-[#0842a0]/40'
                 : 'dark:bg-dark-bg-tertiary dark:text-dark-text-secondary dark:hover:bg-dark-border dark:ring-dark-border bg-gray-100 text-gray-500 ring-gray-200 hover:bg-gray-200',
             )}
           >
