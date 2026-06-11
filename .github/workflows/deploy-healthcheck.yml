@@ -59,6 +59,8 @@ jobs:
           ZMAIL_API_HEALTH_URL: ${{ vars.ZMAIL_API_HEALTH_URL }}
           ZMAIL_FRONTEND_URL: ${{ vars.ZMAIL_FRONTEND_URL }}
           VERIFY_SKIP_INITIAL_SLEEP: ${{ vars.VERIFY_SKIP_INITIAL_SLEEP }}
+          # A zöld healthcheck csak akkor érvényes, ha tényleg az ÚJ commit fut élesben.
+          ZMAIL_EXPECTED_COMMIT: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.workflow_run.head_sha }}
         run: python3 scripts/verify-production.py
 
       - name: Deploy healthcheck URL (secret hook / ping)

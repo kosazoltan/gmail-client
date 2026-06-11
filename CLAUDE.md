@@ -56,9 +56,14 @@ KRITIKUS TANULSAGOK (2026-02-28)
 
 Stack: React 19+TS+Tailwind4+Vite (Vercel) / Express 5+TS+PostgreSQL/Neon (Render Frankfurt)
 
-Push Checklist:
+Push Checklist (KÖTELEZŐ minden Lint/Merge/Push/Deploy esetén — a teljes CI workflow visszaolvasása és hibajavítás nélkül a munka NEM tekinthető késznek):
 
 1. cd server && npm run lint && npx tsc --noEmit && npm run build
 2. cd client && npm run lint && npx tsc --noEmit && npm run build
 3. git push origin main (vagy PR → merge `main`-re; a repo életútja: lint + build lokálisan/CI-n, merge, majd platform deploy)
-4. GitHub → Actions: **CI** zöld a `main`-en → **Deploy healthcheck** lefut (zöld = tartalmi smoke OK + opcionális `DEPLOY_HEALTHCHECK_URL` GET). Hiba esetén deploy logok (Render/Vercel) + javítás.
+4. GitHub → Actions: **CI** zöld a `main`-en → **Deploy healthcheck** lefut (zöld = tartalmi smoke OK + opcionális `DEPLOY_HEALTHCHECK_URL` GET).
+5. **TELJES visszaolvasás — Actions zöld ÖNMAGÁBAN NEM ELÉG!** A Deploy healthcheck zöld lehet úgy is, hogy a Render deploy ELBUKOTT (ilyenkor a még futó RÉGI verziót validálja). Ezért push után KÖTELEZŐ:
+   - `gh run watch <CI run id>` + `gh run list` — CI, Security Pipeline, Deploy healthcheck mind zöld-e
+   - **Render deploy státusz** ellenőrzése: Render API (`RENDER_API_KEY`, service: gmail-client-api) vagy Dashboard → Events/Logs — az ÚJ deploy `live` státuszú-e, és a futó verzió commit SHA-ja egyezik-e a pushult commit-tal
+   - **Vercel deployment** státusz (Build log) ellenőrzése
+   - Hiba esetén: log visszaolvasás → gyökérok → javítás → újra teljes checklist. Addig ismételni, amíg minden réteg (CI + Render + Vercel + élő smoke) zöld.

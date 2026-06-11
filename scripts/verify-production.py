@@ -80,7 +80,7 @@ def parse_json_body(code: int, raw: bytes) -> Any:
         raise SystemExit(f"HTTP {code}: nem JSON válasz: {text[:200]!r} ({e})") from e
 
 
-def check_health(health_url: str) -> None:
+def check_health(health_url: str, expected_commit: str | None = None) -> None:
     code, raw = http_get(health_url)
     data = parse_json_body(code, raw)
     if code != 200:
@@ -92,6 +92,23 @@ def check_health(health_url: str) -> None:
     if not isinstance(data.get("timestamp"), int):
         raise SystemExit(f"Health hiányzó timestamp: {data!r}")
     print("OK: /api/health — status=ok, database=connected")
+
+    # Commit-egyezés: zöld healthcheck NE takarhasson el bukott Render deployt.
+    # (A régi, még commit mezőt nem adó verziónál csak figyelmeztetünk.)
+    if expected_commit:
+        live_commit = data.get("commit")
+        if not live_commit:
+            print(
+                "FIGYELEM: a health válasz nem tartalmaz commit-ot "
+                "(régi szerververzió vagy hiányzó RENDER_GIT_COMMIT) — commit-ellenőrzés kihagyva."
+            )
+        elif live_commit != expected_commit:
+            raise SystemExit(
+                f"Élő commit eltérés: élesben {live_commit[:12]} fut, elvárt {expected_commit[:12]} "
+                "— a Render deploy még folyamatban van vagy ELBUKOTT (nézd a Render Events/Logs-ot)!"
+            )
+        else:
+            print(f"OK: élő commit egyezik a pushult committal ({live_commit[:12]})")
 
 
 def check_auth_login(api_base: str) -> None:
@@ -158,10 +175,14 @@ def main() -> None:
         print(f"Várakozás {initial}s (deploy késleltetés)...")
         time.sleep(initial)
 
+    expected_commit = os.environ.get("ZMAIL_EXPECTED_COMMIT", "").strip() or None
+    if expected_commit:
+        print(f"Elvárt commit: {expected_commit}")
+
     last_err: str | None = None
     for attempt in range(1, retries + 1):
         try:
-            check_health(health_url)
+            check_health(health_url, expected_commit)
             last_err = None
             break
         except SystemExit as e:

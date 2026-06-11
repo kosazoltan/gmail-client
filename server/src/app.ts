@@ -226,7 +226,13 @@ export function createApp(): express.Express {
         });
         return;
       }
-      res.json({ status: 'ok', database: 'connected', timestamp: Date.now() });
+      res.json({
+        status: 'ok',
+        database: 'connected',
+        // Render beépített env — kívülről ellenőrizhető, melyik commit fut élesben
+        commit: process.env.RENDER_GIT_COMMIT || null,
+        timestamp: Date.now(),
+      });
     } catch (err) {
       logger.error('[ZMAIL][HEALTH][HEALTH_DATABASE_UNAVAILABLE]', err);
       res.status(503).json({
