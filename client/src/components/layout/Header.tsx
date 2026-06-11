@@ -97,6 +97,9 @@ export function Header({
   const [history, setHistory] = useState<string[]>(() => getSearchHistory());
   const justSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoSearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // A prediktív keresés saját navigációit jelöli, hogy az URL-szinkron effect
+  // ne írja vissza az inputot gépelés közben (pl. záró szóköz elvesztése).
+  const selfNavigatedQueryRef = useRef<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const searchSuggestionListId = 'header-search-suggestions';
 
@@ -120,13 +123,20 @@ export function Header({
   // Fontos: ne figyeljük a localQuery-t, különben gépelés közben visszaírjuk az URL régi q értékét.
   useEffect(() => {
     if (isSearchPage) {
-      setTimeout(() => setLocalQuery(urlSearchQuery), 0);
-      return;
+      // Saját (prediktív/submit) navigáció: az input már a friss értéket tartalmazza,
+      // ne írjuk felül — különben gépelés közben karakterek vesznének el.
+      if (selfNavigatedQueryRef.current === urlSearchQuery) {
+        return;
+      }
+      selfNavigatedQueryRef.current = null;
+      const timer = setTimeout(() => setLocalQuery(urlSearchQuery), 0);
+      return () => clearTimeout(timer);
     }
 
     // Ha elhagyjuk a keresési oldalt és nincs külső searchQuery, töröljük a localQuery-t.
     if (!searchQuery) {
-      setTimeout(() => setLocalQuery(''), 0);
+      const timer = setTimeout(() => setLocalQuery(''), 0);
+      return () => clearTimeout(timer);
     }
   }, [isSearchPage, urlSearchQuery, searchQuery]);
 
@@ -145,6 +155,7 @@ export function Header({
 
     onSearchChange(normalized);
     setHistory(pushSearchHistory(normalized));
+    selfNavigatedQueryRef.current = normalized;
     navigate(`/search?q=${encodeURIComponent(normalized)}`);
     if (window.innerWidth < 640) {
       setMobileSearchOpen(false);
@@ -164,10 +175,12 @@ export function Header({
     autoSearchTimerRef.current = setTimeout(() => {
       if (!normalized) {
         onSearchChange('');
+        selfNavigatedQueryRef.current = null;
         navigate('/', { replace: true });
         return;
       }
       onSearchChange(normalized);
+      selfNavigatedQueryRef.current = normalized;
       navigate(`/search?q=${encodeURIComponent(normalized)}`, { replace: true });
     }, 220);
 

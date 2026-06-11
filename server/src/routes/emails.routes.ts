@@ -309,7 +309,7 @@ router.get('/:id/thread', async (req, res) => {
     const threadEmails = await queryAll<EmailRecord>(
       `SELECT * FROM emails
        WHERE account_id = ? AND thread_id = ?
-         AND labels NOT LIKE '%"TRASH"%'
+         AND (labels IS NULL OR labels NOT LIKE '%"TRASH"%')
        ORDER BY date ASC`,
       [accountId, email.thread_id],
     );
@@ -342,11 +342,10 @@ router.get('/:id/thread', async (req, res) => {
           emailBody = fullMsg.body;
           emailBodyHtml = fullMsg.bodyHtml;
 
-          await execute('UPDATE emails SET body = ?, body_html = ? WHERE id = ?', [
-            fullMsg.body,
-            fullMsg.bodyHtml,
-            threadEmail.id,
-          ]);
+          await execute(
+            'UPDATE emails SET body = ?, body_html = ? WHERE id = ? AND account_id = ?',
+            [fullMsg.body, fullMsg.bodyHtml, threadEmail.id, accountId],
+          );
         } catch (err) {
           logger.warn('Thread email body letöltés hiba', { emailId: threadEmail.id, error: err });
           // Ne akadjon el a teljes thread
@@ -398,10 +397,11 @@ router.get('/:id', async (req, res) => {
         const gmail = getGmailClient(oauth2Client);
         const fullMsg = await getMessage(gmail, emailId, accountId);
 
-        await execute('UPDATE emails SET body = ?, body_html = ? WHERE id = ?', [
+        await execute('UPDATE emails SET body = ?, body_html = ? WHERE id = ? AND account_id = ?', [
           fullMsg.body,
           fullMsg.bodyHtml,
           emailId,
+          accountId,
         ]);
 
         email = { ...email, body: fullMsg.body, body_html: fullMsg.bodyHtml };
@@ -727,6 +727,12 @@ router.patch('/batch-read', async (req, res) => {
       return;
     }
 
+    // Védőkorlát nagyon nagy payload ellen (Gmail API hívások száma korlátos)
+    if (emailIds.length > 500) {
+      res.status(400).json({ error: 'Maximum 500 email módosítható egyszerre' });
+      return;
+    }
+
     const placeholders = emailIds.map(() => '?').join(',');
     const ownedEmails = await queryAll<{ id: string }>(
       `SELECT id FROM emails WHERE id IN (${placeholders}) AND account_id = ?`,
@@ -809,16 +815,36 @@ async function batchDeleteHandler(req: any, res: any) {
   }
 
   try {
+    // Csak a fiókhoz tartozó emaileket dolgozzuk fel (idegen/elavult ID = hiba, nem siker)
+    const placeholders = emailIds.map(() => '?').join(',');
+    const ownedRows = await queryAll<{ id: string }>(
+      `SELECT id FROM emails WHERE id IN (${placeholders}) AND account_id = ?`,
+      [...emailIds, accountId],
+    );
+    const ownedIds = ownedRows.map((row) => row.id);
+
+    let successCount = 0;
+    let failCount = emailIds.length - ownedIds.length;
+    if (failCount > 0) {
+      logger.warn('Batch delete: nem a fiókhoz tartozó email ID-k kihagyva', {
+        accountId,
+        skippedCount: failCount,
+      });
+    }
+
+    if (ownedIds.length === 0) {
+      res.json({ success: true, deletedCount: 0, failedCount: failCount });
+      return;
+    }
+
     const { oauth2Client } = await getOAuth2ClientForAccount(accountId);
     const gmail = getGmailClient(oauth2Client);
 
-    let successCount = 0;
-    let failCount = 0;
     const BATCH_SIZE = 20;
 
     // Korlátozott párhuzamosítás: gyorsabb nagyobb kijelölésnél, de nem terheli túl a Gmail API-t.
-    for (let i = 0; i < emailIds.length; i += BATCH_SIZE) {
-      const chunk = emailIds.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < ownedIds.length; i += BATCH_SIZE) {
+      const chunk = ownedIds.slice(i, i + BATCH_SIZE);
       const chunkResults = await Promise.allSettled(
         chunk.map(async (emailId: string) => {
           try {
@@ -832,7 +858,10 @@ async function batchDeleteHandler(req: any, res: any) {
             });
           }
 
-          await markEmailAsTrashedInDatabase(emailId, accountId);
+          const localUpdated = await markEmailAsTrashedInDatabase(emailId, accountId);
+          if (!localUpdated) {
+            throw new Error('Lokális email rekord nem frissült törléskor');
+          }
         }),
       );
 

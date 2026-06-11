@@ -932,6 +932,13 @@ async function claimMonthlyCollectionSlot(accountId: string, monthKey: string): 
   return Boolean(row?.key);
 }
 
+// Hiba esetén felszabadítjuk a slotot, hogy a következő cron tick újrapróbálhassa.
+// Enélkül a "started" marker örökre foglalt maradna, és aznap/abban a hónapban
+// nem futna többé automatikus gyűjtés.
+async function releaseCollectionSlot(accountId: string, key: string): Promise<void> {
+  await execute('DELETE FROM user_settings WHERE account_id = ? AND key = ?', [accountId, key]);
+}
+
 async function markMonthlyCollected(accountId: string, monthKey: string): Promise<void> {
   await execute(
     'UPDATE user_settings SET value = ?, updated_at = ? WHERE account_id = ? AND key = ?',
@@ -1005,20 +1012,35 @@ export async function runInvoiceAutomation(
       if (dueDaily) {
         const claimed = await claimDailyCollectionSlot(account.id, dateKey);
         if (claimed) {
-          await runDailyInvoiceCollectorForAccount(account);
-          await markDailyCollected(account.id, dateKey);
+          try {
+            await runDailyInvoiceCollectorForAccount(account);
+            await markDailyCollected(account.id, dateKey);
+          } catch (err) {
+            await releaseCollectionSlot(account.id, `invoice_daily_collected_${dateKey}`).catch(
+              () => {},
+            );
+            throw err;
+          }
         }
       }
 
       if (dueMonthly) {
         const monthlyClaimed = await claimMonthlyCollectionSlot(account.id, monthKeyPrev);
         if (monthlyClaimed) {
-          await runDailyInvoiceCollectorForAccount(account, {
-            ...monthRangeFromKey(monthKeyPrev),
-            limit: 2000,
-            runKind: 'monthly',
-          });
-          await markMonthlyCollected(account.id, monthKeyPrev);
+          try {
+            await runDailyInvoiceCollectorForAccount(account, {
+              ...monthRangeFromKey(monthKeyPrev),
+              limit: 2000,
+              runKind: 'monthly',
+            });
+            await markMonthlyCollected(account.id, monthKeyPrev);
+          } catch (err) {
+            await releaseCollectionSlot(
+              account.id,
+              `invoice_monthly_collected_${monthKeyPrev}`,
+            ).catch(() => {});
+            throw err;
+          }
         }
         await runMonthlyDistributionForAccount(account, monthKeyPrev);
       }

@@ -24,6 +24,8 @@ import { isGoogleCalendarNotificationFrom } from '../../lib/googleCalendarNotifi
 interface ConversationViewProps {
   emails: ThreadEmail[];
   accountEmail: string | null;
+  /** A listából megnyitott üzenet ID-ja — ez is kibontva jelenik meg, ne csak a legutolsó. */
+  focusEmailId?: string;
   onReply: (email: ThreadEmail) => void;
   onReplyAll?: (email: ThreadEmail) => void;
   onForward?: (email: ThreadEmail) => void;
@@ -463,6 +465,7 @@ function MessageBubble({
 export function ConversationView({
   emails,
   accountEmail,
+  focusEmailId,
   onReply,
   onReplyAll,
   onForward,
@@ -470,28 +473,33 @@ export function ConversationView({
 }: ConversationViewProps) {
   const memoEmails = useMemo(() => emails ?? [], [emails]);
 
-  // Az utolsó email alapból kibontva, a többi összecsukva
+  // Az utolsó email + a megnyitott üzenet alapból kibontva, a többi összecsukva
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
     if (memoEmails.length === 0) return new Set();
-    // Utolsó email kibontva
-    return new Set([memoEmails[memoEmails.length - 1].id]);
+    const initial = new Set([memoEmails[memoEmails.length - 1].id]);
+    if (focusEmailId) initial.add(focusEmailId);
+    return initial;
   });
   const scrollEndRef = useRef<HTMLDivElement>(null);
 
-  // Ha változik az email lista (új email érkezik), bővítsük a kibontottakat
+  // Ha változik az email lista (új email érkezik) vagy a megnyitott üzenet,
+  // bővítsük a kibontottakat
   useEffect(() => {
     if (memoEmails.length === 0) return;
     const latestId = memoEmails[memoEmails.length - 1].id;
+    const focusId =
+      focusEmailId && memoEmails.some((e) => e.id === focusEmailId) ? focusEmailId : null;
 
     queueMicrotask(() => {
       setExpandedIds((prev) => {
-        if (prev.has(latestId)) return prev;
+        if (prev.has(latestId) && (!focusId || prev.has(focusId))) return prev;
         const newSet = new Set(prev);
         newSet.add(latestId);
+        if (focusId) newSet.add(focusId);
         return newSet;
       });
     });
-  }, [memoEmails]);
+  }, [memoEmails, focusEmailId]);
 
   // Scroll az aljára ha új email érkezik
   useEffect(() => {

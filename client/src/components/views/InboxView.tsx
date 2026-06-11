@@ -71,6 +71,7 @@ export function InboxView() {
 
   const lastClickedIndexRef = useRef<number>(-1);
   const lastDirectFetchRef = useRef<string | null>(null);
+  const directFetchDoneRef = useRef<Set<string>>(new Set());
 
   // Selection mode handlers
   const toggleSelectionMode = useCallback(() => {
@@ -296,7 +297,13 @@ export function InboxView() {
     if (!emailIdFromQuery || !accountId) return;
 
     const match = emails.find((email) => email.id === emailIdFromQuery);
-    if (match || lastDirectFetchRef.current === emailIdFromQuery) {
+    // Egy email ID-t csak egyszer kérünk le közvetlenül: enélkül minden
+    // emails-cache frissítésnél (pl. olvasottnak jelölés) újra lefutna a fetch.
+    if (
+      match ||
+      lastDirectFetchRef.current === emailIdFromQuery ||
+      directFetchDoneRef.current.has(emailIdFromQuery)
+    ) {
       return;
     }
 
@@ -306,15 +313,18 @@ export function InboxView() {
     void api.emails
       .get(emailIdFromQuery, accountId)
       .then((email) => {
+        directFetchDoneRef.current.add(emailIdFromQuery);
         if (!cancelled) {
           setSelectedEmail(email);
         }
       })
       .catch(() => {
-        // Inbox pagination fallback continues in the sibling effect.
+        // Hibánál is megjelöljük: a pagination fallback (testvér effect) folytatja,
+        // és nem akarunk végtelen újrapróbálkozást ugyanarra az ID-ra.
+        directFetchDoneRef.current.add(emailIdFromQuery);
       })
       .finally(() => {
-        if (!cancelled && lastDirectFetchRef.current === emailIdFromQuery) {
+        if (lastDirectFetchRef.current === emailIdFromQuery) {
           lastDirectFetchRef.current = null;
         }
       });

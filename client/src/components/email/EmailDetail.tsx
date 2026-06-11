@@ -114,6 +114,9 @@ export function EmailDetail({
     setDeletedThreadIds(new Set());
     setShowPruneThreadConfirm(false);
     setPruneThreadError(null);
+    // Új email megnyitásakor mindig a teljes beszélgetés nézettel induljunk,
+    // ne ragadjon be az előző levélnél választott "csak ez az email" mód.
+    setShowConversation(true);
   }, [emailId]);
 
   // FIX: Track download timeouts for cleanup on unmount
@@ -287,8 +290,17 @@ export function EmailDetail({
     markReadRef.current = markRead;
   }, [markRead]);
 
+  // Email-enként csak egyszer próbálunk olvasottnak jelölni: enélkül hiba vagy
+  // lassú cache-frissítés esetén végtelen/duplikált PATCH kérések mennének ki.
+  const markReadAttemptedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    if (email && !email.isRead && !markRead.isPending) {
+    if (
+      email &&
+      !email.isRead &&
+      !markRead.isPending &&
+      !markReadAttemptedRef.current.has(email.id)
+    ) {
+      markReadAttemptedRef.current.add(email.id);
       markReadRef.current.mutate({ emailId: email.id, isRead: true, accountId });
     }
   }, [email, markRead.isPending, accountId]);
@@ -397,6 +409,7 @@ export function EmailDetail({
         subject: `Re: ${email.subject || ''}`,
         body: text.trim(),
         threadId: email.threadId || undefined,
+        accountId,
       });
       toast.success('Válasz elküldve');
     } catch {
@@ -914,6 +927,7 @@ export function EmailDetail({
                 <ConversationView
                   emails={threadEmails}
                   accountEmail={threadAccountEmail}
+                  focusEmailId={emailId}
                   onDelete={(threadEmailId: string) => {
                     deleteEmail.mutate(
                       { emailId: threadEmailId, accountId },

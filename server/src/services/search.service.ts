@@ -84,19 +84,27 @@ function tokenizeQuery(query: string): string[] {
   return tokens;
 }
 
+// Naptári dátum (éjfél) Europe/Budapest időzónában, epoch ms-ben.
+// A felhasználó "after:2026-06-01" alatt budapesti június 1-jét érti, nem UTC-t.
+function budapestMidnightTs(y: number, m: number, d: number): number {
+  const utcGuess = Date.UTC(y, m - 1, d, 0, 0, 0, 0);
+  if (Number.isNaN(utcGuess)) return NaN;
+  const asBudapest = new Date(
+    new Date(utcGuess).toLocaleString('en-US', { timeZone: 'Europe/Budapest' }),
+  );
+  const offsetMs = asBudapest.getTime() - utcGuess;
+  return utcGuess - offsetMs;
+}
+
 function parseDateToTs(raw: string): number | undefined {
   const v = raw.trim();
   if (!v) return undefined;
 
-  if (/^\d{4}\/\d{2}\/\d{2}$/.test(v)) {
-    const [y, m, d] = v.split('/').map(Number);
-    const dt = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
-    return Number.isNaN(dt.getTime()) ? undefined : dt.getTime();
-  }
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
-    const dt = new Date(`${v}T00:00:00.000Z`);
-    return Number.isNaN(dt.getTime()) ? undefined : dt.getTime();
+  const calendarMatch = /^(\d{4})[/-](\d{2})[/-](\d{2})$/.exec(v);
+  if (calendarMatch) {
+    const [, y, m, d] = calendarMatch;
+    const ts = budapestMidnightTs(Number(y), Number(m), Number(d));
+    return Number.isNaN(ts) ? undefined : ts;
   }
 
   const numeric = Number(v);
@@ -179,13 +187,35 @@ function columnsForField(field: SearchField): string[] {
     case 'body':
       return ['body', 'body_html', 'snippet'];
     default:
-      return ['subject', 'from_email', 'from_name', 'to_email', 'cc_email', 'body', 'body_html', 'snippet'];
+      return [
+        'subject',
+        'from_email',
+        'from_name',
+        'to_email',
+        'cc_email',
+        'body',
+        'body_html',
+        'snippet',
+      ];
   }
 }
 
-function buildWhereClause(accountId: string, parsed: ParsedSearch): { whereSql: string; params: unknown[] } {
+// SQL LIKE speciális karakterek escape-elése, hogy a %, _ literálként keressen.
+function escapeLikePattern(value: string): string {
+  return value.replace(/([\\%_])/g, '\\$1');
+}
+
+function buildWhereClause(
+  accountId: string,
+  parsed: ParsedSearch,
+): { whereSql: string; params: unknown[] } {
   const params: unknown[] = [accountId];
-  const whereParts: string[] = ['account_id = ?', "labels NOT LIKE '%TRASH%'"];
+  // Kanonikus TRASH-szűrő: NULL labels nem kukázott; a JSON-idézőjeles forma
+  // nem találja meg tévesen az egyéni "TRASHX" jellegű címkéket.
+  const whereParts: string[] = [
+    'account_id = ?',
+    `(labels IS NULL OR labels NOT LIKE '%"TRASH"%')`,
+  ];
 
   if (typeof parsed.afterTs === 'number') {
     // Gmail-like semantics: strictly newer than date
@@ -206,11 +236,11 @@ function buildWhereClause(accountId: string, parsed: ParsedSearch): { whereSql: 
 
   for (const term of parsed.terms) {
     const columns = columnsForField(term.field);
-    const pattern = `%${term.value}%`;
+    const pattern = `%${escapeLikePattern(term.value)}%`;
     const orParts: string[] = [];
 
     for (const col of columns) {
-      orParts.push(`${col} LIKE ? COLLATE NOCASE`);
+      orParts.push(`${col} LIKE ? ESCAPE '\\' COLLATE NOCASE`);
       params.push(pattern);
     }
 
@@ -276,7 +306,12 @@ function relevanceScore(email: EmailRecord, parsed: ParsedSearch): number {
   return score;
 }
 
-function rankAndPaginate(results: EmailRecord[], parsed: ParsedSearch, page: number, limit: number) {
+function rankAndPaginate(
+  results: EmailRecord[],
+  parsed: ParsedSearch,
+  page: number,
+  limit: number,
+) {
   const ranked = results
     .map((email) => ({ email, score: relevanceScore(email, parsed) }))
     .sort((a, b) => {
@@ -295,14 +330,18 @@ function rankAndPaginate(results: EmailRecord[], parsed: ParsedSearch, page: num
   };
 }
 
+// Memória-védelem: a relevancia-rangsorolás JS-ben fut, ezért SQL-szinten
+// korlátozzuk a jelöltek számát (legfrissebbek előnyben).
+const MAX_SEARCH_CANDIDATES = 2000;
+
 export async function searchEmails(options: SearchOptions) {
   const { accountId, query, page = 1, limit = 50 } = options;
   const parsed = parseSearchQuery(query);
   const { whereSql, params } = buildWhereClause(accountId, parsed);
 
   const rows = await queryAll<EmailRecord>(
-    `SELECT * FROM emails WHERE ${whereSql} ORDER BY date DESC`,
-    params,
+    `SELECT * FROM emails WHERE ${whereSql} ORDER BY date DESC LIMIT ?`,
+    [...params, MAX_SEARCH_CANDIDATES],
   );
 
   const ranked = rankAndPaginate(rows, parsed, page, limit);
@@ -326,13 +365,15 @@ export async function searchEmailsAllAccounts(options: CrossAccountSearchOptions
   const { accountIds, accountMap, query, limit = 50 } = options;
   const parsed = parseSearchQuery(query);
 
-  const allRows: Array<EmailRecord & { accountId: string; accountEmail: string; accountColor: string | null }> = [];
+  const allRows: Array<
+    EmailRecord & { accountId: string; accountEmail: string; accountColor: string | null }
+  > = [];
 
   for (const accountId of accountIds) {
     const { whereSql, params } = buildWhereClause(accountId, parsed);
     const rows = await queryAll<EmailRecord>(
-      `SELECT * FROM emails WHERE ${whereSql} ORDER BY date DESC`,
-      params,
+      `SELECT * FROM emails WHERE ${whereSql} ORDER BY date DESC LIMIT ?`,
+      [...params, MAX_SEARCH_CANDIDATES],
     );
 
     const accountInfo = accountMap.get(accountId);
@@ -354,14 +395,12 @@ export async function searchEmailsAllAccounts(options: CrossAccountSearchOptions
     });
 
   const total = rankedAll.length;
-  const ranked = rankedAll
-    .slice(0, limit)
-    .map(({ email }) => ({
-      ...formatEmail(email),
-      accountId: email.accountId,
-      accountEmail: email.accountEmail,
-      accountColor: email.accountColor,
-    }));
+  const ranked = rankedAll.slice(0, limit).map(({ email }) => ({
+    ...formatEmail(email),
+    accountId: email.accountId,
+    accountEmail: email.accountEmail,
+    accountColor: email.accountColor,
+  }));
 
   return {
     emails: ranked,

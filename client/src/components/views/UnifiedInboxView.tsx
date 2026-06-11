@@ -93,19 +93,34 @@ export function UnifiedInboxView() {
     setShowBatchDeleteConfirm(true);
   }, [selectedIds]);
 
-  const confirmBatchDelete = useCallback(() => {
+  const confirmBatchDelete = useCallback(async () => {
     const idsToDelete = Array.from(selectedIds);
-    batchDeleteEmails.mutate({ emailIds: idsToDelete }, {
-      onSuccess: () => {
-        setShowBatchDeleteConfirm(false);
-        setSelectedIds(new Set());
-        setSelectionMode(false);
-        if (selectedEmail && selectedIds.has(selectedEmail.id)) {
-          setSelectedEmail(null);
-        }
-      },
-    });
-  }, [selectedIds, batchDeleteEmails, selectedEmail]);
+
+    // Egyesített nézetben a kijelölt levelek több fiókhoz tartozhatnak.
+    // Fiókonként csoportosítva törlünk, különben a szerver a session aktív
+    // fiókjával próbálná törölni a más fiókhoz tartozó leveleket (sikertelenül).
+    const byAccount = new Map<string | undefined, string[]>();
+    for (const id of idsToDelete) {
+      const ownerAccountId = emails.find((e) => e.id === id)?.accountId;
+      const list = byAccount.get(ownerAccountId) ?? [];
+      list.push(id);
+      byAccount.set(ownerAccountId, list);
+    }
+
+    try {
+      for (const [ownerAccountId, ids] of byAccount) {
+        await batchDeleteEmails.mutateAsync({ emailIds: ids, accountId: ownerAccountId });
+      }
+      setShowBatchDeleteConfirm(false);
+      setSelectedIds(new Set());
+      setSelectionMode(false);
+      if (selectedEmail && selectedIds.has(selectedEmail.id)) {
+        setSelectedEmail(null);
+      }
+    } catch {
+      // Hiba esetén a modal nyitva marad, a felhasználó újrapróbálhatja.
+    }
+  }, [selectedIds, batchDeleteEmails, selectedEmail, emails]);
 
   // Navigation
   const handleNextEmail = useCallback(() => {
@@ -181,13 +196,16 @@ export function UnifiedInboxView() {
     if (!selectedEmail) return;
     const emailIdToDelete = selectedEmail.id;
 
-    deleteEmail.mutate({ emailId: emailIdToDelete, accountId: selectedEmail.accountId }, {
-      onSuccess: () => {
-        const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailIdToDelete);
-        setSelectedEmail(nextEmail);
-        setShowDeleteConfirm(false);
+    deleteEmail.mutate(
+      { emailId: emailIdToDelete, accountId: selectedEmail.accountId },
+      {
+        onSuccess: () => {
+          const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailIdToDelete);
+          setSelectedEmail(nextEmail);
+          setShowDeleteConfirm(false);
+        },
       },
-    });
+    );
   }, [selectedEmail, deleteEmail]);
 
   // Keyboard shortcuts
@@ -417,14 +435,17 @@ export function UnifiedInboxView() {
           onDeleteEmail={(emailId) => {
             // BUG #3 Fix: Use emailsRef to get fresh data in onSuccess callback
             const email = emailsRef.current.find((item) => item.id === emailId);
-            deleteEmail.mutate({ emailId, accountId: email?.accountId }, {
-              onSuccess: () => {
-                if (selectedEmail?.id === emailId) {
-                  const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);
-                  setSelectedEmail(nextEmail);
-                }
+            deleteEmail.mutate(
+              { emailId, accountId: email?.accountId },
+              {
+                onSuccess: () => {
+                  if (selectedEmail?.id === emailId) {
+                    const nextEmail = getNextEmailAfterDelete(emailsRef.current, emailId);
+                    setSelectedEmail(nextEmail);
+                  }
+                },
               },
-            });
+            );
           }}
           emptyMessage="Nincs beérkezett levél egyetlen fiókban sem."
           selectionMode={selectionMode}

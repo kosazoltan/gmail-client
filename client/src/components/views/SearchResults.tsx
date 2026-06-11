@@ -42,7 +42,9 @@ export function SearchResults() {
   const lastClickedIndexRef = useRef<number>(-1);
 
   const fallbackAccountId = session?.accounts?.[0]?.id;
-  const accountId = allAccounts ? undefined : (session?.activeAccountId || fallbackAccountId || undefined);
+  const accountId = allAccounts
+    ? undefined
+    : session?.activeAccountId || fallbackAccountId || undefined;
   const { data, isLoading, error } = useSearch(query, {
     page,
     limit: allAccounts ? 50 : 100,
@@ -122,16 +124,19 @@ export function SearchResults() {
 
   const confirmBatchDelete = useCallback(() => {
     const idsToDelete = Array.from(selectedIds);
-    batchDeleteEmails.mutate({ emailIds: idsToDelete, accountId }, {
-      onSuccess: () => {
-        setShowBatchDeleteConfirm(false);
-        setSelectedIds(new Set());
-        setSelectionMode(false);
-        if (selectedEmail && selectedIds.has(selectedEmail.id)) {
-          setSelectedEmail(null);
-        }
+    batchDeleteEmails.mutate(
+      { emailIds: idsToDelete, accountId },
+      {
+        onSuccess: () => {
+          setShowBatchDeleteConfirm(false);
+          setSelectedIds(new Set());
+          setSelectionMode(false);
+          if (selectedEmail && selectedIds.has(selectedEmail.id)) {
+            setSelectedEmail(null);
+          }
+        },
       },
-    });
+    );
   }, [selectedIds, batchDeleteEmails, selectedEmail, accountId]);
 
   const leftPanel = (
@@ -145,7 +150,13 @@ export function SearchResults() {
               ? 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400'
               : 'dark:hover:bg-dark-border dark:text-dark-text-secondary text-gray-600 hover:bg-gray-200'
           } disabled:cursor-not-allowed disabled:opacity-50`}
-          title={allAccounts ? 'Többfiókos keresésben a batch műveletek le vannak tiltva' : selectionMode ? 'Kijelölés befejezése' : 'Kijelölési mód'}
+          title={
+            allAccounts
+              ? 'Többfiókos keresésben a batch műveletek le vannak tiltva'
+              : selectionMode
+                ? 'Kijelölés befejezése'
+                : 'Kijelölési mód'
+          }
         >
           <CheckSquare className="h-5 w-5" />
         </button>
@@ -227,19 +238,28 @@ export function SearchResults() {
                 </span>
               )}
               {error && (
-                <span className="ml-2 text-xs text-red-600 dark:text-red-400">
-                  (Keresési hiba)
-                </span>
+                <span className="ml-2 text-xs text-red-600 dark:text-red-400">(Keresési hiba)</span>
               )}
             </h2>
             <div className="flex-1" />
             {hasMultipleAccounts && (
               <button
-                onClick={() => setAllAccounts((prev) => !prev)}
+                onClick={() =>
+                  setAllAccounts((prev) => {
+                    const next = !prev;
+                    // Többfiókos módban a batch műveletek tiltottak — kijelölési
+                    // módban ragadna a felület, ezért kilépünk belőle.
+                    if (next) {
+                      setSelectionMode(false);
+                      setSelectedIds(new Set());
+                    }
+                    return next;
+                  })
+                }
                 className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
                   allAccounts
                     ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400'
-                    : 'text-gray-500 hover:bg-gray-200 dark:text-dark-text-secondary dark:hover:bg-dark-border'
+                    : 'dark:text-dark-text-secondary dark:hover:bg-dark-border text-gray-500 hover:bg-gray-200'
                 }`}
                 title={allAccounts ? 'Csak aktív fiókban keres' : 'Keresés minden fiókban'}
               >
@@ -257,14 +277,17 @@ export function SearchResults() {
         onSelectEmail={setSelectedEmail}
         onDeleteEmail={(emailId) => {
           const email = emails.find((item) => item.id === emailId);
-          deleteEmail.mutate({ emailId, accountId: email?.accountId || accountId }, {
-            onSuccess: () => {
-              if (selectedEmail?.id === emailId) {
-                const nextEmail = getNextEmailAfterDelete(emails, emailId);
-                setSelectedEmail(nextEmail);
-              }
+          deleteEmail.mutate(
+            { emailId, accountId: email?.accountId || accountId },
+            {
+              onSuccess: () => {
+                if (selectedEmail?.id === emailId) {
+                  const nextEmail = getNextEmailAfterDelete(emails, emailId);
+                  setSelectedEmail(nextEmail);
+                }
+              },
             },
-          });
+          );
         }}
         emptyMessage={`Nincs találat: "${query}"`}
         selectionMode={selectionMode && !allAccounts}
