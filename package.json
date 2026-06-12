@@ -9,7 +9,9 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "lint": "cd client && npx eslint . --max-warnings 0",
-    "prepare": "husky"
+    "prepare": "husky",
+    "qa:size": "node scripts/qa/pr-size-check.mjs",
+    "qa:audit": "node scripts/qa/pre-push-audit-lite.mjs"
   },
   "dependencies": {
     "ssh2": "^1.17.0"
