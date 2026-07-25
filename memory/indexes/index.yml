@@ -186,6 +186,15 @@ chunks:
     tags: [qa, remediation, hooks, testing, memory]
     entities: [ZMail, agentic-qa-kit, Husky, Claude PreToolUse, dependency-cruiser, jscpd]
 
+  - id: ev_2026_07_25_002
+    type: episodic
+    title: "Szolgáltatási körfüggőségek megszüntetése háttérszinkron-regiszterrel"
+    path: memory/episodic/2026/2026-07-25/ev_service_circular_dependency_remediation.md
+    importance: 0.95
+    event_time: 2026-07-25
+    tags: [architecture, circular-dependency, background-sync, regression-testing, qa]
+    entities: [ZMail, dependency-cruiser, auth.service, sync.service, background-sync-registry]
+
   # === PROCEDURAL ===
   - id: proc_deploy_checklist_001
     type: procedural
