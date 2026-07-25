@@ -1,6 +1,6 @@
 # ZMail Memory Index — master catalog
 # Regeneralhato: node memory/search.mjs --reindex
-# Utolso frissites: 2026-04-10
+# Utolso frissites: 2026-07-25
 
 collections:
   - name: memory-semantic
@@ -167,6 +167,24 @@ chunks:
     event_time: 2026-05-31
     tags: [protocol, memory, policy, fault-protection, strategy-rotation]
     entities: [ZMail, AGENTS.md, CLAUDE.md, AI_agent_hibavedelmi_protokoll_2026_v2.md]
+
+  - id: ev_2026_06_12_001
+    type: episodic
+    title: "Agentic QA Kit v1.0.0 repo-szintű telepítése"
+    path: memory/episodic/2026/2026-06-12/ev_agentic_qa_kit_install.md
+    importance: 0.95
+    event_time: 2026-06-12
+    tags: [qa, protocol, tooling, hooks, specification]
+    entities: [ZMail, agentic-qa-kit, AGENTS.md, Husky, Claude PreToolUse]
+
+  - id: ev_2026_07_25_001
+    type: episodic
+    title: "Agentic QA Kit v1 remediation és bizonyíték-alapú audit"
+    path: memory/episodic/2026/2026-07-25/ev_agentic_qa_kit_remediation.md
+    importance: 1.00
+    event_time: 2026-07-25
+    tags: [qa, remediation, hooks, testing, memory]
+    entities: [ZMail, agentic-qa-kit, Husky, Claude PreToolUse, dependency-cruiser, jscpd]
 
   # === PROCEDURAL ===
   - id: proc_deploy_checklist_001
