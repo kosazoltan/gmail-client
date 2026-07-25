@@ -3,7 +3,7 @@ import { google } from 'googleapis';
 import crypto from 'crypto';
 import { queryOne, queryAll, execute } from '../db/index.js';
 import { v4 as uuidv4 } from 'uuid';
-import { stopBackgroundSync } from './sync.service.js';
+import { stopBackgroundSync } from './background-sync-registry.js';
 import {
   saveTokens,
   getTokens,

@@ -3,6 +3,8 @@ import { execute, queryAll, queryOne, runInTransaction } from '../db/index.js';
 import { broadcastNewEmail } from '../routes/sse.routes.js';
 import logger from '../utils/logger.js';
 import { getOAuth2ClientForAccount, isMissingVaultTokenError } from './auth.service.js';
+import { hasBackgroundSync, registerBackgroundSync } from './background-sync-registry.js';
+export { stopAllBackgroundSyncs, stopBackgroundSync } from './background-sync-registry.js';
 import { extractAndStoreEventCandidatesForEmail } from './calendar-automation.service.js';
 import { categorizeEmail } from './categorization.service.js';
 import { harvestContactsForNewEmails } from './contact-harvester.service.js';
@@ -892,10 +894,8 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const syncIntervals = new Map<string, NodeJS.Timeout>();
-
 export async function startBackgroundSync(accountId: string) {
-  if (syncIntervals.has(accountId)) return;
+  if (hasBackgroundSync(accountId)) return;
 
   const intervalMs = Math.max(60000, parseInt(process.env.SYNC_INTERVAL_MS || '300000', 10));
   const interval = setInterval(async () => {
@@ -917,22 +917,7 @@ export async function startBackgroundSync(accountId: string) {
     }
   }, intervalMs);
 
-  syncIntervals.set(accountId, interval);
-}
-
-export function stopBackgroundSync(accountId: string) {
-  const interval = syncIntervals.get(accountId);
-  if (interval) {
-    clearInterval(interval);
-    syncIntervals.delete(accountId);
-  }
-}
-
-export function stopAllBackgroundSyncs() {
-  for (const [accountId, interval] of syncIntervals) {
-    clearInterval(interval);
-  }
-  syncIntervals.clear();
+  registerBackgroundSync(accountId, interval);
 }
 
 // Fiók adatainak törlése (emailek, kontaktok, stb.) - újraszinkronizálás előtt
