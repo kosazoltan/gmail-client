@@ -1,71 +1,96 @@
 #!/usr/bin/env node
-// agentic-qa-kit — könnyű pre-push audit kis repókhoz (TECH-001/015 lite)
-// Lefuttatja a package.json-ban LÉTEZŐ ellenőrző scripteket (lint, typecheck, test),
-// és siker esetén frissíti a .audit-ok sentinelt, amit a check-audit-ok hook figyel.
-//
-// Használat: node scripts/qa/pre-push-audit-lite.mjs [--skip-tests]
-// Konfig (opcionális) .agentic-qa-kit.json: { "audit": { "commands": ["lint","test"] } }
+// Teljes pre-push audit. Sentinel csak minden konfigurált kapu sikere után készül.
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 
-const skipTests = process.argv.includes('--skip-tests');
 const isWin = process.platform === 'win32';
+
+function git(root, args, encoding = 'utf8') {
+  return execFileSync('git', args, {
+    cwd: root,
+    encoding,
+    stdio: ['ignore', 'pipe', 'ignore'],
+  });
+}
+
+function fingerprint(root) {
+  return createHash('sha256').update(git(root, ['diff', '--binary', 'HEAD', '--'], null)).digest('hex');
+}
 
 let root;
 try {
-  root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  root = git(process.cwd(), ['rev-parse', '--show-toplevel']).trim();
 } catch {
-  root = process.cwd();
-}
-
-let candidates = ['lint', 'typecheck', 'type-check', 'test:ci', 'test'];
-const cfgPath = join(root, '.agentic-qa-kit.json');
-if (existsSync(cfgPath)) {
-  try {
-    const cfg = JSON.parse(readFileSync(cfgPath, 'utf8'));
-    if (Array.isArray(cfg.audit?.commands)) candidates = cfg.audit.commands;
-  } catch { /* default marad */ }
-}
-
-const pkgPath = join(root, 'package.json');
-if (!existsSync(pkgPath)) {
-  console.log('[audit-lite] Nincs package.json — sentinel teszt nélkül NEM írható. Kilépés.');
-  process.exit(1);
-}
-const scripts = JSON.parse(readFileSync(pkgPath, 'utf8')).scripts || {};
-
-// typecheck/type-check és test:ci/test duplikáció kiszűrése: az első létezőt visszük
-const plan = [];
-const seenGroup = new Set();
-for (const c of candidates) {
-  const group = c.startsWith('type') ? 'type' : c.startsWith('test') ? 'test' : c;
-  if (seenGroup.has(group)) continue;
-  if (!scripts[c]) continue;
-  if (group === 'test' && skipTests) continue;
-  plan.push(c);
-  seenGroup.add(group);
-}
-
-if (plan.length === 0) {
-  console.log('[audit-lite] Egy ellenőrző script sem található a package.json-ban — sentinel NEM íródik.');
+  console.error('[audit] Nem git repository.');
   process.exit(1);
 }
 
-console.log(`[audit-lite] Futtatás: ${plan.join(' → ')}`);
-for (const s of plan) {
-  console.log(`\n=== npm run ${s} ===`);
-  try {
-    // execFileSync argumentum-tömbbel, shell nélkül: nincs string-interpoláció -> injekció-mentes.
-    // Windows: cmd /c az npm.cmd futtatásához (Node CVE-2024-27980 miatt nincs közvetlen .cmd exec).
-    if (isWin) execFileSync('cmd', ['/c', 'npm', 'run', s], { cwd: root, stdio: 'inherit' });
-    else execFileSync('npm', ['run', s], { cwd: root, stdio: 'inherit' });
-  } catch {
-    console.log(`\n[audit-lite] BUKÁS: npm run ${s} — a sentinel NEM frissül. Javítsd, majd futtasd újra.`);
+let config;
+try {
+  config = JSON.parse(readFileSync(join(root, '.agentic-qa-kit.json'), 'utf8')).audit;
+} catch {
+  console.error('[audit] Hiányzó vagy sérült .agentic-qa-kit.json.');
+  process.exit(1);
+}
+
+const sentinelName = typeof config?.sentinel === 'string' && config.sentinel ? config.sentinel : '.audit-ok';
+const sentinelPath = join(root, sentinelName);
+rmSync(sentinelPath, { force: true });
+
+const commands = config?.commands;
+if (!Array.isArray(commands) || commands.length === 0 || commands.some((name) => typeof name !== 'string' || !name)) {
+  console.error('[audit] Az audit.commands kötelező, nem üres scriptnév-lista.');
+  process.exit(1);
+}
+if (process.argv.includes('--skip-tests') && commands.some((name) => name.startsWith('test'))) {
+  console.error('[audit] Teljes auditnál a tesztek nem hagyhatók ki.');
+  process.exit(1);
+}
+
+const packagePath = join(root, 'package.json');
+if (!existsSync(packagePath)) {
+  console.error('[audit] Nincs package.json.');
+  process.exit(1);
+}
+const scripts = JSON.parse(readFileSync(packagePath, 'utf8')).scripts || {};
+for (const name of commands) {
+  if (!scripts[name]) {
+    console.error(`[audit] Hiányzó kötelező npm script: ${name}`);
     process.exit(1);
   }
 }
 
-writeFileSync(join(root, '.audit-ok'), new Date().toISOString() + '\n');
-console.log('\n[audit-lite] MINDEN ZÖLD — .audit-ok sentinel frissítve. Pusholhatsz (10 percen belül).');
+const auditedHead = git(root, ['rev-parse', 'HEAD']).trim();
+const auditedFingerprint = fingerprint(root);
+
+console.log(`[audit] Futtatás: ${commands.join(' → ')}`);
+for (const name of commands) {
+  console.log(`\n=== npm run ${name} ===`);
+  try {
+    if (isWin) execFileSync('cmd', ['/d', '/s', '/c', 'npm', 'run', name], { cwd: root, stdio: 'inherit' });
+    else execFileSync('npm', ['run', name], { cwd: root, stdio: 'inherit' });
+  } catch {
+    console.error(`\n[audit] BUKÁS: npm run ${name}; sentinel nem készült.`);
+    process.exit(1);
+  }
+}
+
+const finalHead = git(root, ['rev-parse', 'HEAD']).trim();
+const finalFingerprint = fingerprint(root);
+if (finalHead !== auditedHead || finalFingerprint !== auditedFingerprint) {
+  console.error('\n[audit] BUKÁS: a repository állapota megváltozott az audit közben; sentinel nem készült.');
+  process.exit(1);
+}
+
+const sentinel = {
+  version: 1,
+  head: auditedHead,
+  worktreeFingerprint: auditedFingerprint,
+  commands,
+  completedAt: new Date().toISOString(),
+};
+writeFileSync(sentinelPath, `${JSON.stringify(sentinel, null, 2)}\n`, { mode: 0o600 });
+console.log(`\n[audit] MINDEN ZÖLD — ${sentinelName} sentinel frissítve.`);

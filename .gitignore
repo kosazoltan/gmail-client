@@ -10,7 +10,8 @@ data/
 *.log
 logs/
 client_secret*.json
-.claude/
+.claude/*
+!.claude/settings.json
 nul
 client/playwright-report/
 client/test-results/
@@ -19,5 +20,6 @@ client/test-results/
 
 configs/secrets.json
 .openclaw/
+.hermes/
 .vercel
 .audit-ok

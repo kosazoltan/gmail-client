@@ -8,19 +8,28 @@
     "memory:search": "node memory/search.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
-    "lint": "cd client && npx eslint . --max-warnings 0",
+    "lint": "npm --prefix server run lint && npm --prefix client run lint",
+    "typecheck": "node server/node_modules/typescript/bin/tsc -p server/tsconfig.json --noEmit && node client/node_modules/typescript/bin/tsc -p client/tsconfig.json --noEmit",
+    "test": "npm --prefix server test && npm --prefix client test -- --run",
+    "build": "npm --prefix server run build && npm --prefix client run build",
     "prepare": "husky",
+    "qa:test": "node --test scripts/qa/tests/*.test.mjs",
     "qa:size": "node scripts/qa/pr-size-check.mjs",
+    "qa:deps": "node scripts/qa/run-local-tool.mjs dependency-cruiser depcruise server/src client/src --config .dependency-cruiser.cjs",
+    "qa:duplication": "node scripts/qa/run-local-tool.mjs jscpd jscpd server/src client/src --config .jscpd.json",
     "qa:audit": "node scripts/qa/pre-push-audit-lite.mjs"
   },
   "dependencies": {
     "ssh2": "^1.17.0"
   },
   "devDependencies": {
+    "dependency-cruiser": "^18.1.0",
     "husky": "^9.1.7",
+    "jscpd": "^5.0.12",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.1",
-    "prettier-plugin-tailwindcss": "^0.7.2"
+    "prettier-plugin-tailwindcss": "^0.7.2",
+    "typescript": "^5.9.3"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [

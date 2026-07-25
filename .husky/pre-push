@@ -1,1 +1,1 @@
-cd server && npx tsc --noEmit && cd ../client && npx tsc --noEmit
+npm run qa:audit

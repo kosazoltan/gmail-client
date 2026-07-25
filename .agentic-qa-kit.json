@@ -4,6 +4,7 @@
   "audit": {
     "sentinel": ".audit-ok",
     "maxAgeMinutes": 10,
-    "enabled": true
+    "enabled": true,
+    "commands": ["lint", "typecheck", "test", "build"]
   }
 }

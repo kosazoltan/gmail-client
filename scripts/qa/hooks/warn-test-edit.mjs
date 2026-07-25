@@ -12,7 +12,7 @@ try {
   const isTest =
     /\.(test|spec)\.[cm]?[jt]sx?$/i.test(fp) ||
     /[\\\/]__tests__[\\\/]/i.test(fp) ||
-    /[\\\/]tests?[\\\/].*\.(test|spec)\./i.test(fp) ||
+    /[\\\/]tests?[\\\/][^\\\/]+(?:[\\\/][^\\\/]+)*\.(?:[cm]?[jt]sx?|py)$/i.test(fp) ||
     /_test\.py$|test_.*\.py$/i.test(fp);
 
   if (isTest) {

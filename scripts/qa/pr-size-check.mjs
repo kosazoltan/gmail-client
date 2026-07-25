@@ -14,7 +14,12 @@ function argOf(name, def) {
   return i >= 0 ? args[i + 1] : def;
 }
 const strict = args.includes('--strict');
-const limit = parseInt(argOf('--limit', '400'), 10);
+const limitRaw = argOf('--limit', '400');
+const limit = Number(limitRaw);
+if (!/^\d+$/.test(String(limitRaw)) || !Number.isSafeInteger(limit) || limit <= 0) {
+  console.error(`[pr-size] Érvénytelen --limit érték: ${String(limitRaw)}`);
+  process.exit(2);
+}
 let base = argOf('--base', '');
 
 // execFileSync argumentum-tömbbel: nincs shell, nincs string-interpoláció -> injekció-mentes.

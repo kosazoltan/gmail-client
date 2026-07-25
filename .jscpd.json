@@ -1,5 +1,4 @@
 {
-  "$schema": "https://raw.githubusercontent.com/kucherenko/jscpd/master/schema.json",
   "threshold": 10,
   "minLines": 5,
   "minTokens": 50,
